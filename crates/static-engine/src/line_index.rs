@@ -73,13 +73,26 @@ impl LineIndex {
             .unwrap_or(self.source_len)
     }
 
-    /// Byte offset just past the end of a 1-based line, excluding the newline.
+    /// Byte offset just past the end of a 1-based line, excluding the line
+    /// terminator — both bytes of it, when the file uses CRLF.
+    ///
+    /// Dropping the `\r` matters more than it looks. A repository checked out
+    /// on Windows has CRLF endings, and a carriage return left on the end of a
+    /// frame line moves the terminal cursor back to column zero, so the finding
+    /// overwrites itself as it prints.
     #[must_use]
-    pub fn line_end(&self, line: u32) -> u32 {
+    pub fn line_end(&self, source: &str, line: u32) -> u32 {
         let index = usize::try_from(line).unwrap_or(usize::MAX);
-        self.line_starts
+        let end = self
+            .line_starts
             .get(index)
-            .map_or(self.source_len, |next| next.saturating_sub(1))
+            .map_or(self.source_len, |next| next.saturating_sub(1));
+
+        let trimmed = usize::try_from(end).unwrap_or(0);
+        if trimmed > 0 && source.as_bytes().get(trimmed - 1) == Some(&b'\r') {
+            return end.saturating_sub(1);
+        }
+        end
     }
 
     /// 1-based `(line, column)` for a byte offset, with the column counted in
@@ -96,7 +109,7 @@ impl LineIndex {
     #[must_use]
     pub fn line_text<'src>(&self, source: &'src str, line: u32) -> &'src str {
         let start = usize::try_from(self.line_start(line)).unwrap_or(0);
-        let end = usize::try_from(self.line_end(line)).unwrap_or(0);
+        let end = usize::try_from(self.line_end(source, line)).unwrap_or(0);
         source.get(start..end.max(start)).unwrap_or("")
     }
 
@@ -117,7 +130,7 @@ impl LineIndex {
         let (line, start_col) = self.position(source, start_offset);
 
         // Clamp the underline to the line the span starts on.
-        let line_end = self.line_end(line);
+        let line_end = self.line_end(source, line);
         let clamped_end = end_offset.min(line_end).max(start_offset);
         let end_col = char_distance(source, self.line_start(line), clamped_end).saturating_add(1);
 
@@ -196,6 +209,37 @@ mod tests {
         assert_eq!(index.position(SOURCE, 6), (1, 7));
         assert_eq!(index.position(SOURCE, 12), (2, 1));
         assert_eq!(index.position(SOURCE, 24), (3, 1));
+    }
+
+    #[test]
+    fn crlf_line_endings_do_not_reach_the_frame() {
+        // Windows is a day-one target and git checks out CRLF there by
+        // default, so this is the ordinary case on a third of our platforms,
+        // not an exotic one. A stray `\r` returns the cursor to column zero
+        // and the finding prints over itself.
+        let source = "const a = 1\r\nconst b = err.stack\r\nconst c = 3\r\n";
+        let index = LineIndex::new(source);
+
+        assert_eq!(index.line_text(source, 1), "const a = 1");
+        assert_eq!(index.line_text(source, 2), "const b = err.stack");
+
+        let start = u32::try_from(source.find("err.stack").unwrap()).unwrap();
+        let frame = index.code_frame(source, "a.ts", (start, start + 9), Some("here".into()));
+        assert!(
+            frame.lines.iter().all(|line| !line.contains('\r')),
+            "a carriage return survived into the code frame: {:?}",
+            frame.lines
+        );
+    }
+
+    #[test]
+    fn a_lone_carriage_return_is_not_treated_as_a_line_ending() {
+        // Old Mac line endings are not a thing we support, and a `\r` in the
+        // middle of a line is just a character. Trimming it would shift every
+        // column after it.
+        let source = "const a = '\r'\nconst b = 2\n";
+        let index = LineIndex::new(source);
+        assert_eq!(index.line_text(source, 1), "const a = '\r'");
     }
 
     #[test]
