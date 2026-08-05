@@ -192,15 +192,19 @@ jobs:
       # users as an install that resolves and then cannot load. Run with
       # --dry-run it validates and changes nothing; run for real it injects the
       # optionalDependencies that let npm pick the right binary per platform.
+      #
+      # --no-gh-release because it is on by default and this workflow does not
+      # own the GitHub release; --skip-optional-publish because the publish
+      # step below does that itself, so that every package gets provenance.
       - name: validate the platform packages
         if: env.DRY_RUN == 'true'
         working-directory: crates/napi
-        run: pnpm exec napi pre-publish --dry-run --skip-optional-publish
+        run: pnpm exec napi pre-publish --dry-run --skip-optional-publish --no-gh-release
 
       - name: inject optionalDependencies
         if: env.DRY_RUN != 'true'
         working-directory: crates/napi
-        run: pnpm exec napi pre-publish -t npm --skip-optional-publish
+        run: pnpm exec napi pre-publish -t npm --skip-optional-publish --no-gh-release
 
       # `pnpm pack` rewrites `workspace:*` to the concrete version. Packing
       # first and publishing the tarball keeps that rewrite while still using
