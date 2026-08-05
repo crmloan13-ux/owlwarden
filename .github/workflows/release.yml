@@ -95,6 +95,19 @@ jobs:
           node-version: ${{ env.BUILD_NODE }}
           cache: pnpm
 
+      # musl links against a different libc, so it is built through zig rather
+      # than the host toolchain. napi installs cargo-zigbuild on demand but not
+      # zig itself, and the resulting "Failed to find zig" arrives after a full
+      # dependency compile.
+      - uses: mlugg/setup-zig@v2
+        if: contains(matrix.target, 'musl')
+        with:
+          version: 0.14.1
+      - uses: taiki-e/install-action@v2
+        if: contains(matrix.target, 'musl')
+        with:
+          tool: cargo-zigbuild
+
       - run: pnpm install --frozen-lockfile
 
       - name: build the addon
