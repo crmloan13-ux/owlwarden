@@ -1,0 +1,117 @@
+//! Golden output for every reporter.
+//!
+//! Output format is a contract. The JSON is parsed by CI pipelines and agents;
+//! the terminal layout is what users learn to read. Both change on purpose or
+//! not at all, and a diff in these snapshots is the reviewer's prompt to decide
+//! which one it was.
+
+#![allow(clippy::unwrap_used, clippy::expect_used)]
+
+use std::path::PathBuf;
+
+use owlwarden_core::context::ScanSettings;
+use owlwarden_core::report::Report;
+use owlwarden_reporters::{JsonReporter, PrettyOptions, render_to_string};
+
+/// Scans a fixture and freezes everything that varies between runs.
+///
+/// Timestamps, durations, and the absolute project path are real in production
+/// and useless in a snapshot; pinning them keeps the diff about the output
+/// format rather than about the clock.
+async fn stable_report(fixture: &str) -> Report {
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../fixtures")
+        .join(fixture);
+
+    let (file_rules, project_rules) = owlwarden_detectors::rules_for_preset("owasp-top10");
+    let mut report = owlwarden_static::scan_project(
+        root,
+        file_rules,
+        project_rules,
+        ScanSettings {
+            preset: "owasp-top10".to_owned(),
+            ..ScanSettings::default()
+        },
+    )
+    .await
+    .expect("fixture scan should complete");
+
+    report.scanned_at = "2026-01-01T00:00:00Z".to_owned();
+    report.duration_ms = 120;
+    report.tool.version = "0.0.0-test".to_owned();
+    report.target.project = "fixtures/vulnerable/next-api".to_owned();
+    report
+}
+
+#[tokio::test]
+async fn pretty_output_for_a_next_project() {
+    let report = stable_report("vulnerable/next-api").await;
+    let rendered = render_to_string(
+        &report,
+        PrettyOptions {
+            color: false,
+            unicode: true,
+            hyperlinks: false,
+        },
+    )
+    .unwrap();
+
+    insta::assert_snapshot!("pretty_next", rendered);
+}
+
+#[tokio::test]
+async fn pretty_output_falls_back_to_ascii() {
+    // Windows consoles and non-UTF locales get this variant. It must stay
+    // readable, not merely different.
+    let report = stable_report("vulnerable/nest-api").await;
+    let rendered = render_to_string(
+        &report,
+        PrettyOptions {
+            color: false,
+            unicode: false,
+            hyperlinks: false,
+        },
+    )
+    .unwrap();
+
+    assert!(rendered.is_ascii() || rendered.contains("NestJS"));
+    insta::assert_snapshot!("pretty_nest_ascii", rendered);
+}
+
+#[tokio::test]
+async fn pretty_output_when_there_is_nothing_to_report() {
+    let report = stable_report("should-not-fire/next-api-clean").await;
+    let rendered = render_to_string(&report, PrettyOptions::default()).unwrap();
+
+    assert!(rendered.contains("No findings."));
+    assert!(
+        !rendered.contains("explain"),
+        "do not offer next steps when there is nothing to explain"
+    );
+}
+
+#[tokio::test]
+async fn json_output_is_the_documented_shape() {
+    let report = stable_report("vulnerable/next-api").await;
+    let encoded = JsonReporter::to_string(&report, true).unwrap();
+
+    // Parse it back: the contract is the parsed shape, not the byte layout.
+    let value: serde_json::Value = serde_json::from_str(&encoded).unwrap();
+    assert_eq!(value["schemaVersion"], "1.0");
+    assert_eq!(value["tool"]["name"], "owlwarden");
+    assert!(value["findings"].is_array());
+    assert!(
+        value["suppressedCount"].is_number(),
+        "'0 findings' must never be mistaken for '0 problems'"
+    );
+
+    insta::assert_snapshot!("json_next", encoded);
+}
+
+#[tokio::test]
+async fn json_output_is_a_single_line_by_default() {
+    // `owlwarden scan --format json | jq` depends on this.
+    let report = stable_report("vulnerable/next-api").await;
+    let encoded = JsonReporter::to_string(&report, false).unwrap();
+    assert!(!encoded.contains('\n'), "compact JSON must be one line");
+}

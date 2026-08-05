@@ -1,0 +1,50 @@
+{
+  "name": "owlwarden",
+  "version": "0.0.1",
+  "description": "A keen-eyed, sandboxed security auditor for web apps and APIs.",
+  "license": "MIT OR Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/suthat/owlwarden.git",
+    "directory": "packages/cli"
+  },
+  "homepage": "https://github.com/suthat/owlwarden",
+  "keywords": [
+    "security",
+    "owasp",
+    "sast",
+    "scanner",
+    "audit",
+    "nextjs",
+    "nuxt",
+    "nestjs",
+    "express",
+    "fastify"
+  ],
+  "type": "module",
+  "bin": {
+    "owlwarden": "./dist/bin.js"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc --build"
+  },
+  "dependencies": {
+    "@owlwarden/config": "workspace:*",
+    "@owlwarden/core-native": "workspace:*",
+    "@owlwarden/sdk": "workspace:*"
+  }
+}

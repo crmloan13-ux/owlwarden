@@ -1,0 +1,11 @@
+{
+  "name": "fixture-tempting",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Correct code that is easy for a naive rule to misread.",
+  "dependencies": {
+    "next": "^14.2.0",
+    "react": "^18.3.0",
+    "react-dom": "^18.3.0"
+  }
+}

@@ -1,0 +1,27 @@
+[package]
+name = "owlwarden-cli"
+description = "Standalone owlwarden binary — the same engine as the npm package, without Node."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[[bin]]
+name = "owlwarden"
+path = "src/main.rs"
+
+[dependencies]
+owlwarden-core.workspace = true
+owlwarden-detectors.workspace = true
+owlwarden-reporters.workspace = true
+owlwarden-static.workspace = true
+
+anstream.workspace = true
+futures-executor = "0.3"
+serde_json.workspace = true
+thiserror.workspace = true

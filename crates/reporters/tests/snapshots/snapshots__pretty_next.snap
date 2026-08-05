@@ -1,0 +1,66 @@
+---
+source: crates/reporters/tests/snapshots.rs
+expression: rendered
+---
+
+◉ᴥ◉ 2 files · owasp-top10 · 0.12s
+2 findings (1 high, 1 medium)
+
+────────────────────────────────────────────────────────────────────────
+HIGH  likely  Stack trace leaked in error response  A05:2021
+────────────────────────────────────────────────────────────────────────
+ app/api/users/route.ts:13:16  (GET /api/users)
+
+  11 │   } catch (err) {
+  12 │     return NextResponse.json(
+  13 │       { error: err.stack },
+     │                ~~~~~~~~~ leaks internal stack trace to the client
+  14 │       { status: 500 }
+  15 │     )
+
+ ↳  fix (Next.js)  Return a generic message; log the error server-side.
+                   console.error(err)
+                   return NextResponse.json(
+                     { error: 'Internal Server Error' },
+                     { status: 500 },
+                   )
+ ↳  why            Stack traces expose absolute file paths, dependency
+                   versions, and internal call structure — enough to
+                   fingerprint the stack and locate other weaknesses.
+ ⓘ  ref            OWASP A05:2021 · CWE-209 · RULES.md#stack-trace-leak
+
+────────────────────────────────────────────────────────────────────────
+MEDIUM  possible  Security headers are not configured  A05:2021
+────────────────────────────────────────────────────────────────────────
+ package.json:1:1
+
+ ↳  fix (Next.js)  Add a headers() block to next.config.js.
+                   // next.config.js
+                   module.exports = {
+                     async headers() {
+                       return [
+                         {
+                           source: '/:path*',
+                           headers: [
+                             { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains' },
+                             { key: 'Content-Security-Policy', value: "default-src 'self'" },
+                             { key: 'X-Content-Type-Options', value: 'nosniff' },
+                             { key: 'X-Frame-Options', value: 'DENY' },
+                             { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+                           ],
+                         },
+                       ]
+                     },
+                   }
+ ↳  why            Without these headers the browser enforces nothing:
+                   strict-transport-security forces HTTPS for future
+                   requests; content-security-policy limits which
+                   scripts and origins the page may load;
+                   x-content-type-options stops browsers guessing a
+                   response's content type; x-frame-options blocks
+                   clickjacking via framing; referrer-policy stops URLs
+                   leaking to third parties.
+ ⓘ  ref            OWASP A05:2021 · CWE-693 ·
+                   RULES.md#security-headers-missing
+
+Run `owlwarden explain stack-trace-leak` for the full write-up.

@@ -1,0 +1,92 @@
+[
+  {
+    "id": "cors-permissive",
+    "title": "Cross-origin policy accepts any origin",
+    "severity": "medium",
+    "maxConfidence": "likely",
+    "owasp": "A05:2021",
+    "cwe": 942,
+    "category": "cors",
+    "description": "The CORS configuration accepts requests from any origin. Combined with credentials this lets any site a logged-in user visits make authenticated calls to the API and read the responses. Without credentials it may be intentional for a public API — the finding says which case it found."
+  },
+  {
+    "id": "hardcoded-secret",
+    "title": "Credential hardcoded in source",
+    "severity": "high",
+    "maxConfidence": "likely",
+    "owasp": "A07:2021",
+    "cwe": 798,
+    "category": "secrets",
+    "description": "A credential appears as a literal in source. Anything committed is in the repository's history, in every clone, and in every build artefact, so removing the line later does not revoke it. Read secrets from the environment or a secret manager, and rotate anything that has been committed."
+  },
+  {
+    "id": "insecure-cookie",
+    "title": "Cookie set without its protective attributes",
+    "severity": "medium",
+    "maxConfidence": "likely",
+    "owasp": "A05:2021",
+    "cwe": 614,
+    "category": "cookies",
+    "description": "A cookie is written without `httpOnly`, `secure`, or `sameSite`. Missing `httpOnly` turns any cross-site scripting bug into session theft; missing `secure` sends the cookie over plain HTTP; missing `sameSite` attaches it to cross-site requests. A cookie holding no sensitive value may not need all three, which is why the finding names the ones it did not find rather than assuming the worst."
+  },
+  {
+    "id": "open-redirect",
+    "title": "Redirect target comes from the caller",
+    "severity": "medium",
+    "maxConfidence": "likely",
+    "owasp": "A01:2021",
+    "cwe": 601,
+    "category": "redirect",
+    "description": "The destination of a redirect is taken from the request without being checked. An attacker can send a link that starts with your domain and ends on theirs, which is what makes a phishing page credible — and in an OAuth callback it hands the authorisation code to whoever asked. Resolve the target against your own origin and refuse anything else."
+  },
+  {
+    "id": "security-headers-missing",
+    "title": "Security headers are not configured",
+    "severity": "medium",
+    "maxConfidence": "likely",
+    "owasp": "A05:2021",
+    "cwe": 693,
+    "category": "headers",
+    "description": "The application does not set the baseline security response headers. Without them a browser will not enforce HTTPS, will guess content types, and will allow the page to be framed. Headers set by a CDN or ingress are invisible to static analysis, so this rule reports lower confidence when it finds no header configuration at all."
+  },
+  {
+    "id": "sql-injection",
+    "title": "SQL query built by string interpolation",
+    "severity": "high",
+    "maxConfidence": "likely",
+    "owasp": "A03:2021",
+    "cwe": 89,
+    "category": "injection",
+    "description": "A SQL string is assembled with a template literal or concatenation and passed to a database driver. Any value interpolated into it is executed as SQL, so a request parameter can read, modify, or destroy data the query was never meant to touch. Use the driver's parameter binding instead; every driver has it."
+  },
+  {
+    "id": "ssrf",
+    "title": "Server fetches a URL the caller controls",
+    "severity": "high",
+    "maxConfidence": "likely",
+    "owasp": "A10:2021",
+    "cwe": 918,
+    "category": "ssrf",
+    "description": "An outbound HTTP request is made to a URL that came from the caller. The server can reach hosts the caller cannot — cloud metadata endpoints, internal admin services, databases bound to localhost — so this turns the server into a proxy into its own network. Validate the destination against an allowlist before fetching it."
+  },
+  {
+    "id": "stack-trace-leak",
+    "title": "Stack trace leaked in error response",
+    "severity": "high",
+    "maxConfidence": "likely",
+    "owasp": "A05:2021",
+    "cwe": 209,
+    "category": "error-handling",
+    "description": "Returning an error's `.stack` to the client exposes absolute file paths, dependency versions, and internal call structure. Attackers use it to map the application and to fingerprint vulnerable dependency versions. Log the stack server-side and return a generic message."
+  },
+  {
+    "id": "weak-crypto",
+    "title": "Broken cryptographic primitive protecting a secret",
+    "severity": "high",
+    "maxConfidence": "likely",
+    "owasp": "A02:2021",
+    "cwe": 327,
+    "category": "crypto",
+    "description": "A hash, cipher, or random source that cannot carry the weight it has been given: MD5 or SHA-1 over a password, a DES or ECB cipher, or Math.random() producing a token. Each has a drop-in replacement in the standard library, so the fix is small — the cost of not making it is that the protection is decorative."
+  }
+]

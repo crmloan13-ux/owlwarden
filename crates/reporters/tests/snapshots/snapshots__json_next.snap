@@ -1,0 +1,144 @@
+---
+source: crates/reporters/tests/snapshots.rs
+expression: encoded
+---
+{
+  "schemaVersion": "1.0",
+  "tool": {
+    "name": "owlwarden",
+    "version": "0.0.0-test"
+  },
+  "scannedAt": "2026-01-01T00:00:00Z",
+  "durationMs": 120,
+  "target": {
+    "project": "fixtures/vulnerable/next-api",
+    "scope": [],
+    "filesScanned": 2,
+    "routesProbed": 0,
+    "preset": "owasp-top10"
+  },
+  "summary": {
+    "high": 1,
+    "medium": 1,
+    "low": 0,
+    "info": 0
+  },
+  "findings": [
+    {
+      "id": "stack-trace-leak",
+      "severity": "high",
+      "confidence": "likely",
+      "owasp": "A05:2021",
+      "cwe": 209,
+      "title": "Stack trace leaked in error response",
+      "why": "Stack traces expose absolute file paths, dependency versions, and internal call structure — enough to fingerprint the stack and locate other weaknesses.",
+      "location": {
+        "path": "app/api/users/route.ts",
+        "line": 13,
+        "col": 16
+      },
+      "snippet": {
+        "path": "app/api/users/route.ts",
+        "startLine": 11,
+        "lines": [
+          "  } catch (err) {",
+          "    return NextResponse.json(",
+          "      { error: err.stack },",
+          "      { status: 500 }",
+          "    )"
+        ],
+        "highlight": {
+          "line": 13,
+          "startCol": 16,
+          "endCol": 25,
+          "label": "leaks internal stack trace to the client"
+        }
+      },
+      "context": {
+        "framework": "next",
+        "route": "/api/users",
+        "method": "GET",
+        "evidence": "err.stack"
+      },
+      "remediation": [
+        {
+          "framework": "next",
+          "summary": "Return a generic message; log the error server-side.",
+          "patch": "console.error(err)\nreturn NextResponse.json(\n  { error: 'Internal Server Error' },\n  { status: 500 },\n)",
+          "safety": "manual"
+        },
+        {
+          "summary": "Log the error server-side and return a generic message to the client.",
+          "safety": "manual"
+        }
+      ],
+      "references": [
+        {
+          "kind": "owasp",
+          "id": "A05:2021",
+          "url": "https://owasp.org/Top10/A05_2021-Security_Misconfiguration/"
+        },
+        {
+          "kind": "cwe",
+          "id": "CWE-209",
+          "url": "https://cwe.mitre.org/data/definitions/209.html"
+        },
+        {
+          "kind": "docs",
+          "id": "RULES.md#stack-trace-leak",
+          "url": "https://github.com/suthat/owlwarden/blob/main/RULES.md#stack-trace-leak"
+        }
+      ]
+    },
+    {
+      "id": "security-headers-missing",
+      "severity": "medium",
+      "confidence": "possible",
+      "owasp": "A05:2021",
+      "cwe": 693,
+      "title": "Security headers are not configured",
+      "why": "Without these headers the browser enforces nothing: strict-transport-security forces HTTPS for future requests; content-security-policy limits which scripts and origins the page may load; x-content-type-options stops browsers guessing a response's content type; x-frame-options blocks clickjacking via framing; referrer-policy stops URLs leaking to third parties.",
+      "location": {
+        "path": "package.json",
+        "line": 1,
+        "col": 1
+      },
+      "context": {
+        "framework": "next",
+        "evidence": "no header configuration found; missing: strict-transport-security, content-security-policy, x-content-type-options, x-frame-options, referrer-policy"
+      },
+      "remediation": [
+        {
+          "framework": "next",
+          "summary": "Add a headers() block to next.config.js.",
+          "patch": "// next.config.js\nmodule.exports = {\n  async headers() {\n    return [\n      {\n        source: '/:path*',\n        headers: [\n          { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains' },\n          { key: 'Content-Security-Policy', value: \"default-src 'self'\" },\n          { key: 'X-Content-Type-Options', value: 'nosniff' },\n          { key: 'X-Frame-Options', value: 'DENY' },\n          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },\n        ],\n      },\n    ]\n  },\n}",
+          "safety": "manual"
+        },
+        {
+          "summary": "Set these response headers at the edge or in the app: strict-transport-security, content-security-policy, x-content-type-options, x-frame-options, referrer-policy.",
+          "safety": "manual"
+        }
+      ],
+      "references": [
+        {
+          "kind": "owasp",
+          "id": "A05:2021",
+          "url": "https://owasp.org/Top10/A05_2021-Security_Misconfiguration/"
+        },
+        {
+          "kind": "cwe",
+          "id": "CWE-693",
+          "url": "https://cwe.mitre.org/data/definitions/693.html"
+        },
+        {
+          "kind": "docs",
+          "id": "RULES.md#security-headers-missing",
+          "url": "https://github.com/suthat/owlwarden/blob/main/RULES.md#security-headers-missing"
+        }
+      ]
+    }
+  ],
+  "suppressedCount": 0,
+  "truncated": false,
+  "errors": []
+}

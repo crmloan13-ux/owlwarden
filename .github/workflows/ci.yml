@@ -1,0 +1,92 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# A second push to a PR should cancel the first run, not queue behind it.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  # Warnings are errors here rather than in the source, so a new compiler
+  # release cannot fail everyone's local build the day it lands.
+  RUSTFLAGS: -D warnings
+
+jobs:
+  lint:
+    name: fmt + clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo fmt --all --check
+      - run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint:js
+
+  test:
+    name: test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # Windows is a day-one target, not a later port. Path handling, ANSI
+        # output, and line endings all differ there, and all three have bitten
+        # tools like this one.
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+      - run: cargo test --workspace
+      - run: pnpm build
+      - run: pnpm typecheck
+      - run: pnpm test:ts
+
+      # The false-positive corpus is the number that decides whether anyone
+      # keeps this installed. It gets its own step so a failure is unmissable
+      # in the run summary.
+      - name: false-positive corpus must stay silent
+        shell: bash
+        run: |
+          for dir in fixtures/should-not-fire/*/; do
+            echo "scanning $dir"
+            node packages/cli/dist/bin.js scan "$dir" --ci > /tmp/report.json || {
+              echo "::error::$dir produced findings"
+              cat /tmp/report.json
+              exit 1
+            }
+          done
+
+      - name: generated docs are current
+        if: runner.os == 'Linux'
+        run: pnpm rules:check
+
+  supply-chain:
+    name: advisories + licences
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          command: check advisories licenses bans sources

@@ -1,0 +1,119 @@
+{
+  "version": "0.0.0-test",
+  "owasp": [
+    {
+      "id": "A01:2021",
+      "title": "Broken Access Control",
+      "rules": [
+        "open-redirect"
+      ],
+      "reachability": "partial",
+      "summary": "Users can act outside their permissions: reaching another tenant's records, calling an admin route, or changing an id in a URL and getting away with it."
+    },
+    {
+      "id": "A02:2021",
+      "title": "Cryptographic Failures",
+      "rules": [
+        "weak-crypto"
+      ],
+      "reachability": "partial",
+      "summary": "Sensitive data is transmitted or stored without adequate protection: plaintext transport, weak or homemade algorithms, or keys handled as ordinary strings."
+    },
+    {
+      "id": "A03:2021",
+      "title": "Injection",
+      "rules": [
+        "sql-injection"
+      ],
+      "reachability": "good",
+      "summary": "Untrusted input reaches an interpreter as code: SQL, shell, template, or the DOM. The classic and still one of the most damaging classes."
+    },
+    {
+      "id": "A04:2021",
+      "title": "Insecure Design",
+      "rules": [],
+      "reachability": "poor",
+      "summary": "The flaw is in what was built, not in how it was coded: a missing rate limit, a recovery flow that trusts an email address, a threat never considered."
+    },
+    {
+      "id": "A05:2021",
+      "title": "Security Misconfiguration",
+      "rules": [
+        "cors-permissive",
+        "insecure-cookie",
+        "security-headers-missing",
+        "stack-trace-leak"
+      ],
+      "reachability": "good",
+      "summary": "The software is fine; the way it is set up is not. Default credentials, verbose errors, permissive CORS, missing headers, debug features left enabled."
+    },
+    {
+      "id": "A06:2021",
+      "title": "Vulnerable and Outdated Components",
+      "rules": [],
+      "reachability": "partial",
+      "summary": "A dependency has a known vulnerability, or is too old to be receiving fixes."
+    },
+    {
+      "id": "A07:2021",
+      "title": "Identification and Authentication Failures",
+      "rules": [
+        "hardcoded-secret"
+      ],
+      "reachability": "partial",
+      "summary": "Identity can be assumed rather than proven: credentials in source, sessions that never expire, tokens signed with a guessable key."
+    },
+    {
+      "id": "A08:2021",
+      "title": "Software and Data Integrity Failures",
+      "rules": [],
+      "reachability": "partial",
+      "summary": "Code or data is trusted without verifying where it came from: unsigned updates, unpinned CI actions, deserialisation of attacker-controlled payloads."
+    },
+    {
+      "id": "A09:2021",
+      "title": "Security Logging and Monitoring Failures",
+      "rules": [],
+      "reachability": "partial",
+      "summary": "An attack leaves no trace, or the trace itself leaks: unlogged auth failures, and secrets written into logs."
+    },
+    {
+      "id": "A10:2021",
+      "title": "Server-Side Request Forgery (SSRF)",
+      "rules": [
+        "ssrf"
+      ],
+      "reachability": "good",
+      "summary": "The server fetches a URL the user chose, and can be pointed at internal services, cloud metadata endpoints, or the loopback interface."
+    }
+  ],
+  "frameworks": [
+    {
+      "id": "next",
+      "rulesWithSpecificFix": 9,
+      "rulesFallingBack": 0
+    },
+    {
+      "id": "nuxt",
+      "rulesWithSpecificFix": 9,
+      "rulesFallingBack": 0
+    },
+    {
+      "id": "nest",
+      "rulesWithSpecificFix": 9,
+      "rulesFallingBack": 0
+    },
+    {
+      "id": "express",
+      "rulesWithSpecificFix": 9,
+      "rulesFallingBack": 0
+    },
+    {
+      "id": "fastify",
+      "rulesWithSpecificFix": 9,
+      "rulesFallingBack": 0
+    }
+  ],
+  "ruleCount": 9,
+  "categoriesCovered": 6
+}

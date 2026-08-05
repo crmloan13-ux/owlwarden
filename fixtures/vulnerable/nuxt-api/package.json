@@ -1,0 +1,8 @@
+{
+  "name": "fixture-nuxt-api",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "nuxt": "^3.13.0"
+  }
+}

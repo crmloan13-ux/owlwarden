@@ -1,0 +1,28 @@
+[package]
+name = "owlwarden-detectors"
+description = "First-party owlwarden detectors and the presets that group them."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+owlwarden-core.workspace = true
+owlwarden-static.workspace = true
+
+serde.workspace = true
+
+oxc_ast.workspace = true
+oxc_ast_visit.workspace = true
+oxc_span.workspace = true
+oxc_syntax.workspace = true
+
+[dev-dependencies]
+owlwarden-core = { workspace = true }
+tempfile = "3"
+tokio = { version = "1", features = ["macros", "rt"] }

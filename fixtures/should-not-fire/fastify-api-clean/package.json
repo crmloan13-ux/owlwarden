@@ -1,0 +1,11 @@
+{
+  "name": "fixture-fastify-api-clean",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@fastify/cookie": "^9.3.1",
+    "@fastify/helmet": "^11.1.1",
+    "fastify": "^4.28.1",
+    "mysql2": "^3.11.0"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "name": "fixture-nest-api-clean",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Correct NestJS code. No rule may fire on this project.",
+  "dependencies": {
+    "@nestjs/common": "^10.4.0",
+    "@nestjs/core": "^10.4.0",
+    "@nestjs/platform-express": "^10.4.0",
+    "express": "^4.19.0",
+    "helmet": "^7.1.0",
+    "reflect-metadata": "^0.2.0",
+    "rxjs": "^7.8.0"
+  }
+}

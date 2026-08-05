@@ -1,0 +1,14 @@
+{
+  // Test files are not part of any package's build (they must not end up in
+  // `dist`), but they still need type checking and type-aware linting — a test
+  // that does not compile is a test that is not testing anything.
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "composite": false,
+    "declaration": false,
+    "declarationMap": false,
+    "types": ["node"]
+  },
+  "include": ["packages/*/test/**/*.ts", "vitest.config.ts"]
+}

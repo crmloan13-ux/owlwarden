@@ -1,0 +1,36 @@
+{
+  "name": "owlwarden-workspace",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.20.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build:native": "pnpm --filter @owlwarden/core-native build",
+    "build:ts": "tsc --build packages/sdk packages/config packages/cli",
+    "build": "pnpm build:native && pnpm build:ts",
+    "typecheck": "tsc --build --force packages/sdk packages/config packages/cli && tsc -p tsconfig.lint.json",
+    "test:rust": "cargo test --workspace",
+    "test:ts": "vitest run",
+    "test": "pnpm test:rust && pnpm test:ts",
+    "lint:rust": "cargo clippy --workspace --all-targets -- -D warnings",
+    "lint:fmt": "cargo fmt --all --check",
+    "lint:js": "eslint packages scripts",
+    "lint": "pnpm lint:fmt && pnpm lint:rust && pnpm typecheck && pnpm lint:js",
+    "check": "pnpm lint && pnpm test",
+    "rules:generate": "node scripts/generate-rules-md.mjs",
+    "rules:check": "node scripts/generate-rules-md.mjs --check",
+    "clean": "tsc --build --clean packages/sdk packages/config packages/cli && cargo clean",
+    "security-check": "node packages/cli/dist/bin.js scan packages"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@owlwarden/core-native": "workspace:*",
+    "@types/node": "^22.10.0",
+    "eslint": "^10.8.0",
+    "typescript": "^5.7.0",
+    "typescript-eslint": "^8.66.0",
+    "vitest": "^3.0.0"
+  }
+}

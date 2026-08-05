@@ -1,0 +1,62 @@
+[
+  {
+    "failOn": "high",
+    "minConfidence": "confirmed",
+    "fails": false
+  },
+  {
+    "failOn": "high",
+    "minConfidence": "likely",
+    "fails": true
+  },
+  {
+    "failOn": "high",
+    "minConfidence": "possible",
+    "fails": true
+  },
+  {
+    "failOn": "medium",
+    "minConfidence": "confirmed",
+    "fails": false
+  },
+  {
+    "failOn": "medium",
+    "minConfidence": "likely",
+    "fails": true
+  },
+  {
+    "failOn": "medium",
+    "minConfidence": "possible",
+    "fails": true
+  },
+  {
+    "failOn": "low",
+    "minConfidence": "confirmed",
+    "fails": false
+  },
+  {
+    "failOn": "low",
+    "minConfidence": "likely",
+    "fails": true
+  },
+  {
+    "failOn": "low",
+    "minConfidence": "possible",
+    "fails": true
+  },
+  {
+    "failOn": "info",
+    "minConfidence": "confirmed",
+    "fails": false
+  },
+  {
+    "failOn": "info",
+    "minConfidence": "likely",
+    "fails": true
+  },
+  {
+    "failOn": "info",
+    "minConfidence": "possible",
+    "fails": true
+  }
+]

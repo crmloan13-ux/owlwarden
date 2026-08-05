@@ -1,0 +1,11 @@
+{
+  "name": "fixture-express-api-clean",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.19.2",
+    "helmet": "^7.1.0",
+    "pg": "^8.12.0"
+  }
+}

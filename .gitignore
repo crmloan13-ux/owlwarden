@@ -1,0 +1,15 @@
+/target
+node_modules/
+dist/
+*.tsbuildinfo
+
+# napi build artefacts — the loader and the compiled addon are generated.
+crates/napi/index.js
+crates/napi/index.d.ts
+crates/napi/*.node
+crates/napi/npm/
+
+# Snapshot tests write these when a snapshot changes; review, then accept.
+*.snap.new
+
+.DS_Store

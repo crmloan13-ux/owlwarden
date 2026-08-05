@@ -1,0 +1,11 @@
+{
+  "name": "fixture-next-api-clean",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Correct Next.js App Router code. No rule may fire on this project.",
+  "dependencies": {
+    "next": "^14.2.0",
+    "react": "^18.3.0",
+    "react-dom": "^18.3.0"
+  }
+}

@@ -1,0 +1,34 @@
+[package]
+name = "owlwarden-napi"
+description = "napi-rs bindings exposing the owlwarden engine to Node."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+owlwarden-core.workspace = true
+owlwarden-detectors.workspace = true
+owlwarden-reporters.workspace = true
+owlwarden-static.workspace = true
+
+serde.workspace = true
+serde_json.workspace = true
+
+napi = { version = "3", default-features = false, features = ["napi4"] }
+napi-derive = "3"
+
+# The engine's public entry point is `async`, but static analysis is pure CPU
+# work with nothing to await on. Driving it with a minimal executor keeps a
+# whole async runtime out of the addon that loads into the user's Node process.
+futures-executor = "0.3"
+
+[build-dependencies]
+napi-build = "2"

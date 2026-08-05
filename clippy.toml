@@ -1,0 +1,13 @@
+# Product names that read as camelCase to `doc_markdown` but are ordinary words
+# in prose. Backticking them everywhere would imply they are code identifiers,
+# which is worse than the lint. This list is additive to clippy's defaults.
+doc-valid-idents = [
+    "NestJS",
+    "NextAuth",
+    "TypeScript",
+    "JavaScript",
+    "OpenAPI",
+    "OWASP",
+    "SameSite",
+    "..",
+]

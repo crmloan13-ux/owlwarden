@@ -1,0 +1,12 @@
+packages:
+  - packages/*
+  # The napi crate is also an npm package: `napi build` emits the loader and the
+  # prebuilt `.node` next to its Cargo.toml.
+  - crates/napi
+
+# Install scripts are arbitrary code execution at install time. pnpm blocks them
+# by default; this is the explicit, reviewable allowlist. Nothing goes in here
+# without a reason, and every entry is a package we have looked at.
+allowBuilds:
+  # Bundler behind vitest. Its postinstall unpacks the prebuilt binary.
+  esbuild: true
