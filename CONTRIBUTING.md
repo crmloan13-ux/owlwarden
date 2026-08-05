@@ -123,6 +123,32 @@ Say why in the PR. `cargo-deny` runs in CI and checks the licence and the
 advisory database, but it cannot tell us whether the dependency was worth it. A
 security tool's install footprint is part of its argument.
 
+## Releasing
+
+Maintainers only, but written down so it is not folklore.
+
+owlwarden is eleven npm packages: the four in this repo, plus one prebuilt
+binary package per platform. They are built and published by
+`.github/workflows/release.yml`, never from a laptop — a laptop can only produce
+its own platform's binary, and it cannot generate
+[provenance](https://docs.npmjs.com/generating-provenance-statements), which is
+an attestation signed by the CI system that did the build.
+
+1. Bump the version in all five manifests — `Cargo.toml`, `packages/*/package.json`,
+   `crates/napi/package.json` — and check with `node scripts/check-version.mjs`.
+2. Update `CHANGELOG.md`.
+3. Exercise the pipeline without publishing:
+   `gh workflow run release.yml -f dry_run=true`. It builds all seven targets and
+   verifies every platform package has its binary.
+4. Merge, then tag: `git tag -s vX.Y.Z && git push origin vX.Y.Z`.
+
+The tag must match the manifests or the release fails before anything is built.
+That check exists because npm publishes are immutable: a wrong version cannot be
+replaced, only deprecated and superseded.
+
+Publishing needs an `NPM_TOKEN` repository secret — a granular automation token
+with write access to `owlwarden` and the `@owlwarden` scope.
+
 ## Code of conduct
 
 Be decent. Disagree about the code, not about the person. Maintainers will
