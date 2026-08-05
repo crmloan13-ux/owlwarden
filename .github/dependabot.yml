@@ -1,0 +1,36 @@
+version: 2
+
+# A tool that reports outdated dependencies to other people should not be
+# running on stale ones itself. Grouped and monthly rather than per-dependency
+# and weekly: a queue of single-line bumps nobody reads is how a real advisory
+# gets skimmed past.
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      actions:
+        patterns: ["*"]
+
+  - package-ecosystem: cargo
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      # oxc is pinned exactly on purpose (ADR 0005) — its AST is a
+      # pre-1.0 API and a patch bump has broken visitors before. Kept in its
+      # own group so the bump is reviewed rather than batched in with the rest.
+      oxc:
+        patterns: ["oxc*"]
+      rust:
+        patterns: ["*"]
+        exclude-patterns: ["oxc*"]
+
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      npm:
+        patterns: ["*"]
