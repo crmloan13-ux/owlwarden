@@ -76,7 +76,8 @@ Add it to your project:
 ### Building from source
 
 Only needed on a platform with no prebuilt addon, or to work on owlwarden
-itself. Requires Rust 1.88+, Node 20+, and pnpm.
+itself. Requires Rust 1.88+, Node 22.13+ (pnpm needs it; the published CLI
+still runs on Node 20, and CI proves it), and pnpm.
 
 ```bash
 git clone https://github.com/suthat/owlwarden

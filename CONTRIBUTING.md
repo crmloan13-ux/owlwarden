@@ -13,7 +13,7 @@ corpus, and CI fails if anything in it produces a finding.
 ## Setup
 
 ```bash
-# Rust 1.88+, Node 20+, pnpm
+# Rust 1.88+, Node 22.13+, pnpm
 pnpm i
 pnpm build        # native addon, then TypeScript
 pnpm check        # what CI runs
@@ -21,6 +21,10 @@ pnpm check        # what CI runs
 
 `pnpm check` is `cargo fmt --check`, `cargo clippy -D warnings`, `tsc`,
 `cargo test`, and `vitest`. Run it before you push; it takes about a minute.
+
+Building needs a newer Node than running does, because pnpm 11 does. The
+published CLI supports Node 20, and CI runs it on Node 20 after building on 22
+so that the `engines` field is a tested claim rather than a hopeful one.
 
 Useful during development:
 

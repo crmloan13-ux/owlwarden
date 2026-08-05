@@ -15,6 +15,12 @@ env:
   # Warnings are errors here rather than in the source, so a new compiler
   # release cannot fail everyone's local build the day it lands.
   RUSTFLAGS: -D warnings
+  # Building needs a newer Node than running does, because pnpm 11 does.
+  # Users are not asked to install this; see RUNTIME_NODE below.
+  BUILD_NODE: 22
+  # The oldest Node the published CLI claims to support. Tested, not assumed —
+  # an untested engines field is a promise nobody checked.
+  RUNTIME_NODE: 20
 
 jobs:
   lint:
@@ -32,7 +38,7 @@ jobs:
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: ${{ env.BUILD_NODE }}
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint:js
@@ -54,7 +60,7 @@ jobs:
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: ${{ env.BUILD_NODE }}
           cache: pnpm
 
       - run: pnpm install --frozen-lockfile
@@ -81,6 +87,21 @@ jobs:
       - name: generated docs are current
         if: runner.os == 'Linux'
         run: pnpm rules:check
+
+      # `engines: node >=20` in the published package is a promise to users,
+      # and the build runs on a newer Node than that. Without this step the
+      # promise is untested, and the first person to find out would be someone
+      # on Node 20 watching an install fail.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.RUNTIME_NODE }}
+      - name: the published CLI runs on the oldest supported Node
+        shell: bash
+        run: |
+          node --version
+          node packages/cli/dist/bin.js --version
+          node packages/cli/dist/bin.js coverage
+          node packages/cli/dist/bin.js scan fixtures/should-not-fire/next-api-clean --ci
 
   supply-chain:
     name: advisories + licences
