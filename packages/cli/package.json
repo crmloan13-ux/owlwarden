@@ -45,8 +45,8 @@
     "build": "tsc --build"
   },
   "dependencies": {
-    "@owlwarden/config": "workspace:*",
-    "@owlwarden/core-native": "workspace:*",
-    "@owlwarden/sdk": "workspace:*"
+    "@dointhai/owlwarden-config": "workspace:*",
+    "@dointhai/owlwarden-core-native": "workspace:*",
+    "@dointhai/owlwarden-sdk": "workspace:*"
   }
 }

@@ -1,15 +1,15 @@
-# @owlwarden/sdk
+# @dointhai/owlwarden-sdk
 
 Types and zod schemas for [owlwarden](https://github.com/suthat/owlwarden)
 output. Install this if you consume owlwarden's JSON — a dashboard, a bot, a CI
 gate of your own — rather than just running the CLI.
 
 ```bash
-npm i @owlwarden/sdk
+npm i @dointhai/owlwarden-sdk
 ```
 
 ```ts
-import { reportSchema, type Report } from "@owlwarden/sdk";
+import { reportSchema, type Report } from "@dointhai/owlwarden-sdk";
 
 const report: Report = reportSchema.parse(JSON.parse(stdout));
 

@@ -14,7 +14,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 const require = createRequire(import.meta.url);
-const native = require("@owlwarden/core-native");
+const native = require("@dointhai/owlwarden-core-native");
 
 const OUTPUT = fileURLToPath(new URL("../RULES.md", import.meta.url));
 

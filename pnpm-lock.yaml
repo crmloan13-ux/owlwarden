@@ -8,12 +8,12 @@ importers:
 
   .:
     devDependencies:
+      '@dointhai/owlwarden-core-native':
+        specifier: workspace:*
+        version: link:crates/napi
       '@eslint/js':
         specifier: ^10.0.1
         version: 10.0.1(eslint@10.8.0)
-      '@owlwarden/core-native':
-        specifier: workspace:*
-        version: link:crates/napi
       '@types/node':
         specifier: ^22.10.0
         version: 22.20.1
@@ -38,19 +38,19 @@ importers:
 
   packages/cli:
     dependencies:
-      '@owlwarden/config':
+      '@dointhai/owlwarden-config':
         specifier: workspace:*
         version: link:../config
-      '@owlwarden/core-native':
+      '@dointhai/owlwarden-core-native':
         specifier: workspace:*
         version: link:../../crates/napi
-      '@owlwarden/sdk':
+      '@dointhai/owlwarden-sdk':
         specifier: workspace:*
         version: link:../sdk
 
   packages/config:
     dependencies:
-      '@owlwarden/sdk':
+      '@dointhai/owlwarden-sdk':
         specifier: workspace:*
         version: link:../sdk
       zod:

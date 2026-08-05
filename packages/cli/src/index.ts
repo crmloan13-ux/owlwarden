@@ -2,7 +2,7 @@
  * `owlwarden` as a library.
  *
  * Exported so a build script can run a scan without spawning a process. The
- * report format lives in `@owlwarden/sdk`; this package only adds the CLI's
+ * report format lives in `@dointhai/owlwarden-sdk`; this package only adds the CLI's
  * behaviour on top of it.
  */
 export { run, type Streams } from "./run.js";

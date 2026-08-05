@@ -1,7 +1,7 @@
 import { Writable } from "node:stream";
 import { fileURLToPath } from "node:url";
 
-import { reportSchema } from "@owlwarden/sdk";
+import { reportSchema } from "@dointhai/owlwarden-sdk";
 import { describe, expect, it } from "vitest";
 
 import { EXIT } from "../src/exit.js";

@@ -112,7 +112,7 @@ Zero config is the intended way to run it. When you need more, put an
 `owlwarden.config.ts` next to your `package.json`:
 
 ```ts
-import { defineConfig } from "@owlwarden/config";
+import { defineConfig } from "@dointhai/owlwarden-config";
 
 export default defineConfig({
   preset: "owasp-top10",
@@ -182,7 +182,7 @@ loop, the agent is the one reading the report and editing the code.
 owlwarden scan --format json
 ```
 
-`@owlwarden/sdk` ships zod schemas for the report, checked against the Rust
+`@dointhai/owlwarden-sdk` ships zod schemas for the report, checked against the Rust
 engine on every CI run, so the types cannot drift from what the tool emits. Two
 things most tools do not carry travel with each finding: the fix, inline and
 complete, and an honest `confidence`.

@@ -61,7 +61,7 @@ baseline works and survives reformatting; correlated findings report as
 **Goal:** extensibility that does not require trusting the extension.
 
 - `plugin-host` on wasmtime, with the capability model.
-- Plugin-authoring types in `@owlwarden/sdk`, and a scaffold command.
+- Plugin-authoring types in `@dointhai/owlwarden-sdk`, and a scaffold command.
 - `owlwarden mcp` — an MCP server, plus editor hooks and
   `init --agent-rules`. See
   [docs/explanation/agent-integration.md](docs/explanation/agent-integration.md).
@@ -168,7 +168,7 @@ its reference entry exists and, if it is user-facing, a how-to note as well.
 - Conventional Commits, feeding an automated changelog and version bumps.
 - Release: tag, build every platform package in CI, sign, attach an SBOM,
   publish to npm and GitHub Releases. Platform packages live under the
-  `@owlwarden` scope, so `npx owlwarden` resolves the right binary without the
+  `@dointhai` scope, so `npx owlwarden` resolves the right binary without the
   user thinking about it.
 - Two-person review for anything in `plugin-host` or the release pipeline.
 - DCO sign-off on commits. No CLA.

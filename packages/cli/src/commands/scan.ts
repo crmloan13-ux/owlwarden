@@ -1,7 +1,7 @@
 import { writeFile } from "node:fs/promises";
 
-import { formatConfigError, resolveConfig } from "@owlwarden/config";
-import { reportSchema, shouldFail, type Report } from "@owlwarden/sdk";
+import { formatConfigError, resolveConfig } from "@dointhai/owlwarden-config";
+import { reportSchema, shouldFail, type Report } from "@dointhai/owlwarden-sdk";
 
 import type { ScanOptions } from "../args.js";
 import { EXIT } from "../exit.js";

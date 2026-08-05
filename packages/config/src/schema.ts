@@ -1,4 +1,4 @@
-import { confidenceSchema, severitySchema } from "@owlwarden/sdk";
+import { confidenceSchema, severitySchema } from "@dointhai/owlwarden-sdk";
 import { z } from "zod";
 
 /**
@@ -52,7 +52,7 @@ export type OwlwardenConfig = z.output<typeof configSchema>;
  *
  * ```ts
  * // owlwarden.config.ts
- * import { defineConfig } from "@owlwarden/config";
+ * import { defineConfig } from "@dointhai/owlwarden-config";
  * export default defineConfig({ preset: "owasp-top10", failOn: "medium" });
  * ```
  */

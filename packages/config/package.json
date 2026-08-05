@@ -1,5 +1,5 @@
 {
-  "name": "@owlwarden/config",
+  "name": "@dointhai/owlwarden-config",
   "version": "0.0.1",
   "description": "Config schema and resolver for owlwarden.",
   "license": "MIT OR Apache-2.0",
@@ -29,7 +29,7 @@
     "build": "tsc --build"
   },
   "dependencies": {
-    "@owlwarden/sdk": "workspace:*",
+    "@dointhai/owlwarden-sdk": "workspace:*",
     "zod": "^4.0.0"
   }
 }

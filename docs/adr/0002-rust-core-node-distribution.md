@@ -24,7 +24,7 @@ Rust engine, TypeScript orchestration, joined by napi-rs v3.
 - `crates/*` hold the engine: scheduling, parsing, rules, rendering.
 - `packages/*` hold the CLI, the config loader, and the published types.
 - The engine is compiled per platform and published as optional npm
-  dependencies (`@owlwarden/core-native-darwin-arm64` and friends). The loader
+  dependencies (`@dointhai/owlwarden-core-native-darwin-arm64` and friends). The loader
   picks the right one. There is no compilation and no download at install time.
 - A standalone `owlwarden` binary (`crates/cli-native`) exists for people who do
   not want Node at all. It is the same engine, not a second implementation.

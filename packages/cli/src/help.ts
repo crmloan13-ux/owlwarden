@@ -1,4 +1,4 @@
-import { presetInfoListSchema } from "@owlwarden/sdk";
+import { presetInfoListSchema } from "@dointhai/owlwarden-sdk";
 
 import type { NativeEngine } from "./native.js";
 

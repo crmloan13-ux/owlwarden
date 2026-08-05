@@ -73,7 +73,7 @@ export function loadNative(): NativeEngine {
   const require = createRequire(import.meta.url);
   let loaded: unknown;
   try {
-    loaded = require("@owlwarden/core-native");
+    loaded = require("@dointhai/owlwarden-core-native");
   } catch (error) {
     throw new NativeLoadError(
       `could not load the owlwarden engine for ${process.platform}-${process.arch}.\n` +

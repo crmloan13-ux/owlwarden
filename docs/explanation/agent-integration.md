@@ -40,7 +40,7 @@ noise, and the resulting damage is attributed to the tool that reported it. See
 owlwarden scan --format json
 ```
 
-`@owlwarden/sdk` publishes zod schemas for that output, checked against the Rust
+`@dointhai/owlwarden-sdk` publishes zod schemas for that output, checked against the Rust
 engine on every CI run, so the types cannot describe a format the tool does not
 emit.
 

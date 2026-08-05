@@ -197,7 +197,7 @@ Three top-level fields exist so the output cannot mislead by omission:
 | `truncated` | The engine hit its finding cap and stopped collecting. |
 | `errors` | Rules that failed and files that were skipped. A scan that could not read half a project still exits 0 if the half it read was clean. |
 
-`@owlwarden/sdk` publishes zod schemas for this shape. They are checked against
+`@dointhai/owlwarden-sdk` publishes zod schemas for this shape. They are checked against
 the Rust engine on every CI run through golden files, so the types cannot
 describe a format the tool does not emit —
 [ADR 0010](docs/adr/0010-cross-language-contract.md).

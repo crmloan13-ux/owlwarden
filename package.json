@@ -7,7 +7,7 @@
     "node": ">=22.13"
   },
   "scripts": {
-    "build:native": "pnpm --filter @owlwarden/core-native build",
+    "build:native": "pnpm --filter @dointhai/owlwarden-core-native build",
     "build:ts": "tsc --build packages/sdk packages/config packages/cli",
     "build": "pnpm build:native && pnpm build:ts",
     "typecheck": "tsc --build --force packages/sdk packages/config packages/cli && tsc -p tsconfig.lint.json",
@@ -26,7 +26,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "@owlwarden/core-native": "workspace:*",
+    "@dointhai/owlwarden-core-native": "workspace:*",
     "@types/node": "^22.10.0",
     "eslint": "^10.8.0",
     "typescript": "^5.7.0",

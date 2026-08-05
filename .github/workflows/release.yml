@@ -209,22 +209,51 @@ jobs:
       # `pnpm pack` rewrites `workspace:*` to the concrete version. Packing
       # first and publishing the tarball keeps that rewrite while still using
       # npm to publish, which is what actually knows how to attach provenance.
+      #
+      # `--out` names each tarball after its publish order rather than after
+      # its package. Deriving the filename from the package name means renaming
+      # or rescoping a package silently breaks the publish step — and the dry
+      # run cannot catch it, because it does not publish.
       - name: pack every package
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p /tmp/tarballs
-          for dir in crates/napi packages/sdk packages/config packages/cli; do
-            ( cd "$dir" && pnpm pack --pack-destination /tmp/tarballs )
-          done
+          rm -rf /tmp/tarballs && mkdir -p /tmp/tarballs
+
+          # Dependency order. The platform packages are optionalDependencies of
+          # the loader, and npm resolves them at install time, so publishing the
+          # loader before its binaries leaves a window in which `npm i owlwarden`
+          # installs and then fails to load. The CLI goes last for the same
+          # reason: nothing should reference a package that is not there yet.
+          pack() { ( cd "$2" && pnpm pack --out "/tmp/tarballs/$1.tgz" > /dev/null ); }
+          pack 1-core-native crates/napi
+          pack 2-sdk         packages/sdk
+          pack 3-config      packages/config
+          pack 4-cli         packages/cli
           ls -l /tmp/tarballs
 
       - name: show what each tarball contains
         shell: bash
         run: |
           for t in /tmp/tarballs/*.tgz; do
-            echo "=============== $(basename "$t")"
+            echo "=============== $t"
+            tar xzOf "$t" package/package.json | head -5
             tar tzf "$t"
+          done
+
+      # `npm publish --dry-run` on the real tarballs, in the real order, with
+      # the real flags. Without this the publish commands are never executed
+      # until the one run where a mistake in them is unrecoverable.
+      - name: rehearse the publish
+        if: env.DRY_RUN == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          for dir in crates/napi/npm/*/; do
+            npm publish "$dir" --access public --dry-run
+          done
+          for t in /tmp/tarballs/*.tgz; do
+            npm publish "$t" --access public --dry-run
           done
 
       - name: publish
@@ -234,19 +263,12 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-
-          # Dependency order. The platform packages are optionalDependencies of
-          # the loader and npm resolves them at install time, so publishing the
-          # loader first leaves a window in which `npm i owlwarden` installs and
-          # then fails to load.
           for dir in crates/napi/npm/*/; do
             npm publish "$dir" --access public --provenance
           done
-
-          npm publish /tmp/tarballs/owlwarden-core-native-*.tgz --access public --provenance
-          npm publish /tmp/tarballs/owlwarden-sdk-*.tgz --access public --provenance
-          npm publish /tmp/tarballs/owlwarden-config-*.tgz --access public --provenance
-          npm publish /tmp/tarballs/owlwarden-[0-9]*.tgz --access public --provenance
+          for t in /tmp/tarballs/*.tgz; do
+            npm publish "$t" --access public --provenance
+          done
 
       - name: summary
         shell: bash

@@ -147,7 +147,7 @@ That check exists because npm publishes are immutable: a wrong version cannot be
 replaced, only deprecated and superseded.
 
 Publishing needs an `NPM_TOKEN` repository secret — a granular automation token
-with write access to `owlwarden` and the `@owlwarden` scope.
+with write access to `owlwarden` and the `@dointhai` scope.
 
 ## Code of conduct
 

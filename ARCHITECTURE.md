@@ -80,8 +80,8 @@ This keeps the core pure, testable, and free of I/O.
 
 | Package | Responsibility |
 |---|---|
-| `@owlwarden/sdk` | Report types and zod schemas, checked against the engine in CI. |
-| `@owlwarden/config` | Config schema and resolution. |
+| `@dointhai/owlwarden-sdk` | Report types and zod schemas, checked against the engine in CI. |
+| `@dointhai/owlwarden-config` | Config schema and resolution. |
 | `owlwarden` | The CLI. |
 
 `plugin-host` and `transport` are planned crates. They do not exist yet, and
@@ -296,7 +296,7 @@ parsed by the TypeScript tests; see
 
 ```ts
 // owlwarden.config.ts
-import { defineConfig } from "@owlwarden/config";
+import { defineConfig } from "@dointhai/owlwarden-config";
 
 export default defineConfig({
   preset: "owasp-top10",

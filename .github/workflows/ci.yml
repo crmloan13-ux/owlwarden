@@ -41,7 +41,7 @@ jobs:
           node-version: ${{ env.BUILD_NODE }}
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      # Type-aware eslint rules resolve `@owlwarden/sdk` through its emitted
+      # Type-aware eslint rules resolve `@dointhai/owlwarden-sdk` through its emitted
       # declarations. Without them every cross-package type is `any`, and the
       # no-unsafe-* rules fire on correct code — a red build that says nothing.
       - run: pnpm build:ts

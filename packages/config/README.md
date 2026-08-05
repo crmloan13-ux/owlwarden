@@ -1,4 +1,4 @@
-# @owlwarden/config
+# @dointhai/owlwarden-config
 
 Config schema and resolver for
 [owlwarden](https://github.com/suthat/owlwarden). The CLI depends on this; you
@@ -7,12 +7,12 @@ normally do not need to install it yourself.
 Install it directly only if you want type-checked config:
 
 ```bash
-npm i -D @owlwarden/config
+npm i -D @dointhai/owlwarden-config
 ```
 
 ```ts
 // owlwarden.config.ts
-import { defineConfig } from "@owlwarden/config";
+import { defineConfig } from "@dointhai/owlwarden-config";
 
 export default defineConfig({
   preset: "owasp-top10",

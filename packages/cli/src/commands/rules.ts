@@ -1,4 +1,4 @@
-import { ruleMetaListSchema, type RuleMeta } from "@owlwarden/sdk";
+import { ruleMetaListSchema, type RuleMeta } from "@dointhai/owlwarden-sdk";
 
 import { EXIT } from "../exit.js";
 import type { NativeEngine } from "../native.js";

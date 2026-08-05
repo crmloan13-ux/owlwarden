@@ -1,6 +1,6 @@
 import { parseArgs, type ParseArgsConfig } from "node:util";
 
-import { confidenceSchema, severitySchema, type Confidence, type Severity } from "@owlwarden/sdk";
+import { confidenceSchema, severitySchema, type Confidence, type Severity } from "@dointhai/owlwarden-sdk";
 
 /**
  * Argument parsing, on top of Node's own `parseArgs`.

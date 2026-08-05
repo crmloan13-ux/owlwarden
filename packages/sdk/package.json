@@ -1,5 +1,5 @@
 {
-  "name": "@owlwarden/sdk",
+  "name": "@dointhai/owlwarden-sdk",
   "version": "0.0.1",
   "description": "Types and schemas for owlwarden reports.",
   "license": "MIT OR Apache-2.0",

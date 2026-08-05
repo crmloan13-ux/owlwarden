@@ -1,4 +1,4 @@
-# @owlwarden/core-native
+# @dointhai/owlwarden-core-native
 
 The prebuilt Rust engine behind [owlwarden](https://github.com/suthat/owlwarden),
 exposed to Node through napi-rs.

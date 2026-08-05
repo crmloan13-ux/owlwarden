@@ -1,4 +1,4 @@
-import { ruleExplanationSchema } from "@owlwarden/sdk";
+import { ruleExplanationSchema } from "@dointhai/owlwarden-sdk";
 
 import { EXIT } from "../exit.js";
 import type { NativeEngine } from "../native.js";

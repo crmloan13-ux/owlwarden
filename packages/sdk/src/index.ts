@@ -1,5 +1,5 @@
 /**
- * `@owlwarden/sdk` — the report format, as TypeScript types and zod schemas.
+ * `@dointhai/owlwarden-sdk` — the report format, as TypeScript types and zod schemas.
  *
  * Anything that reads owlwarden output should depend on this rather than on
  * hand-written interfaces: these schemas are checked against the Rust engine on

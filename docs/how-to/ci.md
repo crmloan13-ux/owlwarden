@@ -46,7 +46,7 @@ automatic.
 
 ## Reading the output
 
-`--ci` writes JSON to stdout. The shape is typed in `@owlwarden/sdk`, whose zod
+`--ci` writes JSON to stdout. The shape is typed in `@dointhai/owlwarden-sdk`, whose zod
 schemas are checked against the engine on every CI run:
 
 ```bash
