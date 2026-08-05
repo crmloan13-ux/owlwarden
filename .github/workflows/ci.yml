@@ -99,6 +99,11 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: ${{ env.RUNTIME_NODE }}
+          # setup-node v5 caches automatically when package.json names a
+          # package manager, which means running pnpm — and pnpm 11 cannot
+          # start on the Node version we are deliberately downgrading to.
+          # Nothing is installed in this step, so there is nothing to cache.
+          package-manager-cache: false
       - name: the published CLI runs on the oldest supported Node
         shell: bash
         run: |
