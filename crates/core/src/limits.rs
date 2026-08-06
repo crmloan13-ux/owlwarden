@@ -22,6 +22,17 @@ pub mod http {
     pub const MAX_DECOMPRESS_RATIO: u32 = 20;
     /// Largest request body we will send.
     pub const MAX_REQUEST_BODY_BYTES: usize = 1024 * 1024;
+    /// Longest absolute URL we will accept as a target, scope entry, or redirect.
+    /// A hostile `Location` must not force multi-megabyte string copies.
+    pub const MAX_URL_BYTES: usize = 8 * 1024;
+    /// Longest single response header value we retain. Oversized values are
+    /// dropped (treated as absent) rather than truncated — a truncated CSP is
+    /// worse than a missing one for our detectors.
+    pub const MAX_HEADER_VALUE_BYTES: usize = 8 * 1024;
+    /// Response headers retained per exchange.
+    pub const MAX_RESPONSE_HEADERS: usize = 64;
+    /// Request headers a detector may attach to one exchange.
+    pub const MAX_REQUEST_HEADERS: usize = 32;
 }
 
 /// Caps on a whole scan run.

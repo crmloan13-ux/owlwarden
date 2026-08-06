@@ -34,8 +34,8 @@ owlwarden runs two analysis engines over one finding model.
 | Engine | Input | Answers | Network |
 |---|---|---|---|
 | **Static** | source files and their AST, via [oxc](https://oxc.rs) | where in my code the problem is | none |
-| **Dynamic** (planned) | live HTTP responses | what the server actually does | yes, within a declared scope |
-| **Correlated** (planned) | both | confirmed at runtime, with the line that causes it | yes |
+| **Dynamic** | live HTTP responses (passive GET/HEAD/OPTIONS) | what the server actually does | yes, within a declared scope |
+| **Correlated** | both | confirmed at runtime, with the line that causes it | yes |
 
 Each on its own is unsatisfying. A static analyser cannot tell you whether the
 vulnerable path is reachable in production — a header set by an ingress
@@ -57,7 +57,7 @@ This keeps the core pure, testable, and free of I/O.
   │ FsSourceProvider     (files)   │─impl▶│ trait SourceProvider             │
   │ StaticEngine         (oxc)     │─impl▶│ trait Detector                   │
   │ PrettyReporter / JsonReporter  │─impl▶│ trait Reporter                   │
-  │ ReqwestTransport     (planned) │─impl▶│ trait Transport                  │
+  │ ReqwestTransport               │─impl▶│ trait Transport                  │
   │ WasmDetector         (planned) │─impl▶│ trait Detector                   │
   └────────────────────────────────┘      │ struct Scheduler  (orchestrates) │
                                           │ struct Finding / Severity / …    │
@@ -74,8 +74,10 @@ This keeps the core pure, testable, and free of I/O.
 | `core` | Ports (traits), the finding model, the scheduler, resource limits. No I/O. |
 | `static-engine` | Sandboxed filesystem provider, oxc parsing, rule plumbing, framework profiles, shared AST and request-origin analysis. |
 | `detectors` | The rules themselves, with their remediation content. |
+| `transport` | `ReqwestTransport`: scope-enforced, streaming-capped HTTP. |
+| `dynamic-engine` | Passive probes and correlation that raises matching findings to `Confirmed`. |
 | `reporters` | `pretty` and `json` output, and the banner. |
-| `napi` | The Node bridge. |
+| `napi` | The Node bridge. `scan` is async and runs the engine on a worker thread so a live probe cannot block the event loop. |
 | `cli-native` | Standalone binary — the same engine without Node. |
 
 | Package | Responsibility |
@@ -84,8 +86,8 @@ This keeps the core pure, testable, and free of I/O.
 | `@dointhai/owlwarden-config` | Config schema and resolution. |
 | `owlwarden` | The CLI. |
 
-`plugin-host` and `transport` are planned crates. They do not exist yet, and
-empty placeholder crates would only be noise.
+`plugin-host` is planned. It does not exist yet, and an empty placeholder crate
+would only be noise.
 
 ## 4. Core interfaces
 
@@ -225,7 +227,8 @@ wait for a release that will never arrive.
 A security tool that cries wolf gets uninstalled, and that failure is caused by
 presenting a guess and a fact at the same volume rather than by missing rules.
 Three mechanisms address it. All three ship today for the static engine;
-`Confirmed` still waits on the dynamic engine.
+`Confirmed` is reachable when `--target` is set and both engines agree
+([ADR 0014](docs/adr/0014-passive-dynamic-and-correlation.md)).
 
 **Confidence.** Every finding carries `Confirmed | Likely | Possible`.
 
@@ -317,11 +320,11 @@ is never branded with the OWASP mark.
 
 | Command | Status | What it does |
 |---|---|---|
-| `scan` | shipped | One-shot scan. `--ci` gives JSON and meaningful exit codes. |
+| `scan` | shipped | One-shot scan. `--ci` gives JSON and meaningful exit codes. Optional `--target` for passive dynamic. |
 | `rules` | shipped | The rule catalogue. |
 | `coverage` | shipped | Which OWASP categories the rules reach, and which they do not. |
 | `explain <id>` | shipped | The full write-up for a rule, entirely offline. |
-| `watch` | shipped | Re-scan on change during development. Static only. |
+| `watch` | shipped | Re-scan on change during development. Static only — refuses `--target`. |
 | `report` | planned | Re-render a saved JSON result in another format. |
 | `mcp` | planned | An MCP server, so an agent can call owlwarden as a tool. |
 

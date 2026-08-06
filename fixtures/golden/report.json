@@ -9,17 +9,147 @@
   "target": {
     "project": "fixtures/vulnerable/next-api",
     "scope": [],
-    "filesScanned": 2,
+    "filesScanned": 7,
     "routesProbed": 0,
     "preset": "deep"
   },
   "summary": {
-    "high": 1,
-    "medium": 4,
+    "high": 7,
+    "medium": 7,
     "low": 0,
     "info": 0
   },
   "findings": [
+    {
+      "id": "sql-injection",
+      "severity": "high",
+      "confidence": "likely",
+      "owasp": "A03:2021",
+      "cwe": 89,
+      "title": "SQL query built by string interpolation",
+      "why": "A value taken from the request is interpolated into SQL, so the caller controls part of the statement. That is enough to read other users' rows, bypass a WHERE clause, or drop a table.",
+      "location": {
+        "path": "app/api/login/route.ts",
+        "line": 16,
+        "col": 5
+      },
+      "snippet": {
+        "path": "app/api/login/route.ts",
+        "startLine": 14,
+        "lines": [
+          "  // sql-injection",
+          "  const rows = await pool.query(",
+          "    `SELECT id, role FROM users WHERE email = '${body.email}'`,",
+          "  )"
+        ],
+        "highlight": {
+          "line": 16,
+          "startCol": 5,
+          "endCol": 63,
+          "label": "query text is built at runtime"
+        }
+      },
+      "context": {
+        "framework": "next",
+        "route": "/api/login",
+        "evidence": "template literal: `SELECT id, role FROM users WHERE email = '${body.email}'`"
+      },
+      "remediation": [
+        {
+          "framework": "next",
+          "summary": "Use a parameterised query, or Prisma's tagged $queryRaw which binds automatically.",
+          "patch": "// node-postgres\nawait db.query('SELECT * FROM users WHERE id = $1', [id])\n\n// Prisma: the tagged form binds; $queryRawUnsafe does not\nawait prisma.$queryRaw`SELECT * FROM users WHERE id = ${id}`",
+          "safety": "manual"
+        },
+        {
+          "summary": "Pass the values as query parameters instead of interpolating them. Every driver supports it, and the binding is not optional formatting — it is what stops the value being parsed as SQL.",
+          "safety": "manual"
+        }
+      ],
+      "references": [
+        {
+          "kind": "owasp",
+          "id": "A03:2021",
+          "url": "https://owasp.org/Top10/A03_2021-Injection/"
+        },
+        {
+          "kind": "cwe",
+          "id": "CWE-89",
+          "url": "https://cwe.mitre.org/data/definitions/89.html"
+        },
+        {
+          "kind": "docs",
+          "id": "RULES.md#sql-injection",
+          "url": "https://github.com/suthat/owlwarden/blob/main/RULES.md#sql-injection"
+        }
+      ]
+    },
+    {
+      "id": "ssrf",
+      "severity": "high",
+      "confidence": "likely",
+      "owasp": "A10:2021",
+      "cwe": 918,
+      "title": "Server fetches a URL the caller controls",
+      "why": "The destination of this request comes from the caller, so they choose which host the server connects to. That includes hosts they cannot reach themselves: the cloud metadata endpoint that hands out IAM credentials, internal services that skip authentication because they are 'not exposed', and anything bound to localhost.",
+      "location": {
+        "path": "app/api/proxy/route.ts",
+        "line": 14,
+        "col": 28
+      },
+      "snippet": {
+        "path": "app/api/proxy/route.ts",
+        "startLine": 12,
+        "lines": [
+          "  // ssrf",
+          "  if (target) {",
+          "    const upstream = await fetch(target)",
+          "    return NextResponse.json(await upstream.json())",
+          "  }"
+        ],
+        "highlight": {
+          "line": 14,
+          "startCol": 28,
+          "endCol": 41,
+          "label": "destination chosen by the caller"
+        }
+      },
+      "context": {
+        "framework": "next",
+        "route": "/api/proxy",
+        "evidence": "the URL argument is caller-controlled"
+      },
+      "remediation": [
+        {
+          "framework": "next",
+          "summary": "Validate the URL in the route handler before fetching, and disable redirect following.",
+          "patch": "const url = assertAllowedUrl(body.url)\nconst upstream = await fetch(url, { redirect: 'error' })",
+          "safety": "manual"
+        },
+        {
+          "summary": "Check the destination against an allowlist of hosts before fetching it. Blocklists do not work here: DNS rebinding, redirects, and IPv6-mapped addresses all defeat them.",
+          "patch": "// lib/safe-fetch.ts\nconst ALLOWED_HOSTS = new Set(['api.partner.com', 'cdn.example.com'])\n\nexport function assertAllowedUrl(raw: string): URL {\n  const url = new URL(raw)\n  if (url.protocol !== 'https:') throw new Error('only https is allowed')\n  if (!ALLOWED_HOSTS.has(url.hostname)) throw new Error('host not allowed')\n  return url\n}",
+          "safety": "manual"
+        }
+      ],
+      "references": [
+        {
+          "kind": "owasp",
+          "id": "A10:2021",
+          "url": "https://owasp.org/Top10/A10_2021-Server-Side_Request_Forgery_%28SSRF%29/"
+        },
+        {
+          "kind": "cwe",
+          "id": "CWE-918",
+          "url": "https://cwe.mitre.org/data/definitions/918.html"
+        },
+        {
+          "kind": "docs",
+          "id": "RULES.md#ssrf",
+          "url": "https://github.com/suthat/owlwarden/blob/main/RULES.md#ssrf"
+        }
+      ]
+    },
     {
       "id": "stack-trace-leak",
       "severity": "high",
@@ -87,6 +217,265 @@
       ]
     },
     {
+      "id": "hardcoded-secret",
+      "severity": "high",
+      "confidence": "likely",
+      "owasp": "A07:2021",
+      "cwe": 798,
+      "title": "Credential hardcoded in source",
+      "why": "This literal carries the prefix of a Stripe live secret key, so it is a real credential rather than a placeholder. It is in the repository's history and in every clone; deleting the line does not revoke it.",
+      "location": {
+        "path": "app/lib/billing.ts",
+        "line": 3,
+        "col": 20
+      },
+      "snippet": {
+        "path": "app/lib/billing.ts",
+        "startLine": 1,
+        "lines": [
+          "// FIXTURE: hardcoded-secret — Stripe live key prefix.",
+          "// Non-alphanumeric character keeps GitHub push protection from blocking the repo.",
+          "const STRIPE_KEY = 'sk_l***'",
+          "",
+          "export async function charge(amountCents: number) {"
+        ],
+        "highlight": {
+          "line": 3,
+          "startCol": 20,
+          "endCol": 59,
+          "label": "credential written into source"
+        }
+      },
+      "context": {
+        "framework": "next",
+        "evidence": "looks like a Stripe live secret key"
+      },
+      "remediation": [
+        {
+          "framework": "next",
+          "summary": "Read it from the environment on the server. A NEXT_PUBLIC_ prefix ships the value to the browser, so never use one for a secret.",
+          "patch": "const apiKey = process.env.API_KEY\nif (!apiKey) throw new Error('API_KEY is not set')",
+          "safety": "manual"
+        },
+        {
+          "summary": "Move the value into an environment variable or a secret manager, and rotate it — once committed it is in the history and in every clone, so removing the line does not revoke it.",
+          "safety": "manual"
+        }
+      ],
+      "references": [
+        {
+          "kind": "owasp",
+          "id": "A07:2021",
+          "url": "https://owasp.org/Top10/A07_2021-Identification_and_Authentication_Failures/"
+        },
+        {
+          "kind": "cwe",
+          "id": "CWE-798",
+          "url": "https://cwe.mitre.org/data/definitions/798.html"
+        },
+        {
+          "kind": "docs",
+          "id": "RULES.md#hardcoded-secret",
+          "url": "https://github.com/suthat/owlwarden/blob/main/RULES.md#hardcoded-secret"
+        }
+      ]
+    },
+    {
+      "id": "weak-crypto",
+      "severity": "high",
+      "confidence": "likely",
+      "owasp": "A02:2021",
+      "cwe": 327,
+      "title": "Broken cryptographic primitive protecting a secret",
+      "why": "This hash is fast, and speed is the attacker's advantage: a commodity GPU tries billions of candidates a second, so a leaked table of these hashes is a leaked table of the values behind them. Password hashing needs a deliberately slow algorithm with a per-value salt.",
+      "location": {
+        "path": "app/lib/crypto.ts",
+        "line": 8,
+        "col": 24
+      },
+      "snippet": {
+        "path": "app/lib/crypto.ts",
+        "startLine": 6,
+        "lines": [
+          "export function hashPassword(password: string): string {",
+          "  // weak-crypto: MD5 over a password.",
+          "  const passwordHash = createHash('md5').update(password).digest('hex')",
+          "  return passwordHash",
+          "}"
+        ],
+        "highlight": {
+          "line": 8,
+          "startCol": 24,
+          "endCol": 41,
+          "label": "fast hash protecting a credential"
+        }
+      },
+      "context": {
+        "framework": "next",
+        "evidence": "md5 used for `passwordhash`"
+      },
+      "remediation": [
+        {
+          "framework": "next",
+          "summary": "Use node:crypto in the route handler. Note that the edge runtime has no node:crypto — use globalThis.crypto.randomUUID() and Web Crypto there, or pin the route to nodejs.",
+          "patch": "import { randomBytes, randomUUID, scrypt } from 'node:crypto'\n\n// Tokens and session ids: unpredictable, not merely random-looking.\nconst sessionId = randomUUID()\nconst resetToken = randomBytes(32).toString('base64url')\n\n// Passwords: a slow hash with a per-password salt. bcrypt and argon2 are\n// equally correct; scrypt needs no dependency.\nconst salt = randomBytes(16)\nconst hash = await new Promise<Buffer>((resolve, reject) =>\n  scrypt(password, salt, 64, (error, key) => (error ? reject(error) : resolve(key))),\n)",
+          "safety": "manual"
+        },
+        {
+          "summary": "Use a slow, salted hash for passwords and a cryptographic random source for tokens. Both are in the Node standard library; neither needs a dependency.",
+          "patch": "import { randomBytes, randomUUID, scrypt } from 'node:crypto'\n\n// Tokens and session ids: unpredictable, not merely random-looking.\nconst sessionId = randomUUID()\nconst resetToken = randomBytes(32).toString('base64url')\n\n// Passwords: a slow hash with a per-password salt. bcrypt and argon2 are\n// equally correct; scrypt needs no dependency.\nconst salt = randomBytes(16)\nconst hash = await new Promise<Buffer>((resolve, reject) =>\n  scrypt(password, salt, 64, (error, key) => (error ? reject(error) : resolve(key))),\n)",
+          "safety": "manual"
+        }
+      ],
+      "references": [
+        {
+          "kind": "owasp",
+          "id": "A02:2021",
+          "url": "https://owasp.org/Top10/A02_2021-Cryptographic_Failures/"
+        },
+        {
+          "kind": "cwe",
+          "id": "CWE-327",
+          "url": "https://cwe.mitre.org/data/definitions/327.html"
+        },
+        {
+          "kind": "docs",
+          "id": "RULES.md#weak-crypto",
+          "url": "https://github.com/suthat/owlwarden/blob/main/RULES.md#weak-crypto"
+        }
+      ]
+    },
+    {
+      "id": "weak-crypto",
+      "severity": "high",
+      "confidence": "likely",
+      "owasp": "A02:2021",
+      "cwe": 327,
+      "title": "Broken cryptographic primitive protecting a secret",
+      "why": "Math.random() is a fast PRNG, not a cryptographic one; V8 documents it as unsuitable for security. An attacker who sees a few outputs can predict the rest, which for a session id or a reset token means minting valid ones.",
+      "location": {
+        "path": "app/lib/crypto.ts",
+        "line": 14,
+        "col": 24
+      },
+      "snippet": {
+        "path": "app/lib/crypto.ts",
+        "startLine": 12,
+        "lines": [
+          "export function mintSessionToken(): string {",
+          "  // weak-crypto: predictable session token.",
+          "  const sessionToken = Math.random().toString(36).slice(2)",
+          "  return sessionToken",
+          "}"
+        ],
+        "highlight": {
+          "line": 14,
+          "startCol": 24,
+          "endCol": 37,
+          "label": "predictable random source used for a secret"
+        }
+      },
+      "context": {
+        "framework": "next",
+        "evidence": "Math.random() used for `sessiontoken`"
+      },
+      "remediation": [
+        {
+          "framework": "next",
+          "summary": "Use node:crypto in the route handler. Note that the edge runtime has no node:crypto — use globalThis.crypto.randomUUID() and Web Crypto there, or pin the route to nodejs.",
+          "patch": "import { randomBytes, randomUUID, scrypt } from 'node:crypto'\n\n// Tokens and session ids: unpredictable, not merely random-looking.\nconst sessionId = randomUUID()\nconst resetToken = randomBytes(32).toString('base64url')\n\n// Passwords: a slow hash with a per-password salt. bcrypt and argon2 are\n// equally correct; scrypt needs no dependency.\nconst salt = randomBytes(16)\nconst hash = await new Promise<Buffer>((resolve, reject) =>\n  scrypt(password, salt, 64, (error, key) => (error ? reject(error) : resolve(key))),\n)",
+          "safety": "manual"
+        },
+        {
+          "summary": "Use a slow, salted hash for passwords and a cryptographic random source for tokens. Both are in the Node standard library; neither needs a dependency.",
+          "patch": "import { randomBytes, randomUUID, scrypt } from 'node:crypto'\n\n// Tokens and session ids: unpredictable, not merely random-looking.\nconst sessionId = randomUUID()\nconst resetToken = randomBytes(32).toString('base64url')\n\n// Passwords: a slow hash with a per-password salt. bcrypt and argon2 are\n// equally correct; scrypt needs no dependency.\nconst salt = randomBytes(16)\nconst hash = await new Promise<Buffer>((resolve, reject) =>\n  scrypt(password, salt, 64, (error, key) => (error ? reject(error) : resolve(key))),\n)",
+          "safety": "manual"
+        }
+      ],
+      "references": [
+        {
+          "kind": "owasp",
+          "id": "A02:2021",
+          "url": "https://owasp.org/Top10/A02_2021-Cryptographic_Failures/"
+        },
+        {
+          "kind": "cwe",
+          "id": "CWE-327",
+          "url": "https://cwe.mitre.org/data/definitions/327.html"
+        },
+        {
+          "kind": "docs",
+          "id": "RULES.md#weak-crypto",
+          "url": "https://github.com/suthat/owlwarden/blob/main/RULES.md#weak-crypto"
+        }
+      ]
+    },
+    {
+      "id": "weak-crypto",
+      "severity": "high",
+      "confidence": "likely",
+      "owasp": "A02:2021",
+      "cwe": 327,
+      "title": "Broken cryptographic primitive protecting a secret",
+      "why": "This cipher or mode is broken independently of the key. DES has a keyspace small enough to search, RC4 has biased output, and ECB encrypts identical plaintext blocks to identical ciphertext blocks — the structure of the data survives encryption.",
+      "location": {
+        "path": "app/lib/crypto.ts",
+        "line": 20,
+        "col": 18
+      },
+      "snippet": {
+        "path": "app/lib/crypto.ts",
+        "startLine": 18,
+        "lines": [
+          "export function sealCard(pan: string, key: Buffer): Buffer {",
+          "  // weak-crypto: ECB leaks structure.",
+          "  const cipher = createCipheriv('aes-256-ecb', key, null)",
+          "  return Buffer.concat([cipher.update(pan, 'utf8'), cipher.final()])",
+          "}"
+        ],
+        "highlight": {
+          "line": 20,
+          "startCol": 18,
+          "endCol": 58,
+          "label": "broken cipher"
+        }
+      },
+      "context": {
+        "framework": "next",
+        "evidence": "aes-256-ecb"
+      },
+      "remediation": [
+        {
+          "framework": "next",
+          "summary": "Use node:crypto in the route handler. Note that the edge runtime has no node:crypto — use globalThis.crypto.randomUUID() and Web Crypto there, or pin the route to nodejs.",
+          "patch": "import { randomBytes, randomUUID, scrypt } from 'node:crypto'\n\n// Tokens and session ids: unpredictable, not merely random-looking.\nconst sessionId = randomUUID()\nconst resetToken = randomBytes(32).toString('base64url')\n\n// Passwords: a slow hash with a per-password salt. bcrypt and argon2 are\n// equally correct; scrypt needs no dependency.\nconst salt = randomBytes(16)\nconst hash = await new Promise<Buffer>((resolve, reject) =>\n  scrypt(password, salt, 64, (error, key) => (error ? reject(error) : resolve(key))),\n)",
+          "safety": "manual"
+        },
+        {
+          "summary": "Use a slow, salted hash for passwords and a cryptographic random source for tokens. Both are in the Node standard library; neither needs a dependency.",
+          "patch": "import { randomBytes, randomUUID, scrypt } from 'node:crypto'\n\n// Tokens and session ids: unpredictable, not merely random-looking.\nconst sessionId = randomUUID()\nconst resetToken = randomBytes(32).toString('base64url')\n\n// Passwords: a slow hash with a per-password salt. bcrypt and argon2 are\n// equally correct; scrypt needs no dependency.\nconst salt = randomBytes(16)\nconst hash = await new Promise<Buffer>((resolve, reject) =>\n  scrypt(password, salt, 64, (error, key) => (error ? reject(error) : resolve(key))),\n)",
+          "safety": "manual"
+        }
+      ],
+      "references": [
+        {
+          "kind": "owasp",
+          "id": "A02:2021",
+          "url": "https://owasp.org/Top10/A02_2021-Cryptographic_Failures/"
+        },
+        {
+          "kind": "cwe",
+          "id": "CWE-327",
+          "url": "https://cwe.mitre.org/data/definitions/327.html"
+        },
+        {
+          "kind": "docs",
+          "id": "RULES.md#weak-crypto",
+          "url": "https://github.com/suthat/owlwarden/blob/main/RULES.md#weak-crypto"
+        }
+      ]
+    },
+    {
       "id": "ci-unpinned-action",
       "severity": "medium",
       "confidence": "likely",
@@ -130,6 +519,71 @@
           "kind": "docs",
           "id": "RULES.md#ci-unpinned-action",
           "url": "https://github.com/suthat/owlwarden/blob/main/RULES.md#ci-unpinned-action"
+        }
+      ]
+    },
+    {
+      "id": "open-redirect",
+      "severity": "medium",
+      "confidence": "likely",
+      "owasp": "A01:2021",
+      "cwe": 601,
+      "title": "Redirect target comes from the caller",
+      "why": "The whole redirect target comes from the request, so a link to this endpoint can send a visitor anywhere. The URL they click genuinely belongs to you, which is what makes the page they land on convincing — and on an OAuth callback the authorisation code goes with them.",
+      "location": {
+        "path": "app/api/proxy/route.ts",
+        "line": 20,
+        "col": 5
+      },
+      "snippet": {
+        "path": "app/api/proxy/route.ts",
+        "startLine": 18,
+        "lines": [
+          "  // open-redirect",
+          "  if (next) {",
+          "    redirect(next)",
+          "  }"
+        ],
+        "highlight": {
+          "line": 20,
+          "startCol": 5,
+          "endCol": 19,
+          "label": "destination chosen by the caller"
+        }
+      },
+      "context": {
+        "framework": "next",
+        "route": "/api/proxy",
+        "evidence": "redirect target is caller-controlled"
+      },
+      "remediation": [
+        {
+          "framework": "next",
+          "summary": "Validate before calling redirect(); request.nextUrl.origin is the base.",
+          "patch": "import { redirect } from 'next/navigation'\n\nconst next = request.nextUrl.searchParams.get('next')\nredirect(safeRedirect(next, request.nextUrl.origin))",
+          "safety": "manual"
+        },
+        {
+          "summary": "Resolve the target against your own origin and refuse anything that lands elsewhere. Do not use a startsWith('/') check: '//evil.com' passes it and leaves the site.",
+          "patch": "// lib/safe-redirect.ts\nexport function safeRedirect(target: unknown, base: string, fallback = '/'): string {\n  if (typeof target !== 'string') return fallback\n  try {\n    const resolved = new URL(target, base)\n    // Same origin only. This rejects '//evil.com', 'https://evil.com',\n    // and 'javascript:' alike. A leading-slash test does not: the browser\n    // reads '//evil.com' as a URL to another host.\n    return resolved.origin === new URL(base).origin ? resolved.pathname + resolved.search : fallback\n  } catch {\n    return fallback\n  }\n}",
+          "safety": "manual"
+        }
+      ],
+      "references": [
+        {
+          "kind": "owasp",
+          "id": "A01:2021",
+          "url": "https://owasp.org/Top10/A01_2021-Broken_Access_Control/"
+        },
+        {
+          "kind": "cwe",
+          "id": "CWE-601",
+          "url": "https://cwe.mitre.org/data/definitions/601.html"
+        },
+        {
+          "kind": "docs",
+          "id": "RULES.md#open-redirect",
+          "url": "https://github.com/suthat/owlwarden/blob/main/RULES.md#open-redirect"
         }
       ]
     },
@@ -199,6 +653,70 @@
       ]
     },
     {
+      "id": "cors-permissive",
+      "severity": "medium",
+      "confidence": "likely",
+      "owasp": "A05:2021",
+      "cwe": 942,
+      "title": "Cross-origin policy accepts any origin",
+      "why": "Any origin may call this API and read the response. That is a deliberate choice for a public endpoint and a mistake for anything behind a session — nothing in the source says which this is, so it is reported for you to decide.",
+      "location": {
+        "path": "app/lib/cors.ts",
+        "line": 7,
+        "col": 3
+      },
+      "snippet": {
+        "path": "app/lib/cors.ts",
+        "startLine": 5,
+        "lines": [
+          "",
+          "export function applyOpenCors(response: NextResponse): NextResponse {",
+          "  response.headers.set('Access-Control-Allow-Origin', '*')",
+          "  response.headers.set('Access-Control-Allow-Credentials', 'true')",
+          "  return response"
+        ],
+        "highlight": {
+          "line": 7,
+          "startCol": 3,
+          "endCol": 59,
+          "label": "accepts requests from any origin"
+        }
+      },
+      "context": {
+        "framework": "next",
+        "evidence": "origin: '*', credentials allowed"
+      },
+      "remediation": [
+        {
+          "framework": "next",
+          "summary": "Return an explicit origin from the route or middleware, not '*'.",
+          "patch": "const allowed = new Set(['https://app.example.com'])\nconst origin = request.headers.get('origin') ?? ''\nif (allowed.has(origin)) {\n  response.headers.set('Access-Control-Allow-Origin', origin)\n  response.headers.set('Vary', 'Origin')\n}",
+          "safety": "manual"
+        },
+        {
+          "summary": "Replace the wildcard with the origins that actually need access, and only send credentials to those.",
+          "safety": "manual"
+        }
+      ],
+      "references": [
+        {
+          "kind": "owasp",
+          "id": "A05:2021",
+          "url": "https://owasp.org/Top10/A05_2021-Security_Misconfiguration/"
+        },
+        {
+          "kind": "cwe",
+          "id": "CWE-942",
+          "url": "https://cwe.mitre.org/data/definitions/942.html"
+        },
+        {
+          "kind": "docs",
+          "id": "RULES.md#cors-permissive",
+          "url": "https://github.com/suthat/owlwarden/blob/main/RULES.md#cors-permissive"
+        }
+      ]
+    },
+    {
       "id": "unpinned-dependency",
       "severity": "medium",
       "confidence": "likely",
@@ -242,6 +760,71 @@
           "kind": "docs",
           "id": "RULES.md#unpinned-dependency",
           "url": "https://github.com/suthat/owlwarden/blob/main/RULES.md#unpinned-dependency"
+        }
+      ]
+    },
+    {
+      "id": "insecure-cookie",
+      "severity": "medium",
+      "confidence": "possible",
+      "owasp": "A05:2021",
+      "cwe": 614,
+      "title": "Cookie set without its protective attributes",
+      "why": "This cookie is missing protections: httpOnly keeps the cookie out of reach of JavaScript, so a cross-site scripting bug cannot read the session; secure stops the cookie being sent over plain HTTP; sameSite stops the browser attaching the cookie to cross-site requests.",
+      "location": {
+        "path": "app/api/login/route.ts",
+        "line": 20,
+        "col": 3
+      },
+      "snippet": {
+        "path": "app/api/login/route.ts",
+        "startLine": 18,
+        "lines": [
+          "",
+          "  // insecure-cookie: Next's cookies().set with no attributes.",
+          "  cookies().set('session', rows.rows[0]?.id ?? 'anon')",
+          "",
+          "  return NextResponse.json({ ok: true })"
+        ],
+        "highlight": {
+          "line": 20,
+          "startCol": 3,
+          "endCol": 55,
+          "label": "cookie written without httpOnly/secure/sameSite"
+        }
+      },
+      "context": {
+        "framework": "next",
+        "route": "/api/login",
+        "evidence": "no cookie options passed"
+      },
+      "remediation": [
+        {
+          "framework": "next",
+          "summary": "Pass the attributes to the cookie store.",
+          "patch": "cookies().set('session', token, {\n  httpOnly: true,\n  secure: process.env.NODE_ENV === 'production',\n  sameSite: 'lax',\n  path: '/',\n})",
+          "safety": "manual"
+        },
+        {
+          "summary": "Set httpOnly, secure, and sameSite when writing a cookie that carries anything the user would not want read or replayed.",
+          "safety": "manual"
+        }
+      ],
+      "references": [
+        {
+          "kind": "owasp",
+          "id": "A05:2021",
+          "url": "https://owasp.org/Top10/A05_2021-Security_Misconfiguration/"
+        },
+        {
+          "kind": "cwe",
+          "id": "CWE-614",
+          "url": "https://cwe.mitre.org/data/definitions/614.html"
+        },
+        {
+          "kind": "docs",
+          "id": "RULES.md#insecure-cookie",
+          "url": "https://github.com/suthat/owlwarden/blob/main/RULES.md#insecure-cookie"
         }
       ]
     },

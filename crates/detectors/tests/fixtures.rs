@@ -126,81 +126,54 @@ struct Expectation {
     fires: &'static [(&'static str, usize)],
 }
 
+/// Every catalogue rule × every supported framework — same counts, no kitchen
+/// sink. `weak-crypto` is three shapes (MD5-password, Math.random session,
+/// AES-ECB) on each twin so the grid is not "one shape here, three there".
+const SHARED_FIRES: &[(&str, usize)] = &[
+    ("stack-trace-leak", 1),
+    ("sql-injection", 1),
+    ("cors-permissive", 1),
+    ("insecure-cookie", 1),
+    ("hardcoded-secret", 1),
+    ("security-headers-missing", 1),
+    ("ssrf", 1),
+    ("open-redirect", 1),
+    ("weak-crypto", 3),
+    ("unpinned-dependency", 1),
+    ("ci-unpinned-action", 1),
+    ("sensitive-data-logged", 1),
+];
+
 const MATRIX: &[Expectation] = &[
     Expectation {
         framework: "next",
         vulnerable: "vulnerable/next-api",
         clean: "should-not-fire/next-api-clean",
-        fires: &[
-            ("stack-trace-leak", 1),
-            ("security-headers-missing", 1),
-            ("unpinned-dependency", 1),
-            ("ci-unpinned-action", 1),
-            ("sensitive-data-logged", 1),
-        ],
+        fires: SHARED_FIRES,
     },
     Expectation {
         framework: "nuxt",
         vulnerable: "vulnerable/nuxt-api",
         clean: "should-not-fire/nuxt-api-clean",
-        fires: &[
-            ("stack-trace-leak", 1),
-            ("sql-injection", 1),
-            ("insecure-cookie", 1),
-            ("security-headers-missing", 1),
-            ("ssrf", 1),
-            ("open-redirect", 1),
-            ("unpinned-dependency", 1),
-            ("ci-unpinned-action", 1),
-            ("sensitive-data-logged", 1),
-        ],
+        fires: SHARED_FIRES,
     },
     Expectation {
         framework: "nest",
         vulnerable: "vulnerable/nest-api",
         clean: "should-not-fire/nest-api-clean",
-        fires: &[
-            ("stack-trace-leak", 1),
-            ("security-headers-missing", 1),
-            ("unpinned-dependency", 1),
-            ("ci-unpinned-action", 1),
-            ("sensitive-data-logged", 1),
-        ],
+        fires: SHARED_FIRES,
     },
     Expectation {
         framework: "express",
         vulnerable: "vulnerable/express-api",
         clean: "should-not-fire/express-api-clean",
-        fires: &[
-            ("stack-trace-leak", 1),
-            ("sql-injection", 1),
-            ("cors-permissive", 1),
-            ("insecure-cookie", 1),
-            ("hardcoded-secret", 1),
-            ("security-headers-missing", 1),
-            ("ssrf", 1),
-            ("open-redirect", 1),
-            // A broken hash, a predictable token, and an ECB cipher.
-            ("weak-crypto", 3),
-            ("unpinned-dependency", 1),
-            ("ci-unpinned-action", 1),
-            ("sensitive-data-logged", 1),
-        ],
+        fires: SHARED_FIRES,
     },
     Expectation {
         framework: "fastify",
         vulnerable: "vulnerable/fastify-api",
         clean: "should-not-fire/fastify-api-clean",
-        fires: &[
-            ("stack-trace-leak", 1),
-            ("sql-injection", 1),
-            ("insecure-cookie", 1),
-            ("security-headers-missing", 1),
-            ("weak-crypto", 1),
-            ("unpinned-dependency", 1),
-            ("ci-unpinned-action", 1),
-            ("sensitive-data-logged", 1),
-        ],
+        fires: SHARED_FIRES,
     },
 ];
 
@@ -215,6 +188,45 @@ async fn the_matrix_covers_every_supported_framework() {
             framework.as_str()
         );
     }
+}
+
+#[test]
+fn every_catalogue_rule_is_exercised_on_every_framework() {
+    let catalogue: Vec<_> = owlwarden_detectors::all_rule_metas()
+        .into_iter()
+        .map(|meta| meta.id.to_string())
+        .collect();
+    assert_eq!(
+        catalogue.len(),
+        SHARED_FIRES.len(),
+        "SHARED_FIRES and the catalogue drifted apart"
+    );
+    for rule in &catalogue {
+        assert!(
+            SHARED_FIRES.iter().any(|(id, _)| id == rule),
+            "{rule} is in the catalogue but missing from SHARED_FIRES"
+        );
+        for row in MATRIX {
+            assert!(
+                row.fires.iter().any(|(id, _)| id == rule),
+                "{rule} has no expected fire on {}",
+                row.framework
+            );
+            // Same expected counts on every framework — no kitchen-sink row.
+            assert_eq!(
+                row.fires, SHARED_FIRES,
+                "{} must use SHARED_FIRES so the grid stays square",
+                row.framework
+            );
+        }
+    }
+    // 12 rules × 5 frameworks = 60 cells. If this number moves, update the
+    // table in fixtures/should-not-fire/README.md in the same PR.
+    assert_eq!(
+        SHARED_FIRES.len() * MATRIX.len(),
+        owlwarden_detectors::SUPPORTED_FRAMEWORKS.len() * catalogue.len()
+    );
+    assert_eq!(SHARED_FIRES.len() * MATRIX.len(), 60);
 }
 
 #[tokio::test]

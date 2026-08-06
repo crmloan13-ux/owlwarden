@@ -135,7 +135,7 @@ instead, indented.
 ```json
 {
   "schemaVersion": "1.0",
-  "tool": { "name": "owlwarden", "version": "0.0.2" },
+  "tool": { "name": "owlwarden", "version": "0.1.0" },
   "scannedAt": "2026-08-05T11:09:03Z",
   "durationMs": 7,
   "target": {

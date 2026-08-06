@@ -1,0 +1,28 @@
+[package]
+name = "owlwarden-dynamic"
+description = "Passive dynamic engine and correlation for owlwarden."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+owlwarden-core.workspace = true
+owlwarden-detectors.workspace = true
+owlwarden-static.workspace = true
+owlwarden-transport.workspace = true
+async-trait.workspace = true
+thiserror.workspace = true
+futures-executor = "0.3"
+# reqwest's async client needs a Tokio reactor. Static-only scans keep using
+# futures-executor; live scans call [`crate::block_on`].
+tokio = { version = "1", default-features = false, features = ["rt", "rt-multi-thread", "time", "net", "macros"] }
+
+[dev-dependencies]
+owlwarden-transport = { path = "../transport" }
+tokio = { version = "1", features = ["macros", "rt", "rt-multi-thread", "net", "io-util", "time"] }

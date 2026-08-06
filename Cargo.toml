@@ -4,13 +4,15 @@ members = [
     "crates/core",
     "crates/static-engine",
     "crates/detectors",
+    "crates/transport",
+    "crates/dynamic-engine",
     "crates/reporters",
     "crates/napi",
     "crates/cli-native",
 ]
 
 [workspace.package]
-version = "0.0.2"
+version = "0.1.0"
 edition = "2024"
 rust-version = "1.88"
 license = "MIT OR Apache-2.0"
@@ -21,10 +23,12 @@ keywords = ["security", "sast", "owasp", "scanner", "static-analysis"]
 categories = ["development-tools", "web-programming"]
 
 [workspace.dependencies]
-owlwarden-core = { path = "crates/core", version = "0.0.2" }
-owlwarden-static = { path = "crates/static-engine", version = "0.0.2" }
-owlwarden-detectors = { path = "crates/detectors", version = "0.0.2" }
-owlwarden-reporters = { path = "crates/reporters", version = "0.0.2" }
+owlwarden-core = { path = "crates/core", version = "0.1.0" }
+owlwarden-static = { path = "crates/static-engine", version = "0.1.0" }
+owlwarden-detectors = { path = "crates/detectors", version = "0.1.0" }
+owlwarden-transport = { path = "crates/transport", version = "0.1.0" }
+owlwarden-dynamic = { path = "crates/dynamic-engine", version = "0.1.0" }
+owlwarden-reporters = { path = "crates/reporters", version = "0.1.0" }
 
 async-trait = "0.1"
 futures-util = { version = "0.3", default-features = false, features = ["std"] }

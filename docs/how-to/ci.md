@@ -117,9 +117,22 @@ npx owlwarden scan --ci --fail-on medium --allow-suppressions
 `--report-suppressions` still lists every directive on stderr. Details:
 [suppressions.md](suppressions.md).
 
+## Live probe in CI
+
+Optional. Start (or point at) a staging origin you control, then pass
+`--target` on the command line — never from a file in the PR tree:
+
+```bash
+npx owlwarden scan --ci --fail-on medium --min-confidence likely \
+  --target "$STAGING_URL"
+```
+
+Today that correlates `security-headers-missing` only. Details:
+[dynamic.md](dynamic.md).
+
 ## Speed
 
-v0.0.2 is static analysis on a bounded file set. A few thousand files takes a
-couple of seconds, and there is nothing to cache — no index, no database, no
-network. If it is slow, it is reading more files than you expect; check
-`target.filesScanned` in the JSON.
+Without `--target`, owlwarden is static analysis on a bounded file set. A few
+thousand files takes a couple of seconds. With `--target`, add one or two
+passive HTTP round-trips — still no crawl. If a static scan is slow, it is
+reading more files than you expect; check `target.filesScanned` in the JSON.

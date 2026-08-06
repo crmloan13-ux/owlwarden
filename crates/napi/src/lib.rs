@@ -52,6 +52,13 @@ struct ScanRequest {
     /// Defaults to true; the CLI sets false under `--ci` unless opted in.
     #[serde(default = "default_honor_suppressions")]
     honor_suppressions: bool,
+    /// Absolute URL to probe. Operator intent only — never from project config
+    /// ([ADR 0014](../../docs/adr/0014-passive-dynamic-and-correlation.md)).
+    #[serde(default)]
+    target: Option<String>,
+    /// Extra scope allowlist entries. When empty, the target's origin is used.
+    #[serde(default)]
+    scope: Vec<String>,
 }
 
 fn default_honor_suppressions() -> bool {
@@ -123,7 +130,13 @@ impl Envelope {
     }
 }
 
-/// Runs a passive static scan.
+/// Runs a passive scan (static, and optionally a live probe).
+///
+/// Async + `spawn_blocking` on purpose: a sync native call blocks the Node
+/// event loop, so a `--target` probe aimed at a server in the same process can
+/// never complete (the loop cannot accept the connection). The Promise frees
+/// the loop; the scan itself runs on a worker thread with its own Tokio
+/// runtime ([`owlwarden_dynamic::run_scan`]).
 ///
 /// Takes a JSON [`ScanRequest`] and returns a JSON envelope containing either
 /// the report or a structured error. Never throws for a scan failure — only an
@@ -133,9 +146,26 @@ impl Envelope {
 /// # Errors
 /// Throws only when `request_json` is not valid JSON matching [`ScanRequest`].
 #[napi]
-pub fn scan(request_json: String) -> napi::Result<String> {
-    let request: ScanRequest = serde_json::from_str(&request_json)
+pub async fn scan(request_json: String) -> napi::Result<String> {
+    // Validate JSON on the calling thread so a bad request stays a thrown Error
+    // rather than a rejected Promise of an encoded envelope — same contract as
+    // the previous sync API.
+    let _: ScanRequest = serde_json::from_str(&request_json)
         .map_err(|error| napi::Error::from_reason(format!("invalid scan request: {error}")))?;
+
+    napi::bindgen_prelude::spawn_blocking(move || scan_blocking(request_json))
+        .await
+        .map_err(|error| napi::Error::from_reason(format!("scan worker failed: {error}")))
+}
+
+fn scan_blocking(request_json: String) -> String {
+    let request: ScanRequest = match serde_json::from_str(&request_json) {
+        Ok(request) => request,
+        Err(error) => {
+            return Envelope::err("E_SCAN_FAILED", format!("invalid scan request: {error}"))
+                .encode();
+        }
+    };
 
     let (file_rules, project_rules) = owlwarden_detectors::rules_for_preset(&request.preset);
     if file_rules.is_empty() && project_rules.is_empty() {
@@ -143,7 +173,7 @@ pub fn scan(request_json: String) -> napi::Result<String> {
             .iter()
             .map(|preset| preset.name)
             .collect();
-        return Ok(Envelope::err(
+        return Envelope::err(
             "E_UNKNOWN_PRESET",
             format!(
                 "unknown preset {:?}; available presets are {}",
@@ -151,7 +181,7 @@ pub fn scan(request_json: String) -> napi::Result<String> {
                 known.join(", ")
             ),
         )
-        .encode());
+        .encode();
     }
 
     let settings = ScanSettings {
@@ -173,39 +203,65 @@ pub fn scan(request_json: String) -> napi::Result<String> {
         Some(json) => match owlwarden_core::baseline::BaselineFile::parse(json) {
             Ok(file) => Some(file),
             Err(error) => {
-                return Ok(Envelope::err("E_BASELINE_INVALID", error.to_string()).encode());
+                return Envelope::err("E_BASELINE_INVALID", error.to_string()).encode();
             }
         },
         None => None,
     };
 
-    let outcome = futures_executor::block_on(owlwarden_static::scan_project_with(
+    let mut scan_request = owlwarden_static::ScanRequest {
+        settings,
+        baseline,
+        write_baseline: request.write_baseline.map(std::path::PathBuf::from),
+        honor_suppressions: request.honor_suppressions,
+        extra_detectors: Vec::new(),
+        network: None,
+        correlate: None,
+    };
+
+    let dynamic_engine = if let Some(target) = request.target.as_deref() {
+        match owlwarden_dynamic::prepare_live(target, &request.scope, false) {
+            Ok(live) => {
+                let engine = live.engine.clone();
+                scan_request.network = Some(live.network);
+                scan_request.extra_detectors.push(live.engine);
+                scan_request.correlate = Some(owlwarden_dynamic::correlate);
+                Some(engine)
+            }
+            Err(error) => {
+                return Envelope::err("E_TARGET_INVALID", error.to_string()).encode();
+            }
+        }
+    } else if !request.scope.is_empty() {
+        return Envelope::err("E_TARGET_INVALID", "--scope requires --target").encode();
+    } else {
+        None
+    };
+
+    match owlwarden_dynamic::run_scan(
         &request.project_root,
         file_rules,
         project_rules,
-        owlwarden_static::ScanRequest {
-            settings,
-            baseline,
-            write_baseline: request.write_baseline.map(std::path::PathBuf::from),
-            honor_suppressions: request.honor_suppressions,
-        },
-    ));
-
-    Ok(match outcome {
+        scan_request,
+        dynamic_engine,
+    ) {
         Ok(report) => Envelope::ok(report),
-        Err(owlwarden_static::RunError::Source(error)) => Envelope::err(
-            "E_PROJECT_UNREADABLE",
-            format!("could not read {}: {error}", request.project_root),
-        ),
-        Err(owlwarden_static::RunError::Scan(error)) => {
-            Envelope::err("E_SCAN_FAILED", error.to_string())
+        Err(owlwarden_dynamic::DriveError::Run(owlwarden_static::RunError::Source(error))) => {
+            Envelope::err(
+                "E_PROJECT_UNREADABLE",
+                format!("could not read {}: {error}", request.project_root),
+            )
         }
-        Err(owlwarden_static::RunError::BaselineWrite { path, message }) => Envelope::err(
+        Err(owlwarden_dynamic::DriveError::Run(owlwarden_static::RunError::BaselineWrite {
+            path,
+            message,
+        })) => Envelope::err(
             "E_BASELINE_WRITE",
             format!("could not write {path}: {message}"),
         ),
+        Err(error) => Envelope::err("E_SCAN_FAILED", error.to_string()),
     }
-    .encode())
+    .encode()
 }
 
 /// Rendering options accepted by [`render`].

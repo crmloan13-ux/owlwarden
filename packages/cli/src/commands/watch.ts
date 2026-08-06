@@ -22,6 +22,14 @@ export async function runWatch(
   stderr: NodeJS.WritableStream,
   stdout: NodeJS.WritableStream,
 ): Promise<number> {
+  if (options.target !== undefined || options.scope.length > 0) {
+    stderr.write(
+      "error: watch is static-only; omit --target / --scope\n" +
+        "  re-probing on every save is hostile to the developer's own server\n",
+    );
+    return EXIT.ERROR;
+  }
+
   // Watch wants a readable stream of findings, not a banner on every keystroke.
   // `--write-baseline` runs once on the first scan only — rewriting on every
   // keystroke would amplify a symlink write gadget and thrash the disk.

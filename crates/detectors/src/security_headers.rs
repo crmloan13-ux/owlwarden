@@ -48,7 +48,10 @@ pub const ID: &str = "security-headers-missing";
 /// Deliberately short. A longer list would flag more projects but each extra
 /// entry is another chance to be wrong about someone's threat model, and a rule
 /// that reports six things nobody acts on is noise.
-const REQUIRED_HEADERS: &[(&str, &str)] = &[
+///
+/// Shared with the dynamic probe so correlation compares the same set
+/// ([ADR 0014](../../../docs/adr/0014-passive-dynamic-and-correlation.md)).
+pub const REQUIRED_HEADERS: &[(&str, &str)] = &[
     (
         "strict-transport-security",
         "forces HTTPS for future requests",
@@ -400,6 +403,28 @@ fn all_header_names() -> Vec<&'static str> {
     REQUIRED_HEADERS.iter().map(|(name, _)| *name).collect()
 }
 
+/// Header names listed after `missing:` in a finding's evidence string.
+///
+/// Used by correlation to decide whether static and dynamic observations agree
+/// without inventing a second structured field on [`Finding`].
+#[must_use]
+pub fn missing_headers_from_evidence(evidence: &str) -> Vec<String> {
+    const MARKER: &str = "missing: ";
+    let Some(index) = evidence.rfind(MARKER) else {
+        return Vec::new();
+    };
+    let rest = evidence.get(index + MARKER.len()..).unwrap_or("").trim();
+    if rest.is_empty() {
+        return Vec::new();
+    }
+    rest.split(',')
+        .map(str::trim)
+        .filter(|part| !part.is_empty())
+        .take(REQUIRED_HEADERS.len())
+        .map(str::to_ascii_lowercase)
+        .collect()
+}
+
 /// Every framework's fix, for `owlwarden explain` and the rule catalogue page.
 #[must_use]
 pub fn all_fixes() -> Vec<owlwarden_core::finding::Fix> {
@@ -481,3 +506,41 @@ export default defineNuxtConfig({
     },
   },
 })"#;
+
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used)]
+
+    use super::*;
+
+    #[test]
+    fn missing_headers_parser_uses_the_last_marker() {
+        let parsed = missing_headers_from_evidence(
+            "configured: x-frame-options; missing: content-security-policy, referrer-policy",
+        );
+        assert_eq!(
+            parsed,
+            vec![
+                "content-security-policy".to_owned(),
+                "referrer-policy".to_owned()
+            ]
+        );
+    }
+
+    #[test]
+    fn missing_headers_parser_ignores_noise_without_marker() {
+        assert!(missing_headers_from_evidence("runtime: security headers present").is_empty());
+    }
+
+    #[test]
+    fn missing_headers_parser_is_bounded() {
+        let flood = format!(
+            "missing: {}",
+            (0..100)
+                .map(|i| format!("h{i}"))
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
+        assert!(missing_headers_from_evidence(&flood).len() <= REQUIRED_HEADERS.len());
+    }
+}

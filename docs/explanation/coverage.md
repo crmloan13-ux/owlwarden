@@ -51,15 +51,18 @@ exhausted.
 
 Read the rule list in each row, not the tick.
 
-## Static analysis only, for now
+## Static first; dynamic is opt-in
 
-Everything above describes the static engine, which reads source and never
-touches the network. The dynamic engine (see
-[ADR 0001](../adr/0001-dual-engine.md)) will reach some of what static analysis
-cannot: response headers as actually served, authentication that is enforced at
-runtime, redirects that actually happen. When it lands, the reach column gains
-a second dimension. Until then, "out of reach" means out of reach of this
-release.
+The coverage table is computed from the **static** rules. Those read source and
+never open a socket on their own.
+
+Pass `--target` and the passive dynamic engine can confirm or clear
+`security-headers-missing` against a live response
+([how-to/dynamic.md](../how-to/dynamic.md),
+[ADR 0014](../adr/0014-passive-dynamic-and-correlation.md)). That does not add
+rows to this table: the rule was already mapped; correlation only changes
+confidence. Broader runtime coverage (auth, redirects as served, active checks)
+is still later work — see [ROADMAP.md](../../ROADMAP.md).
 
 ## Frameworks
 

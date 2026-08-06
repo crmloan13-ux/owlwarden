@@ -1,6 +1,6 @@
 {
   "name": "@dointhai/owlwarden-sdk",
-  "version": "0.0.2",
+  "version": "0.1.0",
   "description": "Types and schemas for owlwarden reports.",
   "license": "MIT OR Apache-2.0",
   "repository": {

@@ -81,6 +81,10 @@ pub struct ScanArgs {
     pub quiet: bool,
     /// Emit OSC-8 hyperlinks.
     pub hyperlinks: bool,
+    /// Live target URL for passive dynamic probing. Operator intent only.
+    pub target: Option<String>,
+    /// Extra scope allowlist entries. Empty means the target's origin.
+    pub scope: Vec<String>,
 }
 
 impl Default for ScanArgs {
@@ -105,6 +109,8 @@ impl Default for ScanArgs {
             ascii: false,
             quiet: false,
             hyperlinks: false,
+            target: None,
+            scope: Vec::new(),
         }
     }
 }
@@ -217,6 +223,8 @@ struct RawScan {
     ascii: bool,
     quiet: bool,
     hyperlinks: bool,
+    target: Option<String>,
+    scope: Vec<String>,
 }
 
 /// Parses the flags of `scan`.
@@ -234,6 +242,18 @@ fn parse_scan<'a>(args: impl Iterator<Item = &'a String>) -> Result<ScanArgs, Ar
             "--out" => raw.out = Some(value("--out")?),
             "--baseline" => raw.baseline = Some(value("--baseline")?),
             "--write-baseline" => raw.write_baseline = Some(value("--write-baseline")?),
+            "--target" => raw.target = Some(value("--target")?),
+            "--scope" => {
+                let entry = value("--scope")?;
+                if raw.scope.len() >= owlwarden_core::scope::AllowlistScope::MAX_ENTRIES {
+                    return Err(ArgError::InvalidValue {
+                        option: "--scope",
+                        value: entry,
+                        expected: "at most 64 entries",
+                    });
+                }
+                raw.scope.push(entry);
+            }
             "--report-suppressions" => raw.report_suppressions = true,
             "--allow-suppressions" => raw.allow_suppressions = true,
             "--allow-baseline" => raw.allow_baseline = true,
@@ -294,6 +314,8 @@ fn parse_scan<'a>(args: impl Iterator<Item = &'a String>) -> Result<ScanArgs, Ar
         ascii: raw.ascii,
         quiet: raw.quiet || raw.ci,
         hyperlinks: raw.hyperlinks,
+        target: raw.target,
+        scope: raw.scope,
     })
 }
 
@@ -336,6 +358,9 @@ SCAN OPTIONS
   --allow-baseline     Under --ci, permit --baseline (off by default)
   --fail-on <LEVEL>    Exit 1 at this severity or above. Default: info
   --min-confidence <L> Drop findings below this confidence. Default: possible
+  --target <URL>       Probe this URL (passive GET/HEAD). Operator-only —
+                       never read from project config
+  --scope <URL>        Allowlist entry (repeatable). Default: origin of --target
   --ci                 JSON + quiet + no-color; ignores suppressions and
                        --baseline unless allow-* is set
   --no-color           Disable colour (also honours NO_COLOR)
@@ -348,7 +373,8 @@ EXIT CODES
   1  findings at or above --fail-on
   2  the scan could not run
 
-Scans are passive: owlwarden reads source and never touches the network.
+Without --target, scans are static-only and never touch the network.
+With --target, only passive methods are used; scope is deny-by-default.
 ",
         version = owlwarden_core::ENGINE_VERSION,
         default_preset = owlwarden_detectors::DEFAULT_PRESET,
@@ -381,6 +407,32 @@ mod tests {
         assert_eq!(parsed.format, "pretty");
         assert_eq!(parsed.preset, owlwarden_detectors::DEFAULT_PRESET);
         assert_eq!(parsed.fail_on, Severity::Info);
+        assert!(parsed.target.is_none());
+        assert!(parsed.scope.is_empty());
+    }
+
+    #[test]
+    fn target_and_repeated_scope_parse() {
+        let Command::Scan(parsed) = parse(&args(&[
+            "scan",
+            "--target",
+            "http://127.0.0.1:3000/",
+            "--scope",
+            "http://127.0.0.1:3000/",
+            "--scope",
+            "http://127.0.0.1:3000/api",
+        ]))
+        .unwrap() else {
+            panic!("expected a scan command");
+        };
+        assert_eq!(parsed.target.as_deref(), Some("http://127.0.0.1:3000/"));
+        assert_eq!(
+            parsed.scope,
+            vec![
+                "http://127.0.0.1:3000/".to_owned(),
+                "http://127.0.0.1:3000/api".to_owned()
+            ]
+        );
     }
 
     #[test]

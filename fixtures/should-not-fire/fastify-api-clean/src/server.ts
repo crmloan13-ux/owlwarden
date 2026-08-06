@@ -9,6 +9,19 @@ await app.register(helmet)
 await app.register(cookie)
 
 const db = await mysql.createConnection(process.env.DATABASE_URL ?? '')
+const ALLOWED_IMPORT_HOSTS = new Set(['files.partner.com'])
+
+function safeRedirect(target: unknown, base: string, fallback = '/'): string {
+  if (typeof target !== 'string') return fallback
+  try {
+    const resolved = new URL(target, base)
+    return resolved.origin === new URL(base).origin
+      ? resolved.pathname + resolved.search
+      : fallback
+  } catch {
+    return fallback
+  }
+}
 
 app.get('/search', async (request, reply) => {
   const term = (request.query as { q: string }).q
@@ -25,6 +38,10 @@ app.get('/search', async (request, reply) => {
     path: '/',
   })
 
+  // Explicit origin, not a wildcard.
+  reply.header('Access-Control-Allow-Origin', 'https://app.example.com')
+  reply.header('Vary', 'Origin')
+
   return reply.send(rows)
 })
 
@@ -35,8 +52,6 @@ app.get('/articles/:id', async (request, reply) => {
     ])
     return reply.send(rows)
   } catch (err) {
-    // `code()` sets the status; only `send()` writes a body. The rule must not
-    // count the chain twice, and must not treat the log call as a sink.
     request.log.error(err)
     return reply.code(500).send({ error: 'Internal Server Error' })
   }
@@ -53,8 +68,20 @@ app.post('/session', async (_request, reply) => {
   return reply.send({ ok: true })
 })
 
-// Jitter is not a security decision, and a rule that fired here would be
-// firing on most of every codebase.
+app.get('/go', async (request, reply) => {
+  const next = (request.query as { next?: string }).next
+  return reply.redirect(safeRedirect(next, 'https://app.example.com'))
+})
+
+app.post('/import', async (request, reply) => {
+  const url = new URL(String((request.body as { sourceUrl?: string }).sourceUrl))
+  if (url.protocol !== 'https:' || !ALLOWED_IMPORT_HOSTS.has(url.hostname)) {
+    return reply.code(400).send({ error: 'source not allowed' })
+  }
+  const upstream = await fetch(url, { redirect: 'error' })
+  return reply.send(await upstream.json())
+})
+
 function backoffMs(attempt: number) {
   return 2 ** attempt * 100 + Math.random() * 50
 }

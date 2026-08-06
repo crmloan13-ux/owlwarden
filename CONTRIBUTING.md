@@ -67,11 +67,11 @@ how to add a framework rather than a rule. The short version:
 2. The `Remediation` table. Every framework in `SUPPORTED_FRAMEWORKS` needs a fix
    that compiles, because someone will paste it. A test enforces this, so a rule
    cannot ship with a framework silently falling through to generic advice.
-3. Fixtures: one under `fixtures/vulnerable/` that must fire, and at least one
-   under `fixtures/should-not-fire/` that must not — ideally the tempting case
-   that a naive implementation would flag. Both go into the matrix in
-   `crates/detectors/tests/fixtures.rs`, which pins the expected count, not just
-   the presence, of each finding.
+3. Fixtures on **every** supported framework: a vulnerable project that must
+   fire, and a clean twin that must stay silent — ideally the tempting case a
+   naive implementation would flag. Counts live in `SHARED_FIRES` /
+   `crates/detectors/tests/fixtures.rs` (12 × 5 cells today). CI fails if a
+   catalogue rule is missing from any framework row.
 
 Then the rule. Then run it against the whole corpus, and regenerate the
 catalogue with `node scripts/generate-rules-md.mjs`.

@@ -1,6 +1,6 @@
 {
   "name": "owlwarden",
-  "version": "0.0.2",
+  "version": "0.1.0",
   "description": "A keen-eyed, sandboxed security auditor for web apps and APIs.",
   "license": "MIT OR Apache-2.0",
   "repository": {

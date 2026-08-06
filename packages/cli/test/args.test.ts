@@ -87,6 +87,36 @@ describe("parse", () => {
     expect(cli.options.reportSuppressions).toBe(true);
   });
 
+  it("parses --target and repeated --scope", () => {
+    const cli = parse([
+      "scan",
+      "--target",
+      "http://127.0.0.1:3000/",
+      "--scope",
+      "http://127.0.0.1:3000/",
+      "--scope",
+      "http://127.0.0.1:3000/api",
+    ]);
+    if (cli.command !== "scan") throw new Error("expected scan");
+    expect(cli.options.target).toBe("http://127.0.0.1:3000/");
+    expect(cli.options.scope).toEqual([
+      "http://127.0.0.1:3000/",
+      "http://127.0.0.1:3000/api",
+    ]);
+  });
+
+  it("refuses --scope without --target", () => {
+    expect(() => parse(["scan", "--scope", "http://127.0.0.1:3000/"])).toThrow(
+      /--scope requires --target/,
+    );
+  });
+
+  it("defaults scope to an empty list when omitted", () => {
+    const cli = parse(["scan", "--target", "http://127.0.0.1:3000/"]);
+    if (cli.command !== "scan") throw new Error("expected scan");
+    expect(cli.options.scope).toEqual([]);
+  });
+
   it("defaults allowConfigJs to false and accepts the opt-in flag", () => {
     const denied = parse(["scan", "--ci"]);
     if (denied.command !== "scan") throw new Error("expected scan");

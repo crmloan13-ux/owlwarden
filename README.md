@@ -7,11 +7,11 @@ passive by default.
 npx owlwarden scan
 ```
 
-**Status: v0.0.2.** Twelve rules across nine of the OWASP Top 10, static
-analysis only, with first-class support for Next.js, Nuxt, NestJS, Express, and
-Fastify — plus suppressions, baseline mode, and `watch`. It works and it is
-honest about what it does not do yet — run `owlwarden coverage`, or see
-[Scope](#what-it-does-not-do-yet).
+**Status: v0.1.0.** Twelve rules across nine of the OWASP Top 10, with
+first-class support for Next.js, Nuxt, NestJS, Express, and Fastify — plus
+suppressions, baseline, `watch`, and optional passive dynamic probing that can
+raise findings to `confirmed`. It works and it is honest about what it does not
+do yet — run `owlwarden coverage`, or see [Scope](#what-it-does-not-do-yet).
 
 ---
 
@@ -94,18 +94,22 @@ node packages/cli/dist/bin.js scan /path/to/project
 ## Usage
 
 ```bash
-owlwarden scan                          # zero config
+owlwarden scan                          # zero config (static)
 owlwarden scan ./apps/api               # a specific directory
 owlwarden scan --preset owasp-top10     # a named rule bundle
 owlwarden scan --ci                     # JSON on stdout, no colour, exit code
 owlwarden scan --fail-on medium         # only medium and worse fail the build
 owlwarden scan --baseline .owlwarden-baseline.json
 owlwarden scan --write-baseline .owlwarden-baseline.json
+owlwarden scan --target http://127.0.0.1:3000/   # passive probe + correlation
 owlwarden watch                         # re-scan on change (static only)
 owlwarden rules                         # what it can find
 owlwarden coverage                      # what it cannot find, gaps included
 owlwarden explain stack-trace-leak      # the full write-up, offline
 ```
+
+Live probing is optional and operator-only — see
+[docs/how-to/dynamic.md](docs/how-to/dynamic.md).
 
 **Exit codes:** `0` clean · `1` findings at or above `--fail-on` · `2` the scan
 could not run. CI can branch on these.
@@ -134,8 +138,9 @@ does not look for config outside the directory being scanned.
 This is a security tool, so it is worth being precise about what it does to your
 machine and your systems.
 
-- **It does not touch the network.** v0.0.2 is static analysis: it reads files
-  and parses them. No requests are sent to your app or to us.
+- **Network only when you ask.** Without `--target` it never opens a socket.
+  With `--target` it sends passive probes under a deny-by-default scope. No
+  telemetry, ever.
 - **It stays inside the project.** The file provider is rooted at the directory
   you point it at, resolves symlinks, and refuses anything that escapes. It
   skips `node_modules`, respects `.gitignore`, and caps file size and total
@@ -158,14 +163,17 @@ Being clear about this matters more than looking complete.
   parser finds a design flaw —
   [docs/explanation/coverage.md](docs/explanation/coverage.md) explains how to
   read that distinction.
-- **Static only.** The dynamic engine — the one that probes a running app and
-  raises a finding's confidence to `confirmed` — is designed
-  ([ARCHITECTURE.md](ARCHITECTURE.md) §2) and not built. Correlation is what
-  remains of the v0.1 exit criteria.
+- **Dynamic is opt-in and passive.** Pass `--target <URL>` to probe a live
+  origin (GET/HEAD only). Scope is deny-by-default (`--scope`, or the target's
+  origin). Correlation can raise `security-headers-missing` to `confirmed`, or
+  clear a static gap when the live response already sets the headers. Active
+  (state-changing) checks are not in this release.
 - **Five frameworks with specific advice.** Next.js, Nuxt, NestJS, Express, and
   Fastify each get remediation written for them; anything else is scanned
   generically, which means less context in the finding rather than fewer
-  findings. Adding a sixth is a profile plus a remediation entry per rule —
+  findings. Every catalogue rule has a vulnerable fixture and a silent clean
+  twin on all five (12 × 5 cells, locked in CI). Adding a sixth is a profile
+  plus a remediation entry per rule —
   [docs/how-to/extend.md](docs/how-to/extend.md).
 - **Origin analysis is one hop, not a taint engine.** A value that reaches a
   sink through two locals or a function call is reported at `possible` rather
@@ -219,6 +227,7 @@ pnpm check      # fmt, clippy, typecheck, eslint, all tests
 | [ARCHITECTURE.md](ARCHITECTURE.md) | How it is built, and the constraints. |
 | [REPORTERS.md](REPORTERS.md) | What every output format promises, and the exit codes. |
 | [docs/](docs/) | How-to guides, explanations, and the decision records. |
+| [docs/how-to/dynamic.md](docs/how-to/dynamic.md) | `--target` / `--scope` passive probing. |
 | [SECURITY.md](SECURITY.md) | Threat model and how to report a vulnerability. |
 | [ROADMAP.md](ROADMAP.md) | What is next, and in what order. |
 | [REVIEW.md](REVIEW.md) | The pre-implementation audit, and what it changed. |

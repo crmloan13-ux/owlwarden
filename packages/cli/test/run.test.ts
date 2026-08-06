@@ -1,3 +1,4 @@
+import { createServer, type Server } from "node:http";
 import { mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -9,6 +10,25 @@ import { describe, expect, it } from "vitest";
 
 import { EXIT } from "../src/exit.js";
 import { run } from "../src/run.js";
+
+/** Finding ids every framework fixture must demonstrate (matches SHARED_FIRES). */
+const SHARED_FINDING_IDS = [
+  "ci-unpinned-action",
+  "cors-permissive",
+  "hardcoded-secret",
+  "insecure-cookie",
+  "open-redirect",
+  "security-headers-missing",
+  "sensitive-data-logged",
+  "sql-injection",
+  "ssrf",
+  "stack-trace-leak",
+  "unpinned-dependency",
+  // Three weak-crypto shapes: MD5-password, Math.random session, AES-ECB.
+  "weak-crypto",
+  "weak-crypto",
+  "weak-crypto",
+] as const;
 
 /**
  * End-to-end through the real engine.
@@ -53,13 +73,7 @@ describe("owlwarden scan", () => {
 
     expect(code).toBe(EXIT.FINDINGS);
     const report = reportSchema.parse(JSON.parse(out));
-    expect(report.findings.map((finding) => finding.id).sort()).toEqual([
-      "ci-unpinned-action",
-      "security-headers-missing",
-      "sensitive-data-logged",
-      "stack-trace-leak",
-      "unpinned-dependency",
-    ]);
+    expect(report.findings.map((finding) => finding.id).sort()).toEqual([...SHARED_FINDING_IDS].sort());
   });
 
   it("exits 0 on the false-positive corpus", async () => {
@@ -567,6 +581,180 @@ describe("CI security posture", () => {
     const report = reportSchema.parse(JSON.parse(clean.out));
     expect(report.findings).toEqual([]);
   });
+});
+
+describe.sequential("owlwarden scan --target (live correlation)", () => {
+  async function withServer(
+    handler: (req: import("node:http").IncomingMessage, res: import("node:http").ServerResponse) => void,
+    run: (target: string) => Promise<void>,
+  ): Promise<void> {
+    const server: Server = createServer(handler);
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+    try {
+      const address = server.address();
+      if (address === null || typeof address === "string") {
+        throw new Error("expected a TCP address");
+      }
+      await run(`http://127.0.0.1:${address.port}/`);
+    } finally {
+      await new Promise<void>((resolve, reject) => {
+        server.close((error) => (error ? reject(error) : resolve()));
+      });
+    }
+  }
+
+  /** Node strips the body on HEAD; a Content-Length that promises bytes hangs reqwest. */
+  function respond(res: import("node:http").ServerResponse, headers: Record<string, string>, body = "") {
+    res.writeHead(200, headers);
+    res.end(body);
+  }
+
+  it("raises security-headers-missing to confirmed when the live target agrees", async () => {
+    const hits: string[] = [];
+    await withServer(
+      (req, res) => {
+        hits.push(`${req.method} ${req.url}`);
+        // Never advertise a body length on HEAD — Node omits the body and
+        // reqwest would wait forever for the promised bytes.
+        respond(res, { "Content-Type": "text/plain" }, req.method === "HEAD" ? "" : "ok");
+      },
+      async (target) => {
+        const { code, out, err } = await cli([
+          "scan",
+          fixture("vulnerable/next-api"),
+          "--target",
+          target,
+          "--format",
+          "json",
+          "--quiet",
+        ]);
+
+        expect(code).toBe(EXIT.FINDINGS);
+        const report = reportSchema.parse(JSON.parse(out));
+        expect(hits, `probe never reached ${target}; errors=${JSON.stringify(report.errors)} err=${err}`).not.toEqual(
+          [],
+        );
+        expect(report.target.routesProbed).toBeGreaterThanOrEqual(1);
+        const headers = report.findings.filter(
+          (finding) => finding.id === "security-headers-missing",
+        );
+        expect(headers).toHaveLength(1);
+        const [finding] = headers;
+        if (finding === undefined) {
+          throw new Error("expected a security-headers-missing finding");
+        }
+        expect(finding.confidence).toBe("confirmed");
+        expect(finding.context?.evidence ?? "").toMatch(/confirmed at runtime/);
+        expect(finding.location).toHaveProperty("path");
+      },
+    );
+  }, 30_000);
+
+  it("clears the static headers gap when the live target already sets them", async () => {
+    const present = {
+      "Strict-Transport-Security": "max-age=63072000",
+      "Content-Security-Policy": "default-src 'self'",
+      "X-Content-Type-Options": "nosniff",
+      "X-Frame-Options": "DENY",
+      "Referrer-Policy": "no-referrer",
+    };
+    await withServer(
+      (_req, res) => {
+        respond(res, present);
+      },
+      async (target) => {
+        const { out } = await cli([
+          "scan",
+          fixture("vulnerable/express-api"),
+          "--target",
+          target,
+          "--format",
+          "json",
+          "--quiet",
+        ]);
+
+        const report = reportSchema.parse(JSON.parse(out));
+        expect(report.target.routesProbed).toBeGreaterThanOrEqual(1);
+        expect(report.findings.some((finding) => finding.id === "security-headers-missing")).toBe(
+          false,
+        );
+      },
+    );
+  }, 30_000);
+
+  it("keeps the clean corpus silent when the live target also has headers", async () => {
+    const present = {
+      "Strict-Transport-Security": "max-age=63072000",
+      "Content-Security-Policy": "default-src 'self'",
+      "X-Content-Type-Options": "nosniff",
+      "X-Frame-Options": "DENY",
+      "Referrer-Policy": "no-referrer",
+    };
+    await withServer(
+      (_req, res) => {
+        respond(res, present);
+      },
+      async (target) => {
+        for (const name of [
+          "should-not-fire/next-api-clean",
+          "should-not-fire/nuxt-api-clean",
+          "should-not-fire/nest-api-clean",
+          "should-not-fire/express-api-clean",
+          "should-not-fire/fastify-api-clean",
+        ]) {
+          const { code, out } = await cli([
+            "scan",
+            fixture(name),
+            "--target",
+            target,
+            "--format",
+            "json",
+            "--quiet",
+          ]);
+          const report = reportSchema.parse(JSON.parse(out));
+          expect(
+            report.findings.filter((finding) => finding.id === "security-headers-missing"),
+            `${name} must stay silent on headers with agreeing runtime`,
+          ).toEqual([]);
+          expect(code).toBe(EXIT.CLEAN);
+        }
+      },
+    );
+  }, 60_000);
+
+  it("covers every framework fixture with confirmed correlation", async () => {
+    await withServer(
+      (_req, res) => {
+        respond(res, { "Content-Type": "text/plain" });
+      },
+      async (target) => {
+        for (const name of [
+          "vulnerable/next-api",
+          "vulnerable/nuxt-api",
+          "vulnerable/nest-api",
+          "vulnerable/express-api",
+          "vulnerable/fastify-api",
+        ]) {
+          const { out } = await cli([
+            "scan",
+            fixture(name),
+            "--target",
+            target,
+            "--format",
+            "json",
+            "--quiet",
+          ]);
+          const report = reportSchema.parse(JSON.parse(out));
+          expect(report.target.routesProbed, `${name} probed`).toBeGreaterThanOrEqual(1);
+          const headers = report.findings.filter(
+            (finding) => finding.id === "security-headers-missing",
+          );
+          expect(headers, `${name} should confirm headers`).toHaveLength(1);
+          expect(headers[0]?.confidence).toBe("confirmed");
+        }
+      },
+    );
+  }, 60_000);
 });
 
 describe("owlwarden rules / explain", () => {

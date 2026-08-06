@@ -187,6 +187,16 @@ impl Report {
                 && finding.confidence > Confidence::Possible
         })
     }
+
+    /// Drops findings below `min_confidence` and recomputes the summary.
+    ///
+    /// Applied after correlation (ADR 0014) so a `Possible` static finding can
+    /// still be raised to `Confirmed` by a matching dynamic observation.
+    pub fn apply_min_confidence(&mut self, min_confidence: Confidence) {
+        self.findings
+            .retain(|finding| finding.confidence >= min_confidence);
+        self.summary = ReportSummary::of(&self.findings);
+    }
 }
 
 /// RFC 3339 timestamp for "now", in UTC, truncated to whole seconds.

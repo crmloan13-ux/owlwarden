@@ -108,8 +108,15 @@ its own output has made things worse.
 
 ## Scanning safely
 
-owlwarden v0.0.2 is passive: it reads source and sends no requests. It cannot
-change your application's state because it never contacts it.
+Without `--target`, owlwarden is static-only: it reads source and sends no
+requests. With `--target`, it issues **passive** probes (GET/HEAD/OPTIONS) to
+that URL under a deny-by-default scope allowlist. It still cannot change the
+target's state — active methods stay behind `--allow-active`, and no active
+detector ships yet.
+
+`--target` and `--scope` come from the **command line only**, never from a
+file inside the scanned tree. A hostile pull request therefore cannot point the
+scanner at an internal host via project config.
 
 When pointing the **npm CLI** at a tree you do not trust (for example, CI on an
 external pull request):
@@ -118,14 +125,33 @@ external pull request):
 npx owlwarden scan --ci --fail-on medium --min-confidence likely
 # do NOT add --allow-config-js, --allow-project-config,
 # --allow-suppressions, or --allow-baseline
+# If you pass --target, you chose the host — still never trust config for it.
 ```
 
 The standalone native binary never loads executable JS config at all.
 
-When the dynamic engine lands, active checks will remain behind an explicit
-`--allow-active` flag and a declared scope allowlist, and will be denied by
-default. That is enforced today by the `ScopeResolver` in the core, which
-denies every target unless configured otherwise.
+Active checks will remain behind an explicit `--allow-active` flag and a
+declared scope allowlist. Scope is deny-by-default, including every redirect
+hop ([ADR 0014](docs/adr/0014-passive-dynamic-and-correlation.md)).
+
+### Residual risks (dynamic)
+
+These are accepted for 0.1.0 and documented rather than papered over:
+
+- **DNS rebinding.** Scope matches the hostname (or IP literal) you named, not
+  the resolved address after connect. An operator who allowlists a hostname
+  they do not control can be rebound to another address on a later hop. Prefer
+  IP literals for local probes (`http://127.0.0.1:3000/`), and do not point
+  `--target` at untrusted DNS.
+- **Operator-chosen target.** `--target` can reach anything the runner can
+  route to. That is intentional — and why the URL never comes from project
+  config. Treat the flag like a curl destination.
+
+Hardening that *is* enforced: credentials in URLs refused; `Location` re-parsed
+through the same validator (blocks `user@host` confusion, `javascript:`, and
+oversized values); protocol-relative redirects scope-checked; response header
+values capped; headers-only probes do not buffer a body; request header CRLF
+rejected.
 
 ## Supported versions
 

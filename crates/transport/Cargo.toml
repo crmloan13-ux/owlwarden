@@ -1,0 +1,26 @@
+[package]
+name = "owlwarden-transport"
+description = "Bounded HTTP transport for owlwarden: scope-enforced, streaming-capped reqwest adapter."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+owlwarden-core.workspace = true
+async-trait.workspace = true
+futures-util.workspace = true
+# Justified in ADR 0014: TLS and HTTP/1.1 belong in a public crate, not a
+# hand-rolled client inside a security scanner. default-features off so we do
+# not silently enable cookies, gzip, or native-tls.
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "stream"] }
+thiserror.workspace = true
+url = { version = "2", default-features = false }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["macros", "rt", "rt-multi-thread", "net", "io-util", "time"] }

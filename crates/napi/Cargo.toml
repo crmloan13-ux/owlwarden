@@ -16,19 +16,17 @@ crate-type = ["cdylib"]
 [dependencies]
 owlwarden-core.workspace = true
 owlwarden-detectors.workspace = true
+owlwarden-dynamic.workspace = true
 owlwarden-reporters.workspace = true
 owlwarden-static.workspace = true
 
 serde.workspace = true
 serde_json.workspace = true
 
-napi = { version = "3", default-features = false, features = ["napi4"] }
+# tokio_rt: async `scan` must not block the Node event loop — a sync scan that
+# probes a server hosted in the same process deadlocks (the loop cannot accept).
+napi = { version = "3", default-features = false, features = ["napi4", "tokio_rt"] }
 napi-derive = "3"
-
-# The engine's public entry point is `async`, but static analysis is pure CPU
-# work with nothing to await on. Driving it with a minimal executor keeps a
-# whole async runtime out of the addon that loads into the user's Node process.
-futures-executor = "0.3"
 
 [build-dependencies]
 napi-build = "2"

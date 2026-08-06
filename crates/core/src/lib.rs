@@ -59,7 +59,9 @@ pub use finding::{
 pub use report::{Report, ReportSummary, ScanTarget, ToolInfo};
 pub use reporter::{ReportError, Reporter};
 pub use scheduler::{ScanError, Scheduler};
-pub use scope::{ScopeDecision, ScopeResolver, Target};
+pub use scope::{
+    AllowlistScope, DenyAllScope, ScopeDecision, ScopeEntry, ScopeParseError, ScopeResolver, Target,
+};
 pub use source::{FileSelector, RelPath, SourceError, SourceFile, SourceProvider};
 pub use suppression::{Directive, SuppressionOutcome, SuppressionRecord};
 pub use transport::{BoundedRequest, BoundedResponse, HttpLimits, Transport, TransportError};

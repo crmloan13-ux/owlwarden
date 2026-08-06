@@ -25,8 +25,10 @@ owlwarden reports both.
 | `likely` | The code says so. A static rule's ceiling. |
 | `possible` | Consistent with a problem, but there are innocent explanations. |
 
-A static rule cannot produce `confirmed`, and each rule declares its ceiling in
-its metadata (`maxConfidence`) so that the limit is documented rather than
+A static rule cannot produce `confirmed` on its own. Correlation with a live
+probe can — today for `security-headers-missing` when you pass `--target`
+([ADR 0014](../adr/0014-passive-dynamic-and-correlation.md)). Each rule declares
+its solo ceiling in `maxConfidence` so the limit is documented rather than
 implied.
 
 ## What this looks like in practice
@@ -34,15 +36,17 @@ implied.
 **`stack-trace-leak`** fires on `return NextResponse.json({ error: err.stack })`.
 The stack is in the response body; there is no reading of that code where it is
 not. It reports `likely` — not `confirmed`, because a middleware could in
-principle rewrite the body before it leaves, and until the dynamic engine has
-seen the response we have not actually watched it happen.
+principle rewrite the body before it leaves, and no live body probe for this
+rule ships yet — we have not actually watched the response leave.
 
 **`security-headers-missing`** fires when it finds no header configuration. But
 the headers may be set by a CDN, an ingress controller, or a reverse proxy —
 none of which are in your repository. So when the rule finds no configuration at
 all, it reports `possible`. When it finds a `next.config.js` that sets three of
 the five headers, it reports `likely`: someone decided to manage headers in the
-application, and two are missing from that decision.
+application, and two are missing from that decision. Pass `--target` and the
+live response settles it: matching gaps become `confirmed`; headers that are
+actually present clear the static finding.
 
 **`sql-injection`, `ssrf`, and `open-redirect`** all ask the same question — did
 this value come from the caller? — and all answer it with the same shared

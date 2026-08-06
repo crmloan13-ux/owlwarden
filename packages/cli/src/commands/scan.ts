@@ -105,18 +105,20 @@ export async function runScan(
   }
 
   const envelope = JSON.parse(
-    native.scan(
+    await native.scan(
       JSON.stringify({
         projectRoot: options.path,
         preset,
-        // The engine filters by confidence at the source, so a report never
-        // carries findings the user asked not to see.
+        // The engine filters by confidence after correlation, so a Possible
+        // static finding can still be raised to Confirmed by a live probe.
         minConfidence,
         honorSuppressions,
         ...(baselineJson !== undefined ? { baselineJson } : {}),
         ...(options.writeBaseline !== undefined
           ? { writeBaseline: options.writeBaseline }
           : {}),
+        ...(options.target !== undefined ? { target: options.target } : {}),
+        ...(options.scope.length > 0 ? { scope: options.scope } : {}),
       }),
     ),
   ) as Envelope;

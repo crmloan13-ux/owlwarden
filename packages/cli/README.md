@@ -7,9 +7,10 @@ passive by default.
 npx owlwarden scan
 ```
 
-**Status: v0.0.2.** Twelve rules across nine of the OWASP Top 10, static
-analysis only, with first-class support for **Next.js, Nuxt, NestJS, Express,
-and Fastify** — plus suppressions, baseline mode, and `watch`.
+**Status: v0.1.0.** Twelve rules across nine of the OWASP Top 10, with
+first-class support for **Next.js, Nuxt, NestJS, Express, and Fastify** — plus
+suppressions, baseline, `watch`, and optional `--target` for passive dynamic
+probing.
 
 ## What a finding looks like
 
@@ -66,10 +67,11 @@ downloads anything.
 ## Usage
 
 ```bash
-owlwarden scan                          # zero config
+owlwarden scan                          # zero config (static)
 owlwarden scan --preset owasp-top10     # a named rule bundle
 owlwarden scan --ci                     # JSON on stdout, exit codes for CI
 owlwarden scan --baseline .owlwarden-baseline.json
+owlwarden scan --target http://127.0.0.1:3000/   # passive probe + correlation
 owlwarden watch                         # re-scan on change (static only)
 owlwarden coverage                      # what the rules reach, and what they do not
 owlwarden explain sql-injection         # the full write-up, offline
@@ -93,9 +95,10 @@ are different answers, and conflating them is worse than not scanning.
 
 ## Safety
 
-Passive by default. v0.0.2 reads your source and sends no requests, so it cannot
-change the state of anything. There is no telemetry of any kind — not off by
-default, absent. Nothing about your code leaves the machine.
+Passive by default. Without `--target` it reads your source and sends no
+requests. With `--target` it probes only that origin (GET/HEAD) under a
+deny-by-default scope. There is no telemetry of any kind — not off by default,
+absent.
 
 ## Documentation
 
@@ -104,6 +107,7 @@ Full docs, the rule catalogue, and the design record live in the repository:
 
 - [Rule catalogue](https://github.com/suthat/owlwarden/blob/main/RULES.md)
 - [Using it in CI](https://github.com/suthat/owlwarden/blob/main/docs/how-to/ci.md)
+- [Probe a running app](https://github.com/suthat/owlwarden/blob/main/docs/how-to/dynamic.md)
 - [Suppressions and baselines](https://github.com/suthat/owlwarden/blob/main/docs/how-to/suppressions.md)
 - [Reading the coverage report](https://github.com/suthat/owlwarden/blob/main/docs/explanation/coverage.md)
 - [Confidence and false positives](https://github.com/suthat/owlwarden/blob/main/docs/explanation/false-positives.md)

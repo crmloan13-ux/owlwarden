@@ -64,6 +64,16 @@ exceeds the entry limit. Fix the file or regenerate it with
 owlwarden could not write the path given to `--write-baseline` (missing
 directory, permissions, or a full disk).
 
+## E_TARGET_INVALID
+
+`--target` or `--scope` could not be used: the URL is not absolute http(s),
+contains credentials, is outside the allowlist, or `--scope` was passed without
+`--target`.
+
+Target and scope are operator intent. They come from the command line only —
+never from a file inside the scanned tree — so a hostile pull request cannot
+point the scanner at an internal host.
+
 ## E_ENCODE
 
 The report could not be serialised to JSON.

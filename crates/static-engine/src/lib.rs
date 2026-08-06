@@ -65,7 +65,7 @@ pub use line_index::LineIndex;
 pub use parse::{ParseFailure, with_parsed};
 pub use project::{PackageManifest, Project};
 pub use rule::{FileRule, FindingSink, ProjectRule, RuleInfo};
-pub use runner::{RunError, ScanRequest, scan_project, scan_project_with};
+pub use runner::{NetworkStack, RunError, ScanRequest, scan_project, scan_project_with};
 pub use safe_io::{read_bounded, write_replacing};
 pub use taint::RequestOrigin;
 pub use unit::{FileUnit, UnitMeta};

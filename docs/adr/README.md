@@ -22,6 +22,7 @@ an archaeology exercise.
 | [0011](0011-framework-profiles.md) | Framework knowledge lives in profiles, not in rules | Accepted |
 | [0012](0012-request-origin-not-taint.md) | One-hop request origin, not a taint engine | Accepted |
 | [0013](0013-suppressions-and-baseline.md) | Inline suppressions and baseline fingerprints | Accepted |
+| [0014](0014-passive-dynamic-and-correlation.md) | Passive dynamic engine and correlation | Accepted |
 
 ## Writing one
 

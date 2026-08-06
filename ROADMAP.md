@@ -59,19 +59,32 @@ Delivered:
 false-positive corpus stays silent at twelve rules; every new rule covers all
 five frameworks.
 
-## v0.1 — Trust and the dynamic engine
+## v0.1 — Trust and the dynamic engine — **shipped**
 
 **Goal:** a tool you can point at a real codebase without drowning in output,
 including runtime confirmation.
 
-- Dynamic engine: bounded `Transport`, scoped, passive — and correlation with
-  the static engine, which is what makes `Confirmed` reachable.
-- Depth in the categories already covered (injection family, headers, secrets).
-- A documentation site with a page per rule.
+Delivered:
 
-**Exit criteria:** correlated findings report as `Confirmed`; the
-false-positive corpus stays silent as the rule count grows. (Suppressions,
-baseline, `watch`, and the A06/A08/A09 rules shipped in 0.0.2.)
+- Dynamic engine: bounded `Transport`, scoped, passive — and correlation with
+  the static engine, which is what makes `Confirmed` reachable
+  ([ADR 0014](docs/adr/0014-passive-dynamic-and-correlation.md)).
+- First correlated rule: `security-headers-missing` (the case static analysis
+  cannot settle alone, because CDN/ingress headers are invisible to it).
+- Square static matrix: every catalogue rule × every supported framework
+  (vulnerable fires, clean twin silent), including three `weak-crypto` shapes
+  on each framework.
+- CLI live e2e through the npm package (`--target`) on all five frameworks;
+  napi `scan` runs off the event loop so probes do not deadlock Node.
+- Rule catalogue remains generated `RULES.md` plus offline `explain` — a hosted
+  docs site is not this release; inventing one without content infrastructure
+  would be ceremony.
+
+**Exit criteria, met:** correlated findings report as `Confirmed`; the
+false-positive corpus stays silent; the 12 × 5 static cells and CLI live
+correlation tests are green. (Suppressions, baseline, `watch`, and the
+A06/A08/A09 rules shipped in 0.0.2.) Active checks, deeper dynamic rules, and
+a hosted docs site remain later work — stated here so 0.1.0 does not overclaim.
 
 ## v0.2 — Plugins and the agent surface
 

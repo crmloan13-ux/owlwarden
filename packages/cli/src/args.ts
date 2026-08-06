@@ -71,6 +71,13 @@ export interface ScanOptions {
    * the pipeline always loads is otherwise a mute switch for new findings.
    */
   allowBaseline: boolean;
+  /**
+   * Live target URL for passive dynamic probing. Operator intent only —
+   * never taken from project config (ADR 0014).
+   */
+  target?: string;
+  /** Extra scope allowlist entries. Empty means the target's origin. */
+  scope: string[];
   color: boolean;
   unicode: boolean;
   quiet: boolean;
@@ -98,6 +105,8 @@ const OPTIONS = {
   "allow-project-config": { type: "boolean", default: false },
   "allow-suppressions": { type: "boolean", default: false },
   "allow-baseline": { type: "boolean", default: false },
+  target: { type: "string" },
+  scope: { type: "string", multiple: true },
   ci: { type: "boolean", default: false },
   "no-color": { type: "boolean", default: false },
   ascii: { type: "boolean", default: false },
@@ -184,6 +193,11 @@ function scanOptions(values: Values, positionals: string[]): ScanOptions {
     ["pretty", "json"] as const,
   );
 
+  const scope = values.scope ?? [];
+  if (scope.length > 64) {
+    throw new ArgError("--scope accepts at most 64 entries");
+  }
+
   const options: ScanOptions = {
     path: positionals[0] ?? ".",
     color: !values["no-color"] && !ci && useColorByDefault(),
@@ -196,6 +210,7 @@ function scanOptions(values: Values, positionals: string[]): ScanOptions {
     allowProjectConfig: values["allow-project-config"],
     allowSuppressions: values["allow-suppressions"],
     allowBaseline: values["allow-baseline"],
+    scope,
   };
 
   // Assigned conditionally because `exactOptionalPropertyTypes` distinguishes
@@ -206,6 +221,10 @@ function scanOptions(values: Values, positionals: string[]): ScanOptions {
   if (values.out !== undefined) options.out = values.out;
   if (values.baseline !== undefined) options.baseline = values.baseline;
   if (values["write-baseline"] !== undefined) options.writeBaseline = values["write-baseline"];
+  if (values.target !== undefined) options.target = values.target;
+  if (options.target === undefined && options.scope.length > 0) {
+    throw new ArgError("--scope requires --target");
+  }
   if (values["fail-on"] !== undefined) {
     options.failOn = parseWith(severitySchema, "--fail-on", values["fail-on"], [
       "high",

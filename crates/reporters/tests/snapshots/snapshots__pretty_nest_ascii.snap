@@ -3,20 +3,160 @@ source: crates/reporters/tests/snapshots.rs
 expression: rendered
 ---
 
-(o.o) 3 files · owasp-top10 · 0.12s
-5 findings (1 high, 4 medium)
+(o.o) 5 files · owasp-top10 · 0.12s
+14 findings (8 high, 6 medium)
+
+------------------------------------------------------------------------
+HIGH  likely  Credential hardcoded in source  A07:2021
+------------------------------------------------------------------------
+ src/billing.ts:2:20
+
+  1 | // FIXTURE: hardcoded-secret — Stripe live key prefix.
+  2 | const STRIPE_KEY = 'sk_l***'
+    |                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ credential written into source
+  3 | 
+  4 | export async function charge(amountCents: number) {
+
+ -> fix (NestJS)   Read it through ConfigService and validate at
+                   startup.
+                   constructor(private readonly config: ConfigService) {}
+                   
+                   const apiKey = this.config.getOrThrow<string>('API_KEY')
+ -> why            This literal carries the prefix of a Stripe live
+                   secret key, so it is a real credential rather than a
+                   placeholder. It is in the repository's history and in
+                   every clone; deleting the line does not revoke it.
+ i  ref            OWASP A07:2021 | CWE-798 | RULES.md#hardcoded-secret
+
+------------------------------------------------------------------------
+HIGH  likely  Broken cryptographic primitive protecting a secret  A02:2021
+------------------------------------------------------------------------
+ src/crypto.ts:5:24
+
+  3 | 
+  4 | export function hashPassword(password: string): string {
+  5 |   const passwordHash = createHash('md5').update(password).digest('hex')
+    |                        ~~~~~~~~~~~~~~~~~ fast hash protecting a credential
+  6 |   return passwordHash
+  7 | }
+
+ -> fix (NestJS)   Put the hashing behind a provider so every caller
+                   gets the same algorithm, rather than each service
+                   choosing one.
+                   @Injectable()
+                   export class PasswordService {
+                     async hash(plain: string) {
+                       return await argon2.hash(plain)
+                     }
+                     async verify(hash: string, plain: string) {
+                       return await argon2.verify(hash, plain)
+                     }
+                   }
+ -> why            This hash is fast, and speed is the attacker's
+                   advantage: a commodity GPU tries billions of
+                   candidates a second, so a leaked table of these
+                   hashes is a leaked table of the values behind them.
+                   Password hashing needs a deliberately slow algorithm
+                   with a per-value salt.
+ i  ref            OWASP A02:2021 | CWE-327 | RULES.md#weak-crypto
+
+------------------------------------------------------------------------
+HIGH  likely  Broken cryptographic primitive protecting a secret  A02:2021
+------------------------------------------------------------------------
+ src/crypto.ts:10:24
+
+   8 | 
+   9 | export function mintSessionToken(): string {
+  10 |   const sessionToken = Math.random().toString(36).slice(2)
+     |                        ~~~~~~~~~~~~~ predictable random source used for a secret
+  11 |   return sessionToken
+  12 | }
+
+ -> fix (NestJS)   Put the hashing behind a provider so every caller
+                   gets the same algorithm, rather than each service
+                   choosing one.
+                   @Injectable()
+                   export class PasswordService {
+                     async hash(plain: string) {
+                       return await argon2.hash(plain)
+                     }
+                     async verify(hash: string, plain: string) {
+                       return await argon2.verify(hash, plain)
+                     }
+                   }
+ -> why            Math.random() is a fast PRNG, not a cryptographic
+                   one; V8 documents it as unsuitable for security. An
+                   attacker who sees a few outputs can predict the rest,
+                   which for a session id or a reset token means minting
+                   valid ones.
+ i  ref            OWASP A02:2021 | CWE-327 | RULES.md#weak-crypto
+
+------------------------------------------------------------------------
+HIGH  likely  Broken cryptographic primitive protecting a secret  A02:2021
+------------------------------------------------------------------------
+ src/crypto.ts:15:18
+
+  13 | 
+  14 | export function sealCard(pan: string, key: Buffer): Buffer {
+  15 |   const cipher = createCipheriv('aes-256-ecb', key, null)
+     |                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ broken cipher
+  16 |   return Buffer.concat([cipher.update(pan, 'utf8'), cipher.final()])
+  17 | }
+
+ -> fix (NestJS)   Put the hashing behind a provider so every caller
+                   gets the same algorithm, rather than each service
+                   choosing one.
+                   @Injectable()
+                   export class PasswordService {
+                     async hash(plain: string) {
+                       return await argon2.hash(plain)
+                     }
+                     async verify(hash: string, plain: string) {
+                       return await argon2.verify(hash, plain)
+                     }
+                   }
+ -> why            This cipher or mode is broken independently of the
+                   key. DES has a keyspace small enough to search, RC4
+                   has biased output, and ECB encrypts identical
+                   plaintext blocks to identical ciphertext blocks — the
+                   structure of the data survives encryption.
+ i  ref            OWASP A02:2021 | CWE-327 | RULES.md#weak-crypto
+
+------------------------------------------------------------------------
+HIGH  likely  Cross-origin policy accepts any origin  A05:2021
+------------------------------------------------------------------------
+ src/main.ts:10:3
+
+   8 | async function bootstrap() {
+   9 |   const app = await NestFactory.create(AppModule)
+  10 |   app.enableCors({ origin: true, credentials: true })
+     |   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ accepts requests from any origin
+  11 |   await app.listen(3000)
+  12 | }
+
+ -> fix (NestJS)   Give enableCors an explicit origin list.
+                   app.enableCors({
+                     origin: ['https://app.example.com'],
+                     credentials: true,
+                   })
+ -> why            The response echoes the caller's origin and permits
+                   credentials, so any site a logged-in user visits can
+                   make authenticated requests to this API and read the
+                   replies. The browser's same-origin protection is
+                   switched off for every origin.
+ i  ref            OWASP A05:2021 | CWE-942 | RULES.md#cors-permissive
 
 ------------------------------------------------------------------------
 HIGH  likely  Stack trace leaked in error response  A05:2021
 ------------------------------------------------------------------------
- src/users/users.controller.ts:17:16
+ src/users/users.controller.ts:34:16
 
-  15 |       throw new InternalServerErrorException({
-  16 |         message: 'could not load users',
-  17 |         stack: err.stack,
+  32 |       throw new InternalServerErrorException({
+  33 |         message: 'could not load users',
+  34 |         stack: err.stack,
      |                ~~~~~~~~~ leaks internal stack trace to the client
-  18 |       })
-  19 |     }
+  35 |       })
+  36 |     }
 
  -> fix (NestJS)   Throw the exception without a custom body; let the
                    built-in filter shape the response.
@@ -26,6 +166,54 @@ HIGH  likely  Stack trace leaked in error response  A05:2021
                    versions, and internal call structure — enough to
                    fingerprint the stack and locate other weaknesses.
  i  ref            OWASP A05:2021 | CWE-209 | RULES.md#stack-trace-leak
+
+------------------------------------------------------------------------
+HIGH  likely  SQL query built by string interpolation  A03:2021
+------------------------------------------------------------------------
+ src/users/users.controller.ts:49:7
+
+  47 |     // sql-injection
+  48 |     const rows = await this.pool.query(
+  49 |       `SELECT id, role FROM users WHERE email = '${body.email}'`,
+     |       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ query text is built at runtime
+  50 |     )
+
+ -> fix (NestJS)   Use the repository API, or bind parameters on the
+                   query builder.
+                   await this.repo
+                     .createQueryBuilder('user')
+                     .where('user.id = :id', { id })
+                     .getOne()
+ -> why            A value taken from the request is interpolated into
+                   SQL, so the caller controls part of the statement.
+                   That is enough to read other users' rows, bypass a
+                   WHERE clause, or drop a table.
+ i  ref            OWASP A03:2021 | CWE-89 | RULES.md#sql-injection
+
+------------------------------------------------------------------------
+HIGH  likely  Server fetches a URL the caller controls  A10:2021
+------------------------------------------------------------------------
+ src/users/users.controller.ts:67:28
+
+  65 |   async importRemote(@Body() body: { sourceUrl?: string }) {
+  66 |     // ssrf
+  67 |     const upstream = await fetch(body.sourceUrl as string)
+     |                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ destination chosen by the caller
+  68 |     return upstream.json()
+  69 |   }
+
+ -> fix (NestJS)   Validate in the service, not the controller, so every
+                   caller of it is covered.
+                   const target = assertAllowedUrl(dto.url)
+                   return firstValueFrom(this.http.get(target.toString(), { maxRedirects: 0 }))
+ -> why            The destination of this request comes from the
+                   caller, so they choose which host the server connects
+                   to. That includes hosts they cannot reach themselves:
+                   the cloud metadata endpoint that hands out IAM
+                   credentials, internal services that skip
+                   authentication because they are 'not exposed', and
+                   anything bound to localhost.
+ i  ref            OWASP A10:2021 | CWE-918 | RULES.md#ssrf
 
 ------------------------------------------------------------------------
 MEDIUM  likely  GitHub Action is not pinned to a commit SHA  A08:2021
@@ -64,14 +252,14 @@ MEDIUM  likely  Dependency version is unpinned  A06:2021
 ------------------------------------------------------------------------
 MEDIUM  likely  Sensitive data written to a log  A09:2021
 ------------------------------------------------------------------------
- src/users/users.controller.ts:25:23
+ src/users/users.controller.ts:45:23
 
-  23 |   login(@Body() body: { password: string }) {
-  24 |     // sensitive-data-logged
-  25 |     this.logger.log({ password: body.password })
+  43 |   ) {
+  44 |     // sensitive-data-logged
+  45 |     this.logger.log({ password: body.password })
      |                       ~~~~~~~~~~~~~~~~~~~~~~~ sensitive value written to a log
-  26 |     return { ok: true }
-  27 |   }
+  46 | 
+  47 |     // sql-injection
 
  -> fix (NestJS)   Use the Nest logger with a redacted payload.
                    this.logger.log({ event: 'login_attempt', userId })
@@ -84,16 +272,42 @@ MEDIUM  likely  Sensitive data written to a log  A09:2021
                    RULES.md#sensitive-data-logged
 
 ------------------------------------------------------------------------
+MEDIUM  likely  Redirect target comes from the caller  A01:2021
+------------------------------------------------------------------------
+ src/users/users.controller.ts:61:5
+
+  59 |   go(@Query() query: { next?: string }, @Res() res: Response) {
+  60 |     // open-redirect — `query` is a universal request-source name.
+  61 |     res.redirect(query.next as string)
+     |     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ destination chosen by the caller
+  62 |   }
+
+ -> fix (NestJS)   Validate in the controller, or put the check in a
+                   pipe so every redirect gets it.
+                   @Get('login')
+                   @Redirect()
+                   login(@Query('next') next: string) {
+                     return { url: safeRedirect(next, this.config.publicUrl) }
+                   }
+ -> why            The whole redirect target comes from the request, so
+                   a link to this endpoint can send a visitor anywhere.
+                   The URL they click genuinely belongs to you, which is
+                   what makes the page they land on convincing — and on
+                   an OAuth callback the authorisation code goes with
+                   them.
+ i  ref            OWASP A01:2021 | CWE-601 | RULES.md#open-redirect
+
+------------------------------------------------------------------------
 MEDIUM  possible  Security headers are not configured  A05:2021
 ------------------------------------------------------------------------
- src/main.ts:8:21
+ src/main.ts:9:21
 
-   6 | 
-   7 | async function bootstrap() {
-   8 |   const app = await NestFactory.create(AppModule)
+   7 | 
+   8 | async function bootstrap() {
+   9 |   const app = await NestFactory.create(AppModule)
      |                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ no security headers configured here
-   9 |   await app.listen(3000)
-  10 | }
+  10 |   app.enableCors({ origin: true, credentials: true })
+  11 |   await app.listen(3000)
 
  -> fix (NestJS)   Register helmet in the bootstrap; it sets all of
                    these.
@@ -112,4 +326,30 @@ MEDIUM  possible  Security headers are not configured  A05:2021
  i  ref            OWASP A05:2021 | CWE-693 |
                    RULES.md#security-headers-missing
 
-Run `owlwarden explain stack-trace-leak` for the full write-up.
+------------------------------------------------------------------------
+MEDIUM  possible  Cookie set without its protective attributes  A05:2021
+------------------------------------------------------------------------
+ src/users/users.controller.ts:53:5
+
+  51 | 
+  52 |     // insecure-cookie
+  53 |     res.cookie('session', rows[0]?.id ?? 'anon')
+     |     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ cookie written without httpOnly/secure/sameSite
+  54 | 
+  55 |     return { ok: true }
+
+ -> fix (NestJS)   Pass the attributes through the injected response.
+                   res.cookie('session', token, {
+                     httpOnly: true,
+                     secure: process.env.NODE_ENV === 'production',
+                     sameSite: 'lax',
+                   })
+ -> why            This cookie is missing protections: httpOnly keeps
+                   the cookie out of reach of JavaScript, so a
+                   cross-site scripting bug cannot read the session;
+                   secure stops the cookie being sent over plain HTTP;
+                   sameSite stops the browser attaching the cookie to
+                   cross-site requests.
+ i  ref            OWASP A05:2021 | CWE-614 | RULES.md#insecure-cookie
+
+Run `owlwarden explain hardcoded-secret` for the full write-up.

@@ -12,6 +12,62 @@ are listed here under Changed.
 
 Nothing yet.
 
+## [0.1.0]
+
+Passive dynamic engine and correlation. `Confirmed` is reachable for the first
+time, without opening active (state-changing) checks.
+
+### Added
+
+- **`--target <URL>`** — probe a live origin with passive methods only
+  (GET/HEAD/OPTIONS). Operator intent from the command line; never read from
+  project config, so a hostile PR cannot point CI at an internal host
+  ([ADR 0014](docs/adr/0014-passive-dynamic-and-correlation.md)).
+- **`--scope <URL>`** (repeatable) — deny-by-default allowlist. When omitted,
+  the allowlist is exactly the origin of `--target`. Localhost is not special.
+- **`owlwarden-transport`** — `ReqwestTransport` that enforces scope on every
+  redirect hop, streams body bytes under the cap, and refuses state-changing
+  methods without `--allow-active` (no active detectors ship yet).
+- **`owlwarden-dynamic`** — passive header probe for `security-headers-missing`
+  and a correlation post-pass that raises agreeing static+dynamic findings to
+  `confirmed`, or clears a static gap when the live response already sets the
+  headers.
+- Error code **`E_TARGET_INVALID`** for bad target/scope.
+- **Square static fixture matrix** — every catalogue rule has a vulnerable
+  fixture and a silent clean twin on all five frameworks (12 × 5 = 60 cells).
+  `weak-crypto` fires three shapes on every framework. Locked by
+  `SHARED_FIRES` in `crates/detectors/tests/fixtures.rs`.
+- **Framework dynamic matrix** — `crates/dynamic-engine/tests/framework_matrix.rs`
+  correlates `security-headers-missing` against each framework's fixture plus a
+  live header probe (confirmed / cleared / clean stays silent).
+- **CLI live e2e** — `packages/cli/test/run.test.ts` drives `--target` through
+  the npm CLI against an in-process server on all five frameworks.
+
+### Changed
+
+- Confidence filtering runs **after** correlation, so a `possible` static
+  finding can still become `confirmed`.
+- `watch` refuses `--target` / `--scope` (static-only; re-probing on save is
+  hostile to the developer's own server).
+- Help text no longer claims every scan is offline — only scans without
+  `--target`.
+- **napi `scan` is async** (`spawn_blocking`) so a live probe cannot deadlock
+  the Node event loop while an in-process test (or user) server is accepting
+  connections. The TypeScript CLI awaits the Promise.
+
+### Security
+
+- Scope deny-by-default, including redirect hops (SSRF-bait case).
+- Credentials in `--target` / `--scope` URLs are refused.
+- Automatic response decompression is off; body caps apply while streaming.
+- No path from scanned-tree config to the request URL.
+- Redirect `Location` re-validated as a target (blocks `user@host` confusion,
+  non-http(s) schemes, control characters, oversized URLs).
+- Headers-only probes (`max_body_bytes = 0`) do not pull a response body into
+  memory — a hostile HEAD payload cannot inflate the scanner.
+- Oversized response header values are dropped, not truncated; outbound request
+  headers reject CRLF/NUL (request-smuggling footgun for future detectors).
+
 ## [0.0.2]
 
 Static slice of the trust-and-noise work planned for v0.1: suppressions,
@@ -97,6 +153,7 @@ does and does not reach.
 - Bounded file count, file size, total bytes, and parser recursion depth, so a
   hostile repository cannot exhaust memory or the stack.
 
-[Unreleased]: https://github.com/suthat/owlwarden/compare/v0.0.2...HEAD
+[Unreleased]: https://github.com/suthat/owlwarden/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/suthat/owlwarden/compare/v0.0.2...v0.1.0
 [0.0.2]: https://github.com/suthat/owlwarden/compare/v0.0.1...v0.0.2
 [0.0.1]: https://github.com/suthat/owlwarden/releases/tag/v0.0.1

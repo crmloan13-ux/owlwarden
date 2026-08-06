@@ -42,5 +42,6 @@ works in an editor and in an agent's edit loop, and correlation needs it anyway.
 - The core cannot depend on either engine — both are adapters behind ports. That
   constraint is what makes the static-only v0.0 possible without designing
   ourselves into a corner.
-- More surface than a single-engine tool, and correlation is real work that is
-  not yet done. v0.0 ships the static half and says so.
+- More surface than a single-engine tool. Correlation for the first rule
+  (`security-headers-missing`) shipped in 0.1.0; see ADR 0014. Active checks
+  and broader dynamic coverage remain later.

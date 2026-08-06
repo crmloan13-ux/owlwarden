@@ -1,8 +1,12 @@
-//! One function that performs a passive scan of a project directory.
+//! One function that performs a scan of a project directory.
 //!
 //! The CLI, the napi bridge, and the fixture tests all call this. That is the
 //! point: if the tests took a different path from the CLI, they would be
 //! testing something the user never runs.
+//!
+//! A run without [`ScanRequest::network`] stays passive by construction: no
+//! transport is built, the scope resolver denies everything, and the request
+//! budget is zero. Dynamic probing is wired by the caller (see ADR 0014).
 
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -11,10 +15,12 @@ use owlwarden_core::baseline::BaselineFile;
 use owlwarden_core::budget::Budget;
 use owlwarden_core::context::{ScanContext, ScanSettings};
 use owlwarden_core::detector::Detector;
+use owlwarden_core::finding::Finding;
 use owlwarden_core::report::{Report, ScanTarget};
 use owlwarden_core::scheduler::{ScanError, Scheduler};
-use owlwarden_core::scope::DenyAllScope;
+use owlwarden_core::scope::{DenyAllScope, ScopeResolver};
 use owlwarden_core::source::SourceError;
+use owlwarden_core::transport::Transport;
 
 use crate::engine::StaticEngine;
 use crate::fs_source::FsSourceProvider;
@@ -40,11 +46,25 @@ pub enum RunError {
     },
 }
 
+/// Network stack for a live (passive-dynamic) scan.
+///
+/// Built by the CLI/napi layer from `--target` / `--scope`. The static engine
+/// does not construct a transport itself — that keeps reqwest out of this crate.
+pub struct NetworkStack {
+    /// Scope-enforcing transport.
+    pub transport: Arc<dyn Transport>,
+    /// Allowlist consulted by the transport (and exposed for defence in depth).
+    pub scope: Arc<dyn ScopeResolver>,
+    /// Shared request/time budget.
+    pub budget: Arc<Budget>,
+    /// Wire forms for `Report.target.scope`.
+    pub scope_labels: Vec<String>,
+}
+
 /// Optional inputs that sit beside the rule set.
 ///
 /// Kept separate from [`ScanSettings`] on purpose: settings travel into every
 /// detector, while baseline is a post-pass the detectors must not see.
-#[derive(Debug, Clone)]
 pub struct ScanRequest {
     /// Thresholds and preset name.
     pub settings: ScanSettings,
@@ -58,6 +78,12 @@ pub struct ScanRequest {
     /// When false, inline suppressions are listed but do not hide findings.
     /// CI on an untrusted tree sets this false unless the operator opted in.
     pub honor_suppressions: bool,
+    /// Extra detectors to run alongside the static engine (e.g. dynamic).
+    pub extra_detectors: Vec<Arc<dyn Detector>>,
+    /// When set, detectors may use the network under this stack.
+    pub network: Option<NetworkStack>,
+    /// Optional correlation post-pass (static + dynamic → `Confirmed`).
+    pub correlate: Option<fn(Vec<Finding>) -> Vec<Finding>>,
 }
 
 impl Default for ScanRequest {
@@ -67,6 +93,9 @@ impl Default for ScanRequest {
             baseline: None,
             write_baseline: None,
             honor_suppressions: true,
+            extra_detectors: Vec::new(),
+            network: None,
+            correlate: None,
         }
     }
 }
@@ -94,12 +123,15 @@ pub async fn scan_project(
             baseline: None,
             write_baseline: None,
             honor_suppressions: true,
+            extra_detectors: Vec::new(),
+            network: None,
+            correlate: None,
         },
     )
     .await
 }
 
-/// Scans a project with an optional baseline.
+/// Scans a project with optional baseline, network, and correlation.
 ///
 /// # Errors
 /// [`RunError`] if the directory cannot be read or no rules are enabled.
@@ -113,19 +145,39 @@ pub async fn scan_project_with(
     let provider = FsSourceProvider::new(root)?;
     let engine = Arc::new(StaticEngine::new(file_rules, project_rules));
 
-    let scope = DenyAllScope;
-    let budget = Budget::passive();
-    let context = ScanContext::new(&provider, None, &scope, &request.settings, &budget);
+    let deny_all = DenyAllScope;
+    let passive_budget = Budget::passive();
+
+    let (transport, scope, budget, scope_labels) = match &request.network {
+        Some(network) => (
+            Some(network.transport.as_ref()),
+            network.scope.as_ref() as &dyn ScopeResolver,
+            network.budget.as_ref(),
+            network.scope_labels.clone(),
+        ),
+        None => (
+            None,
+            &deny_all as &dyn ScopeResolver,
+            &passive_budget,
+            Vec::new(),
+        ),
+    };
+
+    let context = ScanContext::new(&provider, transport, scope, &request.settings, budget);
 
     let target = ScanTarget {
         project: root.display().to_string(),
-        scope: Vec::new(),
+        scope: scope_labels,
         files_scanned: 0,
         routes_probed: 0,
         preset: request.settings.preset.clone(),
     };
 
-    let detectors: Vec<Arc<dyn Detector>> = vec![engine.clone()];
+    let mut detectors: Vec<Arc<dyn Detector>> =
+        Vec::with_capacity(1 + request.extra_detectors.len());
+    detectors.push(engine.clone());
+    detectors.extend(request.extra_detectors.iter().cloned());
+
     let mut report = Scheduler::new(detectors).run(&context, target).await?;
 
     // Fill in what only the engine knows, and surface anything it could not
@@ -144,6 +196,14 @@ pub async fn scan_project_with(
             message: format!("skipped {skipped}"),
         });
     }
+
+    if let Some(correlate) = request.correlate {
+        report.findings = correlate(std::mem::take(&mut report.findings));
+        report.summary = owlwarden_core::report::ReportSummary::of(&report.findings);
+    }
+
+    // After correlation so a Possible static finding can still become Confirmed.
+    report.apply_min_confidence(request.settings.min_confidence);
 
     // Suppression re-reads files; do not double-charge the byte budget.
     provider.reset_bytes_read();

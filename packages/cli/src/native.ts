@@ -11,8 +11,12 @@ import { createRequire } from "node:module";
  * frames deep.
  */
 export interface NativeEngine {
-  /** Runs a passive scan. Takes a JSON `ScanRequest`, returns a JSON envelope. */
-  scan(requestJson: string): string;
+  /**
+   * Runs a passive scan. Takes a JSON `ScanRequest`, returns a JSON envelope.
+   * Async so a live `--target` probe does not deadlock the Node event loop.
+   */
+  scan(requestJson: string): Promise<string>;
+
   /** Renders a report to text. Takes JSON report + JSON render options. */
   render(reportJson: string, optionsJson: string): string;
   /** The whole rule catalogue, as JSON. */

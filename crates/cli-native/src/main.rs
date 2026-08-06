@@ -132,17 +132,40 @@ fn run_scan(args: &ScanArgs) -> i32 {
         Err(message) => return fail(&message),
     };
 
-    let report = match futures_executor::block_on(owlwarden_static::scan_project_with(
+    let mut scan_request = owlwarden_static::ScanRequest {
+        settings,
+        baseline,
+        write_baseline: args.write_baseline.as_ref().map(std::path::PathBuf::from),
+        honor_suppressions,
+        extra_detectors: Vec::new(),
+        network: None,
+        correlate: None,
+    };
+
+    let dynamic_engine = if let Some(target) = args.target.as_deref() {
+        match owlwarden_dynamic::prepare_live(target, &args.scope, false) {
+            Ok(live) => {
+                let engine = live.engine.clone();
+                scan_request.network = Some(live.network);
+                scan_request.extra_detectors.push(live.engine);
+                scan_request.correlate = Some(owlwarden_dynamic::correlate);
+                Some(engine)
+            }
+            Err(error) => return fail(&error.to_string()),
+        }
+    } else if !args.scope.is_empty() {
+        return fail("--scope requires --target");
+    } else {
+        None
+    };
+
+    let report = match owlwarden_dynamic::run_scan(
         &args.path,
         file_rules,
         project_rules,
-        owlwarden_static::ScanRequest {
-            settings,
-            baseline,
-            write_baseline: args.write_baseline.as_ref().map(std::path::PathBuf::from),
-            honor_suppressions,
-        },
-    )) {
+        scan_request,
+        dynamic_engine,
+    ) {
         Ok(report) => report,
         Err(error) => return fail(&error.to_string()),
     };
@@ -224,6 +247,13 @@ fn write_suppressions(report: &Report) {
 /// No watcher crate: a security tool's install footprint is part of its
 /// argument, and a half-second poll is enough for an editor save loop.
 fn run_watch(args: &ScanArgs) -> i32 {
+    if args.target.is_some() || !args.scope.is_empty() {
+        return fail(
+            "watch is static-only; omit --target / --scope (re-probing on every \
+             save is hostile to the developer's own server)",
+        );
+    }
+
     let mut watch_args = ScanArgs {
         path: args.path.clone(),
         preset: args.preset.clone(),
@@ -241,6 +271,8 @@ fn run_watch(args: &ScanArgs) -> i32 {
         ascii: args.ascii,
         quiet: true,
         hyperlinks: args.hyperlinks,
+        target: None,
+        scope: Vec::new(),
     };
 
     let _ = run_scan(&watch_args);

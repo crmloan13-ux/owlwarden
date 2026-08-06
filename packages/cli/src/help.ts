@@ -39,6 +39,9 @@ ${presetLines(native)}
   --allow-baseline      Under --ci, permit --baseline (off by default)
   --fail-on <LEVEL>     Exit 1 at this severity or above. Default: info
   --min-confidence <L>  Drop findings below this confidence. Default: possible
+  --target <URL>        Probe this URL (passive GET/HEAD). Operator-only —
+                        never read from project config
+  --scope <URL>         Allowlist entry (repeatable). Default: origin of --target
   --ci                  JSON + quiet + no-color; also ignores project gates,
                         suppressions, and --baseline unless allow-* is set
   --no-color            Disable colour (NO_COLOR is honoured too)
@@ -50,14 +53,15 @@ CONFIG
   owlwarden.config.json, or an "owlwarden" key in package.json. Executable
   configs (.js/.mjs/.ts/.mts) need --allow-config-js — scanning an untrusted
   tree must not execute attacker code. Flags override the config file. Zero
-  config is fine.
+  config is fine. --target / --scope are never taken from config.
 
 EXIT CODES
   0  nothing at or above --fail-on
   1  findings at or above --fail-on
   2  the scan could not run
 
-Scans are passive: owlwarden reads your source and never touches the network.
+Without --target, scans are static-only and never touch the network.
+With --target, only passive methods are used; scope is deny-by-default.
 `;
 }
 

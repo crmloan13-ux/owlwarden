@@ -124,9 +124,11 @@ impl Scheduler {
                             truncated = true;
                             break;
                         }
-                        if finding.severity >= settings.min_severity
-                            && finding.confidence >= settings.min_confidence
-                        {
+                        // Severity is filtered here. Confidence waits until
+                        // after correlation (ADR 0014): a Possible static
+                        // finding must still be present so a matching dynamic
+                        // observation can raise it to Confirmed.
+                        if finding.severity >= settings.min_severity {
                             findings.push(finding);
                         }
                     }
