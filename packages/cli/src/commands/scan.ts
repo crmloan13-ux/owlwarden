@@ -43,13 +43,29 @@ export async function runScan(
     );
   }
 
-  // Flags beat config; config beats defaults. One place, so the precedence is
-  // not something you have to reconstruct by reading three files.
+  // Flags beat config; config beats defaults. Under `--ci`, project config must
+  // not set the gate knobs (preset / fail-on / min-confidence) unless the
+  // operator opted in — a hostile PR's owlwarden.config.json could otherwise
+  // silence the build with `{ "minConfidence": "confirmed" }`.
   const config = resolved.config;
-  const preset = options.preset ?? config.preset;
-  const format = options.format ?? config.format;
-  const failOn = options.failOn ?? config.failOn;
-  const minConfidence = options.minConfidence ?? config.minConfidence;
+  const trustProjectGates = !options.ci || options.allowProjectConfig;
+  const preset = options.preset ?? (trustProjectGates ? config.preset : "quick");
+  const format = options.format ?? (trustProjectGates ? config.format : "json");
+  const failOn = options.failOn ?? (trustProjectGates ? config.failOn : "info");
+  const minConfidence =
+    options.minConfidence ?? (trustProjectGates ? config.minConfidence : "possible");
+
+  if (
+    options.ci &&
+    !options.allowProjectConfig &&
+    !options.quiet &&
+    resolved.source.kind !== "defaults"
+  ) {
+    stderr.write(
+      "note: --ci ignores project config for preset/fail-on/min-confidence\n" +
+        "  pass flags explicitly, or --allow-project-config on a trusted tree\n",
+    );
+  }
 
   if (!options.quiet && format === "pretty") {
     writeBanner(native, options, stderr);
@@ -112,7 +128,17 @@ export async function runScan(
     stderr.write(`wrote baseline to ${options.writeBaseline}\n`);
   }
 
-  await emit(native, envelope.report, parsed.data, options, format, stdout, stderr);
+  try {
+    await emit(native, envelope.report, parsed.data, options, format, stdout, stderr);
+  } catch (error) {
+    const where = options.out ?? "report";
+    stderr.write(
+      `error: could not write ${where}: ${
+        error instanceof Error ? error.message : String(error)
+      }\n`,
+    );
+    return EXIT.ERROR;
+  }
 
   // Human listing goes to stderr so `--format json` on stdout stays one object.
   // The JSON report already carries `suppressions` for agents and CI.

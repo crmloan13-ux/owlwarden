@@ -28,27 +28,71 @@ impl Drop for TempGuard {
 /// `rename` replaces a symlink inode itself rather than writing through it, so
 /// a planted link to an outside file cannot be used as a write gadget.
 ///
+/// Also refuses when any existing ancestor directory is a symlink — otherwise
+/// `create_dir_all` / the temp write would follow into an attacker-chosen tree
+/// outside the intended parent.
+///
 /// # Errors
-/// Underlying I/O errors, or when the destination path has no parent directory
-/// we can place a temp file in.
+/// Underlying I/O errors, a symlinked ancestor, or when the destination path
+/// has no parent directory we can place a temp file in.
 pub fn write_replacing(path: &Path, contents: &[u8]) -> io::Result<()> {
     let parent = path
         .parent()
         .filter(|p| !p.as_os_str().is_empty())
         .unwrap_or_else(|| Path::new("."));
+    refuse_symlink_ancestors(parent)?;
     fs::create_dir_all(parent)?;
+    // Re-check after create: a race could have replaced a newly-created
+    // directory with a symlink before we write.
+    refuse_symlink_ancestors(parent)?;
 
     let temp = temp_sibling(parent, path);
     let mut guard = TempGuard(Some(temp.clone()));
 
     {
-        let mut file = File::create(&temp)?;
+        // `create_new` is O_EXCL — refuse to open if a symlink (or any node)
+        // already occupies the temp name, matching the TS CLI's `wx` flag.
+        let mut file = OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&temp)?;
         file.write_all(contents)?;
         file.sync_all()?;
     }
     fs::rename(&temp, path)?;
     guard.0 = None;
     Ok(())
+}
+
+/// Refuses a write whose directory path goes through a symlinked directory.
+///
+/// Walks from `path` upward until the first existing node. If that node is a
+/// symlink, the write would land in an attacker-chosen tree — refuse. If it is
+/// a real directory, stop: walking further would trip over system volume
+/// aliases such as macOS `/var` → `/private/var`, which are not the threat.
+///
+/// Missing intermediate components are fine; `create_dir_all` creates real
+/// directories under that first real ancestor.
+fn refuse_symlink_ancestors(path: &Path) -> io::Result<()> {
+    let mut current = path;
+    loop {
+        match fs::symlink_metadata(current) {
+            Ok(meta) if meta.file_type().is_symlink() => {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    "refusing to write under a symlinked directory",
+                ));
+            }
+            Ok(_) => return Ok(()),
+            Err(error) if error.kind() == io::ErrorKind::NotFound => match current.parent() {
+                Some(parent) if parent != current && !parent.as_os_str().is_empty() => {
+                    current = parent;
+                }
+                _ => return Ok(()),
+            },
+            Err(error) => return Err(error),
+        }
+    }
 }
 
 fn temp_sibling(parent: &Path, target: &Path) -> PathBuf {
@@ -192,5 +236,59 @@ mod tests {
         // ELOOP / EINVAL depending on platform; either way it must not return
         // the target's bytes.
         assert!(err.raw_os_error().is_some() || err.kind() == io::ErrorKind::InvalidInput);
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn write_refuses_symlinked_parent_directory() {
+        let dir = tempfile::tempdir().unwrap();
+        let outside = dir.path().join("outside");
+        fs::create_dir(&outside).unwrap();
+        let link = dir.path().join("out");
+        std::os::unix::fs::symlink(&outside, &link).unwrap();
+
+        let dest = link.join("report.json");
+        let err = write_replacing(&dest, b"{\"ok\":true}").unwrap_err();
+        assert_eq!(err.kind(), io::ErrorKind::InvalidInput);
+        assert!(
+            !outside.join("report.json").exists(),
+            "must not create the file through the directory symlink"
+        );
+        assert!(
+            fs::read_dir(&outside).unwrap().next().is_none(),
+            "outside tree must stay empty"
+        );
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn write_refuses_symlink_ancestor_when_nested_parent_is_missing() {
+        // `--out link/nested/report.json` with `link` → outside and `nested`
+        // not yet created: create_dir_all would follow the link.
+        let dir = tempfile::tempdir().unwrap();
+        let outside = dir.path().join("outside");
+        fs::create_dir(&outside).unwrap();
+        let link = dir.path().join("link");
+        std::os::unix::fs::symlink(&outside, &link).unwrap();
+
+        let dest = link.join("nested").join("report.json");
+        let err = write_replacing(&dest, b"{}").unwrap_err();
+        assert_eq!(err.kind(), io::ErrorKind::InvalidInput);
+        assert!(fs::read_dir(&outside).unwrap().next().is_none());
+    }
+
+    #[test]
+    fn write_create_new_refuses_preexisting_temp_collision() {
+        // Plant a file at a name `temp_sibling` could pick, then prove
+        // `create_new` is what refuses it: open the same options on that path.
+        let dir = tempfile::tempdir().unwrap();
+        let occupied = dir.path().join("occupied.tmp");
+        fs::write(&occupied, b"mine").unwrap();
+        let err = OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&occupied)
+            .unwrap_err();
+        assert_eq!(err.kind(), io::ErrorKind::AlreadyExists);
     }
 }

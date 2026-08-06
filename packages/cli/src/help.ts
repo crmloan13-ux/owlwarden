@@ -34,9 +34,11 @@ ${presetLines(native)}
   --write-baseline <F>  Write current findings to a baseline file
   --report-suppressions List every inline suppression; flag stale ones
   --allow-config-js     Load owlwarden.config.{js,mjs,ts,mts} via import()
+  --allow-project-config  Under --ci, honour project preset/fail-on/min-confidence
   --fail-on <LEVEL>     Exit 1 at this severity or above. Default: info
   --min-confidence <L>  Drop findings below this confidence. Default: possible
   --ci                  Shorthand for --format json --quiet --no-color
+                        (also ignores project gate knobs unless --allow-project-config)
   --no-color            Disable colour (NO_COLOR is honoured too)
   --ascii               ASCII output for terminals without reliable UTF-8
   --hyperlinks          Emit OSC-8 links, if your terminal supports them

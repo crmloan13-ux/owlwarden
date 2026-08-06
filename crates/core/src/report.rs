@@ -173,8 +173,14 @@ impl Report {
     ///
     /// `Possible`-confidence findings never fail CI on their own: acting on a
     /// guess is how a tool gets removed from a pipeline.
+    ///
+    /// A truncated report always fails: the findings cap was hit, so the scan
+    /// cannot prove the project is clean — exiting 0 would hide the rest.
     #[must_use]
     pub fn should_fail(&self, fail_on: Severity, min_confidence: Confidence) -> bool {
+        if self.truncated {
+            return true;
+        }
         self.findings.iter().any(|finding| {
             finding.severity >= fail_on
                 && finding.confidence >= min_confidence
@@ -258,6 +264,16 @@ mod tests {
         let report = report_of(vec![finding(Severity::Low, Confidence::Confirmed)]);
         assert!(!report.should_fail(Severity::High, Confidence::Possible));
         assert!(report.should_fail(Severity::Low, Confidence::Possible));
+    }
+
+    #[test]
+    fn a_truncated_report_always_fails_ci() {
+        let mut report = report_of(Vec::new());
+        report.truncated = true;
+        assert!(
+            report.should_fail(Severity::High, Confidence::Confirmed),
+            "truncation must fail even with no retained findings and the strictest gate"
+        );
     }
 
     #[test]

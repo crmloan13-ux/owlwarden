@@ -56,6 +56,10 @@ fixture).
   loads JSON (and the `owlwarden` key in `package.json`) only — so placing a
   config module in a PR cannot get code execution. Never pass
   `--allow-config-js` on an untrusted tree.
+- **`--ci` ignores project gate knobs.** `preset` / `failOn` / `minConfidence`
+  from the scan target are ignored under `--ci` unless
+  `--allow-project-config` is set, so a PR cannot silence findings with JSON
+  alone. Pin those flags on the command line in CI.
 - Every response and every source file has a byte cap; reads use a bounded
   `Read::take` (and `O_NOFOLLOW` on Unix) so a file that grows or is swapped for
   a symlink under our feet cannot pull unbounded or out-of-tree bytes.
@@ -65,8 +69,13 @@ fixture).
   [ADR 0008](docs/adr/0008-bound-parser-recursion.md).
 - Unparseable and oversized files are skipped and reported, never fatal.
 - `--out` and `--write-baseline` write via temp-file + `rename`, so a planted
-  symlink at the destination is replaced rather than followed.
-- Baseline and config loads refuse oversized inputs before parse.
+  symlink at the destination is replaced rather than followed. They also refuse
+  when any ancestor directory is a symlink, so a linked `--out` parent cannot
+  redirect the write outside the intended tree.
+- Hitting the findings cap sets `truncated: true` and fails CI — a partial
+  report is never treated as a clean scan.
+- Config and baseline loads use `lstat` / refuse symlinks and oversized inputs
+  before parse.
 
 **A hostile plugin.** Not yet applicable — the plugin host is v0.2. When it
 lands, plugins run in WASM with no ambient authority: no filesystem, no network,
@@ -105,8 +114,8 @@ When pointing the **npm CLI** at a tree you do not trust (for example, CI on an
 external pull request):
 
 ```bash
-npx owlwarden scan --ci --fail-on medium
-# do NOT add --allow-config-js
+npx owlwarden scan --ci --fail-on medium --min-confidence likely
+# do NOT add --allow-config-js or --allow-project-config
 ```
 
 The standalone native binary never loads executable JS config at all.

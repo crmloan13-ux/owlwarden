@@ -126,6 +126,24 @@ impl LineIndex {
         span: (u32, u32),
         label: Option<String>,
     ) -> CodeFrame {
+        self.code_frame_mapped(source, path, span, label, str::to_owned)
+    }
+
+    /// Like [`Self::code_frame`], but each source line is passed through
+    /// `map_line` *before* truncation.
+    ///
+    /// Callers that must redact a secret use this so a value longer than
+    /// [`MAX_FRAME_LINE_CHARS`] cannot survive as a truncated prefix in the
+    /// report.
+    #[must_use]
+    pub fn code_frame_mapped(
+        &self,
+        source: &str,
+        path: &str,
+        span: (u32, u32),
+        label: Option<String>,
+        map_line: impl Fn(&str) -> String,
+    ) -> CodeFrame {
         let (start_offset, end_offset) = span;
         let (line, start_col) = self.position(source, start_offset);
 
@@ -141,10 +159,8 @@ impl LineIndex {
 
         let mut lines = Vec::new();
         for current in first..=last {
-            lines.push(truncate_chars(
-                self.line_text(source, current),
-                MAX_FRAME_LINE_CHARS,
-            ));
+            let mapped = map_line(self.line_text(source, current));
+            lines.push(truncate_chars(&mapped, MAX_FRAME_LINE_CHARS));
         }
         // A file ending in a newline has a final empty line. Showing it as
         // context is just a blank row under the finding, so drop trailing
@@ -288,6 +304,22 @@ mod tests {
         let first = frame.lines.first().unwrap();
         assert!(first.ends_with("(line truncated)"));
         assert!(first.chars().count() < 500);
+    }
+
+    #[test]
+    fn mapped_redaction_runs_before_truncation() {
+        // A secret longer than the frame cap must not survive as a truncated
+        // prefix — replace first, then cut.
+        let secret = format!("sk_live_{}", "a".repeat(500));
+        let source = format!("const key = '{secret}'\n");
+        let index = LineIndex::new(&source);
+        let frame = index.code_frame_mapped(&source, "a.ts", (0, 5), None, |line| {
+            line.replace(&secret, "sk_l***")
+        });
+        let blob = frame.lines.join("\n");
+        assert!(!blob.contains(&secret));
+        assert!(!blob.contains("sk_live_aaaa"));
+        assert!(blob.contains("sk_l***"));
     }
 
     #[test]

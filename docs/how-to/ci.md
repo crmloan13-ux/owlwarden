@@ -11,10 +11,15 @@ separate mode: everything it does is reachable with the individual flags, so
 there is no CI-only code path that behaves differently from what you see
 locally.
 
-Do **not** pass `--allow-config-js` on pull requests from outside the team.
-Executable config (`owlwarden.config.js` / `.mjs` / `.ts`) is opt-in precisely
-so a hostile tree cannot get code execution by being scanned. Prefer
-`owlwarden.config.json` (or the `owlwarden` key in `package.json`) in CI.
+Do **not** pass `--allow-config-js` or `--allow-project-config` on pull
+requests from outside the team. Executable config is opt-in so a hostile tree
+cannot get code execution; `--ci` also ignores project `preset` / `failOn` /
+`minConfidence` for the same reason — otherwise a PR could silence the gate
+with `{ "minConfidence": "confirmed" }`. Pin the knobs on the command line:
+
+```bash
+npx owlwarden scan --ci --fail-on medium --min-confidence likely
+```
 
 ## Exit codes
 
@@ -59,8 +64,11 @@ schemas are checked against the engine on every CI run:
 owlwarden scan --ci | jq -r '.findings[] | "\(.severity)\t\(.id)\t\(.location.path):\(.location.line)"'
 ```
 
-Two fields deserve attention:
+Fields that deserve attention:
 
+- `truncated` — the findings cap was hit and results were dropped. A truncated
+  report is never treated as clean: `--ci` exits 1 even when the retained
+  findings are below `--fail-on`.
 - `suppressedCount` — how many findings a suppression hid. `findings: []` with a
   non-zero `suppressedCount` is not the same as a clean project.
 - `baselineHiddenCount` — findings the baseline already accepted. Distinct from

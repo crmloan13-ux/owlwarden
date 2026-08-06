@@ -1,10 +1,10 @@
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Writable } from "node:stream";
 import { fileURLToPath } from "node:url";
 
-import { reportSchema } from "@dointhai/owlwarden-sdk";
+import { reportSchema, shouldFail } from "@dointhai/owlwarden-sdk";
 import { describe, expect, it } from "vitest";
 
 import { EXIT } from "../src/exit.js";
@@ -183,7 +183,13 @@ describe("owlwarden scan", () => {
       expect(report.suppressedCount).toBeGreaterThanOrEqual(1);
       expect(err).toContain("stack-trace-leak");
       expect(err).toContain("[active]");
-      expect(code).toBe(EXIT.FINDINGS); // security-headers-missing still fires
+      // The remaining finding is typically possible-confidence headers advice —
+      // that must still appear, but must not fail the gate on its own.
+      expect(report.findings.some((finding) => finding.id === "security-headers-missing")).toBe(
+        true,
+      );
+      expect(shouldFail(report, "info", "possible")).toBe(false);
+      expect(code).toBe(EXIT.CLEAN);
     } finally {
       await rm(dir, { recursive: true, force: true });
     }
@@ -263,7 +269,13 @@ describe("owlwarden scan", () => {
         "--write-baseline",
         baselinePath,
       ]);
-      expect(written.code).toBe(EXIT.FINDINGS);
+      // Possible-only leftovers do not fail the gate; the baseline must still
+      // be written from the post-suppression view.
+      expect([EXIT.CLEAN, EXIT.FINDINGS]).toContain(written.code);
+      const writtenReport = reportSchema.parse(JSON.parse(written.out));
+      expect(writtenReport.findings.some((finding) => finding.id === "stack-trace-leak")).toBe(
+        false,
+      );
       const baseline = JSON.parse(await readFile(baselinePath, "utf8")) as {
         entries: { id: string }[];
       };
@@ -288,6 +300,50 @@ describe("owlwarden scan", () => {
 });
 
 describe("CI security posture", () => {
+  it("ignores hostile minConfidence in project JSON under --ci", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "owlwarden-ci-gate-"));
+    try {
+      await writeFile(
+        join(dir, "package.json"),
+        JSON.stringify({ name: "ci-gate", dependencies: { next: "^14.2.0" } }),
+      );
+      // Confirmed is unreachable for static rules — if honoured, the scan goes green.
+      await writeFile(
+        join(dir, "owlwarden.config.json"),
+        JSON.stringify({ minConfidence: "confirmed", failOn: "high" }),
+      );
+      await writeFile(
+        join(dir, "route.ts"),
+        [
+          "import { NextResponse } from 'next/server'",
+          "export async function GET() {",
+          "  try { return NextResponse.json({ ok: true }) }",
+          "  catch (err) { return NextResponse.json({ error: (err as Error).stack }) }",
+          "}",
+          "",
+        ].join("\n"),
+      );
+
+      const silenced = await cli(["scan", dir, "--ci", "--fail-on", "medium"]);
+      expect(silenced.code).toBe(EXIT.FINDINGS);
+      const report = reportSchema.parse(JSON.parse(silenced.out));
+      expect(report.findings.some((finding) => finding.id === "stack-trace-leak")).toBe(true);
+
+      // Opt-in restores project config — and the hostile knobs win.
+      const trusted = await cli([
+        "scan",
+        dir,
+        "--ci",
+        "--fail-on",
+        "medium",
+        "--allow-project-config",
+      ]);
+      expect(trusted.code).toBe(EXIT.CLEAN);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
   it("does not execute owlwarden.config.mjs under --ci", async () => {
     const dir = await mkdtemp(join(tmpdir(), "owlwarden-ci-config-"));
     const marker = join(dir, "pwned.marker");
@@ -326,6 +382,85 @@ describe("CI security posture", () => {
     const blob = JSON.stringify(secretFinding);
     expect(blob).not.toContain("sk_live_51Nx-AbCdEfGhIjKlMnOpQrStUvWx");
     expect(blob).toContain("sk_l***");
+    // Prefix of a long secret must not survive truncation either.
+    expect(blob).not.toMatch(/sk_live_51Nx-AbCdEfGhIjKlMnOp/);
+  });
+
+  it("refuses --out under a symlinked directory", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "owlwarden-out-symlink-"));
+    try {
+      const outside = join(dir, "outside");
+      await mkdir(outside);
+      const link = join(dir, "out");
+      await symlink(outside, link);
+
+      const { code, err } = await cli([
+        "scan",
+        fixture("should-not-fire/next-api-clean"),
+        "--format",
+        "json",
+        "--quiet",
+        "--out",
+        join(link, "report.json"),
+      ]);
+      expect(code).toBe(EXIT.ERROR);
+      expect(err).toMatch(/symlinked directory/);
+      expect(await readdir(outside)).toEqual([]);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("refuses --write-baseline under a symlinked directory", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "owlwarden-baseline-symlink-"));
+    try {
+      const outside = join(dir, "outside");
+      await mkdir(outside);
+      const link = join(dir, "base");
+      await symlink(outside, link);
+
+      const { code, err } = await cli([
+        "scan",
+        fixture("should-not-fire/next-api-clean"),
+        "--format",
+        "json",
+        "--quiet",
+        "--write-baseline",
+        join(link, "baseline.json"),
+      ]);
+      expect(code).toBe(EXIT.ERROR);
+      expect(err.length).toBeGreaterThan(0);
+      expect(await readdir(outside)).toEqual([]);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("treats a truncated report as a failing CI gate", () => {
+    // Mirrors the engine: flood → truncated → exit 1 even with no retained
+    // findings under a strict gate. Full flood coverage lives in the Rust
+    // scheduler tests; this pins the CLI's shouldFail import.
+    const truncated = reportSchema.parse({
+      schemaVersion: "1.0",
+      tool: { name: "owlwarden", version: "0.0.0" },
+      scannedAt: "1970-01-01T00:00:00Z",
+      durationMs: 0,
+      target: {
+        project: ".",
+        scope: [],
+        filesScanned: 0,
+        routesProbed: 0,
+        preset: "quick",
+      },
+      summary: { high: 0, medium: 0, low: 0, info: 0 },
+      findings: [],
+      suppressedCount: 0,
+      suppressions: [],
+      baselineHiddenCount: 0,
+      truncated: true,
+      errors: [],
+    });
+    expect(shouldFail(truncated, "high", "confirmed")).toBe(true);
   });
 
   it("--ci still exits 1 on findings and 0 on clean fixtures", async () => {

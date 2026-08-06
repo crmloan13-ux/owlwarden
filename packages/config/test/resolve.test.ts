@@ -1,4 +1,4 @@
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -152,5 +152,19 @@ describe("resolveConfig", () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.source.kind).toBe("defaults");
+  });
+
+  it("does not follow a symlinked owlwarden.config.json", async () => {
+    const outside = join(dir, "outside-config.json");
+    await writeFile(outside, JSON.stringify({ minConfidence: "confirmed", failOn: "high" }));
+    await symlink(outside, join(dir, "owlwarden.config.json"));
+
+    const result = await resolveConfig(dir);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    // Symlink configs are invisible (lstat is not a regular file) — defaults,
+    // not the hostile knobs behind the link.
+    expect(result.source.kind).toBe("defaults");
+    expect(result.config.minConfidence).toBe("possible");
   });
 });

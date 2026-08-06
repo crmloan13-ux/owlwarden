@@ -26,6 +26,8 @@ pub struct EngineStats {
     pub files_skipped: u32,
     /// A sample of the skips, as `path: reason`.
     pub skip_examples: Vec<String>,
+    /// True when a per-file or global findings cap dropped results.
+    pub truncated: bool,
 }
 
 /// Runs every static rule over one project.
@@ -92,7 +94,11 @@ impl StaticEngine {
                 self.remember_skip(&rule.meta().id.to_string(), &error.to_string());
                 continue;
             }
+            let hit_cap = sink.truncated();
             findings.append(&mut sink.drain());
+            if hit_cap {
+                self.mark_truncated();
+            }
         }
     }
 
@@ -102,6 +108,7 @@ impl StaticEngine {
 
         for file in project.files().iter().take(limits::source::MAX_FILES) {
             if findings.len() >= limits::scan::MAX_FINDINGS {
+                self.mark_truncated();
                 break;
             }
 
@@ -119,13 +126,17 @@ impl StaticEngine {
                 for rule in interested {
                     rule.check(unit, &mut sink);
                 }
-                sink.drain()
+                let hit_cap = sink.truncated();
+                (sink.drain(), hit_cap)
             });
 
             match parsed {
-                Ok(mut produced) => {
+                Ok((mut produced, hit_cap)) => {
                     scanned = scanned.saturating_add(1);
                     findings.append(&mut produced);
+                    if hit_cap {
+                        self.mark_truncated();
+                    }
                 }
                 Err(error) => self.remember_skip(file.path.as_str(), &error.to_string()),
             }
@@ -144,6 +155,12 @@ impl StaticEngine {
         stats.files_skipped = stats.files_skipped.saturating_add(1);
         if stats.skip_examples.len() < MAX_REMEMBERED_SKIPS {
             stats.skip_examples.push(format!("{subject}: {reason}"));
+        }
+    }
+
+    fn mark_truncated(&self) {
+        if let Ok(mut stats) = self.stats.lock() {
+            stats.truncated = true;
         }
     }
 }
@@ -186,7 +203,10 @@ impl Detector for StaticEngine {
         self.run_project_rules(&project, &mut findings);
         self.run_file_rules(&project, &mut findings);
 
-        findings.truncate(limits::scan::MAX_FINDINGS);
+        if findings.len() > limits::scan::MAX_FINDINGS {
+            findings.truncate(limits::scan::MAX_FINDINGS);
+            self.mark_truncated();
+        }
         Ok(findings)
     }
 }

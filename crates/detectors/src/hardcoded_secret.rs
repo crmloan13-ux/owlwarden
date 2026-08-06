@@ -452,8 +452,17 @@ fn build_finding(unit: &FileUnit<'_>, hit: &Hit) -> Finding {
         ),
     };
 
-    let mut snippet = unit.code_frame(hit.span, "credential written into source");
-    redact_secret_in_frame(&mut snippet, &hit.value);
+    // Redact on the full line *before* the frame truncates it — otherwise a
+    // long secret survives as the first 400 characters of the JSON snippet.
+    let secret = hit.value.clone();
+    let masked = mask_secret(&secret);
+    let snippet = unit.code_frame_mapped(hit.span, "credential written into source", |line| {
+        if secret.is_empty() {
+            line.to_owned()
+        } else {
+            line.replace(&secret, &masked)
+        }
+    });
 
     finding_builder(&meta)
         .confidence(confidence)
@@ -466,20 +475,6 @@ fn build_finding(unit: &FileUnit<'_>, hit: &Hit) -> Finding {
         .fixes(remediation().select(unit.framework()))
         .reference(Reference::rule_page(&meta.id))
         .build()
-}
-
-/// Replaces every occurrence of `secret` in the frame with a short mask that
-/// keeps a recognisable prefix for triage.
-fn redact_secret_in_frame(frame: &mut owlwarden_core::finding::CodeFrame, secret: &str) {
-    if secret.is_empty() {
-        return;
-    }
-    let masked = mask_secret(secret);
-    for line in &mut frame.lines {
-        if line.contains(secret) {
-            *line = line.replace(secret, &masked);
-        }
-    }
 }
 
 fn mask_secret(secret: &str) -> String {

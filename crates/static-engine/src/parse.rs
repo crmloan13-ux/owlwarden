@@ -132,6 +132,15 @@ fn exceeds_nesting_limit(source: &str) -> bool {
                     continue;
                 }
                 b'`' => state = ScanState::Normal,
+                // Count brackets inside templates too. Leaving them opaque let
+                // `${((((…` bypass the guard and reach oxc's recursive descent.
+                b'(' | b'[' | b'{' => {
+                    bracket_depth = bracket_depth.saturating_add(1);
+                    if bracket_depth.saturating_add(angle_depth) > MAX_NESTING_DEPTH {
+                        return true;
+                    }
+                }
+                b')' | b']' | b'}' => bracket_depth = bracket_depth.saturating_sub(1),
                 _ => {}
             },
         }
@@ -326,5 +335,67 @@ export class UsersController {
     fn string_brackets_do_not_inflate_depth() {
         let source = format!("const s = \"{}\";", "(".repeat(300));
         assert!(!exceeds_nesting_limit(&source));
+    }
+
+    #[test]
+    fn template_expression_brackets_are_counted() {
+        let path = rel("template-nest.ts");
+        let mut source = String::from("const x = `${");
+        for _ in 0..300 {
+            source.push('(');
+        }
+        source.push('1');
+        for _ in 0..300 {
+            source.push(')');
+        }
+        source.push_str("}`;");
+        let failure = with_parsed(&path, &source, meta(), |_| ()).unwrap_err();
+        assert!(
+            failure.message.contains("nesting"),
+            "expected the depth guard, got: {}",
+            failure.message
+        );
+    }
+
+    #[test]
+    fn template_braces_and_brackets_are_counted() {
+        // N2 regression: `{}` / `[]` inside `${…}` must deepen the guard, not
+        // only `()`.
+        let mut source = String::from("const x = `${");
+        for _ in 0..300 {
+            source.push('{');
+        }
+        source.push('1');
+        for _ in 0..300 {
+            source.push('}');
+        }
+        source.push_str("}`;");
+        assert!(
+            exceeds_nesting_limit(&source),
+            "braces inside a template expression must count"
+        );
+
+        let mut source = String::from("const x = `${");
+        for _ in 0..300 {
+            source.push('[');
+        }
+        source.push('1');
+        for _ in 0..300 {
+            source.push(']');
+        }
+        source.push_str("}`;");
+        assert!(
+            exceeds_nesting_limit(&source),
+            "brackets inside a template expression must count"
+        );
+    }
+
+    #[test]
+    fn deep_brackets_in_template_static_chunks_are_over_estimated() {
+        // The guard counts every bracket while inside `` `…` ``, including the
+        // static chunks. That over-skips comparison-heavy templates, which is
+        // the safe side of ADR 0008 — under-counting is what we refuse.
+        let source = format!("const s = `{}`;", "(".repeat(300));
+        assert!(exceeds_nesting_limit(&source));
     }
 }

@@ -168,4 +168,18 @@ mod tests {
         assert!(sink.is_empty());
         assert!(!sink.truncated());
     }
+
+    #[test]
+    fn truncation_is_visible_before_drain() {
+        // The engine must read `truncated()` before `drain()` — drain clears the
+        // flag so the next file starts clean. Losing that bit is how a flood
+        // became a green CI exit.
+        let mut sink = FindingSink::with_limit(1);
+        assert!(sink.push(finding()));
+        assert!(!sink.push(finding()));
+        assert!(sink.truncated());
+        let drained = sink.drain();
+        assert_eq!(drained.len(), 1);
+        assert!(!sink.truncated());
+    }
 }

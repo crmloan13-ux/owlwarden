@@ -49,6 +49,17 @@ export interface ScanOptions {
    * target. Off by default so a hostile tree cannot get code execution.
    */
   allowConfigJs: boolean;
+  /**
+   * True when `--ci` was passed. CI ignores project-config values for
+   * `preset` / `failOn` / `minConfidence` unless {@link allowProjectConfig}
+   * is set — otherwise a hostile PR can silence the gate with JSON alone.
+   */
+  ci: boolean;
+  /**
+   * Let project config set preset / fail-on / min-confidence even under
+   * `--ci`. Off by default. Never enable on an untrusted tree.
+   */
+  allowProjectConfig: boolean;
   color: boolean;
   unicode: boolean;
   quiet: boolean;
@@ -73,6 +84,7 @@ const OPTIONS = {
   "min-confidence": { type: "string" },
   "report-suppressions": { type: "boolean", default: false },
   "allow-config-js": { type: "boolean", default: false },
+  "allow-project-config": { type: "boolean", default: false },
   ci: { type: "boolean", default: false },
   "no-color": { type: "boolean", default: false },
   ascii: { type: "boolean", default: false },
@@ -167,6 +179,8 @@ function scanOptions(values: Values, positionals: string[]): ScanOptions {
     hyperlinks: values.hyperlinks,
     reportSuppressions: values["report-suppressions"],
     allowConfigJs: values["allow-config-js"],
+    ci,
+    allowProjectConfig: values["allow-project-config"],
   };
 
   // Assigned conditionally because `exactOptionalPropertyTypes` distinguishes

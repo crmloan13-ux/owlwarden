@@ -319,15 +319,22 @@ export function confidenceAtLeast(confidence: Confidence, threshold: Confidence)
  * Mirrors `Report::should_fail` in the engine. Both sides implement it because
  * the CLI decides the exit code and the engine decides `--ci` behaviour; the
  * contract test pins them to the same answer.
+ *
+ * Truncated reports always fail — the findings cap was hit, so the scan cannot
+ * claim the project is clean. `possible` confidence never fails CI alone.
  */
 export function shouldFail(
   report: Report,
   failOn: Severity,
   minConfidence: Confidence,
 ): boolean {
+  if (report.truncated) {
+    return true;
+  }
   return report.findings.some(
     (finding) =>
       severityAtLeast(finding.severity, failOn) &&
-      confidenceAtLeast(finding.confidence, minConfidence),
+      confidenceAtLeast(finding.confidence, minConfidence) &&
+      finding.confidence !== "possible",
   );
 }

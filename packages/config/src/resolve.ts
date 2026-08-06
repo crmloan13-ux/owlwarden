@@ -1,4 +1,4 @@
-import { readFile, stat } from "node:fs/promises";
+import { lstat, readFile } from "node:fs/promises";
 import { basename, isAbsolute, join, resolve as resolvePath } from "node:path";
 import { pathToFileURL } from "node:url";
 
@@ -235,7 +235,25 @@ async function loadPackageJsonKey(
 async function readFileBounded(
   path: string,
 ): Promise<{ ok: true; value: string } | { ok: false; error: ConfigError }> {
-  const info = await stat(path);
+  // `lstat` so a planted symlink cannot pull a file from outside the project
+  // into config parsing (and cannot hide a hostile JSON behind a link).
+  const info = await lstat(path);
+  if (info.isSymbolicLink()) {
+    return {
+      ok: false,
+      error: {
+        kind: "unreadable",
+        path,
+        message: "refusing to read through a symlink",
+      },
+    };
+  }
+  if (!info.isFile()) {
+    return {
+      ok: false,
+      error: { kind: "unreadable", path, message: "not a regular file" },
+    };
+  }
   if (info.size > MAX_CONFIG_BYTES) {
     return {
       ok: false,
@@ -264,7 +282,9 @@ async function readFileBounded(
 
 async function exists(path: string): Promise<boolean> {
   try {
-    return (await stat(path)).isFile();
+    // Symlinks are not regular files under lstat — ignore them so we neither
+    // follow into outside content nor treat a link as a trusted config.
+    return (await lstat(path)).isFile();
   } catch {
     return false;
   }

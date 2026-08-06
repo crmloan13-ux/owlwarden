@@ -91,9 +91,12 @@ describe("parse", () => {
     const denied = parse(["scan", "--ci"]);
     if (denied.command !== "scan") throw new Error("expected scan");
     expect(denied.options.allowConfigJs).toBe(false);
+    expect(denied.options.ci).toBe(true);
+    expect(denied.options.allowProjectConfig).toBe(false);
 
-    const allowed = parse(["scan", "--ci", "--allow-config-js"]);
+    const allowed = parse(["scan", "--ci", "--allow-config-js", "--allow-project-config"]);
     if (allowed.command !== "scan") throw new Error("expected scan");
     expect(allowed.options.allowConfigJs).toBe(true);
+    expect(allowed.options.allowProjectConfig).toBe(true);
   });
 });

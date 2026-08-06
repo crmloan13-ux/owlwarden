@@ -118,6 +118,11 @@ pub async fn scan_project_with(
     // admits it.
     let stats = engine.stats();
     report.target.files_scanned = stats.files_scanned;
+    // Per-file caps live inside the engine; the scheduler only sees the
+    // returned Vec. Surface truncation so CI cannot go green on a partial scan.
+    if stats.truncated {
+        report.truncated = true;
+    }
     for skipped in stats.skip_examples {
         report.errors.push(owlwarden_core::report::DetectorFailure {
             rule: "static-engine".to_owned(),
