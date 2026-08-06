@@ -185,22 +185,14 @@ mod tests {
     use std::io::Write;
 
     #[test]
+    #[cfg(unix)]
     fn write_replaces_symlink_instead_of_following_it() {
         let dir = tempfile::tempdir().unwrap();
         let target = dir.path().join("secret.txt");
         fs::write(&target, b"do-not-clobber").unwrap();
 
         let link = dir.path().join("report.json");
-        #[cfg(unix)]
         std::os::unix::fs::symlink(&target, &link).unwrap();
-        #[cfg(not(unix))]
-        {
-            // Windows symlink creation often needs elevation; skip the race
-            // shape and just check a normal write round-trip.
-            write_replacing(&link, b"{\"ok\":true}").unwrap();
-            assert_eq!(fs::read(&link).unwrap(), b"{\"ok\":true}");
-            return;
-        }
 
         write_replacing(&link, b"{\"ok\":true}").unwrap();
         // The symlink inode was replaced; the outside target is untouched.
@@ -212,6 +204,17 @@ mod tests {
                 .file_type()
                 .is_symlink()
         );
+    }
+
+    #[test]
+    #[cfg(not(unix))]
+    fn write_replacing_round_trips_on_platforms_without_easy_symlinks() {
+        // Creating symlinks on Windows often needs elevation; still exercise
+        // the happy path so the write helper stays covered.
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("report.json");
+        write_replacing(&path, b"{\"ok\":true}").unwrap();
+        assert_eq!(fs::read(&path).unwrap(), b"{\"ok\":true}");
     }
 
     #[test]
