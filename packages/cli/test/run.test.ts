@@ -300,6 +300,88 @@ describe("owlwarden scan", () => {
 });
 
 describe("CI security posture", () => {
+  it("ignores inline suppressions under --ci unless opted in", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "owlwarden-ci-suppress-"));
+    try {
+      await writeFile(
+        join(dir, "package.json"),
+        JSON.stringify({ name: "ci-suppress", dependencies: { next: "^14.2.0" } }),
+      );
+      await writeFile(
+        join(dir, "route.ts"),
+        [
+          "import { NextResponse } from 'next/server'",
+          "export async function GET() {",
+          "  try { return NextResponse.json({ ok: true }) }",
+          "  catch (err) {",
+          "    // owlwarden-disable-next-line stack-trace-leak -- silence the gate",
+          "    return NextResponse.json({ error: (err as Error).stack })",
+          "  }",
+          "}",
+          "",
+        ].join("\n"),
+      );
+
+      const denied = await cli(["scan", dir, "--ci", "--fail-on", "medium"]);
+      expect(denied.code).toBe(EXIT.FINDINGS);
+      const deniedReport = reportSchema.parse(JSON.parse(denied.out));
+      expect(deniedReport.findings.some((finding) => finding.id === "stack-trace-leak")).toBe(
+        true,
+      );
+      expect(deniedReport.suppressedCount).toBe(0);
+      expect(denied.err).toMatch(/ignores inline suppressions/);
+
+      const allowed = await cli([
+        "scan",
+        dir,
+        "--ci",
+        "--fail-on",
+        "medium",
+        "--allow-suppressions",
+      ]);
+      const allowedReport = reportSchema.parse(JSON.parse(allowed.out));
+      expect(allowedReport.findings.some((finding) => finding.id === "stack-trace-leak")).toBe(
+        false,
+      );
+      expect(allowedReport.suppressedCount).toBeGreaterThanOrEqual(1);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("refuses --baseline under --ci without --allow-baseline", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "owlwarden-ci-baseline-"));
+    try {
+      await writeFile(
+        join(dir, "package.json"),
+        JSON.stringify({ name: "ci-baseline", dependencies: { next: "^14.2.0" } }),
+      );
+      await writeFile(join(dir, "route.ts"), "export const GET = () => null\n");
+      const baselinePath = join(dir, "base.json");
+      await writeFile(
+        baselinePath,
+        JSON.stringify({
+          schemaVersion: 1,
+          engineVersion: "0.0.0",
+          createdAt: "1970-01-01T00:00:00Z",
+          entries: [],
+        }),
+      );
+
+      const { code, err } = await cli([
+        "scan",
+        dir,
+        "--ci",
+        "--baseline",
+        baselinePath,
+      ]);
+      expect(code).toBe(EXIT.ERROR);
+      expect(err).toMatch(/--allow-baseline/);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
   it("ignores hostile minConfidence in project JSON under --ci", async () => {
     const dir = await mkdtemp(join(tmpdir(), "owlwarden-ci-gate-"));
     try {

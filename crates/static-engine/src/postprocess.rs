@@ -19,11 +19,28 @@ const EXTRA_SUPPRESSION_GLOBS: &[&str] = &[".github/workflows/*.yml", ".github/w
 
 /// Applies inline suppressions to a finished report.
 pub fn apply_suppressions(report: &mut Report, source: &dyn SourceProvider) {
+    apply_suppressions_with(report, source, true);
+}
+
+/// Applies or merely lists inline suppressions.
+///
+/// When `honor` is false (CI on an untrusted tree), directives still appear in
+/// `report.suppressions` so reviewers see them, but findings are not hidden —
+/// a PR cannot silence the gate with a comment alone.
+pub fn apply_suppressions_with(report: &mut Report, source: &dyn SourceProvider, honor: bool) {
     let directives = collect_directives(source);
-    let outcome = suppression::apply(std::mem::take(&mut report.findings), &directives);
-    report.findings = outcome.findings;
-    report.suppressed_count = outcome.suppressed_count;
-    report.suppressions = outcome.records;
+    if honor {
+        let outcome = suppression::apply(std::mem::take(&mut report.findings), &directives);
+        report.findings = outcome.findings;
+        report.suppressed_count = outcome.suppressed_count;
+        report.suppressions = outcome.records;
+    } else {
+        // Match against a clone so records reflect what would have been
+        // silenced, then keep every finding.
+        let outcome = suppression::apply(report.findings.clone(), &directives);
+        report.suppressed_count = 0;
+        report.suppressions = outcome.records;
+    }
     report.summary = owlwarden_core::report::ReportSummary::of(&report.findings);
 }
 
@@ -35,13 +52,14 @@ pub fn apply_baseline(report: &mut Report, baseline: &BaselineFile) {
     report.summary = owlwarden_core::report::ReportSummary::of(&report.findings);
 }
 
-/// Applies suppressions (always) and an optional baseline to a finished report.
+/// Applies suppressions and an optional baseline to a finished report.
 pub fn apply_trust_filters(
     report: &mut Report,
     source: &dyn SourceProvider,
     baseline: Option<&BaselineFile>,
+    honor_suppressions: bool,
 ) {
-    apply_suppressions(report, source);
+    apply_suppressions_with(report, source, honor_suppressions);
     if let Some(baseline) = baseline {
         apply_baseline(report, baseline);
     }
@@ -168,5 +186,35 @@ mod tests {
         assert_eq!(report.suppressed_count, 1);
         assert_eq!(report.suppressions.len(), 1);
         assert!(!report.suppressions[0].stale);
+    }
+
+    #[test]
+    fn untrusted_ci_lists_directives_without_hiding_findings() {
+        let source = MemorySource {
+            root: PathBuf::from("/tmp"),
+            files: vec![(
+                "a.ts".to_owned(),
+                "// owlwarden-disable-next-line stack-trace-leak -- test\nerr.stack\n".to_owned(),
+            )],
+        };
+        let mut report = report_with(vec![
+            Finding::builder(RuleId::new_static("stack-trace-leak"), Severity::High, "t")
+                .confidence(Confidence::Likely)
+                .location(Location::Source(SourceLocation {
+                    path: "a.ts".to_owned(),
+                    line: 2,
+                    col: 1,
+                }))
+                .build(),
+        ]);
+
+        apply_suppressions_with(&mut report, &source, false);
+        assert_eq!(report.findings.len(), 1, "findings must stay visible");
+        assert_eq!(report.suppressed_count, 0);
+        assert_eq!(report.suppressions.len(), 1);
+        assert!(
+            !report.suppressions[0].stale,
+            "record should show the directive would match if honoured"
+        );
     }
 }

@@ -48,6 +48,14 @@ struct ScanRequest {
     /// When set, write the post-suppression findings here before filtering.
     #[serde(default)]
     write_baseline: Option<String>,
+    /// When false, list inline suppressions but do not hide findings.
+    /// Defaults to true; the CLI sets false under `--ci` unless opted in.
+    #[serde(default = "default_honor_suppressions")]
+    honor_suppressions: bool,
+}
+
+fn default_honor_suppressions() -> bool {
+    true
 }
 
 fn default_preset() -> String {
@@ -179,6 +187,7 @@ pub fn scan(request_json: String) -> napi::Result<String> {
             settings,
             baseline,
             write_baseline: request.write_baseline.map(std::path::PathBuf::from),
+            honor_suppressions: request.honor_suppressions,
         },
     ));
 

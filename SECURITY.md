@@ -56,10 +56,11 @@ fixture).
   loads JSON (and the `owlwarden` key in `package.json`) only — so placing a
   config module in a PR cannot get code execution. Never pass
   `--allow-config-js` on an untrusted tree.
-- **`--ci` ignores project gate knobs.** `preset` / `failOn` / `minConfidence`
-  from the scan target are ignored under `--ci` unless
-  `--allow-project-config` is set, so a PR cannot silence findings with JSON
-  alone. Pin those flags on the command line in CI.
+- **`--ci` ignores project mute switches.** Under `--ci`, project
+  `preset` / `failOn` / `minConfidence` are ignored unless
+  `--allow-project-config`; inline suppressions are listed but not applied
+  unless `--allow-suppressions`; `--baseline` is refused unless
+  `--allow-baseline`. Pin gate flags on the command line in CI.
 - Every response and every source file has a byte cap; reads use a bounded
   `Read::take` (and `O_NOFOLLOW` on Unix) so a file that grows or is swapped for
   a symlink under our feet cannot pull unbounded or out-of-tree bytes.
@@ -115,7 +116,8 @@ external pull request):
 
 ```bash
 npx owlwarden scan --ci --fail-on medium --min-confidence likely
-# do NOT add --allow-config-js or --allow-project-config
+# do NOT add --allow-config-js, --allow-project-config,
+# --allow-suppressions, or --allow-baseline
 ```
 
 The standalone native binary never loads executable JS config at all.

@@ -110,6 +110,23 @@ fn run_scan(args: &ScanArgs) -> i32 {
         preset: args.preset.clone(),
     };
 
+    if args.ci && args.baseline.is_some() && !args.allow_baseline {
+        return fail(
+            "--baseline under --ci requires --allow-baseline\n  \
+             omit --baseline on untrusted PRs, or pass --allow-baseline on a trusted tree",
+        );
+    }
+
+    let honor_suppressions = !args.ci || args.allow_suppressions;
+    // stderr even under `--ci --quiet` — stdout stays one JSON object.
+    if args.ci && !args.allow_suppressions {
+        let _ = writeln!(
+            std::io::stderr(),
+            "note: --ci ignores inline suppressions\n  \
+             pass --allow-suppressions on a trusted tree"
+        );
+    }
+
     let baseline = match load_baseline(args.baseline.as_deref()) {
         Ok(baseline) => baseline,
         Err(message) => return fail(&message),
@@ -123,6 +140,7 @@ fn run_scan(args: &ScanArgs) -> i32 {
             settings,
             baseline,
             write_baseline: args.write_baseline.as_ref().map(std::path::PathBuf::from),
+            honor_suppressions,
         },
     )) {
         Ok(report) => report,
@@ -216,6 +234,9 @@ fn run_watch(args: &ScanArgs) -> i32 {
         baseline: args.baseline.clone(),
         write_baseline: args.write_baseline.clone(),
         report_suppressions: args.report_suppressions,
+        ci: args.ci,
+        allow_suppressions: args.allow_suppressions,
+        allow_baseline: args.allow_baseline,
         no_color: args.no_color,
         ascii: args.ascii,
         quiet: true,

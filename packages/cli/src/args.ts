@@ -60,6 +60,17 @@ export interface ScanOptions {
    * `--ci`. Off by default. Never enable on an untrusted tree.
    */
   allowProjectConfig: boolean;
+  /**
+   * Honour inline suppressions under `--ci`. Off by default so a PR cannot
+   * silence findings with a comment. Local scans (no `--ci`) always honour
+   * them.
+   */
+  allowSuppressions: boolean;
+  /**
+   * Permit `--baseline` under `--ci`. Off by default — a checked-in baseline
+   * the pipeline always loads is otherwise a mute switch for new findings.
+   */
+  allowBaseline: boolean;
   color: boolean;
   unicode: boolean;
   quiet: boolean;
@@ -85,6 +96,8 @@ const OPTIONS = {
   "report-suppressions": { type: "boolean", default: false },
   "allow-config-js": { type: "boolean", default: false },
   "allow-project-config": { type: "boolean", default: false },
+  "allow-suppressions": { type: "boolean", default: false },
+  "allow-baseline": { type: "boolean", default: false },
   ci: { type: "boolean", default: false },
   "no-color": { type: "boolean", default: false },
   ascii: { type: "boolean", default: false },
@@ -162,8 +175,8 @@ function scanOptions(values: Values, positionals: string[]): ScanOptions {
     throw new ArgError(`scan takes at most one path, got ${positionals.length}`);
   }
 
-  // --ci is a shorthand, not a mode. Everything it does is reachable with the
-  // individual flags, so there is no second code path that only runs in CI.
+  // `--ci` sets machine-readable defaults and refuses project-controlled mute
+  // switches (config gates, suppressions, baseline) unless explicitly allowed.
   const ci = values.ci;
   const format = enumValue(
     "--format",
@@ -181,6 +194,8 @@ function scanOptions(values: Values, positionals: string[]): ScanOptions {
     allowConfigJs: values["allow-config-js"],
     ci,
     allowProjectConfig: values["allow-project-config"],
+    allowSuppressions: values["allow-suppressions"],
+    allowBaseline: values["allow-baseline"],
   };
 
   // Assigned conditionally because `exactOptionalPropertyTypes` distinguishes

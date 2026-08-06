@@ -6,16 +6,16 @@
 - run: npx owlwarden scan --ci --fail-on medium
 ```
 
-`--ci` is a shorthand for `--format json --quiet --no-color`. It is not a
-separate mode: everything it does is reachable with the individual flags, so
-there is no CI-only code path that behaves differently from what you see
-locally.
+`--ci` sets `--format json --quiet --no-color`, and also refuses mute switches
+that a hostile PR can plant in the tree:
 
-Do **not** pass `--allow-config-js` or `--allow-project-config` on pull
-requests from outside the team. Executable config is opt-in so a hostile tree
-cannot get code execution; `--ci` also ignores project `preset` / `failOn` /
-`minConfidence` for the same reason — otherwise a PR could silence the gate
-with `{ "minConfidence": "confirmed" }`. Pin the knobs on the command line:
+- project `preset` / `failOn` / `minConfidence` (unless `--allow-project-config`)
+- inline suppressions (unless `--allow-suppressions`)
+- `--baseline` (unless `--allow-baseline`)
+
+Do **not** pass `--allow-config-js`, `--allow-project-config`,
+`--allow-suppressions`, or `--allow-baseline` on pull requests from outside the
+team. Pin the gate knobs on the command line:
 
 ```bash
 npx owlwarden scan --ci --fail-on medium --min-confidence likely
@@ -106,9 +106,15 @@ the log readable while preserving the detail as an artifact.
 
 ## Suppressions in CI
 
-`--report-suppressions` lists every directive on stderr. Prefer reading
-`suppressedCount` and `suppressions` from the JSON if you want a pipeline gate —
-owlwarden does not fail the build on suppression growth by itself. Details:
+Under `--ci`, inline suppressions are listed in the report but do **not** hide
+findings unless you pass `--allow-suppressions`. That stops a PR from silencing
+the gate with a comment. On a trusted tree where suppressions are reviewed:
+
+```bash
+npx owlwarden scan --ci --fail-on medium --allow-suppressions
+```
+
+`--report-suppressions` still lists every directive on stderr. Details:
 [suppressions.md](suppressions.md).
 
 ## Speed

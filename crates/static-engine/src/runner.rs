@@ -18,7 +18,7 @@ use owlwarden_core::source::SourceError;
 
 use crate::engine::StaticEngine;
 use crate::fs_source::FsSourceProvider;
-use crate::postprocess::{apply_baseline, apply_suppressions};
+use crate::postprocess::{apply_baseline, apply_suppressions_with};
 use crate::rule::{FileRule, ProjectRule};
 
 /// A scan could not be performed at all.
@@ -44,7 +44,7 @@ pub enum RunError {
 ///
 /// Kept separate from [`ScanSettings`] on purpose: settings travel into every
 /// detector, while baseline is a post-pass the detectors must not see.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct ScanRequest {
     /// Thresholds and preset name.
     pub settings: ScanSettings,
@@ -55,6 +55,20 @@ pub struct ScanRequest {
     /// and `--baseline` can still filter the displayed report against an older
     /// file in the same run.
     pub write_baseline: Option<PathBuf>,
+    /// When false, inline suppressions are listed but do not hide findings.
+    /// CI on an untrusted tree sets this false unless the operator opted in.
+    pub honor_suppressions: bool,
+}
+
+impl Default for ScanRequest {
+    fn default() -> Self {
+        Self {
+            settings: ScanSettings::default(),
+            baseline: None,
+            write_baseline: None,
+            honor_suppressions: true,
+        }
+    }
 }
 
 /// Scans a project directory with the given rules.
@@ -79,6 +93,7 @@ pub async fn scan_project(
             settings,
             baseline: None,
             write_baseline: None,
+            honor_suppressions: true,
         },
     )
     .await
@@ -132,7 +147,7 @@ pub async fn scan_project_with(
 
     // Suppression re-reads files; do not double-charge the byte budget.
     provider.reset_bytes_read();
-    apply_suppressions(&mut report, &provider);
+    apply_suppressions_with(&mut report, &provider, request.honor_suppressions);
 
     if let Some(path) = &request.write_baseline {
         let file = BaselineFile::from_findings(&report.findings, owlwarden_core::ENGINE_VERSION);

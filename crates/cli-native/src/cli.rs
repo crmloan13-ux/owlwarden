@@ -67,6 +67,12 @@ pub struct ScanArgs {
     pub write_baseline: Option<String>,
     /// List every inline suppression and flag stale ones.
     pub report_suppressions: bool,
+    /// True when `--ci` was passed.
+    pub ci: bool,
+    /// Honour inline suppressions under `--ci`.
+    pub allow_suppressions: bool,
+    /// Permit `--baseline` under `--ci`.
+    pub allow_baseline: bool,
     /// Force colour off.
     pub no_color: bool,
     /// Use the ASCII glyph set.
@@ -92,6 +98,9 @@ impl Default for ScanArgs {
             baseline: None,
             write_baseline: None,
             report_suppressions: false,
+            ci: false,
+            allow_suppressions: false,
+            allow_baseline: false,
             no_color: false,
             ascii: false,
             quiet: false,
@@ -202,6 +211,8 @@ struct RawScan {
     min_confidence: Option<Confidence>,
     report_suppressions: bool,
     ci: bool,
+    allow_suppressions: bool,
+    allow_baseline: bool,
     no_color: bool,
     ascii: bool,
     quiet: bool,
@@ -224,6 +235,8 @@ fn parse_scan<'a>(args: impl Iterator<Item = &'a String>) -> Result<ScanArgs, Ar
             "--baseline" => raw.baseline = Some(value("--baseline")?),
             "--write-baseline" => raw.write_baseline = Some(value("--write-baseline")?),
             "--report-suppressions" => raw.report_suppressions = true,
+            "--allow-suppressions" => raw.allow_suppressions = true,
+            "--allow-baseline" => raw.allow_baseline = true,
             "--fail-on" => {
                 let text = value("--fail-on")?;
                 let level = Severity::from_str_opt(&text).ok_or(ArgError::InvalidValue {
@@ -246,9 +259,8 @@ fn parse_scan<'a>(args: impl Iterator<Item = &'a String>) -> Result<ScanArgs, Ar
             "--ascii" => raw.ascii = true,
             "--quiet" | "-q" => raw.quiet = true,
             "--hyperlinks" => raw.hyperlinks = true,
-            // `--ci` is a shorthand, not a mode: machine-readable output, no
-            // decoration, no colour. Keeping it a shorthand means there is no
-            // second code path that only runs in CI.
+            // `--ci` sets machine-readable defaults and refuses project-controlled
+            // mute switches unless explicitly allowed.
             "--ci" => raw.ci = true,
             other if other.starts_with('-') => {
                 return Err(ArgError::UnknownOption(other.to_owned()));
@@ -275,6 +287,9 @@ fn parse_scan<'a>(args: impl Iterator<Item = &'a String>) -> Result<ScanArgs, Ar
         baseline: raw.baseline,
         write_baseline: raw.write_baseline,
         report_suppressions: raw.report_suppressions,
+        ci: raw.ci,
+        allow_suppressions: raw.allow_suppressions,
+        allow_baseline: raw.allow_baseline,
         no_color: raw.no_color || raw.ci,
         ascii: raw.ascii,
         quiet: raw.quiet || raw.ci,
@@ -317,9 +332,12 @@ SCAN OPTIONS
   --baseline <FILE>    Report only findings new since this baseline
   --write-baseline <F> Write current findings to a baseline file
   --report-suppressions  List every inline suppression; flag stale ones
+  --allow-suppressions Under --ci, honour inline suppressions (off by default)
+  --allow-baseline     Under --ci, permit --baseline (off by default)
   --fail-on <LEVEL>    Exit 1 at this severity or above. Default: info
   --min-confidence <L> Drop findings below this confidence. Default: possible
-  --ci                 Shorthand for --format json --quiet --no-color
+  --ci                 JSON + quiet + no-color; ignores suppressions and
+                       --baseline unless allow-* is set
   --no-color           Disable colour (also honours NO_COLOR)
   --ascii              Use ASCII box drawing instead of Unicode
   --hyperlinks         Emit OSC-8 links (only if your terminal supports them)

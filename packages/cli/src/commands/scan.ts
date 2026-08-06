@@ -55,15 +55,34 @@ export async function runScan(
   const minConfidence =
     options.minConfidence ?? (trustProjectGates ? config.minConfidence : "possible");
 
+  // These notes go to stderr even under `--ci --quiet`: stdout stays one JSON
+  // object, and CI logs need to show why the gate ignored project mute switches.
   if (
     options.ci &&
     !options.allowProjectConfig &&
-    !options.quiet &&
     resolved.source.kind !== "defaults"
   ) {
     stderr.write(
       "note: --ci ignores project config for preset/fail-on/min-confidence\n" +
         "  pass flags explicitly, or --allow-project-config on a trusted tree\n",
+    );
+  }
+
+  // Under `--ci`, a checked-in baseline the pipeline always loads is a mute
+  // switch unless the operator opted in.
+  if (options.ci && options.baseline !== undefined && !options.allowBaseline) {
+    stderr.write(
+      "error: --baseline under --ci requires --allow-baseline\n" +
+        "  omit --baseline on untrusted PRs, or pass --allow-baseline on a trusted tree\n",
+    );
+    return EXIT.ERROR;
+  }
+
+  const honorSuppressions = !options.ci || options.allowSuppressions;
+  if (options.ci && !options.allowSuppressions) {
+    stderr.write(
+      "note: --ci ignores inline suppressions\n" +
+        "  pass --allow-suppressions on a trusted tree\n",
     );
   }
 
@@ -93,6 +112,7 @@ export async function runScan(
         // The engine filters by confidence at the source, so a report never
         // carries findings the user asked not to see.
         minConfidence,
+        honorSuppressions,
         ...(baselineJson !== undefined ? { baselineJson } : {}),
         ...(options.writeBaseline !== undefined
           ? { writeBaseline: options.writeBaseline }

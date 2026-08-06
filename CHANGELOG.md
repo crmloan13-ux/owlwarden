@@ -49,13 +49,15 @@ engine that makes `Confirmed` reachable remains later.
 - **Security hardening (hostile scan target):** executable project config
   (`owlwarden.config.{js,mjs,ts,mts}`) is opt-in via `--allow-config-js`
   (default loads JSON only); `--ci` ignores project `preset` / `failOn` /
-  `minConfidence` unless `--allow-project-config`; `--out` /
-  `--write-baseline` write via temp+rename (`create_new` / `wx`) so symlinks
-  are not followed; source reads are bounded and use `O_NOFOLLOW` on Unix;
+  `minConfidence` unless `--allow-project-config`, ignores inline suppressions
+  unless `--allow-suppressions`, and refuses `--baseline` unless
+  `--allow-baseline`; truncated reports fail CI; `--out` / `--write-baseline`
+  refuse symlinked parent directories and write via temp+rename
+  (`create_new` / `wx`); source reads are bounded and use `O_NOFOLLOW` on Unix;
   parser nesting guard skips comments/strings and counts generics/JSX and
   brackets inside templates; `hardcoded-secret` redacts values in snippets
-  before line truncation; baseline/config loads refuse oversized inputs; CI
-  workflow evidence is length-capped. See [SECURITY.md](SECURITY.md).
+  before line truncation; baseline/config loads refuse symlinks and oversized
+  inputs; CI workflow evidence is length-capped. See [SECURITY.md](SECURITY.md).
 
 ## [0.0.1]
 

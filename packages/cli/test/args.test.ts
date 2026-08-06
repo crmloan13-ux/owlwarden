@@ -93,10 +93,21 @@ describe("parse", () => {
     expect(denied.options.allowConfigJs).toBe(false);
     expect(denied.options.ci).toBe(true);
     expect(denied.options.allowProjectConfig).toBe(false);
+    expect(denied.options.allowSuppressions).toBe(false);
+    expect(denied.options.allowBaseline).toBe(false);
 
-    const allowed = parse(["scan", "--ci", "--allow-config-js", "--allow-project-config"]);
+    const allowed = parse([
+      "scan",
+      "--ci",
+      "--allow-config-js",
+      "--allow-project-config",
+      "--allow-suppressions",
+      "--allow-baseline",
+    ]);
     if (allowed.command !== "scan") throw new Error("expected scan");
     expect(allowed.options.allowConfigJs).toBe(true);
     expect(allowed.options.allowProjectConfig).toBe(true);
+    expect(allowed.options.allowSuppressions).toBe(true);
+    expect(allowed.options.allowBaseline).toBe(true);
   });
 });
