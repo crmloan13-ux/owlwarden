@@ -39,22 +39,39 @@ category and stays silent on the rest reads as a clean bill of health, which is
 worse than no scan at all — hence `owlwarden coverage`, which states the gaps
 in the same breath as the findings.
 
+## v0.0.2 — Trust without the network — **shipped**
+
+**Goal:** make adoption realistic on a legacy repo *before* the dynamic engine
+lands. SemVer patch because the plugin API and the network surface are
+untouched; the work is a slice of what v0.1 still owns.
+
+Delivered:
+
+- Inline suppressions with a mandatory reason, and `--report-suppressions`.
+- Baseline mode (`--baseline` / `--write-baseline`) with reformatting-stable
+  fingerprints ([ADR 0013](docs/adr/0013-suppressions-and-baseline.md)).
+- Rules for the three static-reachable OWASP gaps: A06 (`unpinned-dependency`),
+  A08 (`ci-unpinned-action`), A09 (`sensitive-data-logged`). A04 stays out of
+  reach on purpose.
+- `watch`, static-only.
+
+**Exit criteria, met for this slice:** baseline survives reformatting; the
+false-positive corpus stays silent at twelve rules; every new rule covers all
+five frameworks.
+
 ## v0.1 — Trust and the dynamic engine
 
-**Goal:** a tool you can point at a real codebase without drowning in output.
+**Goal:** a tool you can point at a real codebase without drowning in output,
+including runtime confirmation.
 
 - Dynamic engine: bounded `Transport`, scoped, passive — and correlation with
   the static engine, which is what makes `Confirmed` reachable.
-- Suppression with a mandatory reason, and `--report-suppressions`.
-- Baseline mode.
-- Rules for the four OWASP categories `owlwarden coverage` currently reports as
-  gaps, and depth in the six already covered.
-- `watch`, static-only.
+- Depth in the categories already covered (injection family, headers, secrets).
 - A documentation site with a page per rule.
 
-**Exit criteria:** adopting the tool on a legacy repository is realistic —
-baseline works and survives reformatting; correlated findings report as
-`Confirmed`; the false-positive corpus stays silent as the rule count grows.
+**Exit criteria:** correlated findings report as `Confirmed`; the
+false-positive corpus stays silent as the rule count grows. (Suppressions,
+baseline, `watch`, and the A06/A08/A09 rules shipped in 0.0.2.)
 
 ## v0.2 — Plugins and the agent surface
 

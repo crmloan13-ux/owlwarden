@@ -7,9 +7,9 @@ passive by default.
 npx owlwarden scan
 ```
 
-**Status: v0.0.** Nine rules across six of the OWASP Top 10, static analysis
-only, with first-class support for **Next.js, Nuxt, NestJS, Express, and
-Fastify**.
+**Status: v0.0.2.** Twelve rules across nine of the OWASP Top 10, static
+analysis only, with first-class support for **Next.js, Nuxt, NestJS, Express,
+and Fastify** — plus suppressions, baseline mode, and `watch`.
 
 ## What a finding looks like
 
@@ -69,6 +69,8 @@ downloads anything.
 owlwarden scan                          # zero config
 owlwarden scan --preset owasp-top10     # a named rule bundle
 owlwarden scan --ci                     # JSON on stdout, exit codes for CI
+owlwarden scan --baseline .owlwarden-baseline.json
+owlwarden watch                         # re-scan on change (static only)
 owlwarden coverage                      # what the rules reach, and what they do not
 owlwarden explain sql-injection         # the full write-up, offline
 owlwarden rules                         # the catalogue
@@ -91,7 +93,7 @@ are different answers, and conflating them is worse than not scanning.
 
 ## Safety
 
-Passive by default. v0.0 reads your source and sends no requests, so it cannot
+Passive by default. v0.0.2 reads your source and sends no requests, so it cannot
 change the state of anything. There is no telemetry of any kind — not off by
 default, absent. Nothing about your code leaves the machine.
 
@@ -102,6 +104,7 @@ Full docs, the rule catalogue, and the design record live in the repository:
 
 - [Rule catalogue](https://github.com/suthat/owlwarden/blob/main/RULES.md)
 - [Using it in CI](https://github.com/suthat/owlwarden/blob/main/docs/how-to/ci.md)
+- [Suppressions and baselines](https://github.com/suthat/owlwarden/blob/main/docs/how-to/suppressions.md)
 - [Reading the coverage report](https://github.com/suthat/owlwarden/blob/main/docs/explanation/coverage.md)
 - [Confidence and false positives](https://github.com/suthat/owlwarden/blob/main/docs/explanation/false-positives.md)
 

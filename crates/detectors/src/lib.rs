@@ -36,15 +36,18 @@
 #![allow(clippy::module_name_repetitions, clippy::must_use_candidate)]
 
 pub mod build;
+pub mod ci_unpinned_action;
 pub mod cors;
 pub mod decorator;
 pub mod hardcoded_secret;
 pub mod insecure_cookie;
 pub mod open_redirect;
 pub mod security_headers;
+pub mod sensitive_data_logged;
 pub mod sql_injection;
 pub mod ssrf;
 pub mod stack_trace_leak;
+pub mod unpinned_dependency;
 pub mod weak_crypto;
 
 use std::sync::Arc;
@@ -56,14 +59,17 @@ use owlwarden_core::owasp::{self, CategoryCoverage};
 use owlwarden_core::remediation::Remediation;
 use owlwarden_static::rule::{FileRule, ProjectRule, RuleInfo};
 
+pub use ci_unpinned_action::CiUnpinnedAction;
 pub use cors::CorsPermissive;
 pub use hardcoded_secret::HardcodedSecret;
 pub use insecure_cookie::InsecureCookie;
 pub use open_redirect::OpenRedirect;
 pub use security_headers::SecurityHeadersMissing;
+pub use sensitive_data_logged::SensitiveDataLogged;
 pub use sql_injection::SqlInjection;
 pub use ssrf::Ssrf;
 pub use stack_trace_leak::StackTraceLeak;
+pub use unpinned_dependency::UnpinnedDependency;
 pub use weak_crypto::WeakCrypto;
 
 /// The frameworks every rule is expected to have remediation for.
@@ -157,13 +163,18 @@ pub fn all_file_rules() -> Vec<Arc<dyn FileRule>> {
         Arc::new(Ssrf),
         Arc::new(WeakCrypto),
         Arc::new(OpenRedirect),
+        Arc::new(SensitiveDataLogged),
     ]
 }
 
 /// Every project-wide rule that ships with owlwarden.
 #[must_use]
 pub fn all_project_rules() -> Vec<Arc<dyn ProjectRule>> {
-    vec![Arc::new(SecurityHeadersMissing)]
+    vec![
+        Arc::new(SecurityHeadersMissing),
+        Arc::new(UnpinnedDependency),
+        Arc::new(CiUnpinnedAction),
+    ]
 }
 
 /// Every rule, as the shape that only needs its metadata and remediation.

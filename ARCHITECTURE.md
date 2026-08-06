@@ -224,7 +224,8 @@ wait for a release that will never arrive.
 
 A security tool that cries wolf gets uninstalled, and that failure is caused by
 presenting a guess and a fact at the same volume rather than by missing rules.
-Three mechanisms address it. The first ships today; the other two are v0.1.
+Three mechanisms address it. All three ship today for the static engine;
+`Confirmed` still waits on the dynamic engine.
 
 **Confidence.** Every finding carries `Confirmed | Likely | Possible`.
 
@@ -238,22 +239,23 @@ documented rather than implied. `--min-confidence` filters, and `--fail-on`
 respects it. [ADR 0006](docs/adr/0006-confidence-in-the-model.md) and
 [docs/explanation/false-positives.md](docs/explanation/false-positives.md).
 
-**Suppression with a mandatory reason** (planned). The reason is what stops
-suppression from becoming a silent blanket, because it is what a reviewer reads
-in the diff:
+**Suppression with a mandatory reason.** The reason is what stops suppression
+from becoming a silent blanket, because it is what a reviewer reads in the diff:
 
 ```ts
 // owlwarden-disable-next-line stack-trace-leak -- dev-only route, gated by NODE_ENV
 ```
 
-`--report-suppressions` will list every suppression and flag stale ones, so the
-annotations cannot rot. `suppressedCount` is already in the report schema, so
+`--report-suppressions` lists every suppression and flags stale ones, so the
+annotations cannot rot. `suppressedCount` is in the report schema, so
 `findings: []` is never mistaken for a clean project.
 
-**Baseline** (planned). `--baseline .owlwarden-baseline.json` fails only on
-findings new since the baseline — the only realistic way to adopt the tool on an
-existing codebase. Entries key on a fingerprint of rule id, normalised location,
-and code hash, so they survive reformatting.
+**Baseline.** `--baseline .owlwarden-baseline.json` fails only on findings new
+since the baseline — the only realistic way to adopt the tool on an existing
+codebase. Entries key on a fingerprint of rule id, normalised path,
+whitespace-collapsed evidence, and an occurrence index, so they survive
+reformatting without collapsing two identical findings in one file.
+[ADR 0013](docs/adr/0013-suppressions-and-baseline.md).
 
 **Rule ids are permanent public API.** Baselines, suppressions, SARIF output,
 and agent rules files all key off them. A rename requires an alias retained for
@@ -319,7 +321,7 @@ is never branded with the OWASP mark.
 | `rules` | shipped | The rule catalogue. |
 | `coverage` | shipped | Which OWASP categories the rules reach, and which they do not. |
 | `explain <id>` | shipped | The full write-up for a rule, entirely offline. |
-| `watch` | planned | Re-scan on change during development. |
+| `watch` | shipped | Re-scan on change during development. Static only. |
 | `report` | planned | Re-render a saved JSON result in another format. |
 | `mcp` | planned | An MCP server, so an agent can call owlwarden as a tool. |
 

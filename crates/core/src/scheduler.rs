@@ -113,6 +113,12 @@ impl Scheduler {
         while let Some((id, outcome)) = running.next().await {
             match outcome {
                 Ok(produced) => {
+                    // A detector that already returned a full cap cannot prove
+                    // the project is clean — even when every finding fits
+                    // exactly and the merge loop never sees an "extra" one.
+                    if produced.len() >= limits::scan::MAX_FINDINGS {
+                        truncated = true;
+                    }
                     for finding in produced {
                         if findings.len() >= limits::scan::MAX_FINDINGS {
                             truncated = true;
@@ -151,6 +157,8 @@ impl Scheduler {
             target,
             findings,
             suppressed_count: 0,
+            suppressions: Vec::new(),
+            baseline_hidden_count: 0,
             truncated,
             errors,
         })
@@ -372,5 +380,75 @@ mod tests {
 
         assert!(report.findings.is_empty());
         assert_eq!(report.summary.total(), 0);
+    }
+
+    fn flood_at_cap() -> Result<Vec<Finding>, DetectorError> {
+        let n = crate::limits::scan::MAX_FINDINGS;
+        Ok((0..n)
+            .map(|i| {
+                Finding::builder(
+                    RuleId::new_static("stub-a"),
+                    Severity::High,
+                    format!("finding-{i}"),
+                )
+                .confidence(Confidence::Likely)
+                .build()
+            })
+            .collect())
+    }
+
+    #[tokio::test]
+    async fn a_detector_returning_exactly_the_cap_marks_truncated() {
+        // Regression: when produced.len() == MAX_FINDINGS, the merge loop
+        // never sees an "extra" finding, so truncation must be detected from
+        // the batch size itself — otherwise CI exits 0 on a partial scan.
+        let report = run_with(
+            vec![Arc::new(Stub {
+                id: "stub-flood",
+                capabilities: Capabilities::source_only(),
+                outcome: flood_at_cap,
+            })],
+            ScanSettings::default(),
+        )
+        .await;
+
+        assert_eq!(report.findings.len(), crate::limits::scan::MAX_FINDINGS);
+        assert!(report.truncated, "exact-cap flood must set truncated");
+        assert!(
+            report.should_fail(Severity::High, Confidence::Confirmed),
+            "truncated reports must fail CI even under the strictest gate"
+        );
+    }
+
+    fn flood_over_cap() -> Result<Vec<Finding>, DetectorError> {
+        let n = crate::limits::scan::MAX_FINDINGS + 3;
+        Ok((0..n)
+            .map(|i| {
+                Finding::builder(
+                    RuleId::new_static("stub-a"),
+                    Severity::Medium,
+                    format!("finding-{i}"),
+                )
+                .confidence(Confidence::Likely)
+                .build()
+            })
+            .collect())
+    }
+
+    #[tokio::test]
+    async fn findings_beyond_the_cap_are_dropped_and_flagged() {
+        let report = run_with(
+            vec![Arc::new(Stub {
+                id: "stub-flood",
+                capabilities: Capabilities::source_only(),
+                outcome: flood_over_cap,
+            })],
+            ScanSettings::default(),
+        )
+        .await;
+
+        assert_eq!(report.findings.len(), crate::limits::scan::MAX_FINDINGS);
+        assert!(report.truncated);
+        assert!(report.should_fail(Severity::Info, Confidence::Possible));
     }
 }

@@ -15,7 +15,7 @@
   },
   "summary": {
     "high": 1,
-    "medium": 1,
+    "medium": 4,
     "low": 0,
     "info": 0
   },
@@ -30,12 +30,12 @@
       "why": "Stack traces expose absolute file paths, dependency versions, and internal call structure — enough to fingerprint the stack and locate other weaknesses.",
       "location": {
         "path": "app/api/users/route.ts",
-        "line": 13,
+        "line": 16,
         "col": 16
       },
       "snippet": {
         "path": "app/api/users/route.ts",
-        "startLine": 11,
+        "startLine": 14,
         "lines": [
           "  } catch (err) {",
           "    return NextResponse.json(",
@@ -44,7 +44,7 @@
           "    )"
         ],
         "highlight": {
-          "line": 13,
+          "line": 16,
           "startCol": 16,
           "endCol": 25,
           "label": "leaks internal stack trace to the client"
@@ -83,6 +83,165 @@
           "kind": "docs",
           "id": "RULES.md#stack-trace-leak",
           "url": "https://github.com/suthat/owlwarden/blob/main/RULES.md#stack-trace-leak"
+        }
+      ]
+    },
+    {
+      "id": "ci-unpinned-action",
+      "severity": "medium",
+      "confidence": "likely",
+      "owasp": "A08:2021",
+      "cwe": 829,
+      "title": "GitHub Action is not pinned to a commit SHA",
+      "why": "A moving tag can be retargeted to a different commit. Anyone who can push that tag — or who compromises the action's repository — runs code in your CI with access to repository secrets.",
+      "location": {
+        "path": ".github/workflows/ci.yml",
+        "line": 8,
+        "col": 1
+      },
+      "context": {
+        "framework": "next",
+        "evidence": "actions/checkout@v4"
+      },
+      "remediation": [
+        {
+          "framework": "next",
+          "summary": "Pin the action to a full commit SHA (keep the tag in a comment for humans).",
+          "patch": "uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1",
+          "safety": "manual"
+        },
+        {
+          "summary": "Pin the action to a full commit SHA (keep the tag in a comment for humans).",
+          "safety": "manual"
+        }
+      ],
+      "references": [
+        {
+          "kind": "owasp",
+          "id": "A08:2021",
+          "url": "https://owasp.org/Top10/A08_2021-Software_and_Data_Integrity_Failures/"
+        },
+        {
+          "kind": "cwe",
+          "id": "CWE-829",
+          "url": "https://cwe.mitre.org/data/definitions/829.html"
+        },
+        {
+          "kind": "docs",
+          "id": "RULES.md#ci-unpinned-action",
+          "url": "https://github.com/suthat/owlwarden/blob/main/RULES.md#ci-unpinned-action"
+        }
+      ]
+    },
+    {
+      "id": "sensitive-data-logged",
+      "severity": "medium",
+      "confidence": "likely",
+      "owasp": "A09:2021",
+      "cwe": 532,
+      "title": "Sensitive data written to a log",
+      "why": "Logs are copied into aggregators, retained for months, and readable by anyone with access to the logging system. A credential that reaches a log has left the application's trust boundary.",
+      "location": {
+        "path": "app/api/users/route.ts",
+        "line": 10,
+        "col": 18
+      },
+      "snippet": {
+        "path": "app/api/users/route.ts",
+        "startLine": 8,
+        "lines": [
+          "export async function GET(request: Request) {",
+          "  // sensitive-data-logged: the Authorization header lands in the log aggregator.",
+          "  console.info({ authorization: request.headers.get('authorization') })",
+          "  try {",
+          "    const users = await listUsers()"
+        ],
+        "highlight": {
+          "line": 10,
+          "startCol": 18,
+          "endCol": 69,
+          "label": "sensitive value written to a log"
+        }
+      },
+      "context": {
+        "framework": "next",
+        "route": "/api/users",
+        "evidence": "authorization: …"
+      },
+      "remediation": [
+        {
+          "framework": "next",
+          "summary": "Log that the attempt happened, not the credential.",
+          "patch": "console.info({ event: 'login_attempt', userId })\n// never: console.info({ password })",
+          "safety": "manual"
+        },
+        {
+          "summary": "Log a redacted shape — an id, a boolean, a length — never the secret itself.",
+          "safety": "manual"
+        }
+      ],
+      "references": [
+        {
+          "kind": "owasp",
+          "id": "A09:2021",
+          "url": "https://owasp.org/Top10/A09_2021-Security_Logging_and_Monitoring_Failures/"
+        },
+        {
+          "kind": "cwe",
+          "id": "CWE-532",
+          "url": "https://cwe.mitre.org/data/definitions/532.html"
+        },
+        {
+          "kind": "docs",
+          "id": "RULES.md#sensitive-data-logged",
+          "url": "https://github.com/suthat/owlwarden/blob/main/RULES.md#sensitive-data-logged"
+        }
+      ]
+    },
+    {
+      "id": "unpinned-dependency",
+      "severity": "medium",
+      "confidence": "likely",
+      "owasp": "A06:2021",
+      "cwe": 1104,
+      "title": "Dependency version is unpinned",
+      "why": "An unpinned range lets the next install resolve a different major version, including one with a known vulnerability or a breaking API change, without anyone reviewing the bump.",
+      "location": {
+        "path": "package.json",
+        "line": 10,
+        "col": 1
+      },
+      "context": {
+        "framework": "next",
+        "evidence": "left-pad: *"
+      },
+      "remediation": [
+        {
+          "framework": "next",
+          "summary": "Pin the dependency in package.json and reinstall so the lockfile records it.",
+          "patch": "{\n  \"dependencies\": {\n    \"next\": \"^14.2.0\"\n  }\n}",
+          "safety": "manual"
+        },
+        {
+          "summary": "Replace '*' or 'latest' with a lower-bounded range (or an exact version), then regenerate the lockfile.",
+          "safety": "manual"
+        }
+      ],
+      "references": [
+        {
+          "kind": "owasp",
+          "id": "A06:2021",
+          "url": "https://owasp.org/Top10/A06_2021-Vulnerable_and_Outdated_Components/"
+        },
+        {
+          "kind": "cwe",
+          "id": "CWE-1104",
+          "url": "https://cwe.mitre.org/data/definitions/1104.html"
+        },
+        {
+          "kind": "docs",
+          "id": "RULES.md#unpinned-dependency",
+          "url": "https://github.com/suthat/owlwarden/blob/main/RULES.md#unpinned-dependency"
         }
       ]
     },
@@ -135,6 +294,8 @@
     }
   ],
   "suppressedCount": 0,
+  "suppressions": [],
+  "baselineHiddenCount": 0,
   "truncated": false,
   "errors": []
 }

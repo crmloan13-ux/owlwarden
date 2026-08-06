@@ -129,8 +129,9 @@ So:
 
 - **Suppression requires a reason string.** An agent has to state a
   justification, and a human reads it in the diff.
-- **`--report-suppressions`** lists every suppression, and CI can fail on a net
-  increase.
+- **`--report-suppressions`** lists every suppression. `suppressedCount` is in
+  the JSON so a pipeline *can* fail on a net increase; owlwarden itself does
+  not enforce that policy (see [how-to/suppressions.md](../how-to/suppressions.md)).
 - **`suppressedCount` is in the JSON**, so "0 findings" is never mistaken for
   "0 problems".
 - The documentation says plainly, to humans and agents alike: suppression is a

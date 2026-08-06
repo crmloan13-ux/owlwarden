@@ -25,6 +25,10 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const body = await request.json()
+    // 4. The word "password" in a string is product copy, not a secret.
+    console.info('password reset email queued')
+    // 5. A name that merely *contains* a sensitive word is not the secret.
+    console.info({ passwordLength: typeof body?.password === 'string' ? body.password.length : 0 })
     return NextResponse.json({ received: body })
   } catch (err) {
     // 2. A logger call shaped like a response call. Not a sink.

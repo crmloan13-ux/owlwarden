@@ -37,6 +37,9 @@ app.get('/articles/:id', async (request, reply) => {
 })
 
 app.post('/session', async (request, reply) => {
+  // sensitive-data-logged: Fastify's request.log is a real log sink.
+  request.log.info({ password: (request.body as { password?: string }).password })
+
   // weak-crypto: a session id from a PRNG an attacker can predict after seeing
   // a handful of outputs.
   const sessionToken = Math.random().toString(36).slice(2)

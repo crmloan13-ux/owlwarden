@@ -29,6 +29,7 @@
 // future compiler into a broken build for downstream users.
 #![allow(clippy::module_name_repetitions, clippy::must_use_candidate)]
 
+pub mod baseline;
 pub mod budget;
 pub mod context;
 pub mod coverage;
@@ -42,8 +43,12 @@ pub mod reporter;
 pub mod scheduler;
 pub mod scope;
 pub mod source;
+pub mod suppression;
 pub mod transport;
 
+pub use baseline::{
+    BaselineEntry, BaselineError, BaselineFile, BaselineFilter, MAX_BASELINE_BYTES, MAX_ENTRIES,
+};
 pub use budget::Budget;
 pub use context::{ScanContext, ScanSettings};
 pub use detector::{Capabilities, Detector, DetectorError, DetectorKind, DetectorMeta};
@@ -56,6 +61,7 @@ pub use reporter::{ReportError, Reporter};
 pub use scheduler::{ScanError, Scheduler};
 pub use scope::{ScopeDecision, ScopeResolver, Target};
 pub use source::{FileSelector, RelPath, SourceError, SourceFile, SourceProvider};
+pub use suppression::{Directive, SuppressionOutcome, SuppressionRecord};
 pub use transport::{BoundedRequest, BoundedResponse, HttpLimits, Transport, TransportError};
 
 /// The version of this engine, as reported in `Report.tool.version`.

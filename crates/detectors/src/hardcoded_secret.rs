@@ -241,6 +241,9 @@ enum Reason {
 struct Hit {
     span: Span,
     reason: Reason,
+    /// The literal value — used only to redact the snippet before it leaves
+    /// the process. Never placed in `evidence`.
+    value: String,
 }
 
 #[derive(Default)]
@@ -252,12 +255,16 @@ struct SecretVisitor {
 }
 
 impl SecretVisitor {
-    fn record(&mut self, span: Span, reason: Reason) {
+    fn record(&mut self, span: Span, reason: Reason, value: &str) {
         if self.hits.len() >= MAX_PER_FILE || self.seen.contains(&span) {
             return;
         }
         self.seen.push(span);
-        self.hits.push(Hit { span, reason });
+        self.hits.push(Hit {
+            span,
+            reason,
+            value: value.to_owned(),
+        });
     }
 
     /// Considers a name/value pair found anywhere a binding can occur.
@@ -269,7 +276,7 @@ impl SecretVisitor {
         if !is_secret_name(name) || !could_be_a_credential(text) {
             return;
         }
-        self.record(literal.span, Reason::Name(name.to_owned()));
+        self.record(literal.span, Reason::Name(name.to_owned()), text);
     }
 }
 
@@ -277,8 +284,9 @@ impl<'a> Visit<'a> for SecretVisitor {
     fn visit_string_literal(&mut self, literal: &oxc_ast::ast::StringLiteral<'a>) {
         // The shape path deliberately ignores the surrounding name: a live
         // Stripe key is a live Stripe key wherever it is written.
-        if let Some(issuer) = issued_token(literal.value.as_str()) {
-            self.record(literal.span, Reason::Shape(issuer));
+        let text = literal.value.as_str();
+        if let Some(issuer) = issued_token(text) {
+            self.record(literal.span, Reason::Shape(issuer), text);
         }
     }
 
@@ -444,19 +452,37 @@ fn build_finding(unit: &FileUnit<'_>, hit: &Hit) -> Finding {
         ),
     };
 
+    // Redact on the full line *before* the frame truncates it — otherwise a
+    // long secret survives as the first 400 characters of the JSON snippet.
+    let secret = hit.value.clone();
+    let masked = mask_secret(&secret);
+    let snippet = unit.code_frame_mapped(hit.span, "credential written into source", |line| {
+        if secret.is_empty() {
+            line.to_owned()
+        } else {
+            line.replace(&secret, &masked)
+        }
+    });
+
     finding_builder(&meta)
         .confidence(confidence)
         .why(why)
         .location(unit.location(hit.span))
-        // The frame shows the line, and the line contains the secret. That is
-        // unavoidable for a rule whose whole job is to point at one — but the
-        // evidence field, which is what ends up in logs and CI output, never
-        // carries the value itself.
-        .snippet(unit.code_frame(hit.span, "credential written into source"))
+        // Evidence never carries the value; the snippet is redacted too so CI
+        // JSON and pretty output cannot re-leak the credential.
+        .snippet(snippet)
         .context(unit.context(None, Some(evidence)))
         .fixes(remediation().select(unit.framework()))
         .reference(Reference::rule_page(&meta.id))
         .build()
+}
+
+fn mask_secret(secret: &str) -> String {
+    let prefix: String = secret.chars().take(4).collect();
+    if secret.chars().count() <= 4 {
+        return "***".to_owned();
+    }
+    format!("{prefix}***")
 }
 
 /// Every framework's fix.
@@ -545,6 +571,12 @@ mod tests {
         assert_eq!(issued_token("ghp_"), None);
         // A commit hash is not an AWS key.
         assert_eq!(issued_token("a94a8fe5ccb19ba61c4c"), None);
+    }
+
+    #[test]
+    fn mask_secret_keeps_a_short_prefix() {
+        assert_eq!(mask_secret("sk_live_abcdef"), "sk_l***");
+        assert_eq!(mask_secret("ab"), "***");
     }
 
     #[test]

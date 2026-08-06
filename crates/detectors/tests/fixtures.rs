@@ -65,7 +65,7 @@ async fn next_fixture_reports_the_stack_trace_leak_with_a_code_frame() {
         panic!("a static finding must have a source location");
     };
     assert_eq!(location.path, "app/api/users/route.ts");
-    assert_eq!(location.line, 13, "the line holding `err.stack`");
+    assert_eq!(location.line, 16, "the line holding `err.stack`");
 
     let frame = leak.snippet.as_ref().expect("a code frame is the whole DX");
     assert!(
@@ -73,7 +73,7 @@ async fn next_fixture_reports_the_stack_trace_leak_with_a_code_frame() {
         "the frame must contain the offending line: {:?}",
         frame.lines
     );
-    assert_eq!(frame.highlight.line, 13);
+    assert_eq!(frame.highlight.line, 16);
     assert_eq!(
         frame.highlight.label.as_deref(),
         Some("leaks internal stack trace to the client")
@@ -131,7 +131,13 @@ const MATRIX: &[Expectation] = &[
         framework: "next",
         vulnerable: "vulnerable/next-api",
         clean: "should-not-fire/next-api-clean",
-        fires: &[("stack-trace-leak", 1), ("security-headers-missing", 1)],
+        fires: &[
+            ("stack-trace-leak", 1),
+            ("security-headers-missing", 1),
+            ("unpinned-dependency", 1),
+            ("ci-unpinned-action", 1),
+            ("sensitive-data-logged", 1),
+        ],
     },
     Expectation {
         framework: "nuxt",
@@ -144,13 +150,22 @@ const MATRIX: &[Expectation] = &[
             ("security-headers-missing", 1),
             ("ssrf", 1),
             ("open-redirect", 1),
+            ("unpinned-dependency", 1),
+            ("ci-unpinned-action", 1),
+            ("sensitive-data-logged", 1),
         ],
     },
     Expectation {
         framework: "nest",
         vulnerable: "vulnerable/nest-api",
         clean: "should-not-fire/nest-api-clean",
-        fires: &[("stack-trace-leak", 1), ("security-headers-missing", 1)],
+        fires: &[
+            ("stack-trace-leak", 1),
+            ("security-headers-missing", 1),
+            ("unpinned-dependency", 1),
+            ("ci-unpinned-action", 1),
+            ("sensitive-data-logged", 1),
+        ],
     },
     Expectation {
         framework: "express",
@@ -167,6 +182,9 @@ const MATRIX: &[Expectation] = &[
             ("open-redirect", 1),
             // A broken hash, a predictable token, and an ECB cipher.
             ("weak-crypto", 3),
+            ("unpinned-dependency", 1),
+            ("ci-unpinned-action", 1),
+            ("sensitive-data-logged", 1),
         ],
     },
     Expectation {
@@ -179,6 +197,9 @@ const MATRIX: &[Expectation] = &[
             ("insecure-cookie", 1),
             ("security-headers-missing", 1),
             ("weak-crypto", 1),
+            ("unpinned-dependency", 1),
+            ("ci-unpinned-action", 1),
+            ("sensitive-data-logged", 1),
         ],
     },
 ];

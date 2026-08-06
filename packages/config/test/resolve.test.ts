@@ -1,4 +1,4 @@
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -42,16 +42,45 @@ describe("resolveConfig", () => {
     expect(result.config.failOn).toBe("info");
   });
 
-  it("reads an ESM config's default export", async () => {
+  it("does not execute an ESM config without allowConfigJs", async () => {
+    // Side effect would prove import() ran. Without the flag it must not.
+    const marker = join(dir, "executed.marker");
     await writeFile(
       join(dir, "owlwarden.config.mjs"),
-      "export default { preset: 'owasp-top10', failOn: 'medium' };\n",
+      `import { writeFileSync } from 'node:fs';\nwriteFileSync(${JSON.stringify(marker)}, 'pwned');\nexport default { preset: 'deep' };\n`,
     );
     const result = await resolveConfig(dir);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
+    expect(result.source.kind).toBe("defaults");
+    expect(result.config.preset).toBe("quick");
+    expect(result.skippedExecutable).toContain("owlwarden.config.mjs");
+    await expect(import("node:fs/promises").then((fs) => fs.access(marker))).rejects.toThrow();
+  });
+
+  it("reads an ESM config when allowConfigJs is set", async () => {
+    await writeFile(
+      join(dir, "owlwarden.config.mjs"),
+      "export default { preset: 'owasp-top10', failOn: 'medium' };\n",
+    );
+    const result = await resolveConfig(dir, { allowConfigJs: true });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
     expect(result.config.preset).toBe("owasp-top10");
     expect(result.config.failOn).toBe("medium");
+  });
+
+  it("prefers JSON over a skipped executable config", async () => {
+    await writeFile(
+      join(dir, "owlwarden.config.mjs"),
+      "export default { preset: 'deep' };\n",
+    );
+    await writeFile(join(dir, "owlwarden.config.json"), JSON.stringify({ preset: "quick" }));
+    const result = await resolveConfig(dir);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.config.preset).toBe("quick");
+    expect(result.skippedExecutable).toBeDefined();
   });
 
   it("falls back to the owlwarden key in package.json", async () => {
@@ -105,6 +134,15 @@ describe("resolveConfig", () => {
     expect(result.error.kind).toBe("unreadable");
   });
 
+  it("rejects an oversized JSON config", async () => {
+    const huge = `{"preset":"quick","pad":"${"x".repeat(300_000)}"}`;
+    await writeFile(join(dir, "owlwarden.config.json"), huge);
+    const result = await resolveConfig(dir);
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error.kind).toBe("too-large");
+  });
+
   it("ignores a config directory that is above the project", async () => {
     // Config outside the scanned project must not change what a scan does.
     await writeFile(join(dir, "owlwarden.config.json"), JSON.stringify({ preset: "deep" }));
@@ -114,5 +152,19 @@ describe("resolveConfig", () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.source.kind).toBe("defaults");
+  });
+
+  it("does not follow a symlinked owlwarden.config.json", async () => {
+    const outside = join(dir, "outside-config.json");
+    await writeFile(outside, JSON.stringify({ minConfidence: "confirmed", failOn: "high" }));
+    await symlink(outside, join(dir, "owlwarden.config.json"));
+
+    const result = await resolveConfig(dir);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    // Symlink configs are invisible (lstat is not a regular file) — defaults,
+    // not the hostile knobs behind the link.
+    expect(result.source.kind).toBe("defaults");
+    expect(result.config.minConfidence).toBe("possible");
   });
 });

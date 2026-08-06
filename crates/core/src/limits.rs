@@ -63,6 +63,16 @@ pub mod source {
     /// dozens of times is either generated or has tripped a broken rule;
     /// truncating keeps the report readable and the run bounded.
     pub const MAX_FINDINGS_PER_FILE: usize = 64;
+    /// Inline suppression directives retained for one scan, across the whole
+    /// tree. Matching and the report use the same capped set — otherwise a
+    /// hostile repository could inflate memory, or suppress findings that never
+    /// appear in `--report-suppressions`.
+    pub const MAX_SUPPRESSIONS: usize = 10_000;
+    /// Bracket / angle-bracket nesting a source file may contain before we
+    /// refuse to hand it to oxc. The parser is recursive with no depth limit of
+    /// its own; past a few thousand levels it aborts the process. See
+    /// [ADR 0008](../../../docs/adr/0008-bound-parser-recursion.md).
+    pub const MAX_NESTING_DEPTH: u32 = 256;
 }
 
 /// Caps applied to WASM plugins (`plugin-host`, v0.2).

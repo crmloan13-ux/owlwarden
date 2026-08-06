@@ -7,10 +7,11 @@ passive by default.
 npx owlwarden scan
 ```
 
-**Status: v0.0.** Nine rules across six of the OWASP Top 10, static analysis
-only, with first-class support for Next.js, Nuxt, NestJS, Express, and Fastify.
-It works and it is honest about what it does not do yet — run
-`owlwarden coverage`, or see [Scope](#what-it-does-not-do-yet).
+**Status: v0.0.2.** Twelve rules across nine of the OWASP Top 10, static
+analysis only, with first-class support for Next.js, Nuxt, NestJS, Express, and
+Fastify — plus suppressions, baseline mode, and `watch`. It works and it is
+honest about what it does not do yet — run `owlwarden coverage`, or see
+[Scope](#what-it-does-not-do-yet).
 
 ---
 
@@ -98,6 +99,9 @@ owlwarden scan ./apps/api               # a specific directory
 owlwarden scan --preset owasp-top10     # a named rule bundle
 owlwarden scan --ci                     # JSON on stdout, no colour, exit code
 owlwarden scan --fail-on medium         # only medium and worse fail the build
+owlwarden scan --baseline .owlwarden-baseline.json
+owlwarden scan --write-baseline .owlwarden-baseline.json
+owlwarden watch                         # re-scan on change (static only)
 owlwarden rules                         # what it can find
 owlwarden coverage                      # what it cannot find, gaps included
 owlwarden explain stack-trace-leak      # the full write-up, offline
@@ -130,8 +134,8 @@ does not look for config outside the directory being scanned.
 This is a security tool, so it is worth being precise about what it does to your
 machine and your systems.
 
-- **It does not touch the network.** v0.0 is static analysis: it reads files and
-  parses them. No requests are sent to your app or to us.
+- **It does not touch the network.** v0.0.2 is static analysis: it reads files
+  and parses them. No requests are sent to your app or to us.
 - **It stays inside the project.** The file provider is rooted at the directory
   you point it at, resolves symlinks, and refuses anything that escapes. It
   skips `node_modules`, respects `.gitignore`, and caps file size and total
@@ -148,7 +152,7 @@ threat model and how to report a vulnerability.
 
 Being clear about this matters more than looking complete.
 
-- **Six of the ten OWASP categories.** `owlwarden coverage` prints the table,
+- **Nine of the ten OWASP categories.** `owlwarden coverage` prints the table,
   gaps included, computed from the rules compiled into the binary you have.
   A04 Insecure Design is marked out of reach rather than pending, because no
   parser finds a design flaw —
@@ -156,7 +160,8 @@ Being clear about this matters more than looking complete.
   read that distinction.
 - **Static only.** The dynamic engine — the one that probes a running app and
   raises a finding's confidence to `confirmed` — is designed
-  ([ARCHITECTURE.md](ARCHITECTURE.md) §2) and not built.
+  ([ARCHITECTURE.md](ARCHITECTURE.md) §2) and not built. Correlation is what
+  remains of the v0.1 exit criteria.
 - **Five frameworks with specific advice.** Next.js, Nuxt, NestJS, Express, and
   Fastify each get remediation written for them; anything else is scanned
   generically, which means less context in the finding rather than fewer
@@ -169,7 +174,8 @@ Being clear about this matters more than looking complete.
   overstates its reach is worse than one that admits it.
 - **No plugins yet.** The sandbox design is settled; the host is v0.2. The
   extension points the plugins will use are already in place and documented.
-- **No `--fix`, no MCP server, no baseline.** All planned, none shipped.
+- **No `--fix`, no MCP server.** Planned; suppressions, baseline, and `watch`
+  shipped in 0.0.2.
 
 See [ROADMAP.md](ROADMAP.md) for the order.
 

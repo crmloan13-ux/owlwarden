@@ -135,7 +135,7 @@ instead, indented.
 ```json
 {
   "schemaVersion": "1.0",
-  "tool": { "name": "owlwarden", "version": "0.0.1" },
+  "tool": { "name": "owlwarden", "version": "0.0.2" },
   "scannedAt": "2026-08-05T11:09:03Z",
   "durationMs": 7,
   "target": {
@@ -184,16 +184,20 @@ instead, indented.
     }
   ],
   "suppressedCount": 0,
+  "suppressions": [],
+  "baselineHiddenCount": 0,
   "truncated": false,
   "errors": []
 }
 ```
 
-Three top-level fields exist so the output cannot mislead by omission:
+Top-level fields that exist so the output cannot mislead by omission:
 
 | Field | Why it is there |
 |---|---|
 | `suppressedCount` | `findings: []` with a non-zero count is not a clean project. |
+| `suppressions` | Every inline directive, including stale and missing-reason ones. |
+| `baselineHiddenCount` | Findings the baseline already accepted — distinct from suppressions. |
 | `truncated` | The engine hit its finding cap and stopped collecting. |
 | `errors` | Rules that failed and files that were skipped. A scan that could not read half a project still exits 0 if the half it read was clean. |
 
@@ -288,11 +292,12 @@ owlwarden explain stack-trace-leak
 owlwarden explain stack-trace-leak --json
 ```
 
-## 7. Planned output work
+## 7. Suppressions, baseline, and planned work
 
-- **Baseline mode** — `--baseline .owlwarden-baseline.json` reports only
-  findings new since the baseline. Without it, adopting the tool on an existing
-  codebase means reading a wall of pre-existing issues.
-- **`--report-suppressions`** — list every suppression and flag the stale ones,
-  so suppression annotations cannot quietly rot.
+Baseline mode (`--baseline` / `--write-baseline`) and `--report-suppressions`
+shipped in 0.0.2. See [ADR 0013](docs/adr/0013-suppressions-and-baseline.md)
+and [docs/how-to/suppressions.md](docs/how-to/suppressions.md).
+
+Still planned:
+
 - **Stackable reporters** — more than one format in a single run.

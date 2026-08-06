@@ -4,19 +4,19 @@ expression: rendered
 ---
 
 ◉ᴥ◉ 2 files · owasp-top10 · 0.12s
-2 findings (1 high, 1 medium)
+5 findings (1 high, 4 medium)
 
 ────────────────────────────────────────────────────────────────────────
 HIGH  likely  Stack trace leaked in error response  A05:2021
 ────────────────────────────────────────────────────────────────────────
- app/api/users/route.ts:13:16  (GET /api/users)
+ app/api/users/route.ts:16:16  (GET /api/users)
 
-  11 │   } catch (err) {
-  12 │     return NextResponse.json(
-  13 │       { error: err.stack },
+  14 │   } catch (err) {
+  15 │     return NextResponse.json(
+  16 │       { error: err.stack },
      │                ~~~~~~~~~ leaks internal stack trace to the client
-  14 │       { status: 500 }
-  15 │     )
+  17 │       { status: 500 }
+  18 │     )
 
  ↳  fix (Next.js)  Return a generic message; log the error server-side.
                    console.error(err)
@@ -28,6 +28,62 @@ HIGH  likely  Stack trace leaked in error response  A05:2021
                    versions, and internal call structure — enough to
                    fingerprint the stack and locate other weaknesses.
  ⓘ  ref            OWASP A05:2021 · CWE-209 · RULES.md#stack-trace-leak
+
+────────────────────────────────────────────────────────────────────────
+MEDIUM  likely  GitHub Action is not pinned to a commit SHA  A08:2021
+────────────────────────────────────────────────────────────────────────
+ .github/workflows/ci.yml:8:1
+
+ ↳  fix (Next.js)  Pin the action to a full commit SHA (keep the tag in
+                   a comment for humans).
+                   uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+ ↳  why            A moving tag can be retargeted to a different commit.
+                   Anyone who can push that tag — or who compromises the
+                   action's repository — runs code in your CI with
+                   access to repository secrets.
+ ⓘ  ref            OWASP A08:2021 · CWE-829 ·
+                   RULES.md#ci-unpinned-action
+
+────────────────────────────────────────────────────────────────────────
+MEDIUM  likely  Sensitive data written to a log  A09:2021
+────────────────────────────────────────────────────────────────────────
+ app/api/users/route.ts:10:18  ( /api/users)
+
+   8 │ export async function GET(request: Request) {
+   9 │   // sensitive-data-logged: the Authorization header lands in the log aggregator.
+  10 │   console.info({ authorization: request.headers.get('authorization') })
+     │                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ sensitive value written to a log
+  11 │   try {
+  12 │     const users = await listUsers()
+
+ ↳  fix (Next.js)  Log that the attempt happened, not the credential.
+                   console.info({ event: 'login_attempt', userId })
+                   // never: console.info({ password })
+ ↳  why            Logs are copied into aggregators, retained for
+                   months, and readable by anyone with access to the
+                   logging system. A credential that reaches a log has
+                   left the application's trust boundary.
+ ⓘ  ref            OWASP A09:2021 · CWE-532 ·
+                   RULES.md#sensitive-data-logged
+
+────────────────────────────────────────────────────────────────────────
+MEDIUM  likely  Dependency version is unpinned  A06:2021
+────────────────────────────────────────────────────────────────────────
+ package.json:10:1
+
+ ↳  fix (Next.js)  Pin the dependency in package.json and reinstall so
+                   the lockfile records it.
+                   {
+                     "dependencies": {
+                       "next": "^14.2.0"
+                     }
+                   }
+ ↳  why            An unpinned range lets the next install resolve a
+                   different major version, including one with a known
+                   vulnerability or a breaking API change, without
+                   anyone reviewing the bump.
+ ⓘ  ref            OWASP A06:2021 · CWE-1104 ·
+                   RULES.md#unpinned-dependency
 
 ────────────────────────────────────────────────────────────────────────
 MEDIUM  possible  Security headers are not configured  A05:2021

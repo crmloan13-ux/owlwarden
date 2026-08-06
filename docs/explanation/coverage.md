@@ -88,6 +88,6 @@ things it is genuinely useful for:
 - Failing a build when an upgrade *reduces* coverage — a plugin that stopped
   loading, or a preset that no longer selects a rule you relied on.
 
-What it is not useful for is a percentage on a dashboard. Six of ten categories
-is not sixty percent of your risk, and treating it that way is how a number
+What it is not useful for is a percentage on a dashboard. Nine of ten categories
+is not ninety percent of your risk, and treating it that way is how a number
 starts driving decisions it cannot support.

@@ -343,6 +343,13 @@ impl<'w> PrettyReporter<'w> {
             );
             writeln!(self.writer, "{}", self.paint(dim(), &note))?;
         }
+        if report.baseline_hidden_count > 0 {
+            let note = format!(
+                "{} finding(s) hidden by the baseline (already accepted debt).",
+                report.baseline_hidden_count
+            );
+            writeln!(self.writer, "{}", self.paint(dim(), &note))?;
+        }
         if report.truncated {
             writeln!(
                 self.writer,

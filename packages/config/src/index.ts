@@ -14,9 +14,13 @@ export {
 
 export {
   CONFIG_FILES,
+  EXECUTABLE_CONFIG_FILES,
+  JSON_CONFIG_FILES,
+  MAX_CONFIG_BYTES,
   formatConfigError,
   resolveConfig,
   type ConfigError,
   type ConfigResult,
   type ConfigSource,
+  type ResolveConfigOptions,
 } from "./resolve.js";

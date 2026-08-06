@@ -6,10 +6,20 @@
 - run: npx owlwarden scan --ci --fail-on medium
 ```
 
-`--ci` is a shorthand for `--format json --quiet --no-color`. It is not a
-separate mode: everything it does is reachable with the individual flags, so
-there is no CI-only code path that behaves differently from what you see
-locally.
+`--ci` sets `--format json --quiet --no-color`, and also refuses mute switches
+that a hostile PR can plant in the tree:
+
+- project `preset` / `failOn` / `minConfidence` (unless `--allow-project-config`)
+- inline suppressions (unless `--allow-suppressions`)
+- `--baseline` (unless `--allow-baseline`)
+
+Do **not** pass `--allow-config-js`, `--allow-project-config`,
+`--allow-suppressions`, or `--allow-baseline` on pull requests from outside the
+team. Pin the gate knobs on the command line:
+
+```bash
+npx owlwarden scan --ci --fail-on medium --min-confidence likely
+```
 
 ## Exit codes
 
@@ -41,8 +51,9 @@ failing a deploy over. `--min-confidence likely` is the setting most CI
 pipelines want.
 
 For an existing codebase with a backlog, start strict on new code rather than
-trying to reach zero — baseline support lands in v0.1 and will make that
-automatic.
+trying to reach zero — run `--write-baseline .owlwarden-baseline.json` once,
+then scan with `--baseline .owlwarden-baseline.json` so only new findings fail
+the build.
 
 ## Reading the output
 
@@ -53,10 +64,16 @@ schemas are checked against the engine on every CI run:
 owlwarden scan --ci | jq -r '.findings[] | "\(.severity)\t\(.id)\t\(.location.path):\(.location.line)"'
 ```
 
-Two fields deserve attention:
+Fields that deserve attention:
 
+- `truncated` — the findings cap was hit and results were dropped. A truncated
+  report is never treated as clean: `--ci` exits 1 even when the retained
+  findings are below `--fail-on`.
 - `suppressedCount` — how many findings a suppression hid. `findings: []` with a
   non-zero `suppressedCount` is not the same as a clean project.
+- `baselineHiddenCount` — findings the baseline already accepted. Distinct from
+  suppressions: one is project-level debt, the other is a line-level claim with
+  a reason.
 - `errors` — rules that failed and files that were skipped. A scan that could
   not read half your project still exits 0 if the half it read was clean, so
   check this if the numbers look too good.
@@ -71,13 +88,14 @@ jobs:
   owlwarden:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      # Pin full commit SHAs — `ci-unpinned-action` flags moving tags like @v4.
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      - uses: actions/setup-node@60edb5dd545a775178f52524783378180af0d1f8 # v4.0.2
         with:
           node-version: 20
       - run: npx owlwarden scan --ci --fail-on medium --min-confidence likely --out report.json
       - if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
         with:
           name: owlwarden-report
           path: report.json
@@ -86,9 +104,22 @@ jobs:
 `--out` writes the report to a file and prints a one-line summary, which keeps
 the log readable while preserving the detail as an artifact.
 
+## Suppressions in CI
+
+Under `--ci`, inline suppressions are listed in the report but do **not** hide
+findings unless you pass `--allow-suppressions`. That stops a PR from silencing
+the gate with a comment. On a trusted tree where suppressions are reviewed:
+
+```bash
+npx owlwarden scan --ci --fail-on medium --allow-suppressions
+```
+
+`--report-suppressions` still lists every directive on stderr. Details:
+[suppressions.md](suppressions.md).
+
 ## Speed
 
-v0.0 is static analysis on a bounded file set. A few thousand files takes a
+v0.0.2 is static analysis on a bounded file set. A few thousand files takes a
 couple of seconds, and there is nothing to cache — no index, no database, no
 network. If it is slow, it is reading more files than you expect; check
 `target.filesScanned` in the JSON.

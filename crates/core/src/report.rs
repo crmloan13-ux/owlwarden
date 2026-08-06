@@ -11,6 +11,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::finding::{Confidence, Finding, Severity};
+use crate::suppression::SuppressionRecord;
 
 /// Version of the JSON report format. Bumped on any breaking change to the
 /// shape; consumers should refuse a major version they do not know.
@@ -145,9 +146,20 @@ pub struct Report {
     /// How many findings an inline suppression hid.
     ///
     /// Always emitted so that "0 findings" is never mistaken for "0 problems"
-    /// — by a human or by an agent (`AGENTS.md` §5). Suppression itself lands
-    /// in v0.1; until then this is honestly zero.
+    /// — by a human or by an agent. See [`crate::suppression`].
     pub suppressed_count: u32,
+    /// Every inline suppression found in the scanned tree.
+    ///
+    /// Includes stale and missing-reason directives so `--report-suppressions`
+    /// (and agents reading JSON) can see annotations that no longer hide
+    /// anything. Empty when the tree has none.
+    #[serde(default)]
+    pub suppressions: Vec<SuppressionRecord>,
+    /// Findings hidden because they matched `--baseline`. Distinct from
+    /// [`Self::suppressed_count`]: a baseline is project-level debt, a
+    /// suppression is a line-level claim with a reason.
+    #[serde(default)]
+    pub baseline_hidden_count: u32,
     /// True when [`crate::limits::scan::MAX_FINDINGS`] was hit and findings
     /// were dropped. A truncated report is not a clean report.
     pub truncated: bool,
@@ -161,8 +173,14 @@ impl Report {
     ///
     /// `Possible`-confidence findings never fail CI on their own: acting on a
     /// guess is how a tool gets removed from a pipeline.
+    ///
+    /// A truncated report always fails: the findings cap was hit, so the scan
+    /// cannot prove the project is clean — exiting 0 would hide the rest.
     #[must_use]
     pub fn should_fail(&self, fail_on: Severity, min_confidence: Confidence) -> bool {
+        if self.truncated {
+            return true;
+        }
         self.findings.iter().any(|finding| {
             finding.severity >= fail_on
                 && finding.confidence >= min_confidence
@@ -212,6 +230,8 @@ mod tests {
             summary: ReportSummary::of(&findings),
             findings,
             suppressed_count: 0,
+            suppressions: Vec::new(),
+            baseline_hidden_count: 0,
             truncated: false,
             errors: Vec::new(),
         }
@@ -244,6 +264,16 @@ mod tests {
         let report = report_of(vec![finding(Severity::Low, Confidence::Confirmed)]);
         assert!(!report.should_fail(Severity::High, Confidence::Possible));
         assert!(report.should_fail(Severity::Low, Confidence::Possible));
+    }
+
+    #[test]
+    fn a_truncated_report_always_fails_ci() {
+        let mut report = report_of(Vec::new());
+        report.truncated = true;
+        assert!(
+            report.should_fail(Severity::High, Confidence::Confirmed),
+            "truncation must fail even with no retained findings and the strictest gate"
+        );
     }
 
     #[test]

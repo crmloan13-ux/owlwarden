@@ -21,13 +21,14 @@ interface CommonFlags {
 /** A parsed command line. */
 export type Cli =
   | { command: "scan"; options: ScanOptions }
+  | { command: "watch"; options: ScanOptions }
   | { command: "rules"; json: boolean }
   | { command: "coverage"; json: boolean; color: boolean; unicode: boolean }
   | { command: "explain"; rule: string; json: boolean }
   | { command: "help" }
   | { command: "version" };
 
-/** Everything `scan` needs, before config is merged in. */
+/** Everything `scan` / `watch` needs, before config is merged in. */
 export interface ScanOptions {
   /** Project root. */
   path: string;
@@ -37,6 +38,39 @@ export interface ScanOptions {
   failOn?: Severity;
   minConfidence?: Confidence;
   out?: string;
+  /** Path to a baseline file; only new findings are reported. */
+  baseline?: string;
+  /** Write the current findings to this baseline path. */
+  writeBaseline?: string;
+  /** List every inline suppression and flag stale ones. */
+  reportSuppressions: boolean;
+  /**
+   * Allow `import()` of `owlwarden.config.{js,mjs,ts,mts}` from the scan
+   * target. Off by default so a hostile tree cannot get code execution.
+   */
+  allowConfigJs: boolean;
+  /**
+   * True when `--ci` was passed. CI ignores project-config values for
+   * `preset` / `failOn` / `minConfidence` unless {@link allowProjectConfig}
+   * is set — otherwise a hostile PR can silence the gate with JSON alone.
+   */
+  ci: boolean;
+  /**
+   * Let project config set preset / fail-on / min-confidence even under
+   * `--ci`. Off by default. Never enable on an untrusted tree.
+   */
+  allowProjectConfig: boolean;
+  /**
+   * Honour inline suppressions under `--ci`. Off by default so a PR cannot
+   * silence findings with a comment. Local scans (no `--ci`) always honour
+   * them.
+   */
+  allowSuppressions: boolean;
+  /**
+   * Permit `--baseline` under `--ci`. Off by default — a checked-in baseline
+   * the pipeline always loads is otherwise a mute switch for new findings.
+   */
+  allowBaseline: boolean;
   color: boolean;
   unicode: boolean;
   quiet: boolean;
@@ -55,8 +89,15 @@ const OPTIONS = {
   preset: { type: "string" },
   format: { type: "string" },
   out: { type: "string" },
+  baseline: { type: "string" },
+  "write-baseline": { type: "string" },
   "fail-on": { type: "string" },
   "min-confidence": { type: "string" },
+  "report-suppressions": { type: "boolean", default: false },
+  "allow-config-js": { type: "boolean", default: false },
+  "allow-project-config": { type: "boolean", default: false },
+  "allow-suppressions": { type: "boolean", default: false },
+  "allow-baseline": { type: "boolean", default: false },
   ci: { type: "boolean", default: false },
   "no-color": { type: "boolean", default: false },
   ascii: { type: "boolean", default: false },
@@ -104,6 +145,8 @@ export function parse(argv: string[]): Cli {
   switch (command) {
     case "scan":
       return { command: "scan", options: scanOptions(values, rest) };
+    case "watch":
+      return { command: "watch", options: scanOptions(values, rest) };
     case "rules":
       return { command: "rules", json: values.json };
     case "coverage":
@@ -132,8 +175,8 @@ function scanOptions(values: Values, positionals: string[]): ScanOptions {
     throw new ArgError(`scan takes at most one path, got ${positionals.length}`);
   }
 
-  // --ci is a shorthand, not a mode. Everything it does is reachable with the
-  // individual flags, so there is no second code path that only runs in CI.
+  // `--ci` sets machine-readable defaults and refuses project-controlled mute
+  // switches (config gates, suppressions, baseline) unless explicitly allowed.
   const ci = values.ci;
   const format = enumValue(
     "--format",
@@ -147,6 +190,12 @@ function scanOptions(values: Values, positionals: string[]): ScanOptions {
     unicode: !values.ascii,
     quiet: values.quiet || ci,
     hyperlinks: values.hyperlinks,
+    reportSuppressions: values["report-suppressions"],
+    allowConfigJs: values["allow-config-js"],
+    ci,
+    allowProjectConfig: values["allow-project-config"],
+    allowSuppressions: values["allow-suppressions"],
+    allowBaseline: values["allow-baseline"],
   };
 
   // Assigned conditionally because `exactOptionalPropertyTypes` distinguishes
@@ -155,6 +204,8 @@ function scanOptions(values: Values, positionals: string[]): ScanOptions {
   if (values.preset !== undefined) options.preset = values.preset;
   if (format !== undefined) options.format = format;
   if (values.out !== undefined) options.out = values.out;
+  if (values.baseline !== undefined) options.baseline = values.baseline;
+  if (values["write-baseline"] !== undefined) options.writeBaseline = values["write-baseline"];
   if (values["fail-on"] !== undefined) {
     options.failOn = parseWith(severitySchema, "--fail-on", values["fail-on"], [
       "high",

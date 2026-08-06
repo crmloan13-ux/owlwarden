@@ -3,14 +3,15 @@
 //!
 //! This is a sandbox boundary, so it is written like one:
 //!
-//! - The root is canonicalized once at construction. Every path handed back out
-//!   is re-canonicalized and checked against it before being read, so a symlink
+//! - The root is canonicalized once at construction. Every path is
+//!   re-canonicalized and checked against it before being read, so a symlink
 //!   pointing at `~/.ssh/id_rsa` yields an error, not a code frame containing
-//!   someone's private key.
+//!   someone's private key. The open itself uses `O_NOFOLLOW` (Unix) so a
+//!   TOCTOU swap to a symlink after the check cannot be followed.
 //! - The walker does not follow symlinks and does not descend past
 //!   [`limits::source::MAX_DEPTH`].
-//! - Files over [`limits::source::MAX_FILE_BYTES`] are skipped, and the run has
-//!   a total byte budget on top.
+//! - Files over [`limits::source::MAX_FILE_BYTES`] are skipped; reads are also
+//!   bounded with `Read::take`, and the run has a total byte budget on top.
 //! - `.gitignore` is honoured, plus a built-in deny list, because scanning
 //!   `node_modules` is slow and finds nothing you can fix.
 
@@ -30,10 +31,17 @@ use owlwarden_core::source::{FileSelector, RelPath, SourceError, SourceFile, Sou
 const ALWAYS_EXCLUDED_DIRS: &[&str] = &[
     "node_modules",
     ".git",
+    ".svn",
+    ".hg",
     ".next",
     ".nuxt",
     ".svelte-kit",
     ".turbo",
+    ".vercel",
+    ".vscode",
+    ".idea",
+    ".cursor",
+    ".husky",
     "dist",
     "build",
     "out",
@@ -43,6 +51,11 @@ const ALWAYS_EXCLUDED_DIRS: &[&str] = &[
     ".venv",
     "__pycache__",
 ];
+
+/// Hidden directories we still walk. `.github/workflows` is where CI integrity
+/// rules look; skipping every dot-directory would make those rules permanently
+/// silent on a real repository.
+const HIDDEN_DIRS_ALLOWED: &[&str] = &[".github"];
 
 /// Reads one project's source, and nothing else.
 #[derive(Debug)]
@@ -98,6 +111,15 @@ impl FsSourceProvider {
         self.bytes_read.load(Ordering::Acquire)
     }
 
+    /// Resets the byte budget counter.
+    ///
+    /// The suppression pass re-reads files the engine already saw; without a
+    /// reset those second reads would double-charge the same bytes and trip
+    /// [`SourceError::BudgetExhausted`] on a tree that fit the first pass.
+    pub fn reset_bytes_read(&self) {
+        self.bytes_read.store(0, Ordering::Release);
+    }
+
     /// Resolves a project-relative path to an absolute one, refusing anything
     /// that leaves the root once symlinks are resolved.
     ///
@@ -151,18 +173,32 @@ impl SourceProvider for FsSourceProvider {
         let include = build_globs(&selector.include)?;
         let exclude = build_globs(&selector.exclude)?;
 
+        // `hidden(false)` plus our own filter: the ignore crate's `hidden(true)`
+        // skips every dot-directory, including `.github`, which is exactly where
+        // CI integrity checks have to look. We still refuse the usual IDE and
+        // VCS clutter via [`ALWAYS_EXCLUDED_DIRS`] and the allow-list below.
         let walker = ignore::WalkBuilder::new(&self.root)
-            .hidden(true)
+            .hidden(false)
             .git_ignore(true)
             .git_global(false)
             .parents(false)
             .follow_links(false)
             .max_depth(Some(limits::source::MAX_DEPTH))
             .filter_entry(|entry| {
-                entry
-                    .file_name()
-                    .to_str()
-                    .is_none_or(|name| !ALWAYS_EXCLUDED_DIRS.contains(&name))
+                let Some(name) = entry.file_name().to_str() else {
+                    return false;
+                };
+                if ALWAYS_EXCLUDED_DIRS.contains(&name) {
+                    return false;
+                }
+                // Skip dotfiles and most dot-directories. `.github` is the
+                // exception: workflow files live there and are not themselves
+                // hidden (the directory is).
+                if name.starts_with('.') {
+                    let is_dir = entry.file_type().is_some_and(|kind| kind.is_dir());
+                    return is_dir && HIDDEN_DIRS_ALLOWED.contains(&name);
+                }
+                true
             })
             .build();
 
@@ -210,35 +246,33 @@ impl SourceProvider for FsSourceProvider {
     fn read(&self, file: &SourceFile) -> Result<Arc<str>, SourceError> {
         let absolute = self.resolve(&file.path)?;
 
-        let metadata = std::fs::metadata(&absolute).map_err(|source| SourceError::Io {
-            path: file.path.to_string(),
-            source,
-        })?;
-        // Re-check the size here rather than trusting the value captured at
-        // walk time: the file may have grown since, and `watch` mode reads
-        // files that are actively being edited.
-        if metadata.len() > self.max_file_bytes {
-            return Err(SourceError::FileTooLarge {
-                path: file.path.to_string(),
-                size: metadata.len(),
-                max: self.max_file_bytes,
-            });
-        }
+        // Bound the read itself — metadata can lie under a race, and
+        // `fs::read` would otherwise load an unbounded file into memory.
+        let bytes =
+            crate::safe_io::read_bounded(&absolute, self.max_file_bytes).map_err(|source| {
+                if source.kind() == std::io::ErrorKind::InvalidData {
+                    SourceError::FileTooLarge {
+                        path: file.path.to_string(),
+                        size: self.max_file_bytes.saturating_add(1),
+                        max: self.max_file_bytes,
+                    }
+                } else {
+                    SourceError::Io {
+                        path: file.path.to_string(),
+                        source,
+                    }
+                }
+            })?;
 
-        let total = self
-            .bytes_read
-            .fetch_add(metadata.len(), Ordering::AcqRel)
-            .saturating_add(metadata.len());
-        if total > self.max_total_bytes {
+        let added = bytes.len() as u64;
+        let previous = self.bytes_read.fetch_add(added, Ordering::AcqRel);
+        if previous.saturating_add(added) > self.max_total_bytes {
+            self.bytes_read.fetch_sub(added, Ordering::AcqRel);
             return Err(SourceError::BudgetExhausted {
                 max: self.max_total_bytes,
             });
         }
 
-        let bytes = std::fs::read(&absolute).map_err(|source| SourceError::Io {
-            path: file.path.to_string(),
-            source,
-        })?;
         let text = String::from_utf8(bytes).map_err(|_| SourceError::NotUtf8 {
             path: file.path.to_string(),
         })?;

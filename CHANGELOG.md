@@ -12,6 +12,53 @@ are listed here under Changed.
 
 Nothing yet.
 
+## [0.0.2]
+
+Static slice of the trust-and-noise work planned for v0.1: suppressions,
+baseline, three gap-closing rules, and `watch`. Still no network — the dynamic
+engine that makes `Confirmed` reachable remains later.
+
+### Added
+
+- **Inline suppressions** with a mandatory reason:
+  `// owlwarden-disable-next-line <rule> -- <reason>`. Directives without a
+  reason never hide a finding. `--report-suppressions` lists every directive
+  and flags stale or missing-reason ones. `suppressedCount` in the JSON report
+  is now wired for real.
+- **Baseline mode.** `--baseline <file>` reports only findings new since the
+  file was written; `--write-baseline <file>` records current debt. Fingerprints
+  key on rule id, normalised path, whitespace-collapsed evidence, and an
+  occurrence index so a formatter pass does not reopen accepted findings and
+  two identical findings in one file stay distinct
+  ([ADR 0013](docs/adr/0013-suppressions-and-baseline.md)).
+- **Three rules** closing the static-reachable OWASP gaps:
+  - `unpinned-dependency` (A06) — `*` / `latest` in `package.json`
+  - `ci-unpinned-action` (A08) — GitHub Actions not pinned to a commit SHA
+  - `sensitive-data-logged` (A09) — passwords/tokens written to a log sink  
+  Each ships remediation for all five frameworks, with vulnerable and
+  should-not-fire fixtures.
+- **`owlwarden watch`** — re-scan on change, static only. Never opens a network
+  path.
+
+### Changed
+
+- The filesystem walker now reads `.github/` (still skips other hidden
+  directories), so CI integrity rules can see workflow files.
+- Report JSON gains `suppressions` and `baselineHiddenCount` (additive under
+  schema `1.0`).
+- **Security hardening (hostile scan target):** executable project config
+  (`owlwarden.config.{js,mjs,ts,mts}`) is opt-in via `--allow-config-js`
+  (default loads JSON only); `--ci` ignores project `preset` / `failOn` /
+  `minConfidence` unless `--allow-project-config`, ignores inline suppressions
+  unless `--allow-suppressions`, and refuses `--baseline` unless
+  `--allow-baseline`; truncated reports fail CI; `--out` / `--write-baseline`
+  refuse symlinked parent directories and write via temp+rename
+  (`create_new` / `wx`); source reads are bounded and use `O_NOFOLLOW` on Unix;
+  parser nesting guard skips comments/strings and counts generics/JSX and
+  brackets inside templates; `hardcoded-secret` redacts values in snippets
+  before line truncation; baseline/config loads refuse symlinks and oversized
+  inputs; CI workflow evidence is length-capped. See [SECURITY.md](SECURITY.md).
+
 ## [0.0.1]
 
 First release. A static engine, a rule set, and honest reporting about what it
@@ -50,5 +97,6 @@ does and does not reach.
 - Bounded file count, file size, total bytes, and parser recursion depth, so a
   hostile repository cannot exhaust memory or the stack.
 
-[Unreleased]: https://github.com/suthat/owlwarden/compare/v0.0.1...HEAD
+[Unreleased]: https://github.com/suthat/owlwarden/compare/v0.0.2...HEAD
+[0.0.2]: https://github.com/suthat/owlwarden/compare/v0.0.1...v0.0.2
 [0.0.1]: https://github.com/suthat/owlwarden/releases/tag/v0.0.1

@@ -32,7 +32,8 @@ does not, the build fails. See
 - **`confidence`** is `confirmed`, `likely`, or `possible`. Static analysis
   cannot produce `confirmed`; only correlation with a live probe can. Treat
   `possible` as "worth a human's attention", not "broken".
-- **`truncated`** means limits were hit and the report is incomplete.
+- **`truncated`** means limits were hit and the report is incomplete. A
+  truncated report always fails the CI gate (`shouldFail` / `--ci` exit 1).
 - **Rule ids are permanent.** Safe to hard-code, reference in config, and store.
 
 ## Licence

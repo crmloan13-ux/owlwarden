@@ -131,6 +131,26 @@ impl FileUnit<'_> {
         )
     }
 
+    /// Code frame that rewrites each line before truncation.
+    ///
+    /// Used by `hardcoded-secret` so a long credential cannot survive as the
+    /// truncated prefix of a frame line in CI JSON.
+    #[must_use]
+    pub fn code_frame_mapped(
+        &self,
+        span: Span,
+        label: impl Into<String>,
+        map_line: impl Fn(&str) -> String,
+    ) -> CodeFrame {
+        self.line_index.code_frame_mapped(
+            self.source,
+            self.path.as_str(),
+            (span.start, span.end),
+            Some(label.into()),
+            map_line,
+        )
+    }
+
     /// The text a span covers, for use as finding evidence.
     ///
     /// Capped at `max_chars`, because a span can cover an entire function and

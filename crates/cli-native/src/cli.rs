@@ -12,6 +12,8 @@ use owlwarden_core::finding::{Confidence, Severity};
 pub enum Command {
     /// Scan a project.
     Scan(Box<ScanArgs>),
+    /// Re-scan on change (static only).
+    Watch(Box<ScanArgs>),
     /// List the rule catalogue.
     Rules {
         /// Emit JSON instead of text.
@@ -59,6 +61,18 @@ pub struct ScanArgs {
     pub min_confidence: Confidence,
     /// Write the report here instead of stdout.
     pub out: Option<String>,
+    /// Baseline file; only new findings are reported.
+    pub baseline: Option<String>,
+    /// Write current findings to this baseline path.
+    pub write_baseline: Option<String>,
+    /// List every inline suppression and flag stale ones.
+    pub report_suppressions: bool,
+    /// True when `--ci` was passed.
+    pub ci: bool,
+    /// Honour inline suppressions under `--ci`.
+    pub allow_suppressions: bool,
+    /// Permit `--baseline` under `--ci`.
+    pub allow_baseline: bool,
     /// Force colour off.
     pub no_color: bool,
     /// Use the ASCII glyph set.
@@ -81,6 +95,12 @@ impl Default for ScanArgs {
             fail_on: Severity::Info,
             min_confidence: Confidence::Possible,
             out: None,
+            baseline: None,
+            write_baseline: None,
+            report_suppressions: false,
+            ci: false,
+            allow_suppressions: false,
+            allow_baseline: false,
             no_color: false,
             ascii: false,
             quiet: false,
@@ -132,6 +152,7 @@ pub fn parse(args: &[String]) -> Result<Command, ArgError> {
         "-h" | "--help" | "help" => Ok(Command::Help),
         "-V" | "--version" | "version" => Ok(Command::Version),
         "scan" => parse_scan(rest).map(|args| Command::Scan(Box::new(args))),
+        "watch" => parse_scan(rest).map(|args| Command::Watch(Box::new(args))),
         "rules" => Ok(Command::Rules {
             json: rest.any(|arg| arg == "--json"),
         }),
@@ -184,9 +205,14 @@ struct RawScan {
     preset: Option<String>,
     format: Option<String>,
     out: Option<String>,
+    baseline: Option<String>,
+    write_baseline: Option<String>,
     fail_on: Option<Severity>,
     min_confidence: Option<Confidence>,
+    report_suppressions: bool,
     ci: bool,
+    allow_suppressions: bool,
+    allow_baseline: bool,
     no_color: bool,
     ascii: bool,
     quiet: bool,
@@ -206,6 +232,11 @@ fn parse_scan<'a>(args: impl Iterator<Item = &'a String>) -> Result<ScanArgs, Ar
             "--preset" => raw.preset = Some(value("--preset")?),
             "--format" => raw.format = Some(value("--format")?),
             "--out" => raw.out = Some(value("--out")?),
+            "--baseline" => raw.baseline = Some(value("--baseline")?),
+            "--write-baseline" => raw.write_baseline = Some(value("--write-baseline")?),
+            "--report-suppressions" => raw.report_suppressions = true,
+            "--allow-suppressions" => raw.allow_suppressions = true,
+            "--allow-baseline" => raw.allow_baseline = true,
             "--fail-on" => {
                 let text = value("--fail-on")?;
                 let level = Severity::from_str_opt(&text).ok_or(ArgError::InvalidValue {
@@ -228,9 +259,8 @@ fn parse_scan<'a>(args: impl Iterator<Item = &'a String>) -> Result<ScanArgs, Ar
             "--ascii" => raw.ascii = true,
             "--quiet" | "-q" => raw.quiet = true,
             "--hyperlinks" => raw.hyperlinks = true,
-            // `--ci` is a shorthand, not a mode: machine-readable output, no
-            // decoration, no colour. Keeping it a shorthand means there is no
-            // second code path that only runs in CI.
+            // `--ci` sets machine-readable defaults and refuses project-controlled
+            // mute switches unless explicitly allowed.
             "--ci" => raw.ci = true,
             other if other.starts_with('-') => {
                 return Err(ArgError::UnknownOption(other.to_owned()));
@@ -254,6 +284,12 @@ fn parse_scan<'a>(args: impl Iterator<Item = &'a String>) -> Result<ScanArgs, Ar
         fail_on: raw.fail_on.unwrap_or(defaults.fail_on),
         min_confidence: raw.min_confidence.unwrap_or(defaults.min_confidence),
         out: raw.out,
+        baseline: raw.baseline,
+        write_baseline: raw.write_baseline,
+        report_suppressions: raw.report_suppressions,
+        ci: raw.ci,
+        allow_suppressions: raw.allow_suppressions,
+        allow_baseline: raw.allow_baseline,
         no_color: raw.no_color || raw.ci,
         ascii: raw.ascii,
         quiet: raw.quiet || raw.ci,
@@ -280,19 +316,28 @@ pub fn help_text() -> String {
 
 USAGE
   owlwarden scan [PATH] [OPTIONS]
+  owlwarden watch [PATH] [OPTIONS]
   owlwarden rules [--json]
   owlwarden coverage [--json] [--no-color] [--ascii]
   owlwarden explain <RULE_ID> [--json]
   owlwarden --version
+
+  watch re-scans on change. Static only — it never opens a network path.
 
 SCAN OPTIONS
   --preset <NAME>      Rule bundle to run. Default: {default_preset}
 {presets}
   --format <FORMAT>    pretty (default) or json
   --out <FILE>         Write the report to a file instead of stdout
+  --baseline <FILE>    Report only findings new since this baseline
+  --write-baseline <F> Write current findings to a baseline file
+  --report-suppressions  List every inline suppression; flag stale ones
+  --allow-suppressions Under --ci, honour inline suppressions (off by default)
+  --allow-baseline     Under --ci, permit --baseline (off by default)
   --fail-on <LEVEL>    Exit 1 at this severity or above. Default: info
   --min-confidence <L> Drop findings below this confidence. Default: possible
-  --ci                 Shorthand for --format json --quiet --no-color
+  --ci                 JSON + quiet + no-color; ignores suppressions and
+                       --baseline unless allow-* is set
   --no-color           Disable colour (also honours NO_COLOR)
   --ascii              Use ASCII box drawing instead of Unicode
   --hyperlinks         Emit OSC-8 links (only if your terminal supports them)

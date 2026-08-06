@@ -50,7 +50,9 @@
     {
       "id": "A06:2021",
       "title": "Vulnerable and Outdated Components",
-      "rules": [],
+      "rules": [
+        "unpinned-dependency"
+      ],
       "reachability": "partial",
       "summary": "A dependency has a known vulnerability, or is too old to be receiving fixes."
     },
@@ -66,14 +68,18 @@
     {
       "id": "A08:2021",
       "title": "Software and Data Integrity Failures",
-      "rules": [],
+      "rules": [
+        "ci-unpinned-action"
+      ],
       "reachability": "partial",
       "summary": "Code or data is trusted without verifying where it came from: unsigned updates, unpinned CI actions, deserialisation of attacker-controlled payloads."
     },
     {
       "id": "A09:2021",
       "title": "Security Logging and Monitoring Failures",
-      "rules": [],
+      "rules": [
+        "sensitive-data-logged"
+      ],
       "reachability": "partial",
       "summary": "An attack leaves no trace, or the trace itself leaks: unlogged auth failures, and secrets written into logs."
     },
@@ -90,30 +96,30 @@
   "frameworks": [
     {
       "id": "next",
-      "rulesWithSpecificFix": 9,
+      "rulesWithSpecificFix": 12,
       "rulesFallingBack": 0
     },
     {
       "id": "nuxt",
-      "rulesWithSpecificFix": 9,
+      "rulesWithSpecificFix": 12,
       "rulesFallingBack": 0
     },
     {
       "id": "nest",
-      "rulesWithSpecificFix": 9,
+      "rulesWithSpecificFix": 12,
       "rulesFallingBack": 0
     },
     {
       "id": "express",
-      "rulesWithSpecificFix": 9,
+      "rulesWithSpecificFix": 12,
       "rulesFallingBack": 0
     },
     {
       "id": "fastify",
-      "rulesWithSpecificFix": 9,
+      "rulesWithSpecificFix": 12,
       "rulesFallingBack": 0
     }
   ],
-  "ruleCount": 9,
-  "categoriesCovered": 6
+  "ruleCount": 12,
+  "categoriesCovered": 9
 }
