@@ -72,14 +72,19 @@ jobs:
           - host: ubuntu-latest
             target: x86_64-unknown-linux-gnu
             flags: --use-napi-cross
+          # aarch64 glibc goes through zig, not napi-cross. The cross gcc that
+          # napi-cross ships does not define __ARM_ARCH, and ring (pulled in by
+          # reqwest/rustls for --target probes) refuses to assemble without it.
           - host: ubuntu-latest
             target: aarch64-unknown-linux-gnu
-            flags: --use-napi-cross
+            flags: -x
+            zig: true
           # musl matters more than its share of desktops suggests: Alpine is a
           # common CI base image, and CI is where this tool is meant to run.
           - host: ubuntu-latest
             target: x86_64-unknown-linux-musl
             flags: -x
+            zig: true
 
     steps:
       - uses: actions/checkout@v5
@@ -95,16 +100,15 @@ jobs:
           node-version: ${{ env.BUILD_NODE }}
           cache: pnpm
 
-      # musl links against a different libc, so it is built through zig rather
-      # than the host toolchain. napi installs cargo-zigbuild on demand but not
-      # zig itself, and the resulting "Failed to find zig" arrives after a full
-      # dependency compile.
+      # Zig targets link through cargo-zigbuild. napi installs the crate on
+      # demand but not zig itself, and the resulting "Failed to find zig"
+      # arrives after a full dependency compile.
       - uses: mlugg/setup-zig@v2
-        if: contains(matrix.target, 'musl')
+        if: matrix.zig
         with:
           version: 0.14.1
       - uses: taiki-e/install-action@v2
-        if: contains(matrix.target, 'musl')
+        if: matrix.zig
         with:
           tool: cargo-zigbuild
 
