@@ -59,7 +59,7 @@ jobs:
       fail-fast: false
       # Cap concurrency so a busy GitHub Actions pool does not leave every
       # matrix job queued until the free-tier queue timeout cancels them.
-      max-parallel: 3
+      max-parallel: 2
       matrix:
         include:
           - host: macos-latest
@@ -72,12 +72,14 @@ jobs:
             target: aarch64-pc-windows-msvc
           # napi-cross supplies the sysroot and linker for glibc targets, so
           # these cross-compile on a plain runner without Docker.
+          # Linux glibc and musl both go through zig. napi-cross's aarch64 gcc
+          # does not define __ARM_ARCH (ring needs it for --target TLS), and
+          # under a busy free-tier runner pool the napi-cross x86_64 jobs were
+          # sitting queued until GitHub cancelled them.
           - host: ubuntu-latest
             target: x86_64-unknown-linux-gnu
-            flags: --use-napi-cross
-          # aarch64 glibc goes through zig, not napi-cross. The cross gcc that
-          # napi-cross ships does not define __ARM_ARCH, and ring (pulled in by
-          # reqwest/rustls for --target probes) refuses to assemble without it.
+            flags: -x
+            zig: true
           - host: ubuntu-latest
             target: aarch64-unknown-linux-gnu
             flags: -x
