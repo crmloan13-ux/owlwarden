@@ -151,6 +151,8 @@ impl Scheduler {
             target,
             findings,
             suppressed_count: 0,
+            suppressions: Vec::new(),
+            baseline_hidden_count: 0,
             truncated,
             errors,
         })

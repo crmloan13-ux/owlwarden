@@ -14,6 +14,7 @@ export function helpText(native: NativeEngine | undefined): string {
 
 USAGE
   owlwarden scan [PATH] [OPTIONS]
+  owlwarden watch [PATH] [OPTIONS]
   owlwarden rules [--json]
   owlwarden coverage [--json] [--no-color] [--ascii]
   owlwarden explain <RULE_ID> [--json]
@@ -22,11 +23,17 @@ USAGE
   not. A gap is stated rather than left blank, because "no findings" and "not
   looked for" are different answers.
 
+  watch re-scans on change. Static only — it never opens a network path.
+
 SCAN OPTIONS
   --preset <NAME>       Rule bundle to run
 ${presetLines(native)}
   --format <FORMAT>     pretty (default) or json
   --out <FILE>          Write the report to a file instead of stdout
+  --baseline <FILE>     Report only findings new since this baseline
+  --write-baseline <F>  Write current findings to a baseline file
+  --report-suppressions List every inline suppression; flag stale ones
+  --allow-config-js     Load owlwarden.config.{js,mjs,ts,mts} via import()
   --fail-on <LEVEL>     Exit 1 at this severity or above. Default: info
   --min-confidence <L>  Drop findings below this confidence. Default: possible
   --ci                  Shorthand for --format json --quiet --no-color
@@ -36,8 +43,10 @@ ${presetLines(native)}
   -q, --quiet           No banner, no progress
 
 CONFIG
-  owlwarden.config.ts | .mts | .mjs | .js | .json, or an "owlwarden" key in
-  package.json. Flags override the config file. Zero config is fine.
+  owlwarden.config.json, or an "owlwarden" key in package.json. Executable
+  configs (.js/.mjs/.ts/.mts) need --allow-config-js — scanning an untrusted
+  tree must not execute attacker code. Flags override the config file. Zero
+  config is fine.
 
 EXIT CODES
   0  nothing at or above --fail-on

@@ -1,0 +1,8 @@
+# Fixture: deliberately unpinned action — ci-unpinned-action must fire.
+name: ci
+on: push
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4

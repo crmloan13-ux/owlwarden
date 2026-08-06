@@ -81,14 +81,16 @@ switched off, and everything it would have caught goes with it. Three additions:
 - **Inline suppression with a required reason.** The reason is what stops
   suppression from becoming a silent blanket, because it is what a reviewer
   reads in the diff. `--report-suppressions` lists them and flags stale ones.
-- **Baseline moved forward to v0.1**, from much later. Adopting the tool on an
+- **Baseline moved forward** from much later. Adopting the tool on an
   existing codebase without it is not realistic.
 - **A false-positive corpus in CI** — a tree of *correct* code under
   `fixtures/should-not-fire/`. Anything that fires there fails the build.
   Precision becomes a tested property rather than a hope.
 
 → Confidence shipped in v0.0 ([ADR 0006](docs/adr/0006-confidence-in-the-model.md)),
-along with the corpus. Suppression and baseline are v0.1.
+along with the corpus. Suppression and baseline shipped in 0.0.2
+([ADR 0013](docs/adr/0013-suppressions-and-baseline.md)); the dynamic half of
+v0.1 (runtime confirmation) is still ahead.
 
 ## H2 — Nothing addressed AI-generated code
 

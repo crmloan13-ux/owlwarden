@@ -5,21 +5,32 @@ import { pathToFileURL } from "node:url";
 import { configSchema, type OwlwardenConfig } from "./schema.js";
 
 /**
- * Config file names, in the order we look for them.
- *
- * We look in the project root only, and never walk up. Walking up means a
- * config two directories above — possibly outside the repository — can change
- * what a scan does, which is the kind of surprise a security tool cannot
- * afford. If you need shared config in a monorepo, import it from the root and
- * re-export it.
+ * Config file names that are data only. Always safe to load from a hostile
+ * scan target — nothing here is executed.
  */
-export const CONFIG_FILES = [
+export const JSON_CONFIG_FILES = ["owlwarden.config.json"] as const;
+
+/**
+ * Config file names that Node would execute. Loaded only when the caller
+ * passes `allowConfigJs: true` — scanning an untrusted tree must never
+ * `import()` attacker-controlled modules.
+ */
+export const EXECUTABLE_CONFIG_FILES = [
   "owlwarden.config.ts",
   "owlwarden.config.mts",
   "owlwarden.config.mjs",
   "owlwarden.config.js",
-  "owlwarden.config.json",
 ] as const;
+
+/**
+ * Lookup order when executable configs are allowed: executable first (legacy
+ * preference), then JSON. Without the flag only {@link JSON_CONFIG_FILES} are
+ * considered.
+ */
+export const CONFIG_FILES = [...EXECUTABLE_CONFIG_FILES, ...JSON_CONFIG_FILES] as const;
+
+/** Cap on config file size before we refuse to parse it. */
+export const MAX_CONFIG_BYTES = 256 * 1024;
 
 /** Where the config came from. Reported by `--verbose` so it is never a mystery. */
 export type ConfigSource =
@@ -31,11 +42,28 @@ export type ConfigSource =
 export type ConfigError =
   | { kind: "invalid"; path: string; issues: string[] }
   | { kind: "unreadable"; path: string; message: string }
-  | { kind: "unloadable-typescript"; path: string; message: string };
+  | { kind: "unloadable-typescript"; path: string; message: string }
+  | { kind: "too-large"; path: string; size: number; max: number };
+
+/** Options that change how aggressively we load project config. */
+export interface ResolveConfigOptions {
+  /**
+   * When true, `owlwarden.config.{js,mjs,ts,mts}` may be `import()`ed.
+   * Default false — a hostile scan target must not get code execution by
+   * placing a config module in the tree.
+   */
+  allowConfigJs?: boolean;
+}
 
 /** Either a config or a reason there isn't one. Never throws for user error. */
 export type ConfigResult =
-  | { ok: true; config: OwlwardenConfig; source: ConfigSource }
+  | {
+      ok: true;
+      config: OwlwardenConfig;
+      source: ConfigSource;
+      /** Executable config found but skipped because `allowConfigJs` was false. */
+      skippedExecutable?: string;
+    }
   | { ok: false; error: ConfigError };
 
 /**
@@ -43,32 +71,74 @@ export type ConfigResult =
  *
  * Missing config is not an error — zero-config is the headline use case, and
  * the defaults are the same ones the schema declares.
+ *
+ * Executable configs are opt-in. Without {@link ResolveConfigOptions.allowConfigJs}
+ * only JSON (and the `owlwarden` key in package.json) is read.
  */
-export async function resolveConfig(cwd: string): Promise<ConfigResult> {
+export async function resolveConfig(
+  cwd: string,
+  options: ResolveConfigOptions = {},
+): Promise<ConfigResult> {
   const root = isAbsolute(cwd) ? cwd : resolvePath(process.cwd(), cwd);
+  const allowConfigJs = options.allowConfigJs === true;
 
-  for (const name of CONFIG_FILES) {
-    const path = join(root, name);
-    if (!(await exists(path))) continue;
+  let skippedExecutable: string | undefined;
 
-    const loaded = name.endsWith(".json")
-      ? await loadJson(path)
-      : await loadModule(path);
-    if (!loaded.ok) return loaded;
+  if (allowConfigJs) {
+    for (const name of CONFIG_FILES) {
+      const path = join(root, name);
+      if (!(await exists(path))) continue;
 
-    return validate(loaded.value, { kind: "file", path });
+      const loaded = name.endsWith(".json")
+        ? await loadJson(path)
+        : await loadModule(path);
+      if (!loaded.ok) return loaded;
+
+      return withSkip(
+        validate(loaded.value, { kind: "file", path }),
+        skippedExecutable,
+      );
+    }
+  } else {
+    for (const name of EXECUTABLE_CONFIG_FILES) {
+      const path = join(root, name);
+      if (await exists(path)) {
+        skippedExecutable = path;
+        break;
+      }
+    }
+    for (const name of JSON_CONFIG_FILES) {
+      const path = join(root, name);
+      if (!(await exists(path))) continue;
+
+      const loaded = await loadJson(path);
+      if (!loaded.ok) return loaded;
+
+      return withSkip(
+        validate(loaded.value, { kind: "file", path }),
+        skippedExecutable,
+      );
+    }
   }
 
   const fromPackage = await loadPackageJsonKey(root);
   if (!fromPackage.ok) return fromPackage;
   if (fromPackage.value !== undefined) {
-    return validate(fromPackage.value, {
-      kind: "package.json",
-      path: join(root, "package.json"),
-    });
+    return withSkip(
+      validate(fromPackage.value, {
+        kind: "package.json",
+        path: join(root, "package.json"),
+      }),
+      skippedExecutable,
+    );
   }
 
-  return validate({}, { kind: "defaults" });
+  return withSkip(validate({}, { kind: "defaults" }), skippedExecutable);
+}
+
+function withSkip(result: ConfigResult, skippedExecutable: string | undefined): ConfigResult {
+  if (!result.ok || skippedExecutable === undefined) return result;
+  return { ...result, skippedExecutable };
 }
 
 /** Runs the schema and turns zod issues into lines a human can act on. */
@@ -90,7 +160,9 @@ type Loaded = { ok: true; value: unknown } | { ok: false; error: ConfigError };
 
 async function loadJson(path: string): Promise<Loaded> {
   try {
-    return { ok: true, value: JSON.parse(await readFile(path, "utf8")) };
+    const text = await readFileBounded(path);
+    if (!text.ok) return text;
+    return { ok: true, value: JSON.parse(text.value) };
   } catch (error) {
     return {
       ok: false,
@@ -102,11 +174,9 @@ async function loadJson(path: string): Promise<Loaded> {
 /**
  * Imports a config module and takes its default export.
  *
- * `.ts` config relies on Node's own type stripping. On a Node that does not
- * strip types, the import fails with `ERR_UNKNOWN_FILE_EXTENSION`, and we say
- * so plainly instead of letting a raw module error surface — we are not going
- * to bundle a TypeScript compiler into a security tool's dependency tree to
- * paper over it.
+ * Only called when the caller opted into executable config. `.ts` relies on
+ * Node's own type stripping; on a Node that does not strip types we say so
+ * plainly rather than bundling a TypeScript compiler.
  */
 async function loadModule(path: string): Promise<Loaded> {
   try {
@@ -146,10 +216,13 @@ async function loadPackageJsonKey(
 
   let parsed: unknown;
   try {
-    parsed = JSON.parse(await readFile(path, "utf8"));
+    const text = await readFileBounded(path);
+    if (!text.ok) {
+      // Broken/oversized package.json must not block a scan — fall back.
+      return { ok: true, value: undefined };
+    }
+    parsed = JSON.parse(text.value);
   } catch {
-    // A project can have a package.json we cannot parse and still be worth
-    // scanning; the scan is what the user asked for, so fall back to defaults.
     return { ok: true, value: undefined };
   }
 
@@ -157,6 +230,36 @@ async function loadPackageJsonKey(
     return { ok: true, value: parsed.owlwarden };
   }
   return { ok: true, value: undefined };
+}
+
+async function readFileBounded(
+  path: string,
+): Promise<{ ok: true; value: string } | { ok: false; error: ConfigError }> {
+  const info = await stat(path);
+  if (info.size > MAX_CONFIG_BYTES) {
+    return {
+      ok: false,
+      error: {
+        kind: "too-large",
+        path,
+        size: info.size,
+        max: MAX_CONFIG_BYTES,
+      },
+    };
+  }
+  const value = await readFile(path, "utf8");
+  if (value.length > MAX_CONFIG_BYTES) {
+    return {
+      ok: false,
+      error: {
+        kind: "too-large",
+        path,
+        size: value.length,
+        max: MAX_CONFIG_BYTES,
+      },
+    };
+  }
+  return { ok: true, value };
 }
 
 async function exists(path: string): Promise<boolean> {
@@ -180,5 +283,7 @@ export function formatConfigError(error: ConfigError): string {
       return `cannot read ${error.path}: ${error.message}`;
     case "unloadable-typescript":
       return `cannot load ${error.path}: ${error.message}`;
+    case "too-large":
+      return `config ${error.path} is ${error.size} bytes; maximum is ${error.max}`;
   }
 }

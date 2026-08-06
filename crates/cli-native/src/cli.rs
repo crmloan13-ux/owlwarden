@@ -12,6 +12,8 @@ use owlwarden_core::finding::{Confidence, Severity};
 pub enum Command {
     /// Scan a project.
     Scan(Box<ScanArgs>),
+    /// Re-scan on change (static only).
+    Watch(Box<ScanArgs>),
     /// List the rule catalogue.
     Rules {
         /// Emit JSON instead of text.
@@ -59,6 +61,12 @@ pub struct ScanArgs {
     pub min_confidence: Confidence,
     /// Write the report here instead of stdout.
     pub out: Option<String>,
+    /// Baseline file; only new findings are reported.
+    pub baseline: Option<String>,
+    /// Write current findings to this baseline path.
+    pub write_baseline: Option<String>,
+    /// List every inline suppression and flag stale ones.
+    pub report_suppressions: bool,
     /// Force colour off.
     pub no_color: bool,
     /// Use the ASCII glyph set.
@@ -81,6 +89,9 @@ impl Default for ScanArgs {
             fail_on: Severity::Info,
             min_confidence: Confidence::Possible,
             out: None,
+            baseline: None,
+            write_baseline: None,
+            report_suppressions: false,
             no_color: false,
             ascii: false,
             quiet: false,
@@ -132,6 +143,7 @@ pub fn parse(args: &[String]) -> Result<Command, ArgError> {
         "-h" | "--help" | "help" => Ok(Command::Help),
         "-V" | "--version" | "version" => Ok(Command::Version),
         "scan" => parse_scan(rest).map(|args| Command::Scan(Box::new(args))),
+        "watch" => parse_scan(rest).map(|args| Command::Watch(Box::new(args))),
         "rules" => Ok(Command::Rules {
             json: rest.any(|arg| arg == "--json"),
         }),
@@ -184,8 +196,11 @@ struct RawScan {
     preset: Option<String>,
     format: Option<String>,
     out: Option<String>,
+    baseline: Option<String>,
+    write_baseline: Option<String>,
     fail_on: Option<Severity>,
     min_confidence: Option<Confidence>,
+    report_suppressions: bool,
     ci: bool,
     no_color: bool,
     ascii: bool,
@@ -206,6 +221,9 @@ fn parse_scan<'a>(args: impl Iterator<Item = &'a String>) -> Result<ScanArgs, Ar
             "--preset" => raw.preset = Some(value("--preset")?),
             "--format" => raw.format = Some(value("--format")?),
             "--out" => raw.out = Some(value("--out")?),
+            "--baseline" => raw.baseline = Some(value("--baseline")?),
+            "--write-baseline" => raw.write_baseline = Some(value("--write-baseline")?),
+            "--report-suppressions" => raw.report_suppressions = true,
             "--fail-on" => {
                 let text = value("--fail-on")?;
                 let level = Severity::from_str_opt(&text).ok_or(ArgError::InvalidValue {
@@ -254,6 +272,9 @@ fn parse_scan<'a>(args: impl Iterator<Item = &'a String>) -> Result<ScanArgs, Ar
         fail_on: raw.fail_on.unwrap_or(defaults.fail_on),
         min_confidence: raw.min_confidence.unwrap_or(defaults.min_confidence),
         out: raw.out,
+        baseline: raw.baseline,
+        write_baseline: raw.write_baseline,
+        report_suppressions: raw.report_suppressions,
         no_color: raw.no_color || raw.ci,
         ascii: raw.ascii,
         quiet: raw.quiet || raw.ci,
@@ -280,16 +301,22 @@ pub fn help_text() -> String {
 
 USAGE
   owlwarden scan [PATH] [OPTIONS]
+  owlwarden watch [PATH] [OPTIONS]
   owlwarden rules [--json]
   owlwarden coverage [--json] [--no-color] [--ascii]
   owlwarden explain <RULE_ID> [--json]
   owlwarden --version
+
+  watch re-scans on change. Static only — it never opens a network path.
 
 SCAN OPTIONS
   --preset <NAME>      Rule bundle to run. Default: {default_preset}
 {presets}
   --format <FORMAT>    pretty (default) or json
   --out <FILE>         Write the report to a file instead of stdout
+  --baseline <FILE>    Report only findings new since this baseline
+  --write-baseline <F> Write current findings to a baseline file
+  --report-suppressions  List every inline suppression; flag stale ones
   --fail-on <LEVEL>    Exit 1 at this severity or above. Default: info
   --min-confidence <L> Drop findings below this confidence. Default: possible
   --ci                 Shorthand for --format json --quiet --no-color

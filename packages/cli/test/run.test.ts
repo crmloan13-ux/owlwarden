@@ -1,3 +1,6 @@
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { Writable } from "node:stream";
 import { fileURLToPath } from "node:url";
 
@@ -51,8 +54,11 @@ describe("owlwarden scan", () => {
     expect(code).toBe(EXIT.FINDINGS);
     const report = reportSchema.parse(JSON.parse(out));
     expect(report.findings.map((finding) => finding.id).sort()).toEqual([
+      "ci-unpinned-action",
       "security-headers-missing",
+      "sensitive-data-logged",
       "stack-trace-leak",
+      "unpinned-dependency",
     ]);
   });
 
@@ -102,6 +108,247 @@ describe("owlwarden scan", () => {
     const { code, err } = await cli(["scan", fixture("does-not-exist"), "--quiet"]);
     expect(code).toBe(EXIT.ERROR);
     expect(err).toMatch(/error:/);
+  });
+
+  it("writes a baseline and then hides those findings on the next scan", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "owlwarden-baseline-"));
+    const baselinePath = join(dir, "baseline.json");
+    try {
+      const write = await cli([
+        "scan",
+        fixture("vulnerable/next-api"),
+        "--format",
+        "json",
+        "--quiet",
+        "--write-baseline",
+        baselinePath,
+      ]);
+      expect(write.code).toBe(EXIT.FINDINGS);
+      const written = JSON.parse(await readFile(baselinePath, "utf8")) as {
+        entries: unknown[];
+      };
+      expect(written.entries.length).toBeGreaterThan(0);
+
+      const filtered = await cli([
+        "scan",
+        fixture("vulnerable/next-api"),
+        "--format",
+        "json",
+        "--quiet",
+        "--baseline",
+        baselinePath,
+      ]);
+      const report = reportSchema.parse(JSON.parse(filtered.out));
+      expect(report.findings).toEqual([]);
+      expect(report.baselineHiddenCount).toBeGreaterThan(0);
+      expect(filtered.code).toBe(EXIT.CLEAN);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("honours a next-line suppression with a reason", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "owlwarden-suppress-"));
+    try {
+      await writeFile(
+        join(dir, "package.json"),
+        JSON.stringify({ name: "suppress-fixture", dependencies: { next: "^14.2.0" } }),
+      );
+      await writeFile(
+        join(dir, "route.ts"),
+        [
+          "import { NextResponse } from 'next/server'",
+          "export async function GET() {",
+          "  try {",
+          "    return NextResponse.json({ ok: true })",
+          "  } catch (err) {",
+          "    // owlwarden-disable-next-line stack-trace-leak -- fixture: prove reason works",
+          "    return NextResponse.json({ error: (err as Error).stack })",
+          "  }",
+          "}",
+          "",
+        ].join("\n"),
+      );
+
+      const { code, out, err } = await cli([
+        "scan",
+        dir,
+        "--format",
+        "json",
+        "--quiet",
+        "--report-suppressions",
+      ]);
+      const report = reportSchema.parse(JSON.parse(out));
+      expect(report.findings.some((finding) => finding.id === "stack-trace-leak")).toBe(false);
+      expect(report.suppressedCount).toBeGreaterThanOrEqual(1);
+      expect(err).toContain("stack-trace-leak");
+      expect(err).toContain("[active]");
+      expect(code).toBe(EXIT.FINDINGS); // security-headers-missing still fires
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("labels a missing-reason directive without calling it active", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "owlwarden-suppress-bad-"));
+    try {
+      await writeFile(
+        join(dir, "package.json"),
+        JSON.stringify({ name: "suppress-bad", dependencies: { next: "^14.2.0" } }),
+      );
+      await writeFile(
+        join(dir, "route.ts"),
+        [
+          "import { NextResponse } from 'next/server'",
+          "export async function GET() {",
+          "  try {",
+          "    return NextResponse.json({ ok: true })",
+          "  } catch (err) {",
+          "    // owlwarden-disable-next-line stack-trace-leak",
+          "    return NextResponse.json({ error: (err as Error).stack })",
+          "  }",
+          "}",
+          "",
+        ].join("\n"),
+      );
+
+      const { out, err } = await cli([
+        "scan",
+        dir,
+        "--format",
+        "json",
+        "--quiet",
+        "--report-suppressions",
+      ]);
+      const report = reportSchema.parse(JSON.parse(out));
+      expect(report.findings.some((finding) => finding.id === "stack-trace-leak")).toBe(true);
+      expect(report.suppressedCount ?? 0).toBe(0);
+      expect(err).toContain("[missing-reason]");
+      expect(err).not.toContain("[active]");
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("write-baseline captures the post-suppression view", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "owlwarden-baseline-suppress-"));
+    const baselinePath = join(dir, ".owlwarden-baseline.json");
+    try {
+      await writeFile(
+        join(dir, "package.json"),
+        JSON.stringify({ name: "baseline-suppress", dependencies: { next: "^14.2.0" } }),
+      );
+      await writeFile(
+        join(dir, "route.ts"),
+        [
+          "import { NextResponse } from 'next/server'",
+          "export async function GET() {",
+          "  try {",
+          "    return NextResponse.json({ ok: true })",
+          "  } catch (err) {",
+          "    // owlwarden-disable-next-line stack-trace-leak -- accepted locally",
+          "    return NextResponse.json({ error: (err as Error).stack })",
+          "  }",
+          "}",
+          "",
+        ].join("\n"),
+      );
+
+      const written = await cli([
+        "scan",
+        dir,
+        "--format",
+        "json",
+        "--quiet",
+        "--write-baseline",
+        baselinePath,
+      ]);
+      expect(written.code).toBe(EXIT.FINDINGS);
+      const baseline = JSON.parse(await readFile(baselinePath, "utf8")) as {
+        entries: { id: string }[];
+      };
+      expect(baseline.entries.some((entry) => entry.id === "stack-trace-leak")).toBe(false);
+
+      const filtered = await cli([
+        "scan",
+        dir,
+        "--format",
+        "json",
+        "--quiet",
+        "--baseline",
+        baselinePath,
+      ]);
+      const report = reportSchema.parse(JSON.parse(filtered.out));
+      expect(report.findings.some((finding) => finding.id === "stack-trace-leak")).toBe(false);
+      expect(report.suppressedCount).toBeGreaterThanOrEqual(1);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("CI security posture", () => {
+  it("does not execute owlwarden.config.mjs under --ci", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "owlwarden-ci-config-"));
+    const marker = join(dir, "pwned.marker");
+    try {
+      await writeFile(
+        join(dir, "package.json"),
+        JSON.stringify({ name: "ci-config", dependencies: { next: "^14.2.0" } }),
+      );
+      await writeFile(
+        join(dir, "owlwarden.config.mjs"),
+        `import { writeFileSync } from 'node:fs';\nwriteFileSync(${JSON.stringify(marker)}, 'pwned');\nexport default { failOn: 'high' };\n`,
+      );
+      await writeFile(join(dir, "route.ts"), "export const GET = () => null\n");
+
+      const { code } = await cli(["scan", dir, "--ci"]);
+      // Scan still runs (findings or clean); the marker must never appear.
+      expect([EXIT.CLEAN, EXIT.FINDINGS]).toContain(code);
+      await expect(readFile(marker, "utf8")).rejects.toThrow();
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("redacts hardcoded-secret values from CI JSON snippets", async () => {
+    const { code, out } = await cli([
+      "scan",
+      fixture("vulnerable/express-api"),
+      "--ci",
+      "--fail-on",
+      "info",
+    ]);
+    expect(code).toBe(EXIT.FINDINGS);
+    const report = reportSchema.parse(JSON.parse(out));
+    const secretFinding = report.findings.find((finding) => finding.id === "hardcoded-secret");
+    expect(secretFinding).toBeDefined();
+    const blob = JSON.stringify(secretFinding);
+    expect(blob).not.toContain("sk_live_51Nx-AbCdEfGhIjKlMnOpQrStUvWx");
+    expect(blob).toContain("sk_l***");
+  });
+
+  it("--ci still exits 1 on findings and 0 on clean fixtures", async () => {
+    const dirty = await cli([
+      "scan",
+      fixture("vulnerable/next-api"),
+      "--ci",
+      "--fail-on",
+      "medium",
+    ]);
+    expect(dirty.code).toBe(EXIT.FINDINGS);
+    reportSchema.parse(JSON.parse(dirty.out));
+
+    const clean = await cli([
+      "scan",
+      fixture("should-not-fire/next-api-clean"),
+      "--ci",
+      "--fail-on",
+      "info",
+    ]);
+    expect(clean.code).toBe(EXIT.CLEAN);
+    const report = reportSchema.parse(JSON.parse(clean.out));
+    expect(report.findings).toEqual([]);
   });
 });
 

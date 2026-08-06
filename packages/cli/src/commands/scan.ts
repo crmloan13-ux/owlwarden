@@ -1,11 +1,13 @@
-import { writeFile } from "node:fs/promises";
-
 import { formatConfigError, resolveConfig } from "@dointhai/owlwarden-config";
 import { reportSchema, shouldFail, type Report } from "@dointhai/owlwarden-sdk";
 
 import type { ScanOptions } from "../args.js";
 import { EXIT } from "../exit.js";
 import type { NativeEngine } from "../native.js";
+import { readFileBounded, writeReplacing } from "../safe-write.js";
+
+/** Must match `owlwarden_core::baseline::MAX_BASELINE_BYTES`. */
+const MAX_BASELINE_BYTES = 50_000 * 512;
 
 /** The envelope the addon returns. Errors are data, not thrown strings. */
 interface Envelope {
@@ -26,10 +28,19 @@ export async function runScan(
   stderr: NodeJS.WritableStream,
   stdout: NodeJS.WritableStream,
 ): Promise<number> {
-  const resolved = await resolveConfig(options.path);
+  const resolved = await resolveConfig(options.path, {
+    allowConfigJs: options.allowConfigJs,
+  });
   if (!resolved.ok) {
     stderr.write(`error: ${formatConfigError(resolved.error)}\n`);
     return EXIT.ERROR;
+  }
+
+  if (resolved.skippedExecutable !== undefined && !options.quiet) {
+    stderr.write(
+      `note: skipped executable config ${resolved.skippedExecutable}\n` +
+        `  pass --allow-config-js to load it (never on an untrusted tree)\n`,
+    );
   }
 
   // Flags beat config; config beats defaults. One place, so the precedence is
@@ -44,6 +55,20 @@ export async function runScan(
     writeBanner(native, options, stderr);
   }
 
+  let baselineJson: string | undefined;
+  if (options.baseline !== undefined) {
+    try {
+      baselineJson = await readFileBounded(options.baseline, MAX_BASELINE_BYTES);
+    } catch (error) {
+      stderr.write(
+        `error: could not read baseline ${options.baseline}: ${
+          error instanceof Error ? error.message : String(error)
+        }\n`,
+      );
+      return EXIT.ERROR;
+    }
+  }
+
   const envelope = JSON.parse(
     native.scan(
       JSON.stringify({
@@ -52,6 +77,10 @@ export async function runScan(
         // The engine filters by confidence at the source, so a report never
         // carries findings the user asked not to see.
         minConfidence,
+        ...(baselineJson !== undefined ? { baselineJson } : {}),
+        ...(options.writeBaseline !== undefined
+          ? { writeBaseline: options.writeBaseline }
+          : {}),
       }),
     ),
   ) as Envelope;
@@ -79,7 +108,17 @@ export async function runScan(
     return EXIT.ERROR;
   }
 
+  if (options.writeBaseline !== undefined && !options.quiet) {
+    stderr.write(`wrote baseline to ${options.writeBaseline}\n`);
+  }
+
   await emit(native, envelope.report, parsed.data, options, format, stdout, stderr);
+
+  // Human listing goes to stderr so `--format json` on stdout stays one object.
+  // The JSON report already carries `suppressions` for agents and CI.
+  if (options.reportSuppressions) {
+    writeSuppressions(parsed.data, stderr);
+  }
 
   return shouldFail(parsed.data, failOn, minConfidence) ? EXIT.FINDINGS : EXIT.CLEAN;
 }
@@ -114,7 +153,7 @@ async function emit(
   );
 
   if (options.out !== undefined) {
-    await writeFile(options.out, `${rendered}\n`, "utf8");
+    await writeReplacing(options.out, `${rendered}\n`);
     if (!options.quiet) {
       const count = validated.findings.length;
       stderr.write(`wrote ${count} finding${count === 1 ? "" : "s"} to ${options.out}\n`);
@@ -123,6 +162,27 @@ async function emit(
   }
 
   stdout.write(`${rendered}\n`);
+}
+
+/** Prints every suppression so stale ones cannot rot unnoticed. */
+function writeSuppressions(report: Report, stdout: NodeJS.WritableStream): void {
+  const records = report.suppressions ?? [];
+  if (records.length === 0) {
+    stdout.write("No inline suppressions found.\n");
+    return;
+  }
+  stdout.write(`\n${records.length} suppression(s)\n`);
+  for (const record of records) {
+    // Missing-reason directives never hide a finding; do not call them "active".
+    const flags = record.missingReason
+      ? "missing-reason"
+      : record.stale
+        ? "stale"
+        : "active";
+    const reason = record.reason === "" ? "(no reason)" : record.reason;
+    stdout.write(`  ${record.path}:${record.line}  ${record.rule}  [${flags}]\n`);
+    stdout.write(`    ${reason}\n`);
+  }
 }
 
 /** Writes the banner to stderr, and never lets a decoration failure matter. */

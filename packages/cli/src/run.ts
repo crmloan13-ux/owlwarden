@@ -3,6 +3,7 @@ import { runCoverage } from "./commands/coverage.js";
 import { runExplain } from "./commands/explain.js";
 import { runRules } from "./commands/rules.js";
 import { runScan } from "./commands/scan.js";
+import { runWatch } from "./commands/watch.js";
 import { EXIT } from "./exit.js";
 import { helpText } from "./help.js";
 import { loadNative, NativeLoadError, type NativeEngine } from "./native.js";
@@ -64,6 +65,8 @@ export async function run(argv: string[], streams: Streams): Promise<number> {
       return runExplain(mustLoad(native), cli.rule, cli.json, stdout, stderr);
     case "scan":
       return runScan(mustLoad(native), cli.options, stderr, stdout);
+    case "watch":
+      return runWatch(mustLoad(native), cli.options, stderr, stdout);
   }
 }
 

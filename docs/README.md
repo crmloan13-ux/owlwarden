@@ -7,6 +7,7 @@
 | know what it **cannot** find | [explanation/coverage.md](explanation/coverage.md), or `owlwarden coverage` |
 | add a framework, a rule, or a plugin | [how-to/extend.md](how-to/extend.md) |
 | wire it into CI | [how-to/ci.md](how-to/ci.md) |
+| suppress a finding or adopt with a baseline | [how-to/suppressions.md](how-to/suppressions.md) |
 | decode an engine error code | [reference/errors.md](reference/errors.md) |
 | understand why a finding says "possible" | [explanation/false-positives.md](explanation/false-positives.md) |
 | use owlwarden from an AI agent | [explanation/agent-integration.md](explanation/agent-integration.md) |

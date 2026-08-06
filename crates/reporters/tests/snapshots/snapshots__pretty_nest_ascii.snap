@@ -4,19 +4,19 @@ expression: rendered
 ---
 
 (o.o) 3 files · owasp-top10 · 0.12s
-2 findings (1 high, 1 medium)
+5 findings (1 high, 4 medium)
 
 ------------------------------------------------------------------------
 HIGH  likely  Stack trace leaked in error response  A05:2021
 ------------------------------------------------------------------------
- src/users/users.controller.ts:14:16
+ src/users/users.controller.ts:17:16
 
-  12 |       throw new InternalServerErrorException({
-  13 |         message: 'could not load users',
-  14 |         stack: err.stack,
+  15 |       throw new InternalServerErrorException({
+  16 |         message: 'could not load users',
+  17 |         stack: err.stack,
      |                ~~~~~~~~~ leaks internal stack trace to the client
-  15 |       })
-  16 |     }
+  18 |       })
+  19 |     }
 
  -> fix (NestJS)   Throw the exception without a custom body; let the
                    built-in filter shape the response.
@@ -26,6 +26,62 @@ HIGH  likely  Stack trace leaked in error response  A05:2021
                    versions, and internal call structure — enough to
                    fingerprint the stack and locate other weaknesses.
  i  ref            OWASP A05:2021 | CWE-209 | RULES.md#stack-trace-leak
+
+------------------------------------------------------------------------
+MEDIUM  likely  GitHub Action is not pinned to a commit SHA  A08:2021
+------------------------------------------------------------------------
+ .github/workflows/ci.yml:8:1
+
+ -> fix (NestJS)   Pin the action to a full commit SHA (keep the tag in
+                   a comment for humans).
+                   uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+ -> why            A moving tag can be retargeted to a different commit.
+                   Anyone who can push that tag — or who compromises the
+                   action's repository — runs code in your CI with
+                   access to repository secrets.
+ i  ref            OWASP A08:2021 | CWE-829 |
+                   RULES.md#ci-unpinned-action
+
+------------------------------------------------------------------------
+MEDIUM  likely  Dependency version is unpinned  A06:2021
+------------------------------------------------------------------------
+ package.json:13:1
+
+ -> fix (NestJS)   Pin the dependency in package.json and reinstall so
+                   the lockfile records it.
+                   {
+                     "dependencies": {
+                       "@nestjs/core": "^10.0.0"
+                     }
+                   }
+ -> why            An unpinned range lets the next install resolve a
+                   different major version, including one with a known
+                   vulnerability or a breaking API change, without
+                   anyone reviewing the bump.
+ i  ref            OWASP A06:2021 | CWE-1104 |
+                   RULES.md#unpinned-dependency
+
+------------------------------------------------------------------------
+MEDIUM  likely  Sensitive data written to a log  A09:2021
+------------------------------------------------------------------------
+ src/users/users.controller.ts:25:23
+
+  23 |   login(@Body() body: { password: string }) {
+  24 |     // sensitive-data-logged
+  25 |     this.logger.log({ password: body.password })
+     |                       ~~~~~~~~~~~~~~~~~~~~~~~ sensitive value written to a log
+  26 |     return { ok: true }
+  27 |   }
+
+ -> fix (NestJS)   Use the Nest logger with a redacted payload.
+                   this.logger.log({ event: 'login_attempt', userId })
+                   // never: this.logger.log({ password: dto.password })
+ -> why            Logs are copied into aggregators, retained for
+                   months, and readable by anyone with access to the
+                   logging system. A credential that reaches a log has
+                   left the application's trust boundary.
+ i  ref            OWASP A09:2021 | CWE-532 |
+                   RULES.md#sensitive-data-logged
 
 ------------------------------------------------------------------------
 MEDIUM  possible  Security headers are not configured  A05:2021

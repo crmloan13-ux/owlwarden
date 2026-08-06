@@ -2,7 +2,7 @@
 
 # Rules
 
-9 rules in owlwarden 0.0.1.
+12 rules in owlwarden 0.0.2.
 
 Rule ids are permanent. They appear in suppressions, in agent rules files, and
 in other people's CI configs, so they are treated as public API.
@@ -11,13 +11,13 @@ in other people's CI configs, so they are treated as public API.
 
 | Preset | Rules | What it is for |
 | --- | --- | --- |
-| `quick` | cors-permissive, hardcoded-secret, insecure-cookie, open-redirect, security-headers-missing, sql-injection, ssrf, stack-trace-leak, weak-crypto | Fast, high-signal rules. The zero-config default. |
-| `owasp-top10` | cors-permissive, hardcoded-secret, insecure-cookie, open-redirect, security-headers-missing, sql-injection, ssrf, stack-trace-leak, weak-crypto | Rules mapped to an OWASP Top 10 (2021) category. |
-| `deep` | cors-permissive, hardcoded-secret, insecure-cookie, open-redirect, security-headers-missing, sql-injection, ssrf, stack-trace-leak, weak-crypto | Every rule, including the noisier heuristics. |
+| `quick` | ci-unpinned-action, cors-permissive, hardcoded-secret, insecure-cookie, open-redirect, security-headers-missing, sensitive-data-logged, sql-injection, ssrf, stack-trace-leak, unpinned-dependency, weak-crypto | Fast, high-signal rules. The zero-config default. |
+| `owasp-top10` | ci-unpinned-action, cors-permissive, hardcoded-secret, insecure-cookie, open-redirect, security-headers-missing, sensitive-data-logged, sql-injection, ssrf, stack-trace-leak, unpinned-dependency, weak-crypto | Rules mapped to an OWASP Top 10 (2021) category. |
+| `deep` | ci-unpinned-action, cors-permissive, hardcoded-secret, insecure-cookie, open-redirect, security-headers-missing, sensitive-data-logged, sql-injection, ssrf, stack-trace-leak, unpinned-dependency, weak-crypto | Every rule, including the noisier heuristics. |
 
 ## OWASP Top 10 (2021) coverage
 
-6 of 10 categories have at least one rule.
+9 of 10 categories have at least one rule.
 
 The gaps are listed on purpose. A table showing only what is checked would
 be an advertisement; what a reader needs to know is what owlwarden is *not*
@@ -35,10 +35,10 @@ or a human.
 | **A03:2021** Injection | good | `sql-injection` |
 | **A04:2021** Insecure Design | poor | *not reachable from source* |
 | **A05:2021** Security Misconfiguration | good | `cors-permissive`, `insecure-cookie`, `security-headers-missing`, `stack-trace-leak` |
-| **A06:2021** Vulnerable and Outdated Components | partial | *none yet* |
+| **A06:2021** Vulnerable and Outdated Components | partial | `unpinned-dependency` |
 | **A07:2021** Identification and Authentication Failures | partial | `hardcoded-secret` |
-| **A08:2021** Software and Data Integrity Failures | partial | *none yet* |
-| **A09:2021** Security Logging and Monitoring Failures | partial | *none yet* |
+| **A08:2021** Software and Data Integrity Failures | partial | `ci-unpinned-action` |
+| **A09:2021** Security Logging and Monitoring Failures | partial | `sensitive-data-logged` |
 | **A10:2021** Server-Side Request Forgery (SSRF) | good | `ssrf` |
 
 `owlwarden coverage` prints this from the engine you have installed, which
@@ -52,13 +52,52 @@ build, so this column cannot silently drift to zero.
 
 | Framework | Rules with framework-specific remediation |
 | --- | --- |
-| `next` | 9 of 9 |
-| `nuxt` | 9 of 9 |
-| `nest` | 9 of 9 |
-| `express` | 9 of 9 |
-| `fastify` | 9 of 9 |
+| `next` | 12 of 12 |
+| `nuxt` | 12 of 12 |
+| `nest` | 12 of 12 |
+| `express` | 12 of 12 |
+| `fastify` | 12 of 12 |
 
 ## Catalogue
+
+### `ci-unpinned-action`
+
+GitHub Action is not pinned to a commit SHA
+
+**medium** · confidence at most `likely` · [OWASP A08:2021](https://owasp.org/Top10/) · [CWE-829](https://cwe.mitre.org/data/definitions/829.html)
+
+A workflow references a GitHub Action by a branch or version tag. Tags move; a compromised or hijacked tag runs attacker-controlled code in CI with repository secrets. Pin the full commit SHA.
+
+**Fixes**
+
+- *next* — Pin the action to a full commit SHA (keep the tag in a comment for humans).
+
+  ```ts
+  uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+  ```
+- *nuxt* — Pin the action to a full commit SHA (keep the tag in a comment for humans).
+
+  ```ts
+  uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+  ```
+- *nest* — Pin the action to a full commit SHA (keep the tag in a comment for humans).
+
+  ```ts
+  uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+  ```
+- *express* — Pin the action to a full commit SHA (keep the tag in a comment for humans).
+
+  ```ts
+  uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+  ```
+- *fastify* — Pin the action to a full commit SHA (keep the tag in a comment for humans).
+
+  ```ts
+  uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+  ```
+- *any framework* — Pin the action to a full commit SHA (keep the tag in a comment for humans).
+
+`owlwarden explain ci-unpinned-action` prints this in the terminal.
 
 ### `cors-permissive`
 
@@ -376,6 +415,50 @@ The application does not set the baseline security response headers. Without the
 
 `owlwarden explain security-headers-missing` prints this in the terminal.
 
+### `sensitive-data-logged`
+
+Sensitive data written to a log
+
+**medium** · confidence at most `likely` · [OWASP A09:2021](https://owasp.org/Top10/) · [CWE-532](https://cwe.mitre.org/data/definitions/532.html)
+
+A password, token, cookie, or similar value is passed to a log sink. Centralised logs are widely readable inside an organisation and often retained for months — a credential that lands there is a credential that has left the application's control.
+
+**Fixes**
+
+- *next* — Log that the attempt happened, not the credential.
+
+  ```ts
+  console.info({ event: 'login_attempt', userId })
+  // never: console.info({ password })
+  ```
+- *nuxt* — Log that the attempt happened, not the credential.
+
+  ```ts
+  console.info({ event: 'login_attempt', userId })
+  // never: console.info({ password: body.password })
+  ```
+- *nest* — Use the Nest logger with a redacted payload.
+
+  ```ts
+  this.logger.log({ event: 'login_attempt', userId })
+  // never: this.logger.log({ password: dto.password })
+  ```
+- *express* — Log that the attempt happened, not the credential.
+
+  ```ts
+  console.info({ event: 'login_attempt', userId })
+  // never: console.info({ password: req.body.password })
+  ```
+- *fastify* — Use request.log with a redacted payload.
+
+  ```ts
+  request.log.info({ event: 'login_attempt', userId })
+  // never: request.log.info({ password: request.body.password })
+  ```
+- *any framework* — Log a redacted shape — an id, a boolean, a length — never the secret itself.
+
+`owlwarden explain sensitive-data-logged` prints this in the terminal.
+
 ### `sql-injection`
 
 SQL query built by string interpolation
@@ -528,6 +611,65 @@ Returning an error's `.stack` to the client exposes absolute file paths, depende
 - *any framework* — Log the error server-side and return a generic message to the client.
 
 `owlwarden explain stack-trace-leak` prints this in the terminal.
+
+### `unpinned-dependency`
+
+Dependency version is unpinned
+
+**medium** · confidence at most `likely` · [OWASP A06:2021](https://owasp.org/Top10/) · [CWE-1104](https://cwe.mitre.org/data/definitions/1104.html)
+
+A package.json dependency uses '*' or 'latest', so every install can pull a different major version with no review. Pin a lower bound (or an exact version) so upgrades are a deliberate change.
+
+**Fixes**
+
+- *next* — Pin the dependency in package.json and reinstall so the lockfile records it.
+
+  ```ts
+  {
+    "dependencies": {
+      "next": "^14.2.0"
+    }
+  }
+  ```
+- *nuxt* — Pin the dependency in package.json and reinstall so the lockfile records it.
+
+  ```ts
+  {
+    "dependencies": {
+      "nuxt": "^3.12.0"
+    }
+  }
+  ```
+- *nest* — Pin the dependency in package.json and reinstall so the lockfile records it.
+
+  ```ts
+  {
+    "dependencies": {
+      "@nestjs/core": "^10.0.0"
+    }
+  }
+  ```
+- *express* — Pin the dependency in package.json and reinstall so the lockfile records it.
+
+  ```ts
+  {
+    "dependencies": {
+      "express": "^4.19.0"
+    }
+  }
+  ```
+- *fastify* — Pin the dependency in package.json and reinstall so the lockfile records it.
+
+  ```ts
+  {
+    "dependencies": {
+      "fastify": "^4.28.0"
+    }
+  }
+  ```
+- *any framework* — Replace '*' or 'latest' with a lower-bounded range (or an exact version), then regenerate the lockfile.
+
+`owlwarden explain unpinned-dependency` prints this in the terminal.
 
 ### `weak-crypto`
 

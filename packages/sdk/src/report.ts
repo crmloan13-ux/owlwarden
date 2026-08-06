@@ -143,6 +143,22 @@ export const detectorFailureSchema = z.object({
   message: z.string(),
 });
 
+/**
+ * One inline suppression found in the scanned tree.
+ *
+ * `stale` means the directive hid nothing this run — the annotation has
+ * outlived the finding, or never matched. `missingReason` means the comment
+ * named a rule but forgot `-- <reason>`, so it never suppressed anything.
+ */
+export const suppressionRecordSchema = z.object({
+  rule: z.string(),
+  path: z.string(),
+  line: z.number().int().positive(),
+  reason: z.string(),
+  stale: z.boolean(),
+  missingReason: z.boolean(),
+});
+
 /** Counts by severity, for the one-line summary. */
 export const reportSummarySchema = z.object({
   high: z.number().int().nonnegative(),
@@ -175,6 +191,10 @@ export const reportSchema = z.object({
    * mistaken for "0 problems" (`AGENTS.md` §5).
    */
   suppressedCount: z.number().int().nonnegative(),
+  /** Every inline suppression found; includes stale and missing-reason ones. */
+  suppressions: z.array(suppressionRecordSchema).default([]),
+  /** Findings hidden by `--baseline`. Distinct from `suppressedCount`. */
+  baselineHiddenCount: z.number().int().nonnegative().default(0),
   /** True when the engine hit its finding cap and stopped collecting. */
   truncated: z.boolean(),
   errors: z.array(detectorFailureSchema),
@@ -265,6 +285,7 @@ export type Fix = z.infer<typeof fixSchema>;
 export type Reference = z.infer<typeof referenceSchema>;
 export type Finding = z.infer<typeof findingSchema>;
 export type DetectorFailure = z.infer<typeof detectorFailureSchema>;
+export type SuppressionRecord = z.infer<typeof suppressionRecordSchema>;
 export type ReportSummary = z.infer<typeof reportSummarySchema>;
 export type ScanTarget = z.infer<typeof scanTargetSchema>;
 export type Report = z.infer<typeof reportSchema>;

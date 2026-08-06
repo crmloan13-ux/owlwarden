@@ -53,6 +53,17 @@ itself could not complete.
 Please [open an issue](https://github.com/suthat/owlwarden/issues) with the
 message and, if you can share it, the shape of the file involved.
 
+## E_BASELINE_INVALID
+
+The `--baseline` file could not be parsed, names an unsupported schema, or
+exceeds the entry limit. Fix the file or regenerate it with
+`--write-baseline`.
+
+## E_BASELINE_WRITE
+
+owlwarden could not write the path given to `--write-baseline` (missing
+directory, permissions, or a full disk).
+
 ## E_ENCODE
 
 The report could not be serialised to JSON.

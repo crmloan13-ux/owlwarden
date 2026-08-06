@@ -1,5 +1,15 @@
 [
   {
+    "id": "ci-unpinned-action",
+    "title": "GitHub Action is not pinned to a commit SHA",
+    "severity": "medium",
+    "maxConfidence": "likely",
+    "owasp": "A08:2021",
+    "cwe": 829,
+    "category": "ci",
+    "description": "A workflow references a GitHub Action by a branch or version tag. Tags move; a compromised or hijacked tag runs attacker-controlled code in CI with repository secrets. Pin the full commit SHA."
+  },
+  {
     "id": "cors-permissive",
     "title": "Cross-origin policy accepts any origin",
     "severity": "medium",
@@ -50,6 +60,16 @@
     "description": "The application does not set the baseline security response headers. Without them a browser will not enforce HTTPS, will guess content types, and will allow the page to be framed. Headers set by a CDN or ingress are invisible to static analysis, so this rule reports lower confidence when it finds no header configuration at all."
   },
   {
+    "id": "sensitive-data-logged",
+    "title": "Sensitive data written to a log",
+    "severity": "medium",
+    "maxConfidence": "likely",
+    "owasp": "A09:2021",
+    "cwe": 532,
+    "category": "logging",
+    "description": "A password, token, cookie, or similar value is passed to a log sink. Centralised logs are widely readable inside an organisation and often retained for months — a credential that lands there is a credential that has left the application's control."
+  },
+  {
     "id": "sql-injection",
     "title": "SQL query built by string interpolation",
     "severity": "high",
@@ -78,6 +98,16 @@
     "cwe": 209,
     "category": "error-handling",
     "description": "Returning an error's `.stack` to the client exposes absolute file paths, dependency versions, and internal call structure. Attackers use it to map the application and to fingerprint vulnerable dependency versions. Log the stack server-side and return a generic message."
+  },
+  {
+    "id": "unpinned-dependency",
+    "title": "Dependency version is unpinned",
+    "severity": "medium",
+    "maxConfidence": "likely",
+    "owasp": "A06:2021",
+    "cwe": 1104,
+    "category": "dependencies",
+    "description": "A package.json dependency uses '*' or 'latest', so every install can pull a different major version with no review. Pin a lower bound (or an exact version) so upgrades are a deliberate change."
   },
   {
     "id": "weak-crypto",

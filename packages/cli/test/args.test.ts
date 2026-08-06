@@ -66,4 +66,34 @@ describe("parse", () => {
       json: false,
     });
   });
+
+  it("parses watch with the same options as scan", () => {
+    const cli = parse(["watch", "./app", "--baseline", ".owlwarden-baseline.json"]);
+    expect(cli.command).toBe("watch");
+    if (cli.command !== "watch") return;
+    expect(cli.options.path).toBe("./app");
+    expect(cli.options.baseline).toBe(".owlwarden-baseline.json");
+  });
+
+  it("parses baseline and suppression flags", () => {
+    const cli = parse([
+      "scan",
+      "--write-baseline",
+      "base.json",
+      "--report-suppressions",
+    ]);
+    if (cli.command !== "scan") throw new Error("expected scan");
+    expect(cli.options.writeBaseline).toBe("base.json");
+    expect(cli.options.reportSuppressions).toBe(true);
+  });
+
+  it("defaults allowConfigJs to false and accepts the opt-in flag", () => {
+    const denied = parse(["scan", "--ci"]);
+    if (denied.command !== "scan") throw new Error("expected scan");
+    expect(denied.options.allowConfigJs).toBe(false);
+
+    const allowed = parse(["scan", "--ci", "--allow-config-js"]);
+    if (allowed.command !== "scan") throw new Error("expected scan");
+    expect(allowed.options.allowConfigJs).toBe(true);
+  });
 });

@@ -42,6 +42,12 @@ struct ScanRequest {
     /// Drop findings below this severity.
     #[serde(default)]
     min_severity: Option<String>,
+    /// JSON contents of a baseline file. Absent means no baseline filter.
+    #[serde(default)]
+    baseline_json: Option<String>,
+    /// When set, write the post-suppression findings here before filtering.
+    #[serde(default)]
+    write_baseline: Option<String>,
 }
 
 fn default_preset() -> String {
@@ -155,11 +161,25 @@ pub fn scan(request_json: String) -> napi::Result<String> {
         preset: request.preset.clone(),
     };
 
-    let outcome = futures_executor::block_on(owlwarden_static::scan_project(
+    let baseline = match request.baseline_json.as_deref() {
+        Some(json) => match owlwarden_core::baseline::BaselineFile::parse(json) {
+            Ok(file) => Some(file),
+            Err(error) => {
+                return Ok(Envelope::err("E_BASELINE_INVALID", error.to_string()).encode());
+            }
+        },
+        None => None,
+    };
+
+    let outcome = futures_executor::block_on(owlwarden_static::scan_project_with(
         &request.project_root,
         file_rules,
         project_rules,
-        settings,
+        owlwarden_static::ScanRequest {
+            settings,
+            baseline,
+            write_baseline: request.write_baseline.map(std::path::PathBuf::from),
+        },
     ));
 
     Ok(match outcome {
@@ -171,6 +191,10 @@ pub fn scan(request_json: String) -> napi::Result<String> {
         Err(owlwarden_static::RunError::Scan(error)) => {
             Envelope::err("E_SCAN_FAILED", error.to_string())
         }
+        Err(owlwarden_static::RunError::BaselineWrite { path, message }) => Envelope::err(
+            "E_BASELINE_WRITE",
+            format!("could not write {path}: {message}"),
+        ),
     }
     .encode())
 }

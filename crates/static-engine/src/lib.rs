@@ -48,9 +48,11 @@ pub mod fs_source;
 pub mod http;
 pub mod line_index;
 pub mod parse;
+pub mod postprocess;
 pub mod project;
 pub mod rule;
 pub mod runner;
+pub mod safe_io;
 pub mod taint;
 pub mod unit;
 
@@ -63,7 +65,8 @@ pub use line_index::LineIndex;
 pub use parse::{ParseFailure, with_parsed};
 pub use project::{PackageManifest, Project};
 pub use rule::{FileRule, FindingSink, ProjectRule, RuleInfo};
-pub use runner::{RunError, scan_project};
+pub use runner::{RunError, ScanRequest, scan_project, scan_project_with};
+pub use safe_io::{read_bounded, write_replacing};
 pub use taint::RequestOrigin;
 pub use unit::{FileUnit, UnitMeta};
 

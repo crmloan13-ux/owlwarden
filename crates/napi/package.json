@@ -1,6 +1,6 @@
 {
   "name": "@dointhai/owlwarden-core-native",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Prebuilt owlwarden engine (Rust) for Node.",
   "license": "MIT OR Apache-2.0",
   "repository": {

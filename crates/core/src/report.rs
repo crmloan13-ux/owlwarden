@@ -11,6 +11,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::finding::{Confidence, Finding, Severity};
+use crate::suppression::SuppressionRecord;
 
 /// Version of the JSON report format. Bumped on any breaking change to the
 /// shape; consumers should refuse a major version they do not know.
@@ -145,9 +146,20 @@ pub struct Report {
     /// How many findings an inline suppression hid.
     ///
     /// Always emitted so that "0 findings" is never mistaken for "0 problems"
-    /// — by a human or by an agent (`AGENTS.md` §5). Suppression itself lands
-    /// in v0.1; until then this is honestly zero.
+    /// — by a human or by an agent. See [`crate::suppression`].
     pub suppressed_count: u32,
+    /// Every inline suppression found in the scanned tree.
+    ///
+    /// Includes stale and missing-reason directives so `--report-suppressions`
+    /// (and agents reading JSON) can see annotations that no longer hide
+    /// anything. Empty when the tree has none.
+    #[serde(default)]
+    pub suppressions: Vec<SuppressionRecord>,
+    /// Findings hidden because they matched `--baseline`. Distinct from
+    /// [`Self::suppressed_count`]: a baseline is project-level debt, a
+    /// suppression is a line-level claim with a reason.
+    #[serde(default)]
+    pub baseline_hidden_count: u32,
     /// True when [`crate::limits::scan::MAX_FINDINGS`] was hit and findings
     /// were dropped. A truncated report is not a clean report.
     pub truncated: bool,
@@ -212,6 +224,8 @@ mod tests {
             summary: ReportSummary::of(&findings),
             findings,
             suppressed_count: 0,
+            suppressions: Vec::new(),
+            baseline_hidden_count: 0,
             truncated: false,
             errors: Vec::new(),
         }

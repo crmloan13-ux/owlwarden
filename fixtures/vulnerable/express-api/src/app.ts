@@ -12,6 +12,9 @@ const pool = new Pool({ connectionString: process.env.DATABASE_URL })
 app.use(cors({ origin: true, credentials: true }))
 
 app.post('/login', async (req, res) => {
+  // sensitive-data-logged: the password reaches the process log.
+  console.info({ password: req.body.password })
+
   // sql-injection: the email comes straight from the request body into the
   // query text.
   const rows = await pool.query(
