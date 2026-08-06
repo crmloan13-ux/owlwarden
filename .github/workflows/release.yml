@@ -57,6 +57,9 @@ jobs:
       # partial release is not publishable anyway, so there is nothing to gain
       # by stopping early and a diagnosis to lose.
       fail-fast: false
+      # Cap concurrency so a busy GitHub Actions pool does not leave every
+      # matrix job queued until the free-tier queue timeout cancels them.
+      max-parallel: 3
       matrix:
         include:
           - host: macos-latest
