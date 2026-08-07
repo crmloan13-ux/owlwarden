@@ -118,9 +118,16 @@ impl HostState {
             .unwrap_or(Confidence::Possible)
             .min(meta.max_confidence);
 
+        // Cap free text so a guest cannot shove the source snapshot into the
+        // report as an exfil channel (payload size alone still allows many KiB).
+        let why = claim.why.unwrap_or_default();
+        if why.len() > limits::MAX_WHY_BYTES {
+            return false;
+        }
+
         let mut builder = Finding::builder(meta.id.clone(), meta.severity, meta.title.clone())
             .confidence(confidence)
-            .why(claim.why.unwrap_or_default())
+            .why(why)
             .location(Location::Source(SourceLocation {
                 path: rel_path.as_str().to_owned(),
                 line: claim.line.max(1),

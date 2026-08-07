@@ -131,6 +131,8 @@ export async function runScan(
         ...(options.target !== undefined ? { target: options.target } : {}),
         ...(options.scope.length > 0 ? { scope: options.scope } : {}),
         ...(options.plugins.length > 0 ? { plugins: options.plugins } : {}),
+        ...(options.ci ? { ci: true } : {}),
+        ...(options.allowPlugins ? { allowPlugins: true } : {}),
       }),
     ),
   ) as Envelope;

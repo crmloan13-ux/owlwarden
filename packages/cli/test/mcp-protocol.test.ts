@@ -102,4 +102,13 @@ describe("serveMcp", () => {
     expect(err.error.message).toMatch(/unknown tool/);
     expect(replies[1]).toMatchObject({ id: 2, result: {} });
   });
+
+  it("refuses an oversized JSON-RPC line before parsing", async () => {
+    const { MAX_MCP_LINE_BYTES } = await import("../src/mcp/protocol.js");
+    const huge = `${"x".repeat(MAX_MCP_LINE_BYTES + 1)}`;
+    const replies = await exchange([huge, JSON.stringify({ jsonrpc: "2.0", id: 2, method: "ping" })]);
+    const err = replies[0] as { error: { message: string } };
+    expect(err.error.message).toMatch(/exceeds/);
+    expect(replies[1]).toMatchObject({ id: 2, result: {} });
+  });
 });

@@ -4,7 +4,7 @@
 //!
 //! Each test is one claim about the sandbox. Together they are the exit
 //! criteria for `plugin-host` v0.2: a plugin that misbehaves in any of these
-//! five ways must be contained, not merely slowed down.
+//! ways must be contained, not merely slowed down.
 
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
@@ -54,8 +54,7 @@ async fn run(detector: &WasmDetector) -> (Result<Vec<Finding>, String>, Duration
     (result, started.elapsed())
 }
 
-/// A manifest declaring one rule, `demo-rule` — enough for every test below;
-/// the bad-rule-id test relies on this being the *only* declared rule.
+/// A manifest declaring namespaced rules under `escape-test-plugin-`.
 fn manifest() -> PluginManifest {
     let json = r#"{
         "schemaVersion": 1,
@@ -63,7 +62,7 @@ fn manifest() -> PluginManifest {
         "version": "0.1.0",
         "rules": [
             {
-                "id": "demo-rule",
+                "id": "escape-test-plugin-demo",
                 "title": "Demo finding",
                 "severity": "medium",
                 "maxConfidence": "likely",
@@ -71,12 +70,12 @@ fn manifest() -> PluginManifest {
                 "description": "A demonstration rule used by the sandbox-escape suite."
             },
             {
-                "id": "grow-probe",
+                "id": "escape-test-plugin-grow",
                 "title": "Memory-grow probe",
                 "severity": "info",
                 "maxConfidence": "possible",
                 "category": "demo",
-                "description": "Reports whether an oversized memory.grow succeeded."
+                "description": "Reports whether an oversized memory.grow or table.grow succeeded."
             }
         ]
     }"#;
@@ -128,8 +127,8 @@ async fn busy_loop_exhausts_fuel_instead_of_hanging() {
 // granted at the cost of the host's own address space.
 #[tokio::test]
 async fn grow_memory_past_the_limit_is_refused_not_granted() {
-    let blocked = br#"{"ruleId":"grow-probe","path":"grow-blocked"}"#;
-    let granted = br#"{"ruleId":"grow-probe","path":"grow-granted"}"#;
+    let blocked = br#"{"ruleId":"escape-test-plugin-grow","path":"grow-blocked"}"#;
+    let granted = br#"{"ruleId":"escape-test-plugin-grow","path":"grow-granted"}"#;
 
     let detector = load(&format!(
         r#"(module
@@ -167,11 +166,56 @@ async fn grow_memory_past_the_limit_is_refused_not_granted() {
     );
 }
 
+// 2b. table.grow: same containment for funcref tables — wasmtime's default
+// StoreLimits leave tables unbounded, which would be a RAM escape beside
+// linear memory.
+#[tokio::test]
+async fn grow_table_past_the_limit_is_refused_not_granted() {
+    let blocked = br#"{"ruleId":"escape-test-plugin-grow","path":"table-blocked"}"#;
+    let granted = br#"{"ruleId":"escape-test-plugin-grow","path":"table-granted"}"#;
+    // Grow far past MAX_TABLE_ELEMENTS in one step.
+    let grow_by = limits::MAX_TABLE_ELEMENTS as i32 * 100;
+
+    let detector = load(&format!(
+        r#"(module
+            {NOOP_IMPORT}
+            (memory (export "memory") 1)
+            (table 0 funcref)
+            (data (i32.const 0) "{blocked_bytes}")
+            (data (i32.const 512) "{granted_bytes}")
+            (func (export "alloc") (param i32) (result i32) i32.const 4096)
+            (func (export "detect") (param i32 i32) (result i32)
+                (local $grew i32)
+                (local.set $grew (table.grow 0 (ref.null func) (i32.const {grow_by})))
+                (if (i32.eq (local.get $grew) (i32.const -1))
+                    (then (drop (call $emit (i32.const 0) (i32.const {blocked_len}))))
+                    (else (drop (call $emit (i32.const 512) (i32.const {granted_len})))))
+                i32.const 0))"#,
+        blocked_bytes = wat_bytes(blocked),
+        granted_bytes = wat_bytes(granted),
+        blocked_len = blocked.len(),
+        granted_len = granted.len(),
+    ));
+
+    let (result, _elapsed) = run(&detector).await;
+    let findings = result.expect("a refused table.grow is not itself a runtime error");
+
+    assert_eq!(findings.len(), 1);
+    assert_eq!(
+        findings[0]
+            .location
+            .as_source()
+            .map(|loc| loc.path.as_str()),
+        Some("table-blocked"),
+        "table.grow past StoreLimits::table_elements must return -1",
+    );
+}
+
 // 3. flood_findings: a guest calling `emit_finding` far more than the cap
 // only ever contributes MAX_FINDINGS_PER_INVOCATION findings.
 #[tokio::test]
 async fn flood_of_findings_is_capped_at_the_per_invocation_limit() {
-    let payload = br#"{"ruleId":"demo-rule","path":"flood.ts"}"#;
+    let payload = br#"{"ruleId":"escape-test-plugin-demo","path":"flood.ts"}"#;
     let flood_calls = limits::MAX_FINDINGS_PER_INVOCATION * 4;
 
     let detector = load(&format!(
@@ -235,7 +279,7 @@ async fn a_claim_for_an_undeclared_rule_id_is_dropped() {
 // plugin actually declared is accepted end to end.
 #[tokio::test]
 async fn a_benign_well_formed_claim_is_accepted() {
-    let payload = br#"{"ruleId":"demo-rule","path":"src/index.ts","line":3,"col":5,"why":"benign positive control"}"#;
+    let payload = br#"{"ruleId":"escape-test-plugin-demo","path":"src/index.ts","line":3,"col":5,"why":"benign positive control"}"#;
 
     let detector = load(&format!(
         r#"(module
@@ -255,7 +299,7 @@ async fn a_benign_well_formed_claim_is_accepted() {
 
     assert_eq!(findings.len(), 1);
     let finding = &findings[0];
-    assert_eq!(finding.id.as_str(), "demo-rule");
+    assert_eq!(finding.id.as_str(), "escape-test-plugin-demo");
     assert_eq!(finding.why, "benign positive control");
     assert_eq!(
         finding
@@ -264,4 +308,28 @@ async fn a_benign_well_formed_claim_is_accepted() {
             .map(|loc| (loc.path.as_str(), loc.line, loc.col)),
         Some(("src/index.ts", 3, 5)),
     );
+}
+
+// 6. oversized why: dropped so the report cannot become an exfil channel.
+#[tokio::test]
+async fn an_oversized_why_is_dropped() {
+    let why = "x".repeat(limits::MAX_WHY_BYTES + 1);
+    let payload = format!(r#"{{"ruleId":"escape-test-plugin-demo","path":"a.ts","why":"{why}"}}"#);
+
+    let detector = load(&format!(
+        r#"(module
+            {NOOP_IMPORT}
+            (memory (export "memory") 1)
+            (data (i32.const 0) "{bytes}")
+            (func (export "alloc") (param i32) (result i32) i32.const 4096)
+            (func (export "detect") (param i32 i32) (result i32)
+                (drop (call $emit (i32.const 0) (i32.const {len})))
+                i32.const 0))"#,
+        bytes = wat_bytes(payload.as_bytes()),
+        len = payload.len(),
+    ));
+
+    let (result, _elapsed) = run(&detector).await;
+    let findings = result.expect("an oversized why is a silent no, not a trap");
+    assert!(findings.is_empty());
 }

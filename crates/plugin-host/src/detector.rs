@@ -163,6 +163,9 @@ impl WasmDetector {
 
         let store_limits = StoreLimitsBuilder::new()
             .memory_size(limits::MAX_MEMORY_BYTES)
+            .table_elements(limits::MAX_TABLE_ELEMENTS)
+            .tables(limits::MAX_TABLES)
+            .memories(limits::MAX_MEMORIES)
             .instances(1)
             .build();
         let state = HostState::new(Arc::clone(&self.rules), store_limits);

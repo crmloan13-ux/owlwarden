@@ -128,7 +128,7 @@ impl PluginManifest {
         let rules = raw
             .rules
             .into_iter()
-            .map(build_rule)
+            .map(|rule| build_rule(&raw.id, rule))
             .collect::<Result<Vec<_>, _>>()?;
 
         Ok(Self {
@@ -151,11 +151,22 @@ impl PluginManifest {
     }
 }
 
-fn build_rule(raw: RawRule) -> Result<PluginRule, PluginError> {
+fn build_rule(plugin_id: &str, raw: RawRule) -> Result<PluginRule, PluginError> {
     let id = RuleId::parse(&raw.id).map_err(|source| PluginError::InvalidRuleId {
         id: raw.id.clone(),
         source,
     })?;
+    let prefix = format!("{plugin_id}-");
+    if !raw.id.starts_with(&prefix) {
+        return Err(PluginError::RuleIdNotNamespaced {
+            plugin_id: plugin_id.to_owned(),
+            id: raw.id,
+        });
+    }
+    // Static / source-only plugins cannot honestly reach Confirmed.
+    if matches!(raw.max_confidence, Confidence::Confirmed) {
+        return Err(PluginError::ConfidenceTooHigh { id: raw.id });
+    }
     let title = bounded(raw.title, "rules[].title", MAX_TEXT_BYTES)?;
     let category = bounded(raw.category, "rules[].category", MAX_TEXT_BYTES)?;
     let description = bounded(raw.description, "rules[].description", MAX_TEXT_BYTES)?;
@@ -231,7 +242,7 @@ mod tests {
             "capabilities": { "source": true, "network": false, "active": false },
             "rules": [
                 {
-                    "id": "demo-rule",
+                    "id": "demo-plugin-rule",
                     "title": "Demo finding",
                     "severity": "medium",
                     "maxConfidence": "likely",
@@ -250,8 +261,26 @@ mod tests {
         let manifest = PluginManifest::parse(&valid_manifest(), "owlwarden.plugin.json").unwrap();
         assert_eq!(manifest.id, "demo-plugin");
         assert_eq!(manifest.rules.len(), 1);
-        assert_eq!(manifest.rules[0].meta.id.as_str(), "demo-rule");
+        assert_eq!(manifest.rules[0].meta.id.as_str(), "demo-plugin-rule");
         assert_eq!(manifest.rules[0].meta.cwe, Some(200));
+    }
+
+    #[test]
+    fn a_rule_id_not_namespaced_under_the_plugin_is_refused() {
+        let json = valid_manifest().replace("demo-plugin-rule", "stack-trace-leak");
+        assert!(matches!(
+            PluginManifest::parse(&json, "p"),
+            Err(PluginError::RuleIdNotNamespaced { .. })
+        ));
+    }
+
+    #[test]
+    fn confirmed_max_confidence_is_refused_for_source_only_plugins() {
+        let json = valid_manifest().replace("\"likely\"", "\"confirmed\"");
+        assert!(matches!(
+            PluginManifest::parse(&json, "p"),
+            Err(PluginError::ConfidenceTooHigh { .. })
+        ));
     }
 
     #[test]
@@ -295,7 +324,7 @@ mod tests {
         let json = valid_manifest().replace(
             r#"[
                 {
-                    "id": "demo-rule",
+                    "id": "demo-plugin-rule",
                     "title": "Demo finding",
                     "severity": "medium",
                     "maxConfidence": "likely",
@@ -315,7 +344,7 @@ mod tests {
 
     #[test]
     fn an_invalid_rule_id_is_rejected() {
-        let json = valid_manifest().replace("\"demo-rule\"", "\"Demo Rule!\"");
+        let json = valid_manifest().replace("\"demo-plugin-rule\"", "\"Demo Rule!\"");
         assert!(matches!(
             PluginManifest::parse(&json, "p"),
             Err(PluginError::InvalidRuleId { .. })
@@ -344,7 +373,7 @@ mod tests {
     #[test]
     fn too_many_rules_is_rejected() {
         let rule = r#"{
-            "id": "demo-rule",
+            "id": "demo-plugin-rule",
             "title": "Demo finding",
             "severity": "medium",
             "maxConfidence": "likely",
@@ -353,7 +382,7 @@ mod tests {
         }"#;
         // Distinct ids so the count, not a duplicate-id check, is what fires.
         let rules: Vec<String> = (0..=limits::MAX_RULES_PER_PLUGIN)
-            .map(|i| rule.replace("demo-rule", &format!("demo-rule-{i}")))
+            .map(|i| rule.replace("demo-plugin-rule", &format!("demo-plugin-rule-{i}")))
             .collect();
         let json = format!(
             r#"{{

@@ -1,7 +1,7 @@
 {
   "name": "owlwarden",
   "version": "0.1.0",
-  "description": "Find common security bugs in Node web apps. Runs on your machine. Rust engine, no telemetry, no upload.",
+  "description": "Node webapp security scanner with MCP for coding agents. Local, fast, no telemetry — baseline checks without burning LLM tokens.",
   "license": "MIT OR Apache-2.0",
   "repository": {
     "type": "git",
@@ -10,6 +10,9 @@
   },
   "homepage": "https://github.com/suthat/owlwarden",
   "keywords": [
+    "mcp",
+    "ai-agent",
+    "coding-agent",
     "security",
     "owasp",
     "sast",

@@ -23,6 +23,10 @@ allow = [
     "ISC",
     "Unicode-3.0",
     "Zlib",
+    # webpki-roots 1.0+ ships the Mozilla root CA bundle under the Linux
+    # Foundation's CDLA-Permissive-2.0 (a data license, not copyleft). Pulled
+    # in via reqwest → rustls. Permissive and compatible with MIT/Apache-2.0.
+    "CDLA-Permissive-2.0",
 ]
 confidence-threshold = 0.9
 

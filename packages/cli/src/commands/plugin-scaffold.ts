@@ -4,14 +4,17 @@
  * Does not compile WASM (that needs a wasm toolchain). It writes the
  * directory layout and a WAT stub authors can assemble, plus a valid
  * `owlwarden.plugin.json`.
+ *
+ * Writes refuse symlinked destinations, matching `--out` / `init`.
  */
 
-import { mkdir, writeFile } from "node:fs/promises";
+import { lstat, mkdir } from "node:fs/promises";
 import { join, resolve } from "node:path";
 
 import { pluginManifestSchema } from "@dointhai/owlwarden-sdk";
 
 import { EXIT } from "../exit.js";
+import { refuseSymlinkAncestors, writeReplacing } from "../safe-write.js";
 
 /** Runs the scaffold command. */
 export async function runPluginScaffold(
@@ -27,8 +30,27 @@ export async function runPluginScaffold(
   }
 
   const root = resolve(cwd, name);
+  try {
+    const existing = await lstat(root);
+    if (existing.isSymbolicLink()) {
+      stderr.write(`error: refusing to scaffold into symlink ${root}\n`);
+      return EXIT.ERROR;
+    }
+  } catch (error) {
+    const code =
+      error && typeof error === "object" && "code" in error
+        ? (error as { code?: string }).code
+        : undefined;
+    if (code !== "ENOENT") {
+      stderr.write(
+        `error: ${error instanceof Error ? error.message : String(error)}\n`,
+      );
+      return EXIT.ERROR;
+    }
+  }
+
   const manifest = pluginManifestSchema.parse({
-    schemaVersion: "0.1",
+    schemaVersion: 1,
     id: name,
     version: "0.1.0",
     capabilities: { source: true, network: false, active: false },
@@ -45,14 +67,22 @@ export async function runPluginScaffold(
     ],
   });
 
-  await mkdir(root, { recursive: true });
-  await writeFile(
-    join(root, "owlwarden.plugin.json"),
-    `${JSON.stringify(manifest, null, 2)}\n`,
-    "utf8",
-  );
-  await writeFile(join(root, "plugin.wat"), WAT_STUB, "utf8");
-  await writeFile(join(root, "README.md"), readme(name), "utf8");
+  try {
+    await refuseSymlinkAncestors(cwd);
+    await mkdir(root, { recursive: true });
+    await refuseSymlinkAncestors(root);
+    await writeReplacing(
+      join(root, "owlwarden.plugin.json"),
+      `${JSON.stringify(manifest, null, 2)}\n`,
+    );
+    await writeReplacing(join(root, "plugin.wat"), WAT_STUB);
+    await writeReplacing(join(root, "README.md"), readme(name));
+  } catch (error) {
+    stderr.write(
+      `error: could not scaffold ${root}: ${error instanceof Error ? error.message : String(error)}\n`,
+    );
+    return EXIT.ERROR;
+  }
 
   stderr.write(`scaffolded ${root}\n`);
   stderr.write("assemble plugin.wat → plugin.wasm, then:\n");
@@ -65,7 +95,7 @@ function readme(name: string): string {
 
 WASM detector scaffold for owlwarden.
 
-1. Edit \`owlwarden.plugin.json\` (rule ids, severity, description).
+1. Edit \`owlwarden.plugin.json\` (rule ids must start with \`${name}-\`).
 2. Implement \`plugin.wat\` (or a Rust \`cdylib\` targeting \`wasm32-unknown-unknown\`).
 3. Assemble to \`plugin.wasm\` next to the manifest.
 4. Scan with \`owlwarden scan --plugin ./${name}\`.

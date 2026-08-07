@@ -61,11 +61,18 @@ struct ScanRequest {
     scope: Vec<String>,
     /// Paths to WASM plugin directories (or bare `.wasm` files with a sidecar
     /// manifest) to load alongside the first-party detectors. Operator intent
-    /// only, and the `--ci`/`--allow-plugins` trust decision is made by the
-    /// caller before this field is ever populated — this addon does not
-    /// second-guess it (`ARCHITECTURE.md` §6).
+    /// only. Under `ci: true`, also requires `allow_plugins: true` — the
+    /// native boundary re-checks so a caller that skips the TS CLI cannot
+    /// quietly load WASM on an untrusted tree (`ARCHITECTURE.md` §6).
     #[serde(default)]
     plugins: Vec<String>,
+    /// True when the operator passed `--ci` (or an equivalent trust-hostile
+    /// mode). Defaults to false for local interactive use.
+    #[serde(default)]
+    ci: bool,
+    /// Permit `plugins` when `ci` is true. Off by default.
+    #[serde(default)]
+    allow_plugins: bool,
 }
 
 fn default_honor_suppressions() -> bool {
@@ -267,6 +274,15 @@ fn scan_blocking(request_json: String) -> String {
         network: None,
         correlate: None,
     };
+
+    if request.ci && !request.plugins.is_empty() && !request.allow_plugins {
+        return Envelope::err(
+            "E_PLUGIN_INVALID",
+            "--plugin under --ci requires --allow-plugins; \
+             omit --plugin on untrusted PRs, or pass --allow-plugins on a trusted tree",
+        )
+        .encode();
+    }
 
     match load_requested_plugins(&request.plugins) {
         Ok(detectors) => scan_request.extra_detectors.extend(detectors),

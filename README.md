@@ -1,19 +1,39 @@
 # owlwarden
 
-Security scanner for Node web apps. You run it on your repo; it points at the
-line and shows a fix. Rust under the hood, TypeScript CLI on npm.
-
-Nothing leaves your machine. No account, no telemetry. Offline unless you pass
-`--target`.
+Security scanner for Node web apps — built so coding agents and humans get the
+same answer: the line, a fix, and a confidence level. Rust engine, TypeScript
+CLI on npm. Nothing leaves your machine.
 
 ```bash
 npx owlwarden scan
+npx owlwarden mcp    # stdio MCP for Cursor, Claude, and other MCP hosts
 ```
+
+## Agents and MCP (first-class)
+
+Wire it into an agent loop instead of pasting terminal output by hand:
+
+```bash
+owlwarden mcp                  # tools: scan_project, scan_file, explain_rule, list_rules
+owlwarden scan --format json   # same report shape agents already parse
+owlwarden init --agent-rules   # writes .owlwarden/agent-rules.md from the catalogue
+```
+
+MCP is read-only and static-only — no live `--target`, no file writes, paths
+stay under the workspace. Schemas live in `@dointhai/owlwarden-sdk` and are
+checked against the Rust output in CI.
+
+Baseline checks should not burn a pile of LLM tokens. Run the scanner locally
+(fast, offline, same rules every time) and keep the model for design work —
+not for re-asking “did we leak a stack?” on every edit. When the blast radius
+is high (auth, payments, personal data), still pair this with deeper
+AI-assisted review. Floor first; judgment on top.
+
+More: [docs/explanation/agent-integration.md](docs/explanation/agent-integration.md).
 
 Twelve rules, nine of the OWASP Top 10 categories. First-class fixes for
 Next.js, Nuxt, NestJS, Express, Fastify, Hono, Koa, Hapi, Sails.js, Astro,
-Remix, and Gatsby. Gaps are listed by `owlwarden coverage` — we would rather
-show an empty cell than pretend we cover something we do not.
+Remix, and Gatsby. Gaps are listed by `owlwarden coverage`.
 
 ---
 
@@ -47,14 +67,16 @@ HIGH  likely  Stack trace leaked in error response  A05:2021
  ⓘ  ref             OWASP A05:2021 · CWE-209 · RULES.md#stack-trace-leak
 ```
 
-The fix is in the finding. You should not need another browser tab. Same JSON
-shape works for CI and for agents that only see stdout.
+The fix is in the finding. You should not need another browser tab. CI and
+agents use the same JSON.
 
 ## Install
 
 ```bash
 npm i -D owlwarden
 npx owlwarden scan
+# or for an MCP-capable editor / agent:
+npx owlwarden mcp
 ```
 
 Node 20+. Prebuilt addon for macOS, Linux, and Windows — no compiler on the
@@ -86,6 +108,9 @@ node packages/cli/dist/bin.js scan /path/to/project
 
 ```bash
 owlwarden scan
+owlwarden mcp
+owlwarden init --agent-rules
+owlwarden scan --format json
 owlwarden scan ./apps/api
 owlwarden scan --preset owasp-top10
 owlwarden scan --ci
@@ -98,8 +123,6 @@ owlwarden watch
 owlwarden rules
 owlwarden coverage
 owlwarden explain stack-trace-leak
-owlwarden mcp
-owlwarden init --agent-rules
 owlwarden plugin scaffold my-rules
 ```
 
@@ -148,19 +171,6 @@ Details: [SECURITY.md](SECURITY.md).
   is later.
 
 [ROADMAP.md](ROADMAP.md) has the order.
-
-## Agents / editors
-
-```bash
-owlwarden scan --format json
-owlwarden mcp                # stdio MCP: scan, explain, list rules
-owlwarden init --agent-rules # writes .owlwarden/agent-rules.md from the catalogue
-```
-
-Schemas live in `@dointhai/owlwarden-sdk` and are checked against the Rust
-output in CI. Each finding carries a fix and a confidence level.
-
-More: [docs/explanation/agent-integration.md](docs/explanation/agent-integration.md).
 
 ## Contributing
 

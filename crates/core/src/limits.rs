@@ -97,6 +97,16 @@ pub mod plugin {
     /// Linear memory ceiling per plugin instance. Enforced by a
     /// `wasmtime::StoreLimits`, not merely requested of the guest.
     pub const MAX_MEMORY_BYTES: usize = 64 * 1024 * 1024;
+    /// Funcref / externref table elements a guest may grow to. Default
+    /// wasmtime limits leave tables unbounded; a single `table.grow` of a
+    /// huge size would otherwise allocate host RAM outside the linear-memory
+    /// cap. Ten thousand is enough for any legitimate detector and still
+    /// small in host terms.
+    pub const MAX_TABLE_ELEMENTS: usize = 10_000;
+    /// Tables a single instance may hold. One is enough for the guest ABI.
+    pub const MAX_TABLES: usize = 1;
+    /// Memories a single instance may hold. Matches the one exported `memory`.
+    pub const MAX_MEMORIES: usize = 1;
     /// Wall-clock ceiling per plugin invocation. Belt-and-suspenders on top of
     /// fuel: fuel bounds compute, this bounds a plugin that is technically
     /// making progress but too slowly to be useful (e.g. host-call-bound).
@@ -142,4 +152,9 @@ pub mod plugin {
     /// The guest supplies `len` itself, so this is what stops a hostile
     /// length from turning one host call into a multi-gigabyte allocation.
     pub const MAX_FINDING_JSON_BYTES: usize = 64 * 1024;
+    /// Cap on the free-text `why` a plugin may attach to a finding. Keeps a
+    /// hostile guest from stuffing the source snapshot into the report as a
+    /// side channel (the JSON payload cap alone still allows ~64 KiB of prose
+    /// per finding × 256 findings).
+    pub const MAX_WHY_BYTES: usize = 2_048;
 }

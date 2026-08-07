@@ -804,16 +804,42 @@ describe("owlwarden rules / explain", () => {
 describe("owlwarden init / plugin scaffold", () => {
   it("writes agent-rules from the compiled catalogue", async () => {
     const dir = await mkdtemp(join(tmpdir(), "owlwarden-init-"));
+    const cwd = process.cwd();
     try {
-      const out = join(dir, "agent-rules.md");
-      const { code, err } = await cli(["init", "--agent-rules", "--out", out]);
+      process.chdir(dir);
+      const { code, err } = await cli([
+        "init",
+        "--agent-rules",
+        "--out",
+        ".owlwarden/agent-rules.md",
+      ]);
       expect(code).toBe(EXIT.CLEAN);
-      expect(err).toContain(out);
-      const body = await readFile(out, "utf8");
+      expect(err).toMatch(/wrote/);
+      const body = await readFile(join(dir, ".owlwarden/agent-rules.md"), "utf8");
       expect(body).toContain("<!-- owlwarden:agent-rules -->");
       expect(body).toContain("stack-trace-leak");
       expect(body).toContain("npx owlwarden scan --format json");
     } finally {
+      process.chdir(cwd);
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("refuses init --out that escapes the working directory", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "owlwarden-init-escape-"));
+    const cwd = process.cwd();
+    try {
+      process.chdir(dir);
+      const { code, err } = await cli([
+        "init",
+        "--agent-rules",
+        "--out",
+        "../outside.md",
+      ]);
+      expect(code).toBe(EXIT.ERROR);
+      expect(err).toMatch(/escapes working directory/);
+    } finally {
+      process.chdir(cwd);
       await rm(dir, { recursive: true, force: true });
     }
   });
@@ -830,9 +856,12 @@ describe("owlwarden init / plugin scaffold", () => {
         join(dir, "acme-extra", "owlwarden.plugin.json"),
         "utf8",
       );
-      const manifest = JSON.parse(manifestRaw) as { id: string; schemaVersion: string };
+      const manifest = JSON.parse(manifestRaw) as { id: string; schemaVersion: number };
       expect(manifest.id).toBe("acme-extra");
-      expect(manifest.schemaVersion).toBe("0.1");
+      expect(manifest.schemaVersion).toBe(1);
+      expect(manifest).toMatchObject({
+        rules: [{ id: "acme-extra-example" }],
+      });
       await readFile(join(dir, "acme-extra", "plugin.wat"), "utf8");
     } finally {
       process.chdir(cwd);

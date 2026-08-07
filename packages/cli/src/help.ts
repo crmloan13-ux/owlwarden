@@ -10,23 +10,23 @@ import type { NativeEngine } from "./native.js";
  * text more than most, not less.
  */
 export function helpText(native: NativeEngine | undefined): string {
-  return `owlwarden ${native?.engineVersion() ?? ""} — security scanner for Node apps
+  return `owlwarden ${native?.engineVersion() ?? ""} — security scanner for Node apps (MCP-ready)
 
 USAGE
   owlwarden scan [PATH] [OPTIONS]
+  owlwarden mcp [PATH]
+  owlwarden init --agent-rules [--out FILE]
   owlwarden watch [PATH] [OPTIONS]
   owlwarden rules [--json]
   owlwarden coverage [--json] [--no-color] [--ascii]
   owlwarden explain <RULE_ID> [--json]
-  owlwarden mcp [PATH]
-  owlwarden init --agent-rules [--out FILE]
   owlwarden plugin scaffold <NAME>
 
   Local only. No telemetry. --target is opt-in (scoped; deny by default).
-  Prefer --format json for CI and agents.
 
-  mcp serves read-only tools over stdio for coding agents (static only).
-  init --agent-rules writes .owlwarden/agent-rules.md from the catalogue.
+  mcp — stdio MCP for coding agents (scan / explain / list rules; static, read-only).
+  init --agent-rules — writes .owlwarden/agent-rules.md from the catalogue.
+  Prefer --format json for CI and agents.
   plugin scaffold writes a WASM guest stub + manifest.
 
   coverage shows which OWASP categories have rules, and which do not.

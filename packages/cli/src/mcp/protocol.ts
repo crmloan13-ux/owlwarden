@@ -11,6 +11,13 @@
 
 import { createInterface } from "node:readline";
 
+/**
+ * Largest JSON-RPC line accepted on stdin. An MCP host that floods gigabyte
+ * lines must not take the owlwarden process down with it (NASA Power of 10:
+ * bound every loop / allocation over external data).
+ */
+export const MAX_MCP_LINE_BYTES = 4 * 1024 * 1024;
+
 /** A JSON-RPC 2.0 request from the host. */
 export interface JsonRpcRequest {
   jsonrpc: "2.0";
@@ -59,6 +66,18 @@ export async function serveMcp(options: {
   for await (const line of rl) {
     const trimmed = line.trim();
     if (trimmed.length === 0) continue;
+
+    if (Buffer.byteLength(trimmed, "utf8") > MAX_MCP_LINE_BYTES) {
+      write({
+        jsonrpc: "2.0",
+        id: null,
+        error: {
+          code: -32700,
+          message: `parse error: line exceeds ${MAX_MCP_LINE_BYTES} bytes`,
+        },
+      });
+      continue;
+    }
 
     let request: JsonRpcRequest;
     try {

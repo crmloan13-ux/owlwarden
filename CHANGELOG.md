@@ -28,8 +28,8 @@ are listed here under Changed.
   `#![forbid(unsafe_code)]`. Floored at 36.0.13 — every earlier release has
   an open RUSTSEC advisory, several of them sandbox escapes.
 - Sandbox-escape test suite (`crates/plugin-host/tests/sandbox_escape.rs`):
-  fuel exhaustion, an oversized `memory.grow`, a finding flood, an undeclared
-  rule id, and a benign positive control.
+  fuel exhaustion, oversized `memory.grow` / `table.grow`, a finding flood, an
+  undeclared rule id, an oversized `why`, and a benign positive control.
 - Error code **`E_PLUGIN_INVALID`** for a plugin that could not be loaded.
 - **`owlwarden mcp`** — stdio MCP server with `scan_project`, `scan_file`,
   `explain_rule`, and `list_rules`. Static and read-only; no `--target`, no
@@ -59,7 +59,21 @@ are listed here under Changed.
   shape or to first-party rules, which still write string literals.
 - README and npm package text rewritten in plain language: what it does, that
   it stays local, which frameworks it knows, and what v0.2 actually ships
-  (plugins source-only, MCP read-only).
+  (plugins source-only, MCP read-only). States that local scans cover baseline
+  checks without burning LLM tokens, and that deeper AI security review still
+  belongs on high-impact work.
+- Plugin hardening after whitebox review: `O_NOFOLLOW` + bounded reads for
+  manifest/WASM load; `StoreLimits` on tables; plugin rule ids must be
+  namespaced under the plugin id; source-only plugins cannot declare
+  `confirmed`; `why` capped; MCP JSON-RPC lines capped; `init` /
+  `plugin scaffold` use symlink-safe writes under the working directory; napi
+  re-checks `--ci` + `--allow-plugins`.
+
+### Fixed
+
+- `cargo deny` CI gate: allow `CDLA-Permissive-2.0` for `webpki-roots` (Mozilla
+  CA data via rustls/reqwest), and give the dynamic-engine dev-dep on
+  `owlwarden-transport` a workspace version so it is not a path-only wildcard.
 - Cookie detection: nested setters (`ctx.cookies.set`), Hapi `isHttpOnly` /
   `isSecure` / `isSameSite`, and dropped false cookie matches on
   `c.header` / `res.setHeader` / bare `serialize`.

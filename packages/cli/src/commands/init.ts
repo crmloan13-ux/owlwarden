@@ -4,15 +4,19 @@
  * Derived from the compiled-in catalogue so it cannot drift from what `scan`
  * actually checks. Idempotent: overwrites the previous generated file when the
  * marker comment is present.
+ *
+ * Writes go through the same symlink-safe helper as `--out` / `--write-baseline`,
+ * and the destination must stay under the working directory.
  */
 
-import { mkdir, writeFile } from "node:fs/promises";
-import { dirname, resolve } from "node:path";
+import { mkdir } from "node:fs/promises";
+import { dirname, isAbsolute, relative, resolve } from "node:path";
 
 import { ruleMetaListSchema, type RuleMeta } from "@dointhai/owlwarden-sdk";
 
 import type { NativeEngine } from "../native.js";
 import { EXIT } from "../exit.js";
+import { refuseSymlinkAncestors, writeReplacing } from "../safe-write.js";
 
 const MARKER = "<!-- owlwarden:agent-rules -->";
 const DEFAULT_OUT = ".owlwarden/agent-rules.md";
@@ -37,13 +41,43 @@ export async function runInit(
   }
 
   const rules = ruleMetaListSchema.parse(JSON.parse(native.listRules()));
-  const outPath = resolve(cwd, options.out ?? DEFAULT_OUT);
-  const body = renderAgentRules(rules);
+  let outPath: string;
+  try {
+    outPath = resolveUnderRoot(cwd, options.out ?? DEFAULT_OUT);
+  } catch (error) {
+    stderr.write(
+      `error: ${error instanceof Error ? error.message : String(error)}\n`,
+    );
+    return EXIT.ERROR;
+  }
 
-  await mkdir(dirname(outPath), { recursive: true });
-  await writeFile(outPath, body, "utf8");
+  const body = renderAgentRules(rules);
+  const parent = dirname(outPath);
+  try {
+    await refuseSymlinkAncestors(parent);
+    await mkdir(parent, { recursive: true });
+    // Re-check after create: a race could replace a new directory with a link.
+    await refuseSymlinkAncestors(parent);
+    await writeReplacing(outPath, body);
+  } catch (error) {
+    stderr.write(
+      `error: could not write ${outPath}: ${error instanceof Error ? error.message : String(error)}\n`,
+    );
+    return EXIT.ERROR;
+  }
+
   stderr.write(`wrote ${outPath}\n`);
   return EXIT.CLEAN;
+}
+
+function resolveUnderRoot(root: string, path: string): string {
+  const base = resolve(root);
+  const candidate = resolve(base, path);
+  const rel = relative(base, candidate);
+  if (rel.startsWith("..") || isAbsolute(rel)) {
+    throw new Error(`output path escapes working directory: ${path}`);
+  }
+  return candidate;
 }
 
 function renderAgentRules(rules: RuleMeta[]): string {

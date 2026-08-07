@@ -5,8 +5,13 @@
 //! ([`limits::MAX_MANIFEST_BYTES`]) before a single byte reaches `serde_json`,
 //! and the module bytes are capped ([`limits::MAX_PLUGIN_BYTES`]) before
 //! wasmtime spends any time compiling them.
+//!
+//! Reads use `O_NOFOLLOW` + `Read::take` — never trust `metadata().len()` then
+//! `fs::read`, which races a growing file and follows a final-component
+//! symlink (same contract as `owlwarden_static::safe_io::read_bounded`).
 
-use std::fs;
+use std::fs::{File, OpenOptions};
+use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
@@ -53,7 +58,8 @@ pub fn load_plugins(paths: &[PathBuf]) -> Result<Vec<Arc<dyn Detector>>, PluginE
 pub fn load_one(path: &Path) -> Result<WasmDetector, PluginError> {
     let (manifest_path, module_path) = resolve_paths(path);
 
-    let manifest_bytes = read_bounded(&manifest_path, limits::MAX_MANIFEST_BYTES)?;
+    let manifest_bytes = read_bounded(&manifest_path, limits::MAX_MANIFEST_BYTES)
+        .map_err(|error| map_read_error(&manifest_path, limits::MAX_MANIFEST_BYTES, error, true))?;
     let manifest_json =
         String::from_utf8(manifest_bytes).map_err(|_error| PluginError::ManifestInvalid {
             path: manifest_path.display().to_string(),
@@ -61,7 +67,10 @@ pub fn load_one(path: &Path) -> Result<WasmDetector, PluginError> {
         })?;
     let manifest = PluginManifest::parse(&manifest_json, &manifest_path.display().to_string())?;
 
-    let wasm_bytes = read_bounded(&module_path, limits::MAX_PLUGIN_BYTES as u64)?;
+    let wasm_bytes =
+        read_bounded(&module_path, limits::MAX_PLUGIN_BYTES as u64).map_err(|error| {
+            map_read_error(&module_path, limits::MAX_PLUGIN_BYTES as u64, error, false)
+        })?;
 
     WasmDetector::load(&manifest, &wasm_bytes)
 }
@@ -83,20 +92,87 @@ fn resolve_paths(path: &Path) -> (PathBuf, PathBuf) {
     (manifest, path.to_path_buf())
 }
 
-fn read_bounded(path: &Path, max: u64) -> Result<Vec<u8>, PluginError> {
-    let to_io_error = |source: std::io::Error| PluginError::Io {
-        path: path.display().to_string(),
-        source,
-    };
-    let metadata = fs::metadata(path).map_err(to_io_error)?;
-    if metadata.len() > max {
-        return Err(PluginError::ManifestTooLarge {
+fn map_read_error(path: &Path, max: u64, error: std::io::Error, is_manifest: bool) -> PluginError {
+    if error.kind() == std::io::ErrorKind::InvalidData {
+        if is_manifest {
+            return PluginError::ManifestTooLarge {
+                path: path.display().to_string(),
+                size: max.saturating_add(1),
+                max,
+            };
+        }
+        return PluginError::ModuleTooLarge {
             path: path.display().to_string(),
-            size: metadata.len(),
+            size: max.saturating_add(1),
             max,
-        });
+        };
     }
-    fs::read(path).map_err(to_io_error)
+    PluginError::Io {
+        path: path.display().to_string(),
+        source: error,
+    }
+}
+
+/// Opens `path` without following a final-component symlink, then reads at
+/// most `max_bytes`. Same contract as `owlwarden_static::safe_io::read_bounded`
+/// — duplicated here so `plugin-host` does not pull the whole static engine.
+fn read_bounded(path: &Path, max_bytes: u64) -> std::io::Result<Vec<u8>> {
+    let mut file = open_nofollow(path)?;
+    let mut buf = Vec::new();
+    let limit = max_bytes.saturating_add(1);
+    Read::take(Read::by_ref(&mut file), limit).read_to_end(&mut buf)?;
+    if buf.len() as u64 > max_bytes {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            format!("file exceeds {max_bytes} bytes"),
+        ));
+    }
+    Ok(buf)
+}
+
+fn open_nofollow(path: &Path) -> std::io::Result<File> {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        #[cfg(any(target_os = "linux", target_os = "android"))]
+        const O_NOFOLLOW: i32 = 0x20000;
+        #[cfg(any(
+            target_os = "macos",
+            target_os = "ios",
+            target_os = "freebsd",
+            target_os = "openbsd",
+            target_os = "netbsd",
+            target_os = "dragonfly"
+        ))]
+        const O_NOFOLLOW: i32 = 0x100;
+        #[cfg(not(any(
+            target_os = "linux",
+            target_os = "android",
+            target_os = "macos",
+            target_os = "ios",
+            target_os = "freebsd",
+            target_os = "openbsd",
+            target_os = "netbsd",
+            target_os = "dragonfly"
+        )))]
+        const O_NOFOLLOW: i32 = 0;
+
+        OpenOptions::new()
+            .read(true)
+            .custom_flags(O_NOFOLLOW)
+            .open(path)
+    }
+    #[cfg(not(unix))]
+    {
+        let meta = fs::symlink_metadata(path)?;
+        if meta.file_type().is_symlink() {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "refusing to read through a symlink",
+            ));
+        }
+        File::open(path)
+    }
 }
 
 #[cfg(test)]
@@ -104,6 +180,7 @@ mod tests {
     #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
     use std::fs;
+    use std::io::Write;
 
     use tempfile::tempdir;
 
@@ -115,7 +192,7 @@ mod tests {
         "version": "0.1.0",
         "rules": [
             {
-                "id": "demo-rule",
+                "id": "demo-plugin-rule",
                 "title": "Demo",
                 "severity": "medium",
                 "maxConfidence": "likely",
@@ -174,5 +251,39 @@ mod tests {
 
         let detector = load_one(&wasm_path).unwrap();
         assert_eq!(detector.plugin_id(), "demo-plugin");
+    }
+
+    #[test]
+    fn an_oversized_manifest_is_refused_without_reading_the_rest() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join(MANIFEST_FILENAME);
+        let mut file = fs::File::create(&path).unwrap();
+        // Write past the cap; Read::take must stop and report InvalidData.
+        let chunk = vec![b'x'; 4096];
+        let mut written = 0u64;
+        while written <= limits::MAX_MANIFEST_BYTES {
+            file.write_all(&chunk).unwrap();
+            written += chunk.len() as u64;
+        }
+        drop(file);
+        fs::write(dir.path().join(MODULE_FILENAME), trivial_wasm()).unwrap();
+
+        assert!(matches!(
+            load_one(dir.path()),
+            Err(PluginError::ManifestTooLarge { .. })
+        ));
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn a_symlinked_manifest_is_refused() {
+        let dir = tempdir().unwrap();
+        let real = dir.path().join("real.json");
+        fs::write(&real, MANIFEST).unwrap();
+        let link = dir.path().join(MANIFEST_FILENAME);
+        std::os::unix::fs::symlink(&real, &link).unwrap();
+        fs::write(dir.path().join(MODULE_FILENAME), trivial_wasm()).unwrap();
+
+        assert!(matches!(load_one(dir.path()), Err(PluginError::Io { .. })));
     }
 }

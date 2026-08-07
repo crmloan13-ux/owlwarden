@@ -106,6 +106,31 @@ pub enum PluginError {
         source: RuleIdError,
     },
 
+    /// A plugin rule id must be namespaced under the plugin id so it cannot
+    /// collide with a first-party catalogue id (and so suppressions / baselines
+    /// cannot be confused across trust boundaries).
+    #[error(
+        "plugin rule id {id:?} must start with \"{plugin_id}-\"; \
+         namespacing keeps plugin findings distinct from the built-in catalogue"
+    )]
+    RuleIdNotNamespaced {
+        /// Plugin id.
+        plugin_id: String,
+        /// The offending rule id.
+        id: String,
+    },
+
+    /// Source-only plugins cannot declare `confirmed` — that confidence is
+    /// reserved for live correlation ([ADR 0014](../../docs/adr/0014-passive-dynamic-and-correlation.md)).
+    #[error(
+        "plugin rule {id:?} declares maxConfidence \"confirmed\", which source-only \
+         plugins cannot reach; use \"likely\" or \"possible\""
+    )]
+    ConfidenceTooHigh {
+        /// The offending rule id.
+        id: String,
+    },
+
     /// The manifest declared `network` or `active`, which this host does not
     /// wire. Refusing to load is the honest response — silently downgrading
     /// the plugin to source-only would contradict what its own manifest says

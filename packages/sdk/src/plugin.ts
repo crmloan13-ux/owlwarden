@@ -8,7 +8,7 @@
 
 import { z } from "zod";
 
-import { confidenceSchema, severitySchema } from "./report.js";
+import { severitySchema } from "./report.js";
 
 /** Capability flags a plugin may declare. Undeclared = not granted. */
 export const pluginCapabilitiesSchema = z
@@ -29,7 +29,8 @@ export const pluginRuleMetaSchema = z
       .regex(/^[a-z][a-z0-9-]*$/, "rule id is lowercase, digits, hyphens"),
     title: z.string().min(1).max(200),
     severity: severitySchema,
-    maxConfidence: confidenceSchema,
+    /** Source-only plugins cannot declare `confirmed`. */
+    maxConfidence: z.enum(["likely", "possible"]),
     owasp: z.string().max(32).optional(),
     cwe: z.number().int().positive().optional(),
     category: z.string().min(1).max(64),
@@ -40,7 +41,8 @@ export const pluginRuleMetaSchema = z
 /** The manifest that sits next to `plugin.wasm`. */
 export const pluginManifestSchema = z
   .object({
-    schemaVersion: z.literal("0.1"),
+    /** Matches `crates/plugin-host` `SCHEMA_VERSION` (integer, not a semver). */
+    schemaVersion: z.literal(1),
     id: z
       .string()
       .min(1)
@@ -61,6 +63,16 @@ export const pluginManifestSchema = z
           "v0.2 plugin-host is source-only; set capabilities.network and capabilities.active to false",
         path: ["capabilities"],
       });
+    }
+    const prefix = `${manifest.id}-`;
+    for (const [index, rule] of manifest.rules.entries()) {
+      if (!rule.id.startsWith(prefix)) {
+        ctx.addIssue({
+          code: "custom",
+          message: `rule id must start with "${prefix}" so it cannot collide with built-in rules`,
+          path: ["rules", index, "id"],
+        });
+      }
     }
   });
 

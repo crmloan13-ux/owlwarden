@@ -98,10 +98,19 @@ manifest would trust a claim the host quietly ignored.
 not in `plugin-host` itself — `ARCHITECTURE.md` §9's existing invariant, that
 a reviewer auditing the resource posture never has to leave one file. The
 numbers: 64 MiB memory (`StoreLimits`, enforced by wasmtime, not requested of
-the guest), 10,000,000 fuel, a 5-second wall-clock backstop via epoch
-interruption (belt-and-suspenders on top of fuel, for a plugin that is
-technically making progress but too slowly to be useful), 256 findings and
-10,000 host calls per invocation, and an 8 MiB compiled-module ceiling.
+the guest), 10,000 table elements / one table / one memory (wasmtime's default
+leaves tables unbounded — a single large `table.grow` would otherwise allocate
+host RAM beside the linear-memory cap), 10,000,000 fuel, a 5-second wall-clock
+backstop via epoch interruption (belt-and-suspenders on top of fuel, for a
+plugin that is technically making progress but too slowly to be useful), 256
+findings and 10,000 host calls per invocation, a 2 KiB cap on each finding's
+`why`, and an 8 MiB compiled-module ceiling.
+
+**Rule ids are namespaced under the plugin id** (`{pluginId}-…`). Without that,
+a hostile manifest could declare `stack-trace-leak` and emit findings that
+look first-party to baselines, suppressions, and agents. Source-only plugins
+also cannot declare `maxConfidence: confirmed` — that level is reserved for
+live correlation.
 
 **`DetectorMeta`'s text fields became `Cow<'static, str>`.** A first-party
 rule still writes `"foo".into()` and borrows a literal for free; a

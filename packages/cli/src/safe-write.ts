@@ -1,6 +1,5 @@
-import { lstat, rename, rm, writeFile } from "node:fs/promises";
+import { lstat, mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
-import { readFile } from "node:fs/promises";
 
 /**
  * Writes `contents` to `path` without following a symlink at the destination.
@@ -15,6 +14,10 @@ import { readFile } from "node:fs/promises";
  */
 export async function writeReplacing(path: string, contents: string): Promise<void> {
   const parent = dirname(path) || ".";
+  await refuseSymlinkAncestors(parent);
+  await mkdir(parent, { recursive: true });
+  // Re-check after create: a race could have replaced a newly-created
+  // directory with a symlink before we write (mirrors the Rust helper).
   await refuseSymlinkAncestors(parent);
   const temp = join(
     parent,
