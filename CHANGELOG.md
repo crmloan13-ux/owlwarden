@@ -68,6 +68,15 @@ are listed here under Changed.
   `confirmed`; `why` capped; MCP JSON-RPC lines capped; `init` /
   `plugin scaffold` use symlink-safe writes under the working directory; napi
   re-checks `--ci` + `--allow-plugins`.
+- Fixture matrix tightened: every clean twin ships `*tempting*` and
+  `*safe-redirect*` files; multi-fire rules are locked to named source shapes
+  (fetch/axios, redirect/Location, …); the TypeScript e2e path asserts
+  `SHARED_FIRES` counts on all twelve frameworks, not only Next.js.
+- Cookie detection: nested setters (`ctx.cookies.set`), Hapi `isHttpOnly` /
+  `isSecure` / `isSameSite`, and dropped false cookie matches on
+  `c.header` / `res.setHeader` / bare `serialize`.
+- Stack-trace rule recognises Koa-style `ctx.body = …` assignments.
+- `secureHeaders` counts as header middleware for Hono.
 
 ### Fixed
 
@@ -82,11 +91,6 @@ are listed here under Changed.
   is stripped of control/invisible characters and common chat role markers.
   Plugin `why` is sanitised at emit time; `init --agent-rules` tells agents to
   treat findings as evidence, not instructions.
-- Cookie detection: nested setters (`ctx.cookies.set`), Hapi `isHttpOnly` /
-  `isSecure` / `isSameSite`, and dropped false cookie matches on
-  `c.header` / `res.setHeader` / bare `serialize`.
-- Stack-trace rule recognises Koa-style `ctx.body = …` assignments.
-- `secureHeaders` counts as header middleware for Hono.
 
 ## [0.1.0]
 

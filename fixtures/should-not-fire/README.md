@@ -19,6 +19,12 @@ rule is exercised in both directions in the same dialect.
 Pinned by `SHARED_FIRES` in `crates/detectors/tests/fixtures.rs` — 12 rules ×
 12 frameworks = **144 cells**. CI fails if any cell is missing.
 
+Multi-fire counts are locked to named shapes (`SHAPE_CONTRACTS` in the same
+file): `ssrf` = fetch/$fetch + axios; `open-redirect` = redirect helper +
+`Location` header; `weak-crypto` = MD5-password + `Math.random` + AES-ECB;
+`sensitive-data-logged` = password + accessToken. Each clean twin must also
+ship a `*tempting*` file and a `*safe-redirect*` helper (filename check in CI).
+
 | rule | next | nuxt | nest | express | fastify | hono | koa | hapi | sails | astro | remix | gatsby |
 |---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
 | stack-trace-leak | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes |
@@ -55,7 +61,7 @@ Alongside them, `tempting/` holds the cases that break naive rules: a `.stack`
 property that is a technology list, a logger call shaped like a response, a
 header name inside a comment, `md5` used for a cache key, `Math.random()` used
 to jitter a retry. Each clean twin also has a `tempting.ts` (or equivalent)
-with the same shapes in that framework's tree.
+and a `safe-redirect.ts` origin-comparing helper — both filenames are required.
 
 The clean twins matter more than they look. A rule that fires on the vulnerable
 fixture proves it can detect *something*; only the twin proves it detected the

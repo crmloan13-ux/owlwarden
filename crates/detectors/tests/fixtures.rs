@@ -127,11 +127,9 @@ struct Expectation {
 }
 
 /// Every catalogue rule × every supported framework — same counts, no kitchen
-/// sink. `weak-crypto` is three shapes (MD5-password, Math.random session,
-/// AES-ECB) on each twin so the grid is not "one shape here, three there".
-/// Counts are part of the contract. Two shapes per injection-adjacent rule
-/// (fetch + axios, redirect + Location header, password + accessToken) keep
-/// the corpus honest about real codebases rather than one-liner demos.
+/// sink. Counts are part of the contract. Multi-fire rules are locked to named
+/// shapes in [`SHAPE_CONTRACTS`] so a fixture cannot satisfy `ssrf: 2` with two
+/// identical `fetch` calls and silently drop axios coverage.
 const SHARED_FIRES: &[(&str, usize)] = &[
     ("stack-trace-leak", 1),
     ("sql-injection", 1),
@@ -139,12 +137,61 @@ const SHARED_FIRES: &[(&str, usize)] = &[
     ("insecure-cookie", 1),
     ("hardcoded-secret", 1),
     ("security-headers-missing", 1),
-    ("ssrf", 2),
-    ("open-redirect", 2),
-    ("weak-crypto", 3),
+    ("ssrf", 2),          // fetch-or-$fetch + axios — see SHAPE_CONTRACTS
+    ("open-redirect", 2), // redirect-helper + Location header
+    ("weak-crypto", 3),   // MD5-password + Math.random + AES-ECB
     ("unpinned-dependency", 1),
     ("ci-unpinned-action", 1),
-    ("sensitive-data-logged", 2),
+    ("sensitive-data-logged", 2), // password + accessToken
+];
+
+/// Source shapes each multi-fire count stands for.
+///
+/// Every label must appear (via at least one of its needles) in each vulnerable
+/// fixture tree. The number of shapes must equal the `SHARED_FIRES` count for
+/// that rule — otherwise the grid is lying about what it exercises.
+struct ShapeContract {
+    rule: &'static str,
+    /// One entry per expected finding; labels are for assertion messages.
+    shapes: &'static [(&'static str, &'static [&'static str])],
+}
+
+const SHAPE_CONTRACTS: &[ShapeContract] = &[
+    ShapeContract {
+        rule: "ssrf",
+        shapes: &[
+            ("fetch-or-$fetch", &["fetch(", "$fetch("]),
+            ("axios", &["axios.get(", "axios("]),
+        ],
+    },
+    ShapeContract {
+        rule: "open-redirect",
+        shapes: &[
+            (
+                "redirect-helper",
+                &["redirect(", "sendRedirect(", ".redirect("],
+            ),
+            ("Location-header", &["'Location'", "\"Location\""]),
+        ],
+    },
+    ShapeContract {
+        rule: "weak-crypto",
+        shapes: &[
+            (
+                "MD5-password",
+                &["createHash('md5')", "createHash(\"md5\")"],
+            ),
+            ("Math.random-session", &["Math.random("]),
+            ("AES-ECB", &["aes-256-ecb", "aes-128-ecb"]),
+        ],
+    },
+    ShapeContract {
+        rule: "sensitive-data-logged",
+        shapes: &[
+            ("password", &["password:"]),
+            ("accessToken", &["accessToken"]),
+        ],
+    },
 ];
 
 const MATRIX: &[Expectation] = &[
@@ -272,6 +319,129 @@ fn every_catalogue_rule_is_exercised_on_every_framework() {
         owlwarden_detectors::SUPPORTED_FRAMEWORKS.len() * catalogue.len()
     );
     assert_eq!(SHARED_FIRES.len() * MATRIX.len(), 144);
+}
+
+#[test]
+fn shape_contracts_match_shared_fires_counts() {
+    for contract in SHAPE_CONTRACTS {
+        let Some((_, count)) = SHARED_FIRES.iter().find(|(id, _)| *id == contract.rule) else {
+            panic!(
+                "SHAPE_CONTRACTS mentions {} but SHARED_FIRES does not",
+                contract.rule
+            );
+        };
+        assert_eq!(
+            *count,
+            contract.shapes.len(),
+            "{}: SHARED_FIRES count {count} != {} named shapes",
+            contract.rule,
+            contract.shapes.len()
+        );
+    }
+}
+
+#[test]
+fn every_vulnerable_fixture_contains_the_named_shapes() {
+    for row in MATRIX {
+        let source = read_source_tree(&fixture(row.vulnerable));
+        for contract in SHAPE_CONTRACTS {
+            for (label, needles) in contract.shapes {
+                let hit = needles.iter().any(|needle| source.contains(needle));
+                assert!(
+                    hit,
+                    "{} / {}: missing shape `{label}` (looked for any of {needles:?})",
+                    row.framework, contract.rule
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn every_clean_twin_has_tempting_and_safe_redirect_files() {
+    // Precision corpus layout: every framework ships a tempting false-positive
+    // file and an origin-comparing redirect helper, not just "some trees have
+    // them folded into other files". CI fails if either filename is missing.
+    for row in MATRIX {
+        let root = fixture(row.clean);
+        assert!(
+            tree_has_filename_containing(&root, "tempting"),
+            "{}: clean twin missing a *tempting* file under {}",
+            row.framework,
+            root.display()
+        );
+        assert!(
+            tree_has_filename_containing(&root, "safe-redirect"),
+            "{}: clean twin missing a *safe-redirect* file under {}",
+            row.framework,
+            root.display()
+        );
+    }
+}
+
+/// Concatenates every `.ts`/`.js`/`.mjs`/`.cjs` file under `root`, bounded.
+fn read_source_tree(root: &std::path::Path) -> String {
+    let mut out = String::new();
+    let mut stack = vec![root.to_path_buf()];
+    let mut files = 0usize;
+    while let Some(dir) = stack.pop() {
+        let Ok(entries) = std::fs::read_dir(&dir) else {
+            continue;
+        };
+        for entry in entries.flatten().take(512) {
+            let path = entry.path();
+            if path.is_dir() {
+                if files < 2_000 {
+                    stack.push(path);
+                }
+                continue;
+            }
+            let Some(ext) = path.extension().and_then(|e| e.to_str()) else {
+                continue;
+            };
+            if !matches!(ext, "ts" | "js" | "mjs" | "cjs" | "tsx" | "jsx") {
+                continue;
+            }
+            files += 1;
+            if files > 500 {
+                break;
+            }
+            if let Ok(text) = std::fs::read_to_string(&path) {
+                out.push_str(&text);
+                out.push('\n');
+            }
+        }
+    }
+    out
+}
+
+fn tree_has_filename_containing(root: &std::path::Path, needle: &str) -> bool {
+    let mut stack = vec![root.to_path_buf()];
+    let mut seen = 0usize;
+    while let Some(dir) = stack.pop() {
+        let Ok(entries) = std::fs::read_dir(&dir) else {
+            continue;
+        };
+        for entry in entries.flatten().take(512) {
+            seen += 1;
+            if seen > 2_000 {
+                return false;
+            }
+            let path = entry.path();
+            if path.is_dir() {
+                stack.push(path);
+                continue;
+            }
+            if path
+                .file_name()
+                .and_then(|n| n.to_str())
+                .is_some_and(|name| name.contains(needle))
+            {
+                return true;
+            }
+        }
+    }
+    false
 }
 
 #[tokio::test]
