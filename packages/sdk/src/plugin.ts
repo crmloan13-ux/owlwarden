@@ -10,7 +10,12 @@ import { z } from "zod";
 
 import { severitySchema } from "./report.js";
 
-/** Capability flags a plugin may declare. Undeclared = not granted. */
+/**
+ * Capability flags a plugin may declare.
+ *
+ * Defaults: `source` true (v0.2 is source-only), `network` / `active` false
+ * (omitted = not granted). Declaring `network` or `active` fails validation.
+ */
 export const pluginCapabilitiesSchema = z
   .object({
     source: z.boolean().default(true),
