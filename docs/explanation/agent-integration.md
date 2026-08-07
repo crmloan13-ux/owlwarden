@@ -83,6 +83,13 @@ Hard limits, because an agent drives it:
 - **Static only.** No `--target`. An agent cannot trigger network probes.
 - **`--allow-active` unreachable.**
 - **Project-scoped.** Paths outside the workspace root are refused.
+- **Prompt-injection hardened.** Every tool result is wrapped in an
+  `OWLWARDEN_TOOL_RESULT` envelope that states the payload is DATA, not
+  instructions. Strings are stripped of control / invisible characters and
+  common chat role markers (`<|im_start|>`, `[INST]`, …). Plugin `why` text
+  is sanitised again inside `plugin-host` before it enters a finding. This
+  does not make a model immune — it makes scan/plugin prose harder to mistake
+  for the host system prompt.
 
 ## `owlwarden init --agent-rules` — shipped (v0.2)
 
@@ -92,7 +99,10 @@ owlwarden init --agent-rules
 ```
 
 Writes a short markdown file from the compiled-in catalogue so agents load the
-same rule ids `scan` actually enforces. Re-run after upgrading the tool.
+same rule ids `scan` actually enforces. The file includes an explicit note that
+findings / snippets / plugin text are untrusted evidence — not instructions —
+so a rules file loaded into an agent context does not teach the model to obey
+text planted in the scanned repo. Re-run after upgrading the tool.
 
 ## Editor hooks — later
 

@@ -74,6 +74,14 @@ are listed here under Changed.
 - `cargo deny` CI gate: allow `CDLA-Permissive-2.0` for `webpki-roots` (Mozilla
   CA data via rustls/reqwest), and give the dynamic-engine dev-dep on
   `owlwarden-transport` a workspace version so it is not a path-only wildcard.
+
+### Security
+
+- **Prompt-injection hardening for MCP / agents / plugins.** MCP tool results
+  are wrapped in an `OWLWARDEN_TOOL_RESULT` trust-boundary envelope; free text
+  is stripped of control/invisible characters and common chat role markers.
+  Plugin `why` is sanitised at emit time; `init --agent-rules` tells agents to
+  treat findings as evidence, not instructions.
 - Cookie detection: nested setters (`ctx.cookies.set`), Hapi `isHttpOnly` /
   `isSecure` / `isSameSite`, and dropped false cookie matches on
   `c.header` / `res.setHeader` / bare `serialize`.

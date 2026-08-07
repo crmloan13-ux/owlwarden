@@ -83,11 +83,18 @@ no WASI, no filesystem, no network, no clock. Fuel, linear-memory
 `StoreLimits`, table-element caps, and a wall-clock epoch budget bound each
 invocation. Manifests that declare `network` / `active` are refused at load.
 Rule ids must be namespaced under the plugin id; `confirmed` confidence is
-refused for source-only plugins; `emit_finding` re-validates every claim.
+refused for source-only plugins; `emit_finding` re-validates every claim and
+strips control/invisible characters from `why` (prompt-injection hygiene).
 `--plugin` under `--ci` requires `--allow-plugins`. Treat third-party plugins
 like any other code you execute: only load ones you trust. See
 [ADR 0015](docs/adr/0015-plugin-host-wasmtime.md) and
 `crates/plugin-host/tests/sandbox_escape.rs`.
+
+**A hostile scan target talking to an agent.** Findings and snippets are fed to
+coding agents via MCP / JSON. MCP wraps every tool result as untrusted DATA
+and neutralises common role markers; `init --agent-rules` tells agents not to
+obey instructions embedded in findings. This reduces confusion with the host
+prompt — it does not make a model immune to social-engineering text in source.
 
 **Supply chain.** A dependency of owlwarden, or of its build, is compromised.
 

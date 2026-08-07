@@ -819,6 +819,7 @@ describe("owlwarden init / plugin scaffold", () => {
       expect(body).toContain("<!-- owlwarden:agent-rules -->");
       expect(body).toContain("stack-trace-leak");
       expect(body).toContain("npx owlwarden scan --format json");
+      expect(body).toMatch(/Prompt injection|untrusted/i);
     } finally {
       process.chdir(cwd);
       await rm(dir, { recursive: true, force: true });

@@ -124,6 +124,10 @@ impl HostState {
         if why.len() > limits::MAX_WHY_BYTES {
             return false;
         }
+        // Strip control / invisible characters so a plugin cannot smuggle
+        // prompt-injection payloads into agent contexts via `why`. The MCP
+        // layer applies a second pass; this is defence in depth at the source.
+        let why = sanitize_plugin_text(&why);
 
         let mut builder = Finding::builder(meta.id.clone(), meta.severity, meta.title.clone())
             .confidence(confidence)
@@ -142,6 +146,33 @@ impl HostState {
         self.findings.push(builder.build());
         true
     }
+}
+
+/// Drops C0/C1 controls (except newline/tab) and common invisible format
+/// characters from plugin-authored prose before it enters a [`Finding`].
+fn sanitize_plugin_text(input: &str) -> String {
+    let mut out = String::with_capacity(input.len());
+    for ch in input.chars() {
+        let code = ch as u32;
+        if code < 0x20 {
+            if ch == '\n' || ch == '\r' || ch == '\t' {
+                out.push(ch);
+            }
+            continue;
+        }
+        if code == 0x7f || (0x80..=0x9f).contains(&code) {
+            continue;
+        }
+        if matches!(code, 0x200b | 0x200c | 0x200d | 0x2060 | 0xfeff)
+            || (0x202a..=0x202e).contains(&code)
+            || (0x2066..=0x2069).contains(&code)
+            || (0xe_0001..=0xe_007f).contains(&code)
+        {
+            continue;
+        }
+        out.push(ch);
+    }
+    out
 }
 
 /// Wires the one import a plugin gets: `owlwarden::emit_finding(ptr, len) -> i32`.
@@ -285,5 +316,15 @@ mod tests {
             state.into_findings().len(),
             limits::MAX_FINDINGS_PER_INVOCATION
         );
+    }
+
+    #[test]
+    fn plugin_why_text_drops_control_and_invisible_characters() {
+        let mut state = state();
+        // BEL + ZWSP + visible text — only the visible text should survive.
+        let json =
+            b"{\"ruleId\":\"demo-rule\",\"path\":\"a.ts\",\"why\":\"hi\\u0007\\u200bthere\"}";
+        assert!(state.try_emit(json));
+        assert_eq!(state.into_findings()[0].why, "hithere");
     }
 }
