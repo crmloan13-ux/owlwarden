@@ -1,3 +1,5 @@
+import axios from 'axios'
+
 const ALLOWED_HOSTS = new Set(['api.partner.com'])
 
 function assertAllowedUrl(raw: unknown): URL {
@@ -26,9 +28,24 @@ export default defineEventHandler(async (event) => {
   const target = assertAllowedUrl(query.target)
   const upstream = await $fetch(target.toString(), { redirect: 'error' })
 
+  if (query.callerUrl) {
+    const callerTarget = assertAllowedUrl(query.callerUrl)
+    const axiosUpstream = await axios.get(callerTarget.toString(), {
+      maxRedirects: 0,
+    })
+    return axiosUpstream.data
+  }
+
   if (query.next) {
     const origin = getRequestURL(event).origin
     await sendRedirect(event, safeRedirect(query.next, origin), 302)
+  }
+
+  if (query.manualNext) {
+    const origin = getRequestURL(event).origin
+    event.node.res.statusCode = 302
+    event.node.res.setHeader('Location', safeRedirect(query.manualNext, origin))
+    return
   }
 
   return upstream

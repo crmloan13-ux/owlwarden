@@ -4,7 +4,7 @@ expression: rendered
 ---
 
 (o.o) 5 files · owasp-top10 · 0.12s
-14 findings (8 high, 6 medium)
+17 findings (9 high, 8 medium)
 
 ------------------------------------------------------------------------
 HIGH  likely  Credential hardcoded in source  A07:2021
@@ -149,14 +149,14 @@ HIGH  likely  Cross-origin policy accepts any origin  A05:2021
 ------------------------------------------------------------------------
 HIGH  likely  Stack trace leaked in error response  A05:2021
 ------------------------------------------------------------------------
- src/users/users.controller.ts:34:16
+ src/users/users.controller.ts:36:16
 
-  32 |       throw new InternalServerErrorException({
-  33 |         message: 'could not load users',
-  34 |         stack: err.stack,
+  34 |       throw new InternalServerErrorException({
+  35 |         message: 'could not load users',
+  36 |         stack: err.stack,
      |                ~~~~~~~~~ leaks internal stack trace to the client
-  35 |       })
-  36 |     }
+  37 |       })
+  38 |     }
 
  -> fix (NestJS)   Throw the exception without a custom body; let the
                    built-in filter shape the response.
@@ -170,13 +170,13 @@ HIGH  likely  Stack trace leaked in error response  A05:2021
 ------------------------------------------------------------------------
 HIGH  likely  SQL query built by string interpolation  A03:2021
 ------------------------------------------------------------------------
- src/users/users.controller.ts:49:7
+ src/users/users.controller.ts:54:7
 
-  47 |     // sql-injection
-  48 |     const rows = await this.pool.query(
-  49 |       `SELECT id, role FROM users WHERE email = '${body.email}'`,
+  52 |     // sql-injection
+  53 |     const rows = await this.pool.query(
+  54 |       `SELECT id, role FROM users WHERE email = '${body.email}'`,
      |       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ query text is built at runtime
-  50 |     )
+  55 |     )
 
  -> fix (NestJS)   Use the repository API, or bind parameters on the
                    query builder.
@@ -193,14 +193,39 @@ HIGH  likely  SQL query built by string interpolation  A03:2021
 ------------------------------------------------------------------------
 HIGH  likely  Server fetches a URL the caller controls  A10:2021
 ------------------------------------------------------------------------
- src/users/users.controller.ts:67:28
+ src/users/users.controller.ts:79:28
 
-  65 |   async importRemote(@Body() body: { sourceUrl?: string }) {
-  66 |     // ssrf
-  67 |     const upstream = await fetch(body.sourceUrl as string)
+  77 |   async importRemote(@Body() body: { sourceUrl?: string }) {
+  78 |     // ssrf
+  79 |     const upstream = await fetch(body.sourceUrl as string)
      |                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ destination chosen by the caller
-  68 |     return upstream.json()
-  69 |   }
+  80 |     return upstream.json()
+  81 |   }
+
+ -> fix (NestJS)   Validate in the service, not the controller, so every
+                   caller of it is covered.
+                   const target = assertAllowedUrl(dto.url)
+                   return firstValueFrom(this.http.get(target.toString(), { maxRedirects: 0 }))
+ -> why            The destination of this request comes from the
+                   caller, so they choose which host the server connects
+                   to. That includes hosts they cannot reach themselves:
+                   the cloud metadata endpoint that hands out IAM
+                   credentials, internal services that skip
+                   authentication because they are 'not exposed', and
+                   anything bound to localhost.
+ i  ref            OWASP A10:2021 | CWE-918 | RULES.md#ssrf
+
+------------------------------------------------------------------------
+HIGH  likely  Server fetches a URL the caller controls  A10:2021
+------------------------------------------------------------------------
+ src/users/users.controller.ts:86:28
+
+  84 |   async importRemoteViaAxios(@Body() body: { callerUrl?: string }) {
+  85 |     // ssrf: axios reaches a second caller-controlled host.
+  86 |     const upstream = await axios.get(body.callerUrl as string)
+     |                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ destination chosen by the caller
+  87 |     return upstream.data
+  88 |   }
 
  -> fix (NestJS)   Validate in the service, not the controller, so every
                    caller of it is covered.
@@ -233,7 +258,7 @@ MEDIUM  likely  GitHub Action is not pinned to a commit SHA  A08:2021
 ------------------------------------------------------------------------
 MEDIUM  likely  Dependency version is unpinned  A06:2021
 ------------------------------------------------------------------------
- package.json:13:1
+ package.json:14:1
 
  -> fix (NestJS)   Pin the dependency in package.json and reinstall so
                    the lockfile records it.
@@ -252,14 +277,36 @@ MEDIUM  likely  Dependency version is unpinned  A06:2021
 ------------------------------------------------------------------------
 MEDIUM  likely  Sensitive data written to a log  A09:2021
 ------------------------------------------------------------------------
- src/users/users.controller.ts:45:23
+ src/users/users.controller.ts:47:23
 
-  43 |   ) {
-  44 |     // sensitive-data-logged
-  45 |     this.logger.log({ password: body.password })
+  45 |   ) {
+  46 |     // sensitive-data-logged
+  47 |     this.logger.log({ password: body.password })
      |                       ~~~~~~~~~~~~~~~~~~~~~~~ sensitive value written to a log
-  46 | 
-  47 |     // sql-injection
+  48 | 
+  49 |     // sensitive-data-logged: an access token, logged the same way.
+
+ -> fix (NestJS)   Use the Nest logger with a redacted payload.
+                   this.logger.log({ event: 'login_attempt', userId })
+                   // never: this.logger.log({ password: dto.password })
+ -> why            Logs are copied into aggregators, retained for
+                   months, and readable by anyone with access to the
+                   logging system. A credential that reaches a log has
+                   left the application's trust boundary.
+ i  ref            OWASP A09:2021 | CWE-532 |
+                   RULES.md#sensitive-data-logged
+
+------------------------------------------------------------------------
+MEDIUM  likely  Sensitive data written to a log  A09:2021
+------------------------------------------------------------------------
+ src/users/users.controller.ts:50:23
+
+  48 | 
+  49 |     // sensitive-data-logged: an access token, logged the same way.
+  50 |     this.logger.log({ accessToken: body.accessToken })
+     |                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ sensitive value written to a log
+  51 | 
+  52 |     // sql-injection
 
  -> fix (NestJS)   Use the Nest logger with a redacted payload.
                    this.logger.log({ event: 'login_attempt', userId })
@@ -274,13 +321,40 @@ MEDIUM  likely  Sensitive data written to a log  A09:2021
 ------------------------------------------------------------------------
 MEDIUM  likely  Redirect target comes from the caller  A01:2021
 ------------------------------------------------------------------------
- src/users/users.controller.ts:61:5
+ src/users/users.controller.ts:66:5
 
-  59 |   go(@Query() query: { next?: string }, @Res() res: Response) {
-  60 |     // open-redirect — `query` is a universal request-source name.
-  61 |     res.redirect(query.next as string)
+  64 |   go(@Query() query: { next?: string }, @Res() res: Response) {
+  65 |     // open-redirect — `query` is a universal request-source name.
+  66 |     res.redirect(query.next as string)
      |     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ destination chosen by the caller
-  62 |   }
+  67 |   }
+
+ -> fix (NestJS)   Validate in the controller, or put the check in a
+                   pipe so every redirect gets it.
+                   @Get('login')
+                   @Redirect()
+                   login(@Query('next') next: string) {
+                     return { url: safeRedirect(next, this.config.publicUrl) }
+                   }
+ -> why            The whole redirect target comes from the request, so
+                   a link to this endpoint can send a visitor anywhere.
+                   The URL they click genuinely belongs to you, which is
+                   what makes the page they land on convincing — and on
+                   an OAuth callback the authorisation code goes with
+                   them.
+ i  ref            OWASP A01:2021 | CWE-601 | RULES.md#open-redirect
+
+------------------------------------------------------------------------
+MEDIUM  likely  Redirect target comes from the caller  A01:2021
+------------------------------------------------------------------------
+ src/users/users.controller.ts:72:5
+
+  70 |   goHeader(@Query() query: { next?: string }, @Res() res: Response) {
+  71 |     // open-redirect: a hand-rolled Location header instead of res.redirect().
+  72 |     res.setHeader('Location', query.next as string)
+     |     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ destination chosen by the caller
+  73 |     res.status(302).end()
+  74 |   }
 
  -> fix (NestJS)   Validate in the controller, or put the check in a
                    pipe so every redirect gets it.
@@ -329,14 +403,14 @@ MEDIUM  possible  Security headers are not configured  A05:2021
 ------------------------------------------------------------------------
 MEDIUM  possible  Cookie set without its protective attributes  A05:2021
 ------------------------------------------------------------------------
- src/users/users.controller.ts:53:5
+ src/users/users.controller.ts:58:5
 
-  51 | 
-  52 |     // insecure-cookie
-  53 |     res.cookie('session', rows[0]?.id ?? 'anon')
+  56 | 
+  57 |     // insecure-cookie
+  58 |     res.cookie('session', rows[0]?.id ?? 'anon')
      |     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ cookie written without httpOnly/secure/sameSite
-  54 | 
-  55 |     return { ok: true }
+  59 | 
+  60 |     return { ok: true }
 
  -> fix (NestJS)   Pass the attributes through the injected response.
                    res.cookie('session', token, {

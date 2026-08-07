@@ -29,8 +29,9 @@ impl Drop for TempGuard {
 /// a planted link to an outside file cannot be used as a write gadget.
 ///
 /// Also refuses when any existing ancestor directory is a symlink — otherwise
-/// `create_dir_all` / the temp write would follow into an attacker-chosen tree
-/// outside the intended parent.
+/// the temp write would follow into an attacker-chosen tree outside the
+/// intended parent. Missing parents are created with [`mkdir_nofollow`], not
+/// `create_dir_all`, which follows intermediate directory symlinks.
 ///
 /// # Errors
 /// Underlying I/O errors, a symlinked ancestor, or when the destination path
@@ -40,11 +41,7 @@ pub fn write_replacing(path: &Path, contents: &[u8]) -> io::Result<()> {
         .parent()
         .filter(|p| !p.as_os_str().is_empty())
         .unwrap_or_else(|| Path::new("."));
-    refuse_symlink_ancestors(parent)?;
-    fs::create_dir_all(parent)?;
-    // Re-check after create: a race could have replaced a newly-created
-    // directory with a symlink before we write.
-    refuse_symlink_ancestors(parent)?;
+    mkdir_nofollow(parent)?;
 
     let temp = temp_sibling(parent, path);
     let mut guard = TempGuard(Some(temp.clone()));
@@ -64,15 +61,63 @@ pub fn write_replacing(path: &Path, contents: &[u8]) -> io::Result<()> {
     Ok(())
 }
 
+/// Creates `path` and any missing parents without following directory symlinks.
+///
+/// `fs::create_dir_all` follows an intermediate symlink (e.g. creates `nested`
+/// inside the target of `link` when asked for `link/nested`). This refuses a
+/// symlinked ancestor, then creates only the missing suffix one real directory
+/// at a time. Existing ancestors above that point are not re-checked — walking
+/// into system volume aliases such as macOS `/var` → `/private/var` would
+/// false-positive.
+fn mkdir_nofollow(path: &Path) -> io::Result<()> {
+    refuse_symlink_ancestors(path)?;
+
+    let mut missing = Vec::new();
+    let mut current = path;
+    loop {
+        match fs::symlink_metadata(current) {
+            Ok(_) => break,
+            Err(error) if error.kind() == io::ErrorKind::NotFound => {
+                missing.push(current);
+                match current.parent() {
+                    Some(parent) if parent != current && !parent.as_os_str().is_empty() => {
+                        current = parent;
+                    }
+                    _ => break,
+                }
+            }
+            Err(error) => return Err(error),
+        }
+    }
+    missing.reverse();
+
+    for component in missing {
+        fs::create_dir(component)?;
+        let meta = fs::symlink_metadata(component)?;
+        if meta.file_type().is_symlink() {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "refusing to write under a symlinked directory",
+            ));
+        }
+        if !meta.is_dir() {
+            return Err(io::Error::new(
+                io::ErrorKind::AlreadyExists,
+                format!("not a directory: {}", component.display()),
+            ));
+        }
+    }
+
+    // Race: a just-created component may have been swapped for a symlink.
+    refuse_symlink_ancestors(path)
+}
+
 /// Refuses a write whose directory path goes through a symlinked directory.
 ///
 /// Walks from `path` upward until the first existing node. If that node is a
 /// symlink, the write would land in an attacker-chosen tree — refuse. If it is
 /// a real directory, stop: walking further would trip over system volume
 /// aliases such as macOS `/var` → `/private/var`, which are not the threat.
-///
-/// Missing intermediate components are fine; `create_dir_all` creates real
-/// directories under that first real ancestor.
 fn refuse_symlink_ancestors(path: &Path) -> io::Result<()> {
     let mut current = path;
     loop {
@@ -267,7 +312,7 @@ mod tests {
     #[cfg(unix)]
     fn write_refuses_symlink_ancestor_when_nested_parent_is_missing() {
         // `--out link/nested/report.json` with `link` → outside and `nested`
-        // not yet created: create_dir_all would follow the link.
+        // not yet created: recursive create_dir_all would follow the link.
         let dir = tempfile::tempdir().unwrap();
         let outside = dir.path().join("outside");
         fs::create_dir(&outside).unwrap();

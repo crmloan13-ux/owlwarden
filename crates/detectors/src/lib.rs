@@ -84,6 +84,13 @@ pub const SUPPORTED_FRAMEWORKS: &[Framework] = &[
     Framework::NEST,
     Framework::EXPRESS,
     Framework::FASTIFY,
+    Framework::HONO,
+    Framework::KOA,
+    Framework::HAPI,
+    Framework::SAILS,
+    Framework::ASTRO,
+    Framework::REMIX,
+    Framework::GATSBY,
 ];
 
 /// A named bundle of rules.

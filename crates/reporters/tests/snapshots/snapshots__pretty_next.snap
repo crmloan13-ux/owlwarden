@@ -4,7 +4,7 @@ expression: rendered
 ---
 
 ◉ᴥ◉ 7 files · owasp-top10 · 0.12s
-14 findings (7 high, 7 medium)
+17 findings (8 high, 9 medium)
 
 ────────────────────────────────────────────────────────────────────────
 HIGH  likely  SQL query built by string interpolation  A03:2021
@@ -33,14 +33,39 @@ HIGH  likely  SQL query built by string interpolation  A03:2021
 ────────────────────────────────────────────────────────────────────────
 HIGH  likely  Server fetches a URL the caller controls  A10:2021
 ────────────────────────────────────────────────────────────────────────
- app/api/proxy/route.ts:14:28  ( /api/proxy)
+ app/api/proxy/route.ts:18:28  ( /api/proxy)
 
-  12 │   // ssrf
-  13 │   if (target) {
-  14 │     const upstream = await fetch(target)
+  16 │   // ssrf
+  17 │   if (target) {
+  18 │     const upstream = await fetch(target)
      │                            ~~~~~~~~~~~~~ destination chosen by the caller
-  15 │     return NextResponse.json(await upstream.json())
-  16 │   }
+  19 │     return NextResponse.json(await upstream.json())
+  20 │   }
+
+ ↳  fix (Next.js)  Validate the URL in the route handler before
+                   fetching, and disable redirect following.
+                   const url = assertAllowedUrl(body.url)
+                   const upstream = await fetch(url, { redirect: 'error' })
+ ↳  why            The destination of this request comes from the
+                   caller, so they choose which host the server connects
+                   to. That includes hosts they cannot reach themselves:
+                   the cloud metadata endpoint that hands out IAM
+                   credentials, internal services that skip
+                   authentication because they are 'not exposed', and
+                   anything bound to localhost.
+ ⓘ  ref            OWASP A10:2021 · CWE-918 · RULES.md#ssrf
+
+────────────────────────────────────────────────────────────────────────
+HIGH  likely  Server fetches a URL the caller controls  A10:2021
+────────────────────────────────────────────────────────────────────────
+ app/api/proxy/route.ts:24:28  ( /api/proxy)
+
+  22 │   // ssrf: axios reaches a second caller-controlled host.
+  23 │   if (callerUrl) {
+  24 │     const upstream = await axios.get(callerUrl)
+     │                            ~~~~~~~~~~~~~~~~~~~~ destination chosen by the caller
+  25 │     return NextResponse.json(upstream.data)
+  26 │   }
 
  ↳  fix (Next.js)  Validate the URL in the route handler before
                    fetching, and disable redirect following.
@@ -58,14 +83,14 @@ HIGH  likely  Server fetches a URL the caller controls  A10:2021
 ────────────────────────────────────────────────────────────────────────
 HIGH  likely  Stack trace leaked in error response  A05:2021
 ────────────────────────────────────────────────────────────────────────
- app/api/users/route.ts:16:16  (GET /api/users)
+ app/api/users/route.ts:20:16  (GET /api/users)
 
-  14 │   } catch (err) {
-  15 │     return NextResponse.json(
-  16 │       { error: err.stack },
+  18 │   } catch (err) {
+  19 │     return NextResponse.json(
+  20 │       { error: err.stack },
      │                ~~~~~~~~~ leaks internal stack trace to the client
-  17 │       { status: 500 }
-  18 │     )
+  21 │       { status: 500 }
+  22 │     )
 
  ↳  fix (Next.js)  Return a generic message; log the error server-side.
                    console.error(err)
@@ -225,13 +250,39 @@ MEDIUM  likely  GitHub Action is not pinned to a commit SHA  A08:2021
 ────────────────────────────────────────────────────────────────────────
 MEDIUM  likely  Redirect target comes from the caller  A01:2021
 ────────────────────────────────────────────────────────────────────────
- app/api/proxy/route.ts:20:5  ( /api/proxy)
+ app/api/proxy/route.ts:30:5  ( /api/proxy)
 
-  18 │   // open-redirect
-  19 │   if (next) {
-  20 │     redirect(next)
+  28 │   // open-redirect
+  29 │   if (next) {
+  30 │     redirect(next)
      │     ~~~~~~~~~~~~~~ destination chosen by the caller
-  21 │   }
+  31 │   }
+
+ ↳  fix (Next.js)  Validate before calling redirect();
+                   request.nextUrl.origin is the base.
+                   import { redirect } from 'next/navigation'
+                   
+                   const next = request.nextUrl.searchParams.get('next')
+                   redirect(safeRedirect(next, request.nextUrl.origin))
+ ↳  why            The whole redirect target comes from the request, so
+                   a link to this endpoint can send a visitor anywhere.
+                   The URL they click genuinely belongs to you, which is
+                   what makes the page they land on convincing — and on
+                   an OAuth callback the authorisation code goes with
+                   them.
+ ⓘ  ref            OWASP A01:2021 · CWE-601 · RULES.md#open-redirect
+
+────────────────────────────────────────────────────────────────────────
+MEDIUM  likely  Redirect target comes from the caller  A01:2021
+────────────────────────────────────────────────────────────────────────
+ app/api/proxy/route.ts:36:5  ( /api/proxy)
+
+  34 │   if (manualNext) {
+  35 │     const headers = new Headers()
+  36 │     headers.set('Location', manualNext)
+     │     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ destination chosen by the caller
+  37 │     return new NextResponse(null, { status: 302, headers })
+  38 │   }
 
  ↳  fix (Next.js)  Validate before calling redirect();
                    request.nextUrl.origin is the base.
@@ -250,14 +301,36 @@ MEDIUM  likely  Redirect target comes from the caller  A01:2021
 ────────────────────────────────────────────────────────────────────────
 MEDIUM  likely  Sensitive data written to a log  A09:2021
 ────────────────────────────────────────────────────────────────────────
- app/api/users/route.ts:10:18  ( /api/users)
+ app/api/users/route.ts:11:18  ( /api/users)
 
-   8 │ export async function GET(request: Request) {
-   9 │   // sensitive-data-logged: the Authorization header lands in the log aggregator.
-  10 │   console.info({ authorization: request.headers.get('authorization') })
+   9 │ export async function GET(request: Request) {
+  10 │   // sensitive-data-logged: the Authorization header lands in the log aggregator.
+  11 │   console.info({ authorization: request.headers.get('authorization') })
      │                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ sensitive value written to a log
-  11 │   try {
-  12 │     const users = await listUsers()
+  12 │   // sensitive-data-logged: the caller's access token, logged the same way.
+  13 │   const accessToken = request.headers.get('x-access-token')
+
+ ↳  fix (Next.js)  Log that the attempt happened, not the credential.
+                   console.info({ event: 'login_attempt', userId })
+                   // never: console.info({ password })
+ ↳  why            Logs are copied into aggregators, retained for
+                   months, and readable by anyone with access to the
+                   logging system. A credential that reaches a log has
+                   left the application's trust boundary.
+ ⓘ  ref            OWASP A09:2021 · CWE-532 ·
+                   RULES.md#sensitive-data-logged
+
+────────────────────────────────────────────────────────────────────────
+MEDIUM  likely  Sensitive data written to a log  A09:2021
+────────────────────────────────────────────────────────────────────────
+ app/api/users/route.ts:14:18  ( /api/users)
+
+  12 │   // sensitive-data-logged: the caller's access token, logged the same way.
+  13 │   const accessToken = request.headers.get('x-access-token')
+  14 │   console.info({ accessToken })
+     │                  ~~~~~~~~~~~ sensitive value written to a log
+  15 │   try {
+  16 │     const users = await listUsers()
 
  ↳  fix (Next.js)  Log that the attempt happened, not the credential.
                    console.info({ event: 'login_attempt', userId })
@@ -299,7 +372,7 @@ MEDIUM  likely  Cross-origin policy accepts any origin  A05:2021
 ────────────────────────────────────────────────────────────────────────
 MEDIUM  likely  Dependency version is unpinned  A06:2021
 ────────────────────────────────────────────────────────────────────────
- package.json:10:1
+ package.json:11:1
 
  ↳  fix (Next.js)  Pin the dependency in package.json and reinstall so
                    the lockfile records it.

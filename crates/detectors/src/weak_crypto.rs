@@ -110,17 +110,18 @@ impl WeakCrypto {
     pub fn meta() -> DetectorMeta {
         DetectorMeta {
             id: RuleId::new_static(ID),
-            title: "Broken cryptographic primitive protecting a secret",
+            title: "Broken cryptographic primitive protecting a secret".into(),
             severity: Severity::High,
             max_confidence: Confidence::Likely,
             owasp: Some(OwaspRef::new_static("A02:2021")),
             cwe: Some(327),
-            category: "crypto",
+            category: "crypto".into(),
             description: "A hash, cipher, or random source that cannot carry the weight it has \
                           been given: MD5 or SHA-1 over a password, a DES or ECB cipher, or \
                           Math.random() producing a token. Each has a drop-in replacement in the \
                           standard library, so the fix is small — the cost of not making it is \
-                          that the protection is decorative.",
+                          that the protection is decorative."
+                .into(),
         }
     }
 }
@@ -460,6 +461,43 @@ fn remediation() -> Remediation {
         Framework::FASTIFY,
         "Replace the hash at the point of use. If you use @fastify/secure-session, let it \
          generate the session key rather than deriving one yourself.",
+        NODE_PATCH,
+    )
+    .manual(
+        Framework::HONO,
+        "Use node:crypto when running on Node; on Workers/Deno use the Web Crypto API instead.",
+        NODE_PATCH,
+    )
+    .manual(
+        Framework::KOA,
+        "Replace the primitive at the point of use; there is no middleware for this.",
+        NODE_PATCH,
+    )
+    .manual(
+        Framework::HAPI,
+        "Replace the primitive at the point of use; there is no plugin for this.",
+        NODE_PATCH,
+    )
+    .manual(
+        Framework::SAILS,
+        "Replace the primitive at the point of use in the model or service.",
+        NODE_PATCH,
+    )
+    .manual(
+        Framework::ASTRO,
+        "Use node:crypto in server endpoints; on edge/Workers adapters use the Web Crypto API \
+         instead.",
+        NODE_PATCH,
+    )
+    .manual(
+        Framework::REMIX,
+        "Use node:crypto in loaders/actions on the Node runtime; on Workers/Deno use the Web \
+         Crypto API instead.",
+        NODE_PATCH,
+    )
+    .manual(
+        Framework::GATSBY,
+        "Replace the primitive at the point of use in the Function handler.",
         NODE_PATCH,
     )
 }

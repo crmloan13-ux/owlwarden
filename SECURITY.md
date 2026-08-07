@@ -7,8 +7,15 @@ vulnerability.
 
 ## Reporting a vulnerability
 
-Email **security@dointhai.com**. Please do not open a public issue for anything
-that could be exploited.
+Report through GitHub — prefer a **private** security advisory so the details
+are not public until a fix is out:
+
+**[Report a vulnerability](https://github.com/suthat/owlwarden/security/advisories/new)**
+
+Do **not** open a public issue for anything that could be exploited. Ordinary
+bugs and false positives belong on
+[Issues](https://github.com/suthat/owlwarden/issues); see
+[CONTRIBUTING.md](CONTRIBUTING.md).
 
 Include:
 
@@ -78,9 +85,23 @@ fixture).
 - Config and baseline loads use `lstat` / refuse symlinks and oversized inputs
   before parse.
 
-**A hostile plugin.** Not yet applicable — the plugin host is v0.2. When it
-lands, plugins run in WASM with no ambient authority: no filesystem, no network,
-no clock, unless the run grants that capability explicitly.
+**A hostile plugin.** Shipped (v0.2), source-only. Plugins run in wasmtime with
+no WASI, no filesystem, no network, no clock. Fuel, linear-memory
+`StoreLimits`, table-element caps, and a wall-clock epoch budget bound each
+invocation. Manifests that declare `network` / `active` are refused at load.
+Rule ids must be namespaced under the plugin id; `confirmed` confidence is
+refused for source-only plugins; `emit_finding` re-validates every claim and
+strips control/invisible characters from `why` (prompt-injection hygiene).
+`--plugin` under `--ci` requires `--allow-plugins`. Treat third-party plugins
+like any other code you execute: only load ones you trust. See
+[ADR 0015](docs/adr/0015-plugin-host-wasmtime.md) and
+`crates/plugin-host/tests/sandbox_escape.rs`.
+
+**A hostile scan target talking to an agent.** Findings and snippets are fed to
+coding agents via MCP / JSON. MCP wraps every tool result as untrusted DATA
+and neutralises common role markers; `init --agent-rules` tells agents not to
+obey instructions embedded in findings. This reduces confusion with the host
+prompt — it does not make a model immune to social-engineering text in source.
 
 **Supply chain.** A dependency of owlwarden, or of its build, is compromised.
 
@@ -136,7 +157,7 @@ hop ([ADR 0014](docs/adr/0014-passive-dynamic-and-correlation.md)).
 
 ### Residual risks (dynamic)
 
-These are accepted for 0.1.0 and documented rather than papered over:
+These are accepted for 0.2.0 and documented rather than papered over:
 
 - **DNS rebinding.** Scope matches the hostname (or IP literal) you named, not
   the resolved address after connect. An operator who allowlists a hostname
@@ -152,6 +173,29 @@ through the same validator (blocks `user@host` confusion, `javascript:`, and
 oversized values); protocol-relative redirects scope-checked; response header
 values capped; headers-only probes do not buffer a body; request header CRLF
 rejected.
+
+## Coding standards that bind the scanner
+
+The engine follows the same discipline we ask of security-critical code
+elsewhere in the project (and tracks the spirit of NASA’s
+[Power of Ten](https://en.wikipedia.org/wiki/The_Power_of_10:_Rules_for_Developing_Safety-Critical_Code)
+rules where they apply to a CLI tool rather than flight software):
+
+1. **Bound every loop over external data** — explicit `.take(N)` or a documented
+   cap in `crates/core/src/limits.rs` (files, findings, redirects, MCP lines,
+   plugin fuel/memory/tables, snapshot size).
+2. **No `unwrap` / `expect` / `panic!` in library paths** — typed errors only;
+   tests may panic.
+3. **Validate at the boundary** — paths, URLs, manifests, guest findings, MCP
+   JSON-RPC lines.
+4. **Fail closed on trust** — deny-by-default scope; `--ci` mute switches off
+   unless opted in; plugins refused under CI without `--allow-plugins`.
+5. **Keep functions short and reviewable** — extract rather than grow a 200-line
+   path that mixes I/O and policy.
+6. **`#![forbid(unsafe_code)]`** in library crates; the only exception is
+   `plugin-host`, which isolates all wasmtime use in one crate.
+
+These are checked in review and in CI (`pnpm check`), not only in docs.
 
 ## Supported versions
 

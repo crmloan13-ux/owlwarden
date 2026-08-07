@@ -10,7 +10,93 @@ are listed here under Changed.
 
 ## [Unreleased]
 
-Nothing yet.
+## [0.2.0] — 2026-08-08
+
+Plugins (source-only WASM), MCP for agents, and twelve Node frameworks. The
+formal v0.2 bar from [ROADMAP.md](ROADMAP.md). Autofix and active checks stay
+later work.
+
+### Added
+
+- **`owlwarden-plugin-host`** — sandboxed WASM plugin host (ROADMAP v0.2),
+  ships partial: source-only. A plugin is a `.wasm` module plus an
+  `owlwarden.plugin.json` manifest, loaded with `--plugin <path>` (repeatable)
+  and refused under `--ci` unless `--allow-plugins` is also passed. Every
+  invocation runs in a fresh `wasmtime` store bounded by fuel, a 64 MiB
+  `StoreLimits` memory cap, and a wall-clock deadline via epoch interruption;
+  the only host function wired is `emit_finding`, and every claim it receives
+  is re-validated against the plugin's own manifest before it becomes a
+  finding. A manifest declaring `network` or `active` is refused at load
+  time rather than silently downgraded — see
+  [ADR 0015](docs/adr/0015-plugin-host-wasmtime.md). `wasmtime` is a new
+  dependency, confined to this one crate with default features disabled
+  (only `cranelift`/`runtime`/`std`); every other crate keeps
+  `#![forbid(unsafe_code)]`. Floored at 36.0.13 — every earlier release has
+  an open RUSTSEC advisory, several of them sandbox escapes.
+- Sandbox-escape test suite (`crates/plugin-host/tests/sandbox_escape.rs`):
+  fuel exhaustion, oversized `memory.grow` / `table.grow`, a finding flood, an
+  undeclared rule id, an oversized `why`, and a benign positive control.
+- Error code **`E_PLUGIN_INVALID`** for a plugin that could not be loaded.
+- **`owlwarden mcp`** — stdio MCP server with `scan_project`, `scan_file`,
+  `explain_rule`, and `list_rules`. Static and read-only; no `--target`, no
+  file writes, paths sandboxed to the workspace root.
+- **`owlwarden init --agent-rules`** — writes `.owlwarden/agent-rules.md` from
+  the compiled catalogue.
+- **`owlwarden plugin scaffold <name>`** — guest stub (`plugin.wat`) plus a
+  valid `owlwarden.plugin.json`.
+- Plugin-authoring schemas in `@dointhai/owlwarden-sdk` (`pluginManifestSchema`).
+- **Seven more Node frameworks** with first-class profiles, remediation on every
+  catalogue rule, and square fixture coverage: Hono, Koa, Hapi, Sails.js, Astro,
+  Remix, and Gatsby. Supported set is now twelve stacks (12 rules × 12
+  frameworks, locked in CI).
+- **Richer fixture corpus** — each framework exercises two real-world shapes for
+  `ssrf` (fetch + axios), `open-redirect` (redirect helper + `Location`
+  header), and `sensitive-data-logged` (password + accessToken), plus tempting
+  false-positive twins on every clean project.
+- **File-route mapping** for Astro (`src/pages/api`), Remix flat routes, and
+  Gatsby Functions (`src/api`).
+- Request-origin recognition for Hono’s `c` context and Astro’s `Astro.request`.
+
+### Changed
+
+- `DetectorMeta.title` / `.category` / `.description` are now
+  `Cow<'static, str>` (were `&'static str`), so a `WasmDetector` built from a
+  parsed plugin manifest can own its strings. No change to the JSON wire
+  shape or to first-party rules, which still write string literals.
+- README and npm package text rewritten in plain language: what it does, that
+  it stays local, which frameworks it knows, and what v0.2 actually ships
+  (plugins source-only, MCP read-only). States that local scans cover baseline
+  checks without burning LLM tokens, and that deeper AI security review still
+  belongs on high-impact work.
+- Plugin hardening after whitebox review: `O_NOFOLLOW` + bounded reads for
+  manifest/WASM load; `StoreLimits` on tables; plugin rule ids must be
+  namespaced under the plugin id; source-only plugins cannot declare
+  `confirmed`; `why` capped; MCP JSON-RPC lines capped; `init` /
+  `plugin scaffold` use symlink-safe writes under the working directory; napi
+  re-checks `--ci` + `--allow-plugins`.
+- Fixture matrix tightened: every clean twin ships `*tempting*` and
+  `*safe-redirect*` files; multi-fire rules are locked to named source shapes
+  (fetch/axios, redirect/Location, …); the TypeScript e2e path asserts
+  `SHARED_FIRES` counts on all twelve frameworks, not only Next.js.
+- Cookie detection: nested setters (`ctx.cookies.set`), Hapi `isHttpOnly` /
+  `isSecure` / `isSameSite`, and dropped false cookie matches on
+  `c.header` / `res.setHeader` / bare `serialize`.
+- Stack-trace rule recognises Koa-style `ctx.body = …` assignments.
+- `secureHeaders` counts as header middleware for Hono.
+
+### Fixed
+
+- `cargo deny` CI gate: allow `CDLA-Permissive-2.0` for `webpki-roots` (Mozilla
+  CA data via rustls/reqwest), and give the dynamic-engine dev-dep on
+  `owlwarden-transport` a workspace version so it is not a path-only wildcard.
+
+### Security
+
+- **Prompt-injection hardening for MCP / agents / plugins.** MCP tool results
+  are wrapped in an `OWLWARDEN_TOOL_RESULT` trust-boundary envelope; free text
+  is stripped of control/invisible characters and common chat role markers.
+  Plugin `why` is sanitised at emit time; `init --agent-rules` tells agents to
+  treat findings as evidence, not instructions.
 
 ## [0.1.0]
 
@@ -153,7 +239,8 @@ does and does not reach.
 - Bounded file count, file size, total bytes, and parser recursion depth, so a
   hostile repository cannot exhaust memory or the stack.
 
-[Unreleased]: https://github.com/suthat/owlwarden/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/suthat/owlwarden/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/suthat/owlwarden/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/suthat/owlwarden/compare/v0.0.2...v0.1.0
 [0.0.2]: https://github.com/suthat/owlwarden/compare/v0.0.1...v0.0.2
 [0.0.1]: https://github.com/suthat/owlwarden/releases/tag/v0.0.1

@@ -70,16 +70,17 @@ impl SensitiveDataLogged {
     pub fn meta() -> DetectorMeta {
         DetectorMeta {
             id: RuleId::new_static(ID),
-            title: "Sensitive data written to a log",
+            title: "Sensitive data written to a log".into(),
             severity: Severity::Medium,
             max_confidence: Confidence::Likely,
             owasp: Some(OwaspRef::new_static("A09:2021")),
             cwe: Some(532),
-            category: "logging",
+            category: "logging".into(),
             description: "A password, token, cookie, or similar value is passed to a log sink. \
                           Centralised logs are widely readable inside an organisation and often \
                           retained for months — a credential that lands there is a credential \
-                          that has left the application's control.",
+                          that has left the application's control."
+                .into(),
         }
     }
 }
@@ -283,6 +284,48 @@ fn remediation() -> Remediation {
             "Use request.log with a redacted payload.",
             "request.log.info({ event: 'login_attempt', userId })\n\
          // never: request.log.info({ password: request.body.password })",
+        )
+        .manual(
+            Framework::HONO,
+            "Log that the attempt happened, not the credential.",
+            "console.info({ event: 'login_attempt', userId })\n\
+         // never: console.info({ password: body.password })",
+        )
+        .manual(
+            Framework::KOA,
+            "Log that the attempt happened, not the credential.",
+            "console.info({ event: 'login_attempt', userId })\n\
+         // never: console.info({ password: ctx.request.body.password })",
+        )
+        .manual(
+            Framework::HAPI,
+            "Use request.log with a redacted payload.",
+            "request.log(['info'], { event: 'login_attempt', userId })\n\
+         // never: request.log(['info'], { password: request.payload.password })",
+        )
+        .manual(
+            Framework::SAILS,
+            "Use sails.log with a redacted payload.",
+            "sails.log.info({ event: 'login_attempt', userId })\n\
+         // never: sails.log.info({ password: inputs.password })",
+        )
+        .manual(
+            Framework::ASTRO,
+            "Log that the attempt happened, not the credential.",
+            "console.info({ event: 'login_attempt', userId })\n\
+         // never: console.info({ password: body.password })",
+        )
+        .manual(
+            Framework::REMIX,
+            "Log that the attempt happened, not the credential.",
+            "console.info({ event: 'login_attempt', userId })\n\
+         // never: console.info({ password: form.get('password') })",
+        )
+        .manual(
+            Framework::GATSBY,
+            "Log that the attempt happened, not the credential.",
+            "console.info({ event: 'login_attempt', userId })\n\
+         // never: console.info({ password: req.body.password })",
         )
 }
 

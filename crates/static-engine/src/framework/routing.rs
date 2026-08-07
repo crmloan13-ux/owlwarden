@@ -151,6 +151,70 @@ fn strip_next_route_groups(dir: &str) -> String {
         .join("/")
 }
 
+/// Astro endpoints: `src/pages/api/users.ts` → `/api/users`.
+///
+/// Only files under `pages/api/` (with optional `src/`) are request handlers.
+/// A page component is not a route for attribution purposes.
+#[must_use]
+pub fn astro(path: &str) -> Option<RouteInfo> {
+    let path = path.strip_prefix("src/").unwrap_or(path);
+    let rest = path.strip_prefix("pages/api/")?;
+    let stem = strip_extension(rest)?;
+    let stem = stem.strip_suffix("/index").unwrap_or(stem);
+    if stem == "index" {
+        return Some(RouteInfo::path_only("/api"));
+    }
+    Some(RouteInfo::path_only(format!("/api/{stem}")))
+}
+
+/// Remix file routes: `app/routes/api.users.ts` → `/api/users`.
+///
+/// Flat routes use dots for path segments. Dynamic segments (`$id`) become
+/// `:id`. Pathless layout routes (`_auth`) and the trailing `_index` segment
+/// are omitted. Returns `None` when the file is not under `app/routes/`.
+#[must_use]
+pub fn remix(path: &str) -> Option<RouteInfo> {
+    let path = path
+        .strip_prefix("app/")
+        .or_else(|| path.strip_prefix("src/app/"))?;
+    let rest = path.strip_prefix("routes/")?;
+    let stem = strip_extension(rest)?;
+    let mut segments = Vec::new();
+    for part in stem.split('.') {
+        if part.starts_with('_') && part != "_index" {
+            // Pathless layout (`_auth`) — organise files, not the URL.
+            continue;
+        }
+        if part == "_index" || part == "index" {
+            continue;
+        }
+        if let Some(name) = part.strip_prefix('$') {
+            segments.push(format!(":{name}"));
+        } else {
+            segments.push(part.to_owned());
+        }
+    }
+    let route = if segments.is_empty() {
+        "/".to_owned()
+    } else {
+        format!("/{}", segments.join("/"))
+    };
+    Some(RouteInfo::path_only(route))
+}
+
+/// Gatsby Functions: `src/api/users.ts` → `/api/users`.
+#[must_use]
+pub fn gatsby(path: &str) -> Option<RouteInfo> {
+    let path = path.strip_prefix("src/").unwrap_or(path);
+    let rest = path.strip_prefix("api/")?;
+    let stem = strip_extension(rest)?;
+    let stem = stem.strip_suffix("/index").unwrap_or(stem);
+    if stem == "index" {
+        return Some(RouteInfo::path_only("/api"));
+    }
+    Some(RouteInfo::path_only(format!("/api/{stem}")))
+}
+
 /// Strips a recognised source extension, or returns `None` for anything else.
 ///
 /// Refusing unknown extensions matters: `server/api/users.json` is data a route
@@ -254,5 +318,53 @@ mod tests {
         let route = nitro("server/api/users.schema.ts").expect("a route");
         assert_eq!(route.path, "/api/users.schema");
         assert_eq!(route.method, None);
+    }
+
+    #[test]
+    fn astro_maps_api_endpoints_only() {
+        assert_eq!(
+            astro("src/pages/api/users.ts").map(|r| r.path).as_deref(),
+            Some("/api/users")
+        );
+        assert_eq!(
+            astro("pages/api/index.ts").map(|r| r.path).as_deref(),
+            Some("/api")
+        );
+        assert_eq!(astro("src/pages/about.astro"), None);
+        assert_eq!(astro("src/components/Button.tsx"), None);
+    }
+
+    #[test]
+    fn remix_flat_routes_become_url_paths() {
+        assert_eq!(
+            remix("app/routes/api.users.ts").map(|r| r.path).as_deref(),
+            Some("/api/users")
+        );
+        assert_eq!(
+            remix("app/routes/api.users.$id.ts")
+                .map(|r| r.path)
+                .as_deref(),
+            Some("/api/users/:id")
+        );
+        assert_eq!(
+            remix("app/routes/_auth.login.tsx")
+                .map(|r| r.path)
+                .as_deref(),
+            Some("/login")
+        );
+        assert_eq!(remix("app/root.tsx"), None);
+    }
+
+    #[test]
+    fn gatsby_maps_functions_under_api() {
+        assert_eq!(
+            gatsby("src/api/hello.ts").map(|r| r.path).as_deref(),
+            Some("/api/hello")
+        );
+        assert_eq!(
+            gatsby("src/api/users/index.js").map(|r| r.path).as_deref(),
+            Some("/api/users")
+        );
+        assert_eq!(gatsby("src/pages/index.js"), None);
     }
 }

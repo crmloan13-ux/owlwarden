@@ -86,6 +86,17 @@ export async function runScan(
     );
   }
 
+  // Under `--ci`, a WASM module named on the command line still has to be
+  // opted into explicitly — the plugin itself is sandboxed, but a hostile PR
+  // should not be able to add one to a trusted pipeline just by adding a path.
+  if (options.ci && options.plugins.length > 0 && !options.allowPlugins) {
+    stderr.write(
+      "error: --plugin under --ci requires --allow-plugins\n" +
+        "  omit --plugin on untrusted PRs, or pass --allow-plugins on a trusted tree\n",
+    );
+    return EXIT.ERROR;
+  }
+
   if (!options.quiet && format === "pretty") {
     writeBanner(native, options, stderr);
   }
@@ -119,6 +130,9 @@ export async function runScan(
           : {}),
         ...(options.target !== undefined ? { target: options.target } : {}),
         ...(options.scope.length > 0 ? { scope: options.scope } : {}),
+        ...(options.plugins.length > 0 ? { plugins: options.plugins } : {}),
+        ...(options.ci ? { ci: true } : {}),
+        ...(options.allowPlugins ? { allowPlugins: true } : {}),
       }),
     ),
   ) as Envelope;

@@ -15,6 +15,9 @@ app.post('/login', async (req, res) => {
   // sensitive-data-logged: the password reaches the process log.
   console.info({ password: req.body.password })
 
+  // sensitive-data-logged: an access token, logged the same way.
+  console.info({ accessToken: req.body.accessToken })
+
   // sql-injection: the email comes straight from the request body into the
   // query text.
   const rows = await pool.query(

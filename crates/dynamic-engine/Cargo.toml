@@ -24,5 +24,6 @@ futures-executor = "0.3"
 tokio = { version = "1", default-features = false, features = ["rt", "rt-multi-thread", "time", "net", "macros"] }
 
 [dev-dependencies]
-owlwarden-transport = { path = "../transport" }
+# Must carry a version (via workspace) — path-only is a wildcard to cargo-deny.
+owlwarden-transport = { workspace = true }
 tokio = { version = "1", features = ["macros", "rt", "rt-multi-thread", "net", "io-util", "time"] }

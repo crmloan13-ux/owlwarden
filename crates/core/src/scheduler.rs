@@ -239,13 +239,13 @@ mod tests {
         fn meta(&self) -> DetectorMeta {
             DetectorMeta {
                 id: RuleId::new_static(self.id),
-                title: "stub",
+                title: "stub".into(),
                 severity: Severity::High,
                 max_confidence: Confidence::Likely,
                 owasp: None,
                 cwe: None,
-                category: "test",
-                description: "stub detector",
+                category: "test".into(),
+                description: "stub detector".into(),
             }
         }
         fn kind(&self) -> DetectorKind {

@@ -1,0 +1,30 @@
+import { createHash, createCipheriv } from 'node:crypto'
+import { Hono } from 'hono'
+
+export const account = new Hono()
+
+account.post('/register', async (c) => {
+  const body = await c.req.json<{ email?: string; password?: string }>()
+
+  // weak-crypto: MD5 over a password.
+  const passwordHash = createHash('md5').update(body.password ?? '').digest('hex')
+
+  // weak-crypto: a session id anyone can predict from a few samples.
+  const sessionToken = Math.random().toString(36).slice(2)
+
+  await saveUser(body.email ?? '', passwordHash, sessionToken)
+  return c.json({ ok: true })
+})
+
+// weak-crypto: ECB leaks structure — identical plaintext blocks produce
+// identical ciphertext blocks.
+export function sealCard(pan: string, key: Buffer) {
+  const cipher = createCipheriv('aes-256-ecb', key, null)
+  return Buffer.concat([cipher.update(pan, 'utf8'), cipher.final()])
+}
+
+declare function saveUser(
+  email: string,
+  hash: string,
+  token: string,
+): Promise<void>

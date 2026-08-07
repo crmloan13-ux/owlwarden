@@ -285,13 +285,13 @@ mod tests {
     fn meta(id: &'static str, owasp: Option<&'static str>) -> DetectorMeta {
         DetectorMeta {
             id: RuleId::new_static(id),
-            title: "t",
+            title: "t".into(),
             severity: Severity::High,
             max_confidence: Confidence::Likely,
             owasp: owasp.map(OwaspRef::new_static),
             cwe: None,
-            category: "c",
-            description: "d",
+            category: "c".into(),
+            description: "d".into(),
         }
     }
 

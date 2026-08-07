@@ -11,23 +11,62 @@ import { describe, expect, it } from "vitest";
 import { EXIT } from "../src/exit.js";
 import { run } from "../src/run.js";
 
-/** Finding ids every framework fixture must demonstrate (matches SHARED_FIRES). */
+/**
+ * Finding ids every framework fixture must demonstrate.
+ * Mirrors `SHARED_FIRES` in `crates/detectors/tests/fixtures.rs` (counts matter).
+ * Multi-fire shapes: ssrf = fetch/$fetch + axios; open-redirect = helper +
+ * Location; weak-crypto = MD5 + Math.random + AES-ECB; sensitive = password +
+ * accessToken — locked in the Rust shape-contract tests.
+ */
 const SHARED_FINDING_IDS = [
   "ci-unpinned-action",
   "cors-permissive",
   "hardcoded-secret",
   "insecure-cookie",
   "open-redirect",
+  "open-redirect",
   "security-headers-missing",
+  "sensitive-data-logged",
   "sensitive-data-logged",
   "sql-injection",
   "ssrf",
+  "ssrf",
   "stack-trace-leak",
   "unpinned-dependency",
-  // Three weak-crypto shapes: MD5-password, Math.random session, AES-ECB.
   "weak-crypto",
   "weak-crypto",
   "weak-crypto",
+] as const;
+
+/** Same 12 frameworks as the Rust fixture MATRIX. */
+const FRAMEWORK_FIXTURES = [
+  "vulnerable/next-api",
+  "vulnerable/nuxt-api",
+  "vulnerable/nest-api",
+  "vulnerable/express-api",
+  "vulnerable/fastify-api",
+  "vulnerable/hono-api",
+  "vulnerable/koa-api",
+  "vulnerable/hapi-api",
+  "vulnerable/sails-api",
+  "vulnerable/astro-api",
+  "vulnerable/remix-api",
+  "vulnerable/gatsby-api",
+] as const;
+
+const CLEAN_FIXTURES = [
+  "should-not-fire/next-api-clean",
+  "should-not-fire/nuxt-api-clean",
+  "should-not-fire/nest-api-clean",
+  "should-not-fire/express-api-clean",
+  "should-not-fire/fastify-api-clean",
+  "should-not-fire/hono-api-clean",
+  "should-not-fire/koa-api-clean",
+  "should-not-fire/hapi-api-clean",
+  "should-not-fire/sails-api-clean",
+  "should-not-fire/astro-api-clean",
+  "should-not-fire/remix-api-clean",
+  "should-not-fire/gatsby-api-clean",
 ] as const;
 
 /**
@@ -62,30 +101,40 @@ async function cli(argv: string[]): Promise<{ code: number; out: string; err: st
 }
 
 describe("owlwarden scan", () => {
-  it("finds both fixture issues and exits 1", async () => {
-    const { code, out } = await cli([
-      "scan",
-      fixture("vulnerable/next-api"),
-      "--format",
-      "json",
-      "--quiet",
-    ]);
+  it("finds the SHARED_FIRES set on every framework fixture", async () => {
+    // Mirrors `every_framework_reports_its_expected_rules` in the Rust matrix:
+    // the npm CLI path must see the same square grid, not only next-api.
+    expect(FRAMEWORK_FIXTURES).toHaveLength(12);
+    const scanned: string[] = [];
+    for (const name of FRAMEWORK_FIXTURES) {
+      const { code, out } = await cli([
+        "scan",
+        fixture(name),
+        "--format",
+        "json",
+        "--quiet",
+      ]);
+      expect(code).toBe(EXIT.FINDINGS);
+      const report = reportSchema.parse(JSON.parse(out));
+      expect(report.findings.map((finding) => finding.id).sort()).toEqual(
+        [...SHARED_FINDING_IDS].sort(),
+      );
+      scanned.push(name);
+    }
+    expect(scanned).toEqual([...FRAMEWORK_FIXTURES]);
+  }, 120_000);
 
-    expect(code).toBe(EXIT.FINDINGS);
-    const report = reportSchema.parse(JSON.parse(out));
-    expect(report.findings.map((finding) => finding.id).sort()).toEqual([...SHARED_FINDING_IDS].sort());
-  });
-
-  it("exits 0 on the false-positive corpus", async () => {
+  it("exits 0 on every clean twin and the tempting corpus", async () => {
     // If this ever goes red, the tool has started crying wolf, which is the
     // failure that gets a scanner uninstalled.
-    for (const name of ["should-not-fire/next-api-clean", "should-not-fire/tempting"]) {
+    expect(CLEAN_FIXTURES).toHaveLength(12);
+    for (const name of [...CLEAN_FIXTURES, "should-not-fire/tempting"] as const) {
       const { code, out } = await cli(["scan", fixture(name), "--format", "json", "--quiet"]);
       const report = reportSchema.parse(JSON.parse(out));
-      expect(report.findings, `${name} should be silent`).toEqual([]);
+      expect(report.findings).toEqual([]);
       expect(code).toBe(EXIT.CLEAN);
     }
-  });
+  }, 120_000);
 
   it("does not fail the run when --fail-on is above what was found", async () => {
     const { code } = await cli([
@@ -701,6 +750,13 @@ describe.sequential("owlwarden scan --target (live correlation)", () => {
           "should-not-fire/nest-api-clean",
           "should-not-fire/express-api-clean",
           "should-not-fire/fastify-api-clean",
+          "should-not-fire/hono-api-clean",
+          "should-not-fire/koa-api-clean",
+          "should-not-fire/hapi-api-clean",
+          "should-not-fire/sails-api-clean",
+          "should-not-fire/astro-api-clean",
+          "should-not-fire/remix-api-clean",
+          "should-not-fire/gatsby-api-clean",
         ]) {
           const { code, out } = await cli([
             "scan",
@@ -734,6 +790,13 @@ describe.sequential("owlwarden scan --target (live correlation)", () => {
           "vulnerable/nest-api",
           "vulnerable/express-api",
           "vulnerable/fastify-api",
+          "vulnerable/hono-api",
+          "vulnerable/koa-api",
+          "vulnerable/hapi-api",
+          "vulnerable/sails-api",
+          "vulnerable/astro-api",
+          "vulnerable/remix-api",
+          "vulnerable/gatsby-api",
         ]) {
           const { out } = await cli([
             "scan",
@@ -777,5 +840,75 @@ describe("owlwarden rules / explain", () => {
     const { code, err } = await cli(["explain", "no-such-rule"]);
     expect(code).toBe(EXIT.ERROR);
     expect(err).toContain("owlwarden rules");
+  });
+});
+
+describe("owlwarden init / plugin scaffold", () => {
+  it("writes agent-rules from the compiled catalogue", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "owlwarden-init-"));
+    const cwd = process.cwd();
+    try {
+      process.chdir(dir);
+      const { code, err } = await cli([
+        "init",
+        "--agent-rules",
+        "--out",
+        ".owlwarden/agent-rules.md",
+      ]);
+      expect(code).toBe(EXIT.CLEAN);
+      expect(err).toMatch(/wrote/);
+      const body = await readFile(join(dir, ".owlwarden/agent-rules.md"), "utf8");
+      expect(body).toContain("<!-- owlwarden:agent-rules -->");
+      expect(body).toContain("stack-trace-leak");
+      expect(body).toContain("npx owlwarden scan --format json");
+      expect(body).toMatch(/Prompt injection|untrusted/i);
+    } finally {
+      process.chdir(cwd);
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("refuses init --out that escapes the working directory", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "owlwarden-init-escape-"));
+    const cwd = process.cwd();
+    try {
+      process.chdir(dir);
+      const { code, err } = await cli([
+        "init",
+        "--agent-rules",
+        "--out",
+        "../outside.md",
+      ]);
+      expect(code).toBe(EXIT.ERROR);
+      expect(err).toMatch(/escapes working directory/);
+    } finally {
+      process.chdir(cwd);
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("scaffolds a plugin directory with a valid manifest", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "owlwarden-scaffold-"));
+    const cwd = process.cwd();
+    try {
+      process.chdir(dir);
+      const { code, err } = await cli(["plugin", "scaffold", "acme-extra"]);
+      expect(code).toBe(EXIT.CLEAN);
+      expect(err).toMatch(/scaffolded/);
+      const manifestRaw = await readFile(
+        join(dir, "acme-extra", "owlwarden.plugin.json"),
+        "utf8",
+      );
+      const manifest = JSON.parse(manifestRaw) as { id: string; schemaVersion: number };
+      expect(manifest.id).toBe("acme-extra");
+      expect(manifest.schemaVersion).toBe(1);
+      expect(manifest).toMatchObject({
+        rules: [{ id: "acme-extra-example" }],
+      });
+      await readFile(join(dir, "acme-extra", "plugin.wat"), "utf8");
+    } finally {
+      process.chdir(cwd);
+      await rm(dir, { recursive: true, force: true });
+    }
   });
 });

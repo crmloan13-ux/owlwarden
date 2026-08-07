@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto'
+import axios from 'axios'
 import Fastify from 'fastify'
 import cookie from '@fastify/cookie'
 import helmet from '@fastify/helmet'
@@ -57,7 +58,12 @@ app.get('/articles/:id', async (request, reply) => {
   }
 })
 
-app.post('/session', async (_request, reply) => {
+app.post('/session', async (request, reply) => {
+  // Logging that a caller supplied a token, not the token itself.
+  request.log.info({
+    hasAccessToken: Boolean((request.body as { accessToken?: string }).accessToken),
+  })
+
   const sessionToken = randomUUID()
   reply.setCookie('sid', sessionToken, {
     httpOnly: true,
@@ -73,6 +79,12 @@ app.get('/go', async (request, reply) => {
   return reply.redirect(safeRedirect(next, 'https://app.example.com'))
 })
 
+app.get('/go2', async (request, reply) => {
+  const next = (request.query as { next?: string }).next
+  reply.header('Location', safeRedirect(next, 'https://app.example.com'))
+  return reply.code(302).send()
+})
+
 app.post('/import', async (request, reply) => {
   const url = new URL(String((request.body as { sourceUrl?: string }).sourceUrl))
   if (url.protocol !== 'https:' || !ALLOWED_IMPORT_HOSTS.has(url.hostname)) {
@@ -80,6 +92,15 @@ app.post('/import', async (request, reply) => {
   }
   const upstream = await fetch(url, { redirect: 'error' })
   return reply.send(await upstream.json())
+})
+
+app.post('/import2', async (request, reply) => {
+  const url = new URL(String((request.body as { callerUrl?: string }).callerUrl))
+  if (url.protocol !== 'https:' || !ALLOWED_IMPORT_HOSTS.has(url.hostname)) {
+    return reply.code(400).send({ error: 'source not allowed' })
+  }
+  const upstream = await axios.get(url.toString(), { maxRedirects: 0 })
+  return reply.send(upstream.data)
 })
 
 function backoffMs(attempt: number) {

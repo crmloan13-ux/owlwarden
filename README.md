@@ -1,25 +1,47 @@
 # owlwarden
 
-A keen-eyed security auditor for web apps and APIs. Rust engine, npm install,
-passive by default.
+Security scanner for Node web apps — built so coding agents and humans get the
+same answer: the line, a fix, and a confidence level. Rust engine, TypeScript
+CLI on npm. Nothing leaves your machine.
+
+**v0.2.0** — twelve frameworks, sandboxed WASM plugins (source-only), and
+`owlwarden mcp` for agent loops. Autofix and active probes are not in this
+release; see [ROADMAP.md](ROADMAP.md).
 
 ```bash
 npx owlwarden scan
+npx owlwarden mcp    # stdio MCP for Cursor, Claude, and other MCP hosts
 ```
 
-**Status: v0.1.0.** Twelve rules across nine of the OWASP Top 10, with
-first-class support for Next.js, Nuxt, NestJS, Express, and Fastify — plus
-suppressions, baseline, `watch`, and optional passive dynamic probing that can
-raise findings to `confirmed`. It works and it is honest about what it does not
-do yet — run `owlwarden coverage`, or see [Scope](#what-it-does-not-do-yet).
+## Agents and MCP (first-class)
+
+Wire it into an agent loop instead of pasting terminal output by hand:
+
+```bash
+owlwarden mcp                  # tools: scan_project, scan_file, explain_rule, list_rules
+owlwarden scan --format json   # same report shape agents already parse
+owlwarden init --agent-rules   # writes .owlwarden/agent-rules.md from the catalogue
+```
+
+MCP is read-only and static-only — no live `--target`, no file writes, paths
+stay under the workspace. Schemas live in `@dointhai/owlwarden-sdk` and are
+checked against the Rust output in CI.
+
+Baseline checks should not burn a pile of LLM tokens. Run the scanner locally
+(fast, offline, same rules every time) and keep the model for design work —
+not for re-asking “did we leak a stack?” on every edit. When the blast radius
+is high (auth, payments, personal data), still pair this with deeper
+AI-assisted review. Floor first; judgment on top.
+
+More: [docs/explanation/agent-integration.md](docs/explanation/agent-integration.md).
+
+Twelve rules, nine of the OWASP Top 10 categories. First-class fixes for
+Next.js, Nuxt, NestJS, Express, Fastify, Hono, Koa, Hapi, Sails.js, Astro,
+Remix, and Gatsby. Gaps are listed by `owlwarden coverage`.
 
 ---
 
-## What it does
-
-owlwarden reads your source, finds a small set of security problems that are
-easy to introduce and easy to miss, and shows you where they are and how to fix
-them:
+## Sample output
 
 ```
 ◉ᴥ◉ 2 files · quick · 0.31s
@@ -49,22 +71,20 @@ HIGH  likely  Stack trace leaked in error response  A05:2021
  ⓘ  ref             OWASP A05:2021 · CWE-209 · RULES.md#stack-trace-leak
 ```
 
-Every finding carries the fix inline. There is no "see the docs for details":
-the reader might be an AI agent with no browser, and even a human should not
-have to open a tab to act on a scanner.
+The fix is in the finding. You should not need another browser tab. CI and
+agents use the same JSON.
 
 ## Install
 
 ```bash
-npm i -D owlwarden          # or pnpm add -D owlwarden
+npm i -D owlwarden
 npx owlwarden scan
+# or for an MCP-capable editor / agent:
+npx owlwarden mcp
 ```
 
-Node 20 or newer. The engine ships as a prebuilt native addon for macOS, Linux,
-and Windows — there is no compiler step and no `postinstall` that downloads
-anything.
-
-Add it to your project:
+Node 20+. Prebuilt addon for macOS, Linux, and Windows — no compiler on the
+user machine.
 
 ```json
 {
@@ -74,50 +94,50 @@ Add it to your project:
 }
 ```
 
-### Building from source
+### From source
 
-Only needed on a platform with no prebuilt addon, or to work on owlwarden
-itself. Requires Rust 1.88+, Node 22.13+ (pnpm needs it; the published CLI
-still runs on Node 20, and CI proves it), and pnpm.
+Rust 1.88+, Node 22.13+ (for pnpm; the published CLI still runs on 20), and pnpm.
 
 ```bash
 git clone https://github.com/suthat/owlwarden
 cd owlwarden
 pnpm install
-pnpm build          # cargo build + napi + tsc
+pnpm build
 node packages/cli/dist/bin.js scan /path/to/project
 ```
 
-`pnpm check` runs the whole gate: clippy with warnings denied, `cargo test`,
-`tsc --noEmit`, eslint, and the vitest suites.
+`pnpm check` runs the full gate (fmt, clippy, tests, typecheck, eslint).
 
 ## Usage
 
 ```bash
-owlwarden scan                          # zero config (static)
-owlwarden scan ./apps/api               # a specific directory
-owlwarden scan --preset owasp-top10     # a named rule bundle
-owlwarden scan --ci                     # JSON on stdout, no colour, exit code
-owlwarden scan --fail-on medium         # only medium and worse fail the build
+owlwarden scan
+owlwarden mcp
+owlwarden init --agent-rules
+owlwarden scan --format json
+owlwarden scan ./apps/api
+owlwarden scan --preset owasp-top10
+owlwarden scan --ci
+owlwarden scan --fail-on medium
 owlwarden scan --baseline .owlwarden-baseline.json
 owlwarden scan --write-baseline .owlwarden-baseline.json
-owlwarden scan --target http://127.0.0.1:3000/   # passive probe + correlation
-owlwarden watch                         # re-scan on change (static only)
-owlwarden rules                         # what it can find
-owlwarden coverage                      # what it cannot find, gaps included
-owlwarden explain stack-trace-leak      # the full write-up, offline
+owlwarden scan --target http://127.0.0.1:3000/
+owlwarden scan --plugin ./my-plugin
+owlwarden watch
+owlwarden rules
+owlwarden coverage
+owlwarden explain stack-trace-leak
+owlwarden plugin scaffold my-rules
 ```
 
-Live probing is optional and operator-only — see
+`--target` is optional. It only probes what you allow — see
 [docs/how-to/dynamic.md](docs/how-to/dynamic.md).
 
-**Exit codes:** `0` clean · `1` findings at or above `--fail-on` · `2` the scan
-could not run. CI can branch on these.
+Exit codes: `0` clean · `1` findings at or above `--fail-on` · `2` could not run.
 
-## Configuration
+## Config
 
-Zero config is the intended way to run it. When you need more, put an
-`owlwarden.config.ts` next to your `package.json`:
+Optional. Defaults are fine for most repos.
 
 ```ts
 import { defineConfig } from "@dointhai/owlwarden-config";
@@ -129,108 +149,49 @@ export default defineConfig({
 });
 ```
 
-`.mts`, `.mjs`, `.js`, `.json`, and an `owlwarden` key in `package.json` also
-work. Flags beat the config file; the config file beats the defaults. owlwarden
-does not look for config outside the directory being scanned.
+Also: `.mts` / `.mjs` / `.js` / `.json`, or an `owlwarden` key in `package.json`.
+Flags win over the file. Config is never loaded from above the scan root.
 
 ## Safety
 
-This is a security tool, so it is worth being precise about what it does to your
-machine and your systems.
+- No network without `--target`. With `--target`, scope is deny-by-default.
+- Reads stay inside the project root; outbound symlinks are refused;
+  `node_modules` and `.gitignore` are respected; size caps apply.
+- No telemetry.
+- `#![forbid(unsafe_code)]` in library crates. The WASM host is the exception
+  (`plugin-host` / wasmtime).
 
-- **Network only when you ask.** Without `--target` it never opens a socket.
-  With `--target` it sends passive probes under a deny-by-default scope. No
-  telemetry, ever.
-- **It stays inside the project.** The file provider is rooted at the directory
-  you point it at, resolves symlinks, and refuses anything that escapes. It
-  skips `node_modules`, respects `.gitignore`, and caps file size and total
-  bytes read.
-- **It has no telemetry.** Not off-by-default-but-present — absent.
-- **It is bounded.** Every loop over your files has a limit, and a pathological
-  input (a 50 MB minified bundle, a file nested 10,000 brackets deep) is skipped
-  and reported, not crashed on.
+Details: [SECURITY.md](SECURITY.md).
 
-`#![forbid(unsafe_code)]` in every crate. See [SECURITY.md](SECURITY.md) for the
-threat model and how to report a vulnerability.
+## Limits (honest ones)
 
-## What it does not do yet
+- Not all of OWASP. `coverage` lists the gaps. A04 is out of reach on purpose.
+- Dynamic checks are passive and opt-in. No active (state-changing) probes yet.
+- Other stacks get a generic scan; the twelve named frameworks get tailored
+  fixes. The matrix is locked in CI.
+- Origin tracking is one hop, not a full taint engine
+  ([ADR 0012](docs/adr/0012-request-origin-not-taint.md)).
+- Plugins are source-only WASM. MCP is read-only / static. Autofix (`--fix`)
+  is later.
 
-Being clear about this matters more than looking complete.
-
-- **Nine of the ten OWASP categories.** `owlwarden coverage` prints the table,
-  gaps included, computed from the rules compiled into the binary you have.
-  A04 Insecure Design is marked out of reach rather than pending, because no
-  parser finds a design flaw —
-  [docs/explanation/coverage.md](docs/explanation/coverage.md) explains how to
-  read that distinction.
-- **Dynamic is opt-in and passive.** Pass `--target <URL>` to probe a live
-  origin (GET/HEAD only). Scope is deny-by-default (`--scope`, or the target's
-  origin). Correlation can raise `security-headers-missing` to `confirmed`, or
-  clear a static gap when the live response already sets the headers. Active
-  (state-changing) checks are not in this release.
-- **Five frameworks with specific advice.** Next.js, Nuxt, NestJS, Express, and
-  Fastify each get remediation written for them; anything else is scanned
-  generically, which means less context in the finding rather than fewer
-  findings. Every catalogue rule has a vulnerable fixture and a silent clean
-  twin on all five (12 × 5 cells, locked in CI). Adding a sixth is a profile
-  plus a remediation entry per rule —
-  [docs/how-to/extend.md](docs/how-to/extend.md).
-- **Origin analysis is one hop, not a taint engine.** A value that reaches a
-  sink through two locals or a function call is reported at `possible` rather
-  than `likely`. Stated in every rule and in
-  [ADR 0012](docs/adr/0012-request-origin-not-taint.md), because a scanner that
-  overstates its reach is worse than one that admits it.
-- **No plugins yet.** The sandbox design is settled; the host is v0.2. The
-  extension points the plugins will use are already in place and documented.
-- **No `--fix`, no MCP server.** Planned; suppressions, baseline, and `watch`
-  shipped in 0.0.2.
-
-See [ROADMAP.md](ROADMAP.md) for the order.
-
-## Using it from an agent
-
-Machine-readable output is not an afterthought here — when an agent is in the
-loop, the agent is the one reading the report and editing the code.
-
-```bash
-owlwarden scan --format json
-```
-
-`@dointhai/owlwarden-sdk` ships zod schemas for the report, checked against the Rust
-engine on every CI run, so the types cannot drift from what the tool emits. Two
-things most tools do not carry travel with each finding: the fix, inline and
-complete, and an honest `confidence`.
-
-[docs/explanation/agent-integration.md](docs/explanation/agent-integration.md)
-covers the design, including the parts that are not built yet.
+[ROADMAP.md](ROADMAP.md) has the order.
 
 ## Contributing
 
-The most useful contribution is a false positive. If owlwarden flags correct
-code, that is a bug with a higher priority than a missing rule — open an issue
-with the smallest snippet that reproduces it.
+Best bug report: a false positive with a small snippet.
 
-[CONTRIBUTING.md](CONTRIBUTING.md) has the development setup;
-[AGENTS.md](AGENTS.md) is the same ground condensed for AI coding agents.
+[CONTRIBUTING.md](CONTRIBUTING.md) · [AGENTS.md](AGENTS.md) for coding agents.
 
-```bash
-pnpm i
-pnpm build      # native addon + TypeScript
-pnpm check      # fmt, clippy, typecheck, eslint, all tests
-```
-
-## Documentation
+## Docs
 
 | | |
 |---|---|
-| [RULES.md](RULES.md) | What it can find. Generated from the engine. |
-| [ARCHITECTURE.md](ARCHITECTURE.md) | How it is built, and the constraints. |
-| [REPORTERS.md](REPORTERS.md) | What every output format promises, and the exit codes. |
-| [docs/](docs/) | How-to guides, explanations, and the decision records. |
-| [docs/how-to/dynamic.md](docs/how-to/dynamic.md) | `--target` / `--scope` passive probing. |
-| [SECURITY.md](SECURITY.md) | Threat model and how to report a vulnerability. |
-| [ROADMAP.md](ROADMAP.md) | What is next, and in what order. |
-| [REVIEW.md](REVIEW.md) | The pre-implementation audit, and what it changed. |
+| [RULES.md](RULES.md) | What it can find |
+| [ARCHITECTURE.md](ARCHITECTURE.md) | How it is built |
+| [REPORTERS.md](REPORTERS.md) | Output formats and exit codes |
+| [docs/](docs/) | How-tos, explanations, ADRs |
+| [SECURITY.md](SECURITY.md) | Threat model |
+| [ROADMAP.md](ROADMAP.md) | What is next |
 
 ## Licence
 

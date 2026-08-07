@@ -10,20 +10,28 @@ import type { NativeEngine } from "./native.js";
  * text more than most, not less.
  */
 export function helpText(native: NativeEngine | undefined): string {
-  return `owlwarden ${native?.engineVersion() ?? ""} — keen-eyed security auditor
+  return `owlwarden ${native?.engineVersion() ?? ""} — security scanner for Node apps (MCP-ready)
 
 USAGE
   owlwarden scan [PATH] [OPTIONS]
+  owlwarden mcp [PATH]
+  owlwarden init --agent-rules [--out FILE]
   owlwarden watch [PATH] [OPTIONS]
   owlwarden rules [--json]
   owlwarden coverage [--json] [--no-color] [--ascii]
   owlwarden explain <RULE_ID> [--json]
+  owlwarden plugin scaffold <NAME>
 
-  coverage reports which OWASP categories the rules reach, and which they do
-  not. A gap is stated rather than left blank, because "no findings" and "not
-  looked for" are different answers.
+  Local only. No telemetry. --target is opt-in (scoped; deny by default).
 
-  watch re-scans on change. Static only — it never opens a network path.
+  mcp — stdio MCP for coding agents (scan / explain / list rules; static, read-only).
+  init --agent-rules — writes .owlwarden/agent-rules.md from the catalogue.
+  Prefer --format json for CI and agents.
+  plugin scaffold writes a WASM guest stub + manifest.
+
+  coverage shows which OWASP categories have rules, and which do not.
+
+  watch re-scans on change. Static only — never opens a network path.
 
 SCAN OPTIONS
   --preset <NAME>       Rule bundle to run
@@ -42,6 +50,10 @@ ${presetLines(native)}
   --target <URL>        Probe this URL (passive GET/HEAD). Operator-only —
                         never read from project config
   --scope <URL>         Allowlist entry (repeatable). Default: origin of --target
+  --plugin <PATH>       Load a WASM detector (repeatable). Directory with
+                        owlwarden.plugin.json + plugin.wasm, or a bare .wasm
+                        with a sidecar manifest. Sandboxed; source-only in v0.2
+  --allow-plugins       Under --ci, permit --plugin (off by default)
   --ci                  JSON + quiet + no-color; also ignores project gates,
                         suppressions, and --baseline unless allow-* is set
   --no-color            Disable colour (NO_COLOR is honoured too)

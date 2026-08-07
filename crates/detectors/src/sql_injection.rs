@@ -129,7 +129,7 @@ impl SqlInjection {
     pub fn meta() -> DetectorMeta {
         DetectorMeta {
             id: RuleId::new_static(ID),
-            title: "SQL query built by string interpolation",
+            title: "SQL query built by string interpolation".into(),
             severity: Severity::High,
             // A static read cannot prove the interpolated value is
             // attacker-controlled; only a live probe can. So this stops at
@@ -137,12 +137,13 @@ impl SqlInjection {
             max_confidence: Confidence::Likely,
             owasp: Some(OwaspRef::new_static("A03:2021")),
             cwe: Some(89),
-            category: "injection",
+            category: "injection".into(),
             description: "A SQL string is assembled with a template literal or concatenation and \
                           passed to a database driver. Any value interpolated into it is executed \
                           as SQL, so a request parameter can read, modify, or destroy data the \
                           query was never meant to touch. Use the driver's parameter binding \
-                          instead; every driver has it.",
+                          instead; every driver has it."
+                .into(),
         }
     }
 }
@@ -420,6 +421,43 @@ fn remediation() -> Remediation {
         Framework::FASTIFY,
         "Bind the value; keep the SQL text constant.",
         "await fastify.pg.query('SELECT * FROM users WHERE id = $1', [request.params.id])",
+    )
+    .manual(
+        Framework::HONO,
+        "Bind the value; keep the SQL text constant.",
+        "await db.query('SELECT * FROM users WHERE id = $1', [c.req.param('id')])",
+    )
+    .manual(
+        Framework::KOA,
+        "Bind the value; keep the SQL text constant.",
+        "await pool.query('SELECT * FROM users WHERE id = $1', [ctx.params.id])",
+    )
+    .manual(
+        Framework::HAPI,
+        "Bind the value; keep the SQL text constant.",
+        "await pool.query('SELECT * FROM users WHERE id = $1', [request.params.id])",
+    )
+    .manual(
+        Framework::SAILS,
+        "Use Waterline's query builder, or bind parameters on a raw query.",
+        "await User.find({ id: inputs.id })\n\n\
+         // raw query: bind, do not interpolate\n\
+         await sails.getDatastore().sendNativeQuery('SELECT * FROM users WHERE id = $1', [inputs.id])",
+    )
+    .manual(
+        Framework::ASTRO,
+        "Bind the value; keep the SQL text constant.",
+        "await db.query('SELECT * FROM users WHERE id = $1', [id])",
+    )
+    .manual(
+        Framework::REMIX,
+        "Bind the value; keep the SQL text constant.",
+        "await db.query('SELECT * FROM users WHERE id = $1', [params.id])",
+    )
+    .manual(
+        Framework::GATSBY,
+        "Bind the value; keep the SQL text constant.",
+        "await pool.query('SELECT * FROM users WHERE id = $1', [req.query.id])",
     )
 }
 

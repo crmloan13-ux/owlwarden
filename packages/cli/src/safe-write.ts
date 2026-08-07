@@ -1,6 +1,5 @@
-import { lstat, rename, rm, writeFile } from "node:fs/promises";
+import { lstat, mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
-import { readFile } from "node:fs/promises";
 
 /**
  * Writes `contents` to `path` without following a symlink at the destination.
@@ -10,12 +9,12 @@ import { readFile } from "node:fs/promises";
  * link to `~/.ssh/…` cannot be used as a write gadget via `--out` /
  * `--write-baseline`.
  *
- * Also refuses when any existing ancestor directory is a symlink — otherwise
- * the temp write would follow into an attacker-chosen tree.
+ * Missing parents are created with [`mkdirNoFollow`] — never
+ * `mkdir({ recursive: true })`, which follows intermediate directory symlinks.
  */
 export async function writeReplacing(path: string, contents: string): Promise<void> {
   const parent = dirname(path) || ".";
-  await refuseSymlinkAncestors(parent);
+  await mkdirNoFollow(parent);
   const temp = join(
     parent,
     `.owlwarden-write-${process.pid}-${Date.now()}-${Math.random().toString(16).slice(2)}.tmp`,
@@ -27,6 +26,60 @@ export async function writeReplacing(path: string, contents: string): Promise<vo
     await rm(temp, { force: true }).catch(() => undefined);
     throw error;
   }
+}
+
+/**
+ * Creates `dir` and any missing parents without following directory symlinks.
+ *
+ * Node's recursive `mkdir` will walk through an intermediate symlink (e.g.
+ * create `nested` inside the target of `link` when asked for `link/nested`).
+ * This refuses a symlinked ancestor, then creates only the missing suffix one
+ * real directory at a time. Existing ancestors above that point are not
+ * re-checked — walking into system volume aliases such as macOS
+ * `/var` → `/private/var` would false-positive.
+ */
+export async function mkdirNoFollow(dir: string): Promise<void> {
+  const abs = resolve(dir);
+  // Fail fast if the first existing ancestor is already a symlink.
+  await refuseSymlinkAncestors(abs);
+
+  const missing: string[] = [];
+  let current = abs;
+  for (;;) {
+    try {
+      await lstat(current);
+      break;
+    } catch (error) {
+      const code =
+        error && typeof error === "object" && "code" in error
+          ? (error as { code?: string }).code
+          : undefined;
+      if (code !== "ENOENT") {
+        throw error;
+      }
+    }
+    missing.push(current);
+    const parent = dirname(current);
+    if (parent === current) {
+      break;
+    }
+    current = parent;
+  }
+  missing.reverse();
+
+  for (const component of missing) {
+    await mkdir(component);
+    const created = await lstat(component);
+    if (created.isSymbolicLink()) {
+      throw new Error("refusing to write under a symlinked directory");
+    }
+    if (!created.isDirectory()) {
+      throw new Error(`not a directory: ${component}`);
+    }
+  }
+
+  // Race: a just-created component may have been swapped for a symlink.
+  await refuseSymlinkAncestors(abs);
 }
 
 /**

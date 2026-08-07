@@ -102,6 +102,26 @@ impl Remediation {
         self.fix(framework, summary, Some(patch.into()), FixSafety::Manual)
     }
 
+    /// Adds the same `Manual` advice for every framework in `frameworks`.
+    ///
+    /// For fixes that truly do not vary by stack (pin a SHA, read from
+    /// `process.env`). Prefer [`Self::manual`] when the patch should name the
+    /// framework's own API.
+    #[must_use]
+    pub fn manual_each(
+        mut self,
+        frameworks: &[Framework],
+        summary: impl Into<String>,
+        patch: impl Into<String>,
+    ) -> Self {
+        let summary = summary.into();
+        let patch = patch.into();
+        for framework in frameworks {
+            self = self.manual(framework.clone(), summary.clone(), patch.clone());
+        }
+        self
+    }
+
     /// The fixes to attach to a finding in a project using `framework`: the
     /// specific one if there is one, then the fallback.
     ///

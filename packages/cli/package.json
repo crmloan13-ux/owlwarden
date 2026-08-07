@@ -1,7 +1,7 @@
 {
   "name": "owlwarden",
-  "version": "0.1.0",
-  "description": "A keen-eyed, sandboxed security auditor for web apps and APIs.",
+  "version": "0.2.0",
+  "description": "Node webapp security scanner with MCP for coding agents. Local, fast, no telemetry — baseline checks without burning LLM tokens.",
   "license": "MIT OR Apache-2.0",
   "repository": {
     "type": "git",
@@ -10,16 +10,25 @@
   },
   "homepage": "https://github.com/suthat/owlwarden",
   "keywords": [
+    "mcp",
+    "ai-agent",
+    "coding-agent",
     "security",
     "owasp",
     "sast",
     "scanner",
-    "audit",
     "nextjs",
     "nuxt",
     "nestjs",
     "express",
-    "fastify"
+    "fastify",
+    "hono",
+    "koa",
+    "hapi",
+    "sails",
+    "astro",
+    "remix",
+    "gatsby"
   ],
   "type": "module",
   "bin": {

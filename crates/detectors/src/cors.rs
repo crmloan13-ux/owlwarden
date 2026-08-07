@@ -61,19 +61,20 @@ impl CorsPermissive {
     pub fn meta() -> DetectorMeta {
         DetectorMeta {
             id: RuleId::new_static(ID),
-            title: "Cross-origin policy accepts any origin",
+            title: "Cross-origin policy accepts any origin".into(),
             // The catalogue severity is the common case; a finding that also
             // enables credentials is raised to High when it is built.
             severity: Severity::Medium,
             max_confidence: Confidence::Likely,
             owasp: Some(OwaspRef::new_static("A05:2021")),
             cwe: Some(942),
-            category: "cors",
+            category: "cors".into(),
             description: "The CORS configuration accepts requests from any origin. Combined with \
                           credentials this lets any site a logged-in user visits make \
                           authenticated calls to the API and read the responses. Without \
                           credentials it may be intentional for a public API — the finding says \
-                          which case it found.",
+                          which case it found."
+                .into(),
         }
     }
 }
@@ -288,7 +289,7 @@ fn build_finding(unit: &FileUnit<'_>, hit: &Hit, with_credentials: bool) -> Find
 
 /// Every framework's fix.
 fn remediation() -> Remediation {
-    Remediation::new(
+    let table = Remediation::new(
         "Replace the wildcard with the origins that actually need access, and only send \
          credentials to those.",
     )
@@ -333,6 +334,103 @@ fn remediation() -> Remediation {
          origin: ['https://app.example.com'],\n  \
          credentials: true,\n\
          })",
+    );
+    newer_framework_fixes(table)
+}
+
+/// The frameworks added after the original five. Split from [`remediation`] to
+/// stay under the function-length lint — the table itself is one continuous
+/// declaration either way.
+fn newer_framework_fixes(table: Remediation) -> Remediation {
+    table
+    .manual(
+        Framework::HONO,
+        "Use hono/cors with an explicit origin list.",
+        "import { cors } from 'hono/cors'\n\n\
+         app.use('*', cors({\n  \
+         origin: ['https://app.example.com'],\n  \
+         credentials: true,\n\
+         }))",
+    )
+    .manual(
+        Framework::KOA,
+        "Give @koa/cors an explicit origin list.",
+        "import cors from '@koa/cors'\n\n\
+         app.use(cors({\n  \
+         origin: ['https://app.example.com'],\n  \
+         credentials: true,\n\
+         }))",
+    )
+    .manual(
+        Framework::HAPI,
+        "Give the route's cors option an explicit origin list.",
+        "server.route({\n  \
+         method: 'GET',\n  \
+         path: '/api/data',\n  \
+         options: {\n    \
+         cors: {\n      \
+         origin: ['https://app.example.com'],\n      \
+         credentials: true,\n    \
+         },\n  \
+         },\n  \
+         handler: (request, h) => h.response({ ok: true }),\n\
+         })",
+    )
+    .manual(
+        Framework::SAILS,
+        "Give sails.config.security.cors an explicit origin list.",
+        "// config/security.js\n\
+         module.exports.security = {\n  \
+         cors: {\n    \
+         allRoutes: true,\n    \
+         allowOrigins: ['https://app.example.com'],\n    \
+         allowCredentials: true,\n  \
+         },\n\
+         }",
+    )
+    .manual(
+        Framework::ASTRO,
+        "Set the header explicitly in the endpoint rather than reflecting the caller's origin.",
+        "// src/pages/api/data.ts\n\
+         const ALLOWED_ORIGIN = 'https://app.example.com'\n\n\
+         export async function GET({ request }: APIContext) {\n  \
+         const origin = request.headers.get('origin')\n  \
+         const headers = new Headers()\n  \
+         if (origin === ALLOWED_ORIGIN) {\n    \
+         headers.set('Access-Control-Allow-Origin', ALLOWED_ORIGIN)\n    \
+         headers.set('Vary', 'Origin')\n  \
+         }\n  \
+         return new Response(JSON.stringify({ ok: true }), { headers })\n\
+         }",
+    )
+    .manual(
+        Framework::REMIX,
+        "Return an explicit origin from the loader/action headers, not '*'.",
+        "import { json } from '@remix-run/node'\n\n\
+         export async function loader({ request }: LoaderFunctionArgs) {\n  \
+         const allowed = new Set(['https://app.example.com'])\n  \
+         const origin = request.headers.get('origin') ?? ''\n  \
+         const headers = new Headers()\n  \
+         if (allowed.has(origin)) {\n    \
+         headers.set('Access-Control-Allow-Origin', origin)\n    \
+         headers.set('Vary', 'Origin')\n  \
+         }\n  \
+         return json({ ok: true }, { headers })\n\
+         }",
+    )
+    .manual(
+        Framework::GATSBY,
+        "Set the header explicitly in the Function handler, not '*'.",
+        "// src/api/data.ts\n\
+         const ALLOWED = new Set(['https://app.example.com'])\n\n\
+         export default function handler(req: GatsbyFunctionRequest, res: GatsbyFunctionResponse) {\n  \
+         const origin = req.headers.origin ?? ''\n  \
+         if (ALLOWED.has(origin)) {\n    \
+         res.setHeader('Access-Control-Allow-Origin', origin)\n    \
+         res.setHeader('Vary', 'Origin')\n  \
+         }\n  \
+         res.json({ ok: true })\n\
+         }",
     )
 }
 

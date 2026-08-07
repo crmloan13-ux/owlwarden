@@ -66,7 +66,7 @@ fn fires_on_the_common_response_shapes() {
 
 #[test]
 fn every_supported_framework_has_its_own_spelling_covered() {
-    // One rule, five frameworks, no framework named anywhere in the rule. Each
+    // One rule, every supported framework, no framework named in the rule. Each
     // of these is the idiomatic way that stack ends a request, and the rule
     // recognises it because the profile describes it.
     let leak = "try { f() } catch (err) { %s }";

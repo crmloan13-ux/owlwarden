@@ -72,14 +72,15 @@ impl Detector for DynamicEngine {
     fn meta(&self) -> DetectorMeta {
         DetectorMeta {
             id: RuleId::new_static("dynamic-engine"),
-            title: "Passive dynamic analysis engine",
+            title: "Passive dynamic analysis engine".into(),
             severity: Severity::Info,
             max_confidence: Confidence::Likely,
             owasp: None,
             cwe: None,
-            category: "engine",
+            category: "engine".into(),
             description: "Probes a live target through the bounded transport and \
-                          reports runtime observations for correlation.",
+                          reports runtime observations for correlation."
+                .into(),
         }
     }
 

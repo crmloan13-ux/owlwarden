@@ -45,15 +45,16 @@ impl UnpinnedDependency {
     pub fn meta() -> DetectorMeta {
         DetectorMeta {
             id: RuleId::new_static(ID),
-            title: "Dependency version is unpinned",
+            title: "Dependency version is unpinned".into(),
             severity: Severity::Medium,
             max_confidence: Confidence::Likely,
             owasp: Some(OwaspRef::new_static("A06:2021")),
             cwe: Some(1104),
-            category: "dependencies",
+            category: "dependencies".into(),
             description: "A package.json dependency uses '*' or 'latest', so every install can \
                           pull a different major version with no review. Pin a lower bound (or \
-                          an exact version) so upgrades are a deliberate change.",
+                          an exact version) so upgrades are a deliberate change."
+                .into(),
         }
     }
 }
@@ -183,6 +184,41 @@ fn remediation() -> Remediation {
         Framework::FASTIFY,
         "Pin the dependency in package.json and reinstall so the lockfile records it.",
         "{\n  \"dependencies\": {\n    \"fastify\": \"^4.28.0\"\n  }\n}",
+    )
+    .manual(
+        Framework::HONO,
+        "Pin the dependency in package.json and reinstall so the lockfile records it.",
+        "{\n  \"dependencies\": {\n    \"hono\": \"^4.5.0\"\n  }\n}",
+    )
+    .manual(
+        Framework::KOA,
+        "Pin the dependency in package.json and reinstall so the lockfile records it.",
+        "{\n  \"dependencies\": {\n    \"koa\": \"^2.15.0\"\n  }\n}",
+    )
+    .manual(
+        Framework::HAPI,
+        "Pin the dependency in package.json and reinstall so the lockfile records it.",
+        "{\n  \"dependencies\": {\n    \"@hapi/hapi\": \"^21.3.0\"\n  }\n}",
+    )
+    .manual(
+        Framework::SAILS,
+        "Pin the dependency in package.json and reinstall so the lockfile records it.",
+        "{\n  \"dependencies\": {\n    \"sails\": \"^1.5.0\"\n  }\n}",
+    )
+    .manual(
+        Framework::ASTRO,
+        "Pin the dependency in package.json and reinstall so the lockfile records it.",
+        "{\n  \"dependencies\": {\n    \"astro\": \"^4.11.0\"\n  }\n}",
+    )
+    .manual(
+        Framework::REMIX,
+        "Pin the dependency in package.json and reinstall so the lockfile records it.",
+        "{\n  \"dependencies\": {\n    \"@remix-run/node\": \"^2.10.0\"\n  }\n}",
+    )
+    .manual(
+        Framework::GATSBY,
+        "Pin the dependency in package.json and reinstall so the lockfile records it.",
+        "{\n  \"dependencies\": {\n    \"gatsby\": \"^5.13.0\"\n  }\n}",
     )
 }
 

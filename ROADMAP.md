@@ -86,20 +86,29 @@ correlation tests are green. (Suppressions, baseline, `watch`, and the
 A06/A08/A09 rules shipped in 0.0.2.) Active checks, deeper dynamic rules, and
 a hosted docs site remain later work — stated here so 0.1.0 does not overclaim.
 
-## v0.2 — Plugins and the agent surface
+## v0.2 — Plugins and the agent surface — **shipped**
 
-**Goal:** extensibility that does not require trusting the extension.
+**Goal:** extensibility that does not require trusting the extension, on top of
+broad Node framework coverage developers already use.
 
-- `plugin-host` on wasmtime, with the capability model.
-- Plugin-authoring types in `@dointhai/owlwarden-sdk`, and a scaffold command.
-- `owlwarden mcp` — an MCP server, plus editor hooks and
-  `init --agent-rules`. See
+Delivered:
+
+- Twelve first-party frameworks (Hono, Koa, Hapi, Sails.js, Astro, Remix,
+  Gatsby on top of the original five), with a square fixture matrix. Adding
+  another Node framework remains a `FrameworkProfile` — see
+  [docs/how-to/extend.md](docs/how-to/extend.md).
+- `plugin-host` on wasmtime, source-only capability model, sandbox-escape suite
+  ([ADR 0015](docs/adr/0015-plugin-host-wasmtime.md)).
+- Plugin-authoring types in `@dointhai/owlwarden-sdk`, and
+  `owlwarden plugin scaffold`.
+- `owlwarden mcp` (stdio, static, read-only) and `init --agent-rules`. See
   [docs/explanation/agent-integration.md](docs/explanation/agent-integration.md).
-- A sandbox-escape test suite.
 
-**Exit criteria:** an external plugin loads sandboxed and contributes findings;
-a deliberately malicious sample plugin is provably contained; an MCP-capable
-agent can scan and fix within one loop.
+**Exit criteria, met:** an external plugin loads sandboxed and can contribute
+findings; malicious samples in the escape suite are contained; an MCP-capable
+agent can scan and pull remediations in one loop. Autofix (`--fix`) and
+polished editor post-edit hooks remain later work — stated so 0.2.0 does not
+overclaim.
 
 ## v0.3 — Autofix and active checks
 

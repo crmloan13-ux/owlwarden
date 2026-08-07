@@ -74,17 +74,18 @@ impl OpenRedirect {
     pub fn meta() -> DetectorMeta {
         DetectorMeta {
             id: RuleId::new_static(ID),
-            title: "Redirect target comes from the caller",
+            title: "Redirect target comes from the caller".into(),
             severity: Severity::Medium,
             max_confidence: Confidence::Likely,
             owasp: Some(OwaspRef::new_static("A01:2021")),
             cwe: Some(601),
-            category: "redirect",
+            category: "redirect".into(),
             description: "The destination of a redirect is taken from the request without being \
                           checked. An attacker can send a link that starts with your domain and \
                           ends on theirs, which is what makes a phishing page credible — and in \
                           an OAuth callback it hands the authorisation code to whoever asked. \
-                          Resolve the target against your own origin and refuse anything else.",
+                          Resolve the target against your own origin and refuse anything else."
+                .into(),
         }
     }
 }
@@ -306,6 +307,55 @@ fn remediation() -> Remediation {
         "const base = `${request.protocol}://${request.hostname}`\n\
          const next = (request.query as { next?: string }).next\n\
          return reply.redirect(safeRedirect(next, base))",
+    )
+    .manual(
+        Framework::HONO,
+        "Validate before calling c.redirect(); new URL(c.req.url).origin is the base.",
+        "const next = c.req.query('next')\n\
+         const base = new URL(c.req.url).origin\n\
+         return c.redirect(safeRedirect(next, base))",
+    )
+    .manual(
+        Framework::KOA,
+        "Validate before ctx.redirect().",
+        "const base = `${ctx.protocol}://${ctx.host}`\n\
+         ctx.redirect(safeRedirect(ctx.query.next, base))",
+    )
+    .manual(
+        Framework::HAPI,
+        "Validate before h.redirect().",
+        "const base = `${request.server.info.protocol}://${request.info.host}`\n\
+         return h.redirect(safeRedirect(request.query.next, base))",
+    )
+    .manual(
+        Framework::SAILS,
+        "Validate before res.redirect().",
+        "const base = `${req.protocol}://${req.get('host')}`\n\
+         return res.redirect(safeRedirect(req.query.next, base))",
+    )
+    .manual(
+        Framework::ASTRO,
+        "Validate before calling redirect(); the request URL's origin is the base.",
+        "export async function GET({ request, redirect }: APIContext) {\n  \
+         const next = new URL(request.url).searchParams.get('next')\n  \
+         return redirect(safeRedirect(next, new URL(request.url).origin))\n\
+         }",
+    )
+    .manual(
+        Framework::REMIX,
+        "Validate before calling redirect(); the request URL's origin is the base.",
+        "import { redirect } from '@remix-run/node'\n\n\
+         export async function loader({ request }: LoaderFunctionArgs) {\n  \
+         const url = new URL(request.url)\n  \
+         const next = url.searchParams.get('next')\n  \
+         return redirect(safeRedirect(next, url.origin))\n\
+         }",
+    )
+    .manual(
+        Framework::GATSBY,
+        "Validate before res.redirect() in the Function handler.",
+        "const base = `${req.headers['x-forwarded-proto'] ?? 'https'}://${req.headers.host}`\n\
+         res.redirect(safeRedirect(req.query.next, base))",
     )
 }
 

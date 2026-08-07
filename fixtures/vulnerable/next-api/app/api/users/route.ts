@@ -1,6 +1,7 @@
 // FIXTURE: deliberately vulnerable. Expected findings:
 //   stack-trace-leak at the `err.stack` inside the NextResponse.json body.
-//   sensitive-data-logged at the authorization header written to console.
+//   sensitive-data-logged at the authorization header and access token
+//   written to console.
 import { NextResponse } from 'next/server'
 
 import { listUsers } from '../../lib/users'
@@ -8,6 +9,9 @@ import { listUsers } from '../../lib/users'
 export async function GET(request: Request) {
   // sensitive-data-logged: the Authorization header lands in the log aggregator.
   console.info({ authorization: request.headers.get('authorization') })
+  // sensitive-data-logged: the caller's access token, logged the same way.
+  const accessToken = request.headers.get('x-access-token')
+  console.info({ accessToken })
   try {
     const users = await listUsers()
     return NextResponse.json({ users })

@@ -1,3 +1,4 @@
+import axios from 'axios'
 import { redirect } from 'next/navigation'
 import { NextResponse } from 'next/server'
 
@@ -27,14 +28,29 @@ export async function GET(request: Request) {
   const url = new URL(request.url)
   const target = url.searchParams.get('target')
   const next = url.searchParams.get('next')
+  const callerUrl = url.searchParams.get('callerUrl')
+  const manualNext = url.searchParams.get('manualNext')
 
   if (target) {
     const upstream = await fetch(assertAllowedUrl(target), { redirect: 'error' })
     return NextResponse.json(await upstream.json())
   }
 
+  if (callerUrl) {
+    const upstream = await axios.get(assertAllowedUrl(callerUrl).toString(), {
+      maxRedirects: 0,
+    })
+    return NextResponse.json(upstream.data)
+  }
+
   if (next) {
     redirect(safeRedirect(next, url.origin))
+  }
+
+  if (manualNext) {
+    const headers = new Headers()
+    headers.set('Location', safeRedirect(manualNext, url.origin))
+    return new NextResponse(null, { status: 302, headers })
   }
 
   return NextResponse.json({ ok: true })

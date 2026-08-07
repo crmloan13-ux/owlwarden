@@ -181,17 +181,18 @@ impl HardcodedSecret {
     pub fn meta() -> DetectorMeta {
         DetectorMeta {
             id: RuleId::new_static(ID),
-            title: "Credential hardcoded in source",
+            title: "Credential hardcoded in source".into(),
             severity: Severity::High,
             max_confidence: Confidence::Likely,
             owasp: Some(OwaspRef::new_static("A07:2021")),
             cwe: Some(798),
-            category: "secrets",
+            category: "secrets".into(),
             description: "A credential appears as a literal in source. Anything committed is in \
                           the repository's history, in every clone, and in every build artefact, \
                           so removing the line later does not revoke it. Read secrets from the \
                           environment or a secret manager, and rotate anything that has been \
-                          committed.",
+                          committed."
+                .into(),
         }
     }
 }
@@ -529,6 +530,48 @@ fn remediation() -> Remediation {
          properties: { API_KEY: { type: 'string' } },\n  \
          },\n\
          })",
+    )
+    .manual(
+        Framework::HONO,
+        "Read it from the environment (or c.env on Workers) and fail fast if it is missing.",
+        "const apiKey = process.env.API_KEY ?? c.env?.API_KEY\n\
+         if (!apiKey) throw new Error('API_KEY is not set')",
+    )
+    .manual(
+        Framework::KOA,
+        "Read it from the environment and fail fast if it is missing.",
+        "const apiKey = process.env.API_KEY\nif (!apiKey) throw new Error('API_KEY is not set')",
+    )
+    .manual(
+        Framework::HAPI,
+        "Read it from the environment at server creation and fail fast if it is missing.",
+        "const apiKey = process.env.API_KEY\nif (!apiKey) throw new Error('API_KEY is not set')",
+    )
+    .manual(
+        Framework::SAILS,
+        "Put it in config/local.js (or the environment) rather than the source.",
+        "// config/local.js\n\
+         module.exports = {\n  \
+         custom: {\n    \
+         apiKey: process.env.API_KEY,\n  \
+         },\n\
+         }",
+    )
+    .manual(
+        Framework::ASTRO,
+        "Read it with import.meta.env on the server; never use a PUBLIC_ prefix for a secret.",
+        "const apiKey = import.meta.env.API_KEY\nif (!apiKey) throw new Error('API_KEY is not set')",
+    )
+    .manual(
+        Framework::REMIX,
+        "Read it from the environment on the server, in a loader or action.",
+        "const apiKey = process.env.API_KEY\nif (!apiKey) throw new Error('API_KEY is not set')",
+    )
+    .manual(
+        Framework::GATSBY,
+        "Read it from the environment; only a GATSBY_ prefix ships a value to the browser, so \
+         never use one for a secret.",
+        "const apiKey = process.env.API_KEY\nif (!apiKey) throw new Error('API_KEY is not set')",
     )
 }
 

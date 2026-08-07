@@ -1,4 +1,5 @@
 import { createHash, createCipheriv } from 'node:crypto'
+import axios from 'axios'
 import express from 'express'
 
 export const router = express.Router()
@@ -21,11 +22,23 @@ router.get('/login', (req, res) => {
   res.redirect(req.query.next as string)
 })
 
+router.get('/login2', (req, res) => {
+  // open-redirect: a hand-rolled Location header instead of res.redirect().
+  res.setHeader('Location', req.query.next as string)
+  res.status(302).end()
+})
+
 router.post('/import', async (req, res) => {
   // ssrf: the server fetches whatever host the caller names, including ones
   // only the server can reach.
   const upstream = await fetch(req.body.sourceUrl)
   res.json(await upstream.json())
+})
+
+router.post('/import2', async (req, res) => {
+  // ssrf: axios reaches a second caller-controlled host.
+  const upstream = await axios.get(req.body.callerUrl)
+  res.json(upstream.data)
 })
 
 // weak-crypto: ECB leaks structure — identical plaintext blocks produce

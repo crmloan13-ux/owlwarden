@@ -1,3 +1,4 @@
+import axios from 'axios'
 import {
   Body,
   Controller,
@@ -24,6 +25,14 @@ function safeRedirect(target: unknown, base: string, fallback = '/'): string {
   }
 }
 
+function assertAllowedUrl(raw: unknown): URL {
+  const url = new URL(String(raw))
+  if (url.protocol !== 'https:' || !ALLOWED_IMPORT_HOSTS.has(url.hostname)) {
+    throw new InternalServerErrorException('source not allowed')
+  }
+  return url
+}
+
 @Controller('users')
 export class UsersController {
   private readonly logger = new Logger(UsersController.name)
@@ -43,9 +52,12 @@ export class UsersController {
 
   @Post('login')
   async login(
-    @Body() body: { email?: string; password?: string },
+    @Body() body: { email?: string; password?: string; accessToken?: string },
     @Res({ passthrough: true }) res: Response,
   ) {
+    // Logging that a caller supplied a token, not the token itself.
+    this.logger.log({ hasAccessToken: Boolean(body.accessToken) })
+
     const rows = await this.pool.query(
       'SELECT id, role FROM users WHERE email = $1',
       [body.email],
@@ -65,14 +77,24 @@ export class UsersController {
     res.redirect(safeRedirect(next, 'https://app.example.com'))
   }
 
+  @Get('go2')
+  goHeader(@Query('next') next: string, @Res() res: Response) {
+    res.setHeader('Location', safeRedirect(next, 'https://app.example.com'))
+    res.status(302).end()
+  }
+
   @Post('import')
   async importRemote(@Body() body: { sourceUrl?: string }) {
-    const url = new URL(String(body.sourceUrl))
-    if (url.protocol !== 'https:' || !ALLOWED_IMPORT_HOSTS.has(url.hostname)) {
-      throw new InternalServerErrorException('source not allowed')
-    }
+    const url = assertAllowedUrl(body.sourceUrl)
     const upstream = await fetch(url, { redirect: 'error' })
     return upstream.json()
+  }
+
+  @Post('import2')
+  async importRemoteViaAxios(@Body() body: { callerUrl?: string }) {
+    const url = assertAllowedUrl(body.callerUrl)
+    const upstream = await axios.get(url.toString(), { maxRedirects: 0 })
+    return upstream.data
   }
 
   private load(): string[] {

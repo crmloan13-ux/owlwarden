@@ -1,5 +1,6 @@
 // Fixture: Fastify, whose reply object and route registration look nothing
 // like Express's. The same rules have to find the same bugs here.
+import axios from 'axios'
 import Fastify from 'fastify'
 import cookie from '@fastify/cookie'
 import mysql from 'mysql2/promise'
@@ -46,6 +47,11 @@ app.post('/session', async (request, reply) => {
   // sensitive-data-logged: Fastify's request.log is a real log sink.
   request.log.info({ password: (request.body as { password?: string }).password })
 
+  // sensitive-data-logged: an access token, logged the same way.
+  request.log.info({
+    accessToken: (request.body as { accessToken?: string }).accessToken,
+  })
+
   const sessionToken = mintSessionToken()
   reply.setCookie('sid', sessionToken, {
     httpOnly: true,
@@ -61,11 +67,25 @@ app.get('/go', async (request, reply) => {
   return reply.redirect(next)
 })
 
+app.get('/go2', async (request, reply) => {
+  // open-redirect: a hand-rolled Location header instead of reply.redirect().
+  const next = (request.query as { next?: string }).next as string
+  reply.header('Location', next)
+  return reply.code(302).send()
+})
+
 app.post('/import', async (request, reply) => {
   // ssrf
   const sourceUrl = (request.body as { sourceUrl?: string }).sourceUrl as string
   const upstream = await fetch(sourceUrl)
   return reply.send(await upstream.json())
+})
+
+app.post('/import2', async (request, reply) => {
+  // ssrf: axios reaches a second caller-controlled host.
+  const callerUrl = (request.body as { callerUrl?: string }).callerUrl as string
+  const upstream = await axios.get(callerUrl)
+  return reply.send(upstream.data)
 })
 
 await app.listen({ port: 3000 })

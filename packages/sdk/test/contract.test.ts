@@ -93,11 +93,18 @@ describe("coverage schema", () => {
   it("gives every supported framework specific remediation", () => {
     const coverage = coverageReportSchema.parse(golden("coverage.json"));
     expect(coverage.frameworks.map((framework) => framework.id).sort()).toEqual([
+      "astro",
       "express",
       "fastify",
+      "gatsby",
+      "hapi",
+      "hono",
+      "koa",
       "nest",
       "next",
       "nuxt",
+      "remix",
+      "sails",
     ]);
     for (const framework of coverage.frameworks) {
       expect(framework.rulesFallingBack, `${framework.id} falls back`).toBe(0);

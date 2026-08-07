@@ -117,6 +117,13 @@ fn run_scan(args: &ScanArgs) -> i32 {
         );
     }
 
+    if args.ci && !args.plugins.is_empty() && !args.allow_plugins {
+        return fail(
+            "--plugin under --ci requires --allow-plugins\n  \
+             omit --plugin on untrusted PRs, or pass --allow-plugins on a trusted tree",
+        );
+    }
+
     let honor_suppressions = !args.ci || args.allow_suppressions;
     // stderr even under `--ci --quiet` — stdout stays one JSON object.
     if args.ci && !args.allow_suppressions {
@@ -142,21 +149,14 @@ fn run_scan(args: &ScanArgs) -> i32 {
         correlate: None,
     };
 
-    let dynamic_engine = if let Some(target) = args.target.as_deref() {
-        match owlwarden_dynamic::prepare_live(target, &args.scope, false) {
-            Ok(live) => {
-                let engine = live.engine.clone();
-                scan_request.network = Some(live.network);
-                scan_request.extra_detectors.push(live.engine);
-                scan_request.correlate = Some(owlwarden_dynamic::correlate);
-                Some(engine)
-            }
-            Err(error) => return fail(&error.to_string()),
-        }
-    } else if !args.scope.is_empty() {
-        return fail("--scope requires --target");
-    } else {
-        None
+    match load_requested_plugins(&args.plugins) {
+        Ok(detectors) => scan_request.extra_detectors.extend(detectors),
+        Err(message) => return fail(&message),
+    }
+
+    let dynamic_engine = match prepare_dynamic_engine(args, &mut scan_request) {
+        Ok(engine) => engine,
+        Err(message) => return fail(&message),
     };
 
     let report = match owlwarden_dynamic::run_scan(
@@ -191,6 +191,43 @@ fn run_scan(args: &ScanArgs) -> i32 {
     } else {
         EXIT_CLEAN
     }
+}
+
+/// Resolves `--target`/`--scope` into a dynamic engine, wiring it into
+/// `scan_request` as `run_scan` did inline before this was extracted to stay
+/// under the line cap.
+fn prepare_dynamic_engine(
+    args: &ScanArgs,
+    scan_request: &mut owlwarden_static::ScanRequest,
+) -> Result<Option<std::sync::Arc<owlwarden_dynamic::DynamicEngine>>, String> {
+    let Some(target) = args.target.as_deref() else {
+        if !args.scope.is_empty() {
+            return Err("--scope requires --target".to_owned());
+        }
+        return Ok(None);
+    };
+    let live = owlwarden_dynamic::prepare_live(target, &args.scope, false)
+        .map_err(|error| error.to_string())?;
+    let engine = live.engine.clone();
+    scan_request.network = Some(live.network);
+    scan_request.extra_detectors.push(live.engine);
+    scan_request.correlate = Some(owlwarden_dynamic::correlate);
+    Ok(Some(engine))
+}
+
+/// Loads every plugin path from `--plugin` into first-party-shaped detectors.
+///
+/// A separate function (rather than inlining this in `run_scan`) both keeps
+/// that function under the line cap and gives the napi bridge, which needs
+/// the identical conversion, a symmetrical shape to mirror.
+fn load_requested_plugins(
+    paths: &[String],
+) -> Result<Vec<std::sync::Arc<dyn owlwarden_core::detector::Detector>>, String> {
+    if paths.is_empty() {
+        return Ok(Vec::new());
+    }
+    let paths: Vec<std::path::PathBuf> = paths.iter().map(std::path::PathBuf::from).collect();
+    owlwarden_plugin_host::load_plugins(&paths).map_err(|error| error.to_string())
 }
 
 fn load_baseline(
@@ -273,6 +310,8 @@ fn run_watch(args: &ScanArgs) -> i32 {
         hyperlinks: args.hyperlinks,
         target: None,
         scope: Vec::new(),
+        plugins: args.plugins.clone(),
+        allow_plugins: args.allow_plugins,
     };
 
     let _ = run_scan(&watch_args);
