@@ -314,6 +314,53 @@ fn remediation() -> Remediation {
         "const target = assertAllowedUrl((request.body as { url: string }).url)\n\
          const upstream = await fetch(target, { redirect: 'error' })",
     )
+    .manual(
+        Framework::HONO,
+        "Validate the URL in the handler before fetching, and disable redirect following.",
+        "const body = await c.req.json()\n\
+         const target = assertAllowedUrl(body.url)\n\
+         const upstream = await fetch(target, { redirect: 'error' })",
+    )
+    .manual(
+        Framework::KOA,
+        "Validate before fetching and refuse redirects.",
+        "const target = assertAllowedUrl(ctx.request.body.url)\n\
+         const upstream = await fetch(target, { redirect: 'error' })",
+    )
+    .manual(
+        Framework::HAPI,
+        "Validate in the handler; a schema alone checks the shape, not the destination.",
+        "const target = assertAllowedUrl((request.payload as { url: string }).url)\n\
+         const upstream = await fetch(target, { redirect: 'error' })",
+    )
+    .manual(
+        Framework::SAILS,
+        "Validate in the action, not a helper, so every caller is covered.",
+        "const target = assertAllowedUrl(inputs.url)\n\
+         const upstream = await fetch(target, { redirect: 'error' })",
+    )
+    .manual(
+        Framework::ASTRO,
+        "Validate before fetching in the API route, and refuse redirects.",
+        "const { url } = await request.json()\n\
+         const target = assertAllowedUrl(url)\n\
+         const upstream = await fetch(target, { redirect: 'error' })",
+    )
+    .manual(
+        Framework::REMIX,
+        "Validate in the action before fetching, and refuse redirects.",
+        "export async function action({ request }: ActionFunctionArgs) {\n  \
+         const body = await request.formData()\n  \
+         const target = assertAllowedUrl(body.get('url'))\n  \
+         return fetch(target, { redirect: 'error' })\n\
+         }",
+    )
+    .manual(
+        Framework::GATSBY,
+        "Validate in the Function handler before fetching, and refuse redirects.",
+        "const target = assertAllowedUrl(req.body.url)\n\
+         const upstream = await fetch(target, { redirect: 'error' })",
+    )
 }
 
 /// Every framework's fix, for `owlwarden explain`.

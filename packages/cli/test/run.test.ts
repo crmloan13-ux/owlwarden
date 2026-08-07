@@ -17,10 +17,17 @@ const SHARED_FINDING_IDS = [
   "cors-permissive",
   "hardcoded-secret",
   "insecure-cookie",
+  // Two open-redirect shapes: redirect()/sendRedirect() and a hand-rolled
+  // Location header.
+  "open-redirect",
   "open-redirect",
   "security-headers-missing",
+  // Two sensitive-data-logged shapes: password and access token.
+  "sensitive-data-logged",
   "sensitive-data-logged",
   "sql-injection",
+  // Two ssrf shapes: fetch()/$fetch() and axios.
+  "ssrf",
   "ssrf",
   "stack-trace-leak",
   "unpinned-dependency",
@@ -701,6 +708,13 @@ describe.sequential("owlwarden scan --target (live correlation)", () => {
           "should-not-fire/nest-api-clean",
           "should-not-fire/express-api-clean",
           "should-not-fire/fastify-api-clean",
+          "should-not-fire/hono-api-clean",
+          "should-not-fire/koa-api-clean",
+          "should-not-fire/hapi-api-clean",
+          "should-not-fire/sails-api-clean",
+          "should-not-fire/astro-api-clean",
+          "should-not-fire/remix-api-clean",
+          "should-not-fire/gatsby-api-clean",
         ]) {
           const { code, out } = await cli([
             "scan",
@@ -734,6 +748,13 @@ describe.sequential("owlwarden scan --target (live correlation)", () => {
           "vulnerable/nest-api",
           "vulnerable/express-api",
           "vulnerable/fastify-api",
+          "vulnerable/hono-api",
+          "vulnerable/koa-api",
+          "vulnerable/hapi-api",
+          "vulnerable/sails-api",
+          "vulnerable/astro-api",
+          "vulnerable/remix-api",
+          "vulnerable/gatsby-api",
         ]) {
           const { out } = await cli([
             "scan",

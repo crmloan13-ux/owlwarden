@@ -1,4 +1,5 @@
 import { createHash, randomBytes, randomUUID, scrypt } from 'node:crypto'
+import axios from 'axios'
 import express from 'express'
 import { safeRedirect } from './safe-redirect'
 
@@ -26,6 +27,12 @@ router.get('/login', (req, res) => {
   res.redirect(safeRedirect(req.query.next, base))
 })
 
+router.get('/login2', (req, res) => {
+  const base = `${req.protocol}://${req.get('host')}`
+  res.setHeader('Location', safeRedirect(req.query.next, base))
+  res.status(302).end()
+})
+
 router.post('/import', async (req, res) => {
   const url = new URL(String(req.body.sourceUrl))
   if (url.protocol !== 'https:' || !ALLOWED_IMPORT_HOSTS.has(url.hostname)) {
@@ -34,6 +41,16 @@ router.post('/import', async (req, res) => {
   }
   const upstream = await fetch(url, { redirect: 'error' })
   res.json(await upstream.json())
+})
+
+router.post('/import2', async (req, res) => {
+  const url = new URL(String(req.body.callerUrl))
+  if (url.protocol !== 'https:' || !ALLOWED_IMPORT_HOSTS.has(url.hostname)) {
+    res.status(400).json({ error: 'source not allowed' })
+    return
+  }
+  const upstream = await axios.get(url.toString(), { maxRedirects: 0 })
+  res.json(upstream.data)
 })
 
 // MD5 as a cache key is correct and extremely common. The rule must stay quiet

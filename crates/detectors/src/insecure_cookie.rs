@@ -38,7 +38,7 @@ use owlwarden_static::framework::FrameworkSet;
 use owlwarden_static::http::is_cookie_setter;
 use owlwarden_static::rule::{FileRule, FindingSink, RuleInfo};
 use owlwarden_static::unit::FileUnit;
-use oxc_ast::ast::CallExpression;
+use oxc_ast::ast::{CallExpression, Expression};
 use oxc_ast_visit::Visit;
 use oxc_span::Span;
 
@@ -167,6 +167,27 @@ fn flag(options: &oxc_ast::ast::ObjectExpression<'_>, name: &str) -> Flag {
     }
 }
 
+/// First matching flag among alternate spellings (`secure` / `isSecure`).
+fn first_flag(options: &oxc_ast::ast::ObjectExpression<'_>, names: &[&str]) -> Flag {
+    let mut best = Flag::Absent;
+    for name in names {
+        match flag(options, name) {
+            Flag::Set => return Flag::Set,
+            Flag::Disabled => best = Flag::Disabled,
+            Flag::Absent => {}
+        }
+    }
+    best
+}
+
+/// First present property among alternate spellings.
+fn first_property<'a>(
+    options: &'a oxc_ast::ast::ObjectExpression<'a>,
+    names: &[&str],
+) -> Option<&'a Expression<'a>> {
+    names.iter().find_map(|name| object_property(options, name))
+}
+
 /// Reads the options object off a cookie write.
 fn inspect(call: &CallExpression<'_>) -> Option<Hit> {
     // The options object is always last; everything before it differs per
@@ -186,8 +207,11 @@ fn inspect(call: &CallExpression<'_>) -> Option<Hit> {
         });
     };
 
-    let secure = flag(options, "secure");
-    let http_only = flag(options, "httpOnly");
+    // Express/Next use `httpOnly`/`secure`/`sameSite`. Hapi's cookie API uses
+    // `isHttpOnly`/`isSecure`/`isSameSite`. Accept either spelling so a pasted
+    // Hapi fix is not immediately re-flagged.
+    let secure = first_flag(options, &["secure", "isSecure"]);
+    let http_only = first_flag(options, &["httpOnly", "isHttpOnly"]);
 
     if http_only != Flag::Set {
         missing.push("httpOnly");
@@ -196,7 +220,7 @@ fn inspect(call: &CallExpression<'_>) -> Option<Hit> {
         missing.push("secure");
     }
 
-    match object_property(options, "sameSite") {
+    match first_property(options, &["sameSite", "isSameSite"]) {
         None => missing.push("sameSite"),
         // `sameSite: 'none'` needs `secure` or the browser drops the cookie
         // entirely. Worth naming even when everything else is configured,
@@ -289,7 +313,7 @@ fn build_finding(unit: &FileUnit<'_>, hit: &Hit) -> Finding {
 /// cookie on inbound links, which breaks sign-in flows, and a fix people revert
 /// is not a fix.
 fn remediation() -> Remediation {
-    Remediation::new(
+    let table = Remediation::new(
         "Set httpOnly, secure, and sameSite when writing a cookie that carries anything the user \
          would not want read or replayed.",
     )
@@ -339,7 +363,86 @@ fn remediation() -> Remediation {
          sameSite: 'lax',\n  \
          path: '/',\n\
          })",
-    )
+    );
+    newer_framework_fixes(table)
+}
+
+/// The frameworks added after the original five. Split from [`remediation`] to
+/// stay under the function-length lint — the table itself is one continuous
+/// declaration either way.
+fn newer_framework_fixes(table: Remediation) -> Remediation {
+    table
+        .manual(
+            Framework::HONO,
+            "Pass the attributes to setCookie.",
+            "import { setCookie } from 'hono/cookie'\n\n\
+         setCookie(c, 'session', token, {\n  \
+         httpOnly: true,\n  \
+         secure: process.env.NODE_ENV === 'production',\n  \
+         sameSite: 'Lax',\n  \
+         path: '/',\n\
+         })",
+        )
+        .manual(
+            Framework::KOA,
+            "Pass the attributes to ctx.cookies.set.",
+            "ctx.cookies.set('session', token, {\n  \
+         httpOnly: true,\n  \
+         secure: process.env.NODE_ENV === 'production',\n  \
+         sameSite: 'lax',\n\
+         })",
+        )
+        .manual(
+            Framework::HAPI,
+            "Pass the attributes to h.state.",
+            "h.state('session', token, {\n  \
+         isHttpOnly: true,\n  \
+         isSecure: process.env.NODE_ENV === 'production',\n  \
+         isSameSite: 'Lax',\n  \
+         path: '/',\n\
+         })",
+        )
+        .manual(
+            Framework::SAILS,
+            "Pass the attributes to res.cookie.",
+            "res.cookie('session', token, {\n  \
+         httpOnly: true,\n  \
+         secure: process.env.NODE_ENV === 'production',\n  \
+         sameSite: 'lax',\n\
+         })",
+        )
+        .manual(
+            Framework::ASTRO,
+            "Pass the attributes to cookies.set in the API route.",
+            "cookies.set('session', token, {\n  \
+         httpOnly: true,\n  \
+         secure: import.meta.env.PROD,\n  \
+         sameSite: 'lax',\n  \
+         path: '/',\n\
+         })",
+        )
+        .manual(
+            Framework::REMIX,
+            "Declare the cookie with createCookie and serialize it into the response headers.",
+            "import { createCookie } from '@remix-run/node'\n\n\
+         const sessionCookie = createCookie('session', {\n  \
+         httpOnly: true,\n  \
+         secure: process.env.NODE_ENV === 'production',\n  \
+         sameSite: 'lax',\n  \
+         path: '/',\n\
+         })\n\n\
+         headers.set('Set-Cookie', await sessionCookie.serialize(token))",
+        )
+        .manual(
+            Framework::GATSBY,
+            "Pass the attributes to res.cookie in the Function handler.",
+            "res.cookie('session', token, {\n  \
+         httpOnly: true,\n  \
+         secure: process.env.NODE_ENV === 'production',\n  \
+         sameSite: 'lax',\n  \
+         path: '/',\n\
+         })",
+        )
 }
 
 /// Every framework's fix, for `owlwarden explain`.

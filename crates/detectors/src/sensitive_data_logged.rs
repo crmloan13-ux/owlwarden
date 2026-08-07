@@ -284,6 +284,48 @@ fn remediation() -> Remediation {
             "request.log.info({ event: 'login_attempt', userId })\n\
          // never: request.log.info({ password: request.body.password })",
         )
+        .manual(
+            Framework::HONO,
+            "Log that the attempt happened, not the credential.",
+            "console.info({ event: 'login_attempt', userId })\n\
+         // never: console.info({ password: body.password })",
+        )
+        .manual(
+            Framework::KOA,
+            "Log that the attempt happened, not the credential.",
+            "console.info({ event: 'login_attempt', userId })\n\
+         // never: console.info({ password: ctx.request.body.password })",
+        )
+        .manual(
+            Framework::HAPI,
+            "Use request.log with a redacted payload.",
+            "request.log(['info'], { event: 'login_attempt', userId })\n\
+         // never: request.log(['info'], { password: request.payload.password })",
+        )
+        .manual(
+            Framework::SAILS,
+            "Use sails.log with a redacted payload.",
+            "sails.log.info({ event: 'login_attempt', userId })\n\
+         // never: sails.log.info({ password: inputs.password })",
+        )
+        .manual(
+            Framework::ASTRO,
+            "Log that the attempt happened, not the credential.",
+            "console.info({ event: 'login_attempt', userId })\n\
+         // never: console.info({ password: body.password })",
+        )
+        .manual(
+            Framework::REMIX,
+            "Log that the attempt happened, not the credential.",
+            "console.info({ event: 'login_attempt', userId })\n\
+         // never: console.info({ password: form.get('password') })",
+        )
+        .manual(
+            Framework::GATSBY,
+            "Log that the attempt happened, not the credential.",
+            "console.info({ event: 'login_attempt', userId })\n\
+         // never: console.info({ password: req.body.password })",
+        )
 }
 
 /// Every framework's fix, for `owlwarden explain`.

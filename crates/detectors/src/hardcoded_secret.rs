@@ -530,6 +530,48 @@ fn remediation() -> Remediation {
          },\n\
          })",
     )
+    .manual(
+        Framework::HONO,
+        "Read it from the environment (or c.env on Workers) and fail fast if it is missing.",
+        "const apiKey = process.env.API_KEY ?? c.env?.API_KEY\n\
+         if (!apiKey) throw new Error('API_KEY is not set')",
+    )
+    .manual(
+        Framework::KOA,
+        "Read it from the environment and fail fast if it is missing.",
+        "const apiKey = process.env.API_KEY\nif (!apiKey) throw new Error('API_KEY is not set')",
+    )
+    .manual(
+        Framework::HAPI,
+        "Read it from the environment at server creation and fail fast if it is missing.",
+        "const apiKey = process.env.API_KEY\nif (!apiKey) throw new Error('API_KEY is not set')",
+    )
+    .manual(
+        Framework::SAILS,
+        "Put it in config/local.js (or the environment) rather than the source.",
+        "// config/local.js\n\
+         module.exports = {\n  \
+         custom: {\n    \
+         apiKey: process.env.API_KEY,\n  \
+         },\n\
+         }",
+    )
+    .manual(
+        Framework::ASTRO,
+        "Read it with import.meta.env on the server; never use a PUBLIC_ prefix for a secret.",
+        "const apiKey = import.meta.env.API_KEY\nif (!apiKey) throw new Error('API_KEY is not set')",
+    )
+    .manual(
+        Framework::REMIX,
+        "Read it from the environment on the server, in a loader or action.",
+        "const apiKey = process.env.API_KEY\nif (!apiKey) throw new Error('API_KEY is not set')",
+    )
+    .manual(
+        Framework::GATSBY,
+        "Read it from the environment; only a GATSBY_ prefix ships a value to the browser, so \
+         never use one for a secret.",
+        "const apiKey = process.env.API_KEY\nif (!apiKey) throw new Error('API_KEY is not set')",
+    )
 }
 
 /// Every framework's fix, for `owlwarden explain`.

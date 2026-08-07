@@ -63,6 +63,11 @@ const UNIVERSAL_SOURCES: &[&str] = &[
     "payload",
     "ctx",
     "context",
+    // Hono's Context. Not every `c` in a codebase is a Hono context, but a
+    // false mark here only lowers confidence to Possible — it never invents a
+    // finding. Missing it would leave every Hono injection-shaped rule at
+    // Possible forever.
+    "c",
     "event",
     "args",
     "formData",
@@ -70,6 +75,8 @@ const UNIVERSAL_SOURCES: &[&str] = &[
     "cookies",
     "userInput",
     "untrusted",
+    // Astro's `Astro.request` / `Astro.url` in pages and endpoints.
+    "Astro",
 ];
 
 /// Properties that yield caller data when read off anything.
@@ -96,6 +103,8 @@ const SOURCE_HELPERS: &[&str] = &[
     "readMultipartFormData",
     "readValidatedBody",
     "getValidatedQuery",
+    // Remix / React Router form helpers that return caller-controlled data.
+    "getFormData",
 ];
 
 /// Locals tracked per file.

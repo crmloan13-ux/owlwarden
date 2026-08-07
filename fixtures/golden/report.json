@@ -14,8 +14,8 @@
     "preset": "deep"
   },
   "summary": {
-    "high": 7,
-    "medium": 7,
+    "high": 8,
+    "medium": 9,
     "low": 0,
     "info": 0
   },
@@ -94,12 +94,12 @@
       "why": "The destination of this request comes from the caller, so they choose which host the server connects to. That includes hosts they cannot reach themselves: the cloud metadata endpoint that hands out IAM credentials, internal services that skip authentication because they are 'not exposed', and anything bound to localhost.",
       "location": {
         "path": "app/api/proxy/route.ts",
-        "line": 14,
+        "line": 18,
         "col": 28
       },
       "snippet": {
         "path": "app/api/proxy/route.ts",
-        "startLine": 12,
+        "startLine": 16,
         "lines": [
           "  // ssrf",
           "  if (target) {",
@@ -108,9 +108,75 @@
           "  }"
         ],
         "highlight": {
-          "line": 14,
+          "line": 18,
           "startCol": 28,
           "endCol": 41,
+          "label": "destination chosen by the caller"
+        }
+      },
+      "context": {
+        "framework": "next",
+        "route": "/api/proxy",
+        "evidence": "the URL argument is caller-controlled"
+      },
+      "remediation": [
+        {
+          "framework": "next",
+          "summary": "Validate the URL in the route handler before fetching, and disable redirect following.",
+          "patch": "const url = assertAllowedUrl(body.url)\nconst upstream = await fetch(url, { redirect: 'error' })",
+          "safety": "manual"
+        },
+        {
+          "summary": "Check the destination against an allowlist of hosts before fetching it. Blocklists do not work here: DNS rebinding, redirects, and IPv6-mapped addresses all defeat them.",
+          "patch": "// lib/safe-fetch.ts\nconst ALLOWED_HOSTS = new Set(['api.partner.com', 'cdn.example.com'])\n\nexport function assertAllowedUrl(raw: string): URL {\n  const url = new URL(raw)\n  if (url.protocol !== 'https:') throw new Error('only https is allowed')\n  if (!ALLOWED_HOSTS.has(url.hostname)) throw new Error('host not allowed')\n  return url\n}",
+          "safety": "manual"
+        }
+      ],
+      "references": [
+        {
+          "kind": "owasp",
+          "id": "A10:2021",
+          "url": "https://owasp.org/Top10/A10_2021-Server-Side_Request_Forgery_%28SSRF%29/"
+        },
+        {
+          "kind": "cwe",
+          "id": "CWE-918",
+          "url": "https://cwe.mitre.org/data/definitions/918.html"
+        },
+        {
+          "kind": "docs",
+          "id": "RULES.md#ssrf",
+          "url": "https://github.com/suthat/owlwarden/blob/main/RULES.md#ssrf"
+        }
+      ]
+    },
+    {
+      "id": "ssrf",
+      "severity": "high",
+      "confidence": "likely",
+      "owasp": "A10:2021",
+      "cwe": 918,
+      "title": "Server fetches a URL the caller controls",
+      "why": "The destination of this request comes from the caller, so they choose which host the server connects to. That includes hosts they cannot reach themselves: the cloud metadata endpoint that hands out IAM credentials, internal services that skip authentication because they are 'not exposed', and anything bound to localhost.",
+      "location": {
+        "path": "app/api/proxy/route.ts",
+        "line": 24,
+        "col": 28
+      },
+      "snippet": {
+        "path": "app/api/proxy/route.ts",
+        "startLine": 22,
+        "lines": [
+          "  // ssrf: axios reaches a second caller-controlled host.",
+          "  if (callerUrl) {",
+          "    const upstream = await axios.get(callerUrl)",
+          "    return NextResponse.json(upstream.data)",
+          "  }"
+        ],
+        "highlight": {
+          "line": 24,
+          "startCol": 28,
+          "endCol": 48,
           "label": "destination chosen by the caller"
         }
       },
@@ -160,12 +226,12 @@
       "why": "Stack traces expose absolute file paths, dependency versions, and internal call structure — enough to fingerprint the stack and locate other weaknesses.",
       "location": {
         "path": "app/api/users/route.ts",
-        "line": 16,
+        "line": 20,
         "col": 16
       },
       "snippet": {
         "path": "app/api/users/route.ts",
-        "startLine": 14,
+        "startLine": 18,
         "lines": [
           "  } catch (err) {",
           "    return NextResponse.json(",
@@ -174,7 +240,7 @@
           "    )"
         ],
         "highlight": {
-          "line": 16,
+          "line": 20,
           "startCol": 16,
           "endCol": 25,
           "label": "leaks internal stack trace to the client"
@@ -532,12 +598,12 @@
       "why": "The whole redirect target comes from the request, so a link to this endpoint can send a visitor anywhere. The URL they click genuinely belongs to you, which is what makes the page they land on convincing — and on an OAuth callback the authorisation code goes with them.",
       "location": {
         "path": "app/api/proxy/route.ts",
-        "line": 20,
+        "line": 30,
         "col": 5
       },
       "snippet": {
         "path": "app/api/proxy/route.ts",
-        "startLine": 18,
+        "startLine": 28,
         "lines": [
           "  // open-redirect",
           "  if (next) {",
@@ -545,9 +611,75 @@
           "  }"
         ],
         "highlight": {
-          "line": 20,
+          "line": 30,
           "startCol": 5,
           "endCol": 19,
+          "label": "destination chosen by the caller"
+        }
+      },
+      "context": {
+        "framework": "next",
+        "route": "/api/proxy",
+        "evidence": "redirect target is caller-controlled"
+      },
+      "remediation": [
+        {
+          "framework": "next",
+          "summary": "Validate before calling redirect(); request.nextUrl.origin is the base.",
+          "patch": "import { redirect } from 'next/navigation'\n\nconst next = request.nextUrl.searchParams.get('next')\nredirect(safeRedirect(next, request.nextUrl.origin))",
+          "safety": "manual"
+        },
+        {
+          "summary": "Resolve the target against your own origin and refuse anything that lands elsewhere. Do not use a startsWith('/') check: '//evil.com' passes it and leaves the site.",
+          "patch": "// lib/safe-redirect.ts\nexport function safeRedirect(target: unknown, base: string, fallback = '/'): string {\n  if (typeof target !== 'string') return fallback\n  try {\n    const resolved = new URL(target, base)\n    // Same origin only. This rejects '//evil.com', 'https://evil.com',\n    // and 'javascript:' alike. A leading-slash test does not: the browser\n    // reads '//evil.com' as a URL to another host.\n    return resolved.origin === new URL(base).origin ? resolved.pathname + resolved.search : fallback\n  } catch {\n    return fallback\n  }\n}",
+          "safety": "manual"
+        }
+      ],
+      "references": [
+        {
+          "kind": "owasp",
+          "id": "A01:2021",
+          "url": "https://owasp.org/Top10/A01_2021-Broken_Access_Control/"
+        },
+        {
+          "kind": "cwe",
+          "id": "CWE-601",
+          "url": "https://cwe.mitre.org/data/definitions/601.html"
+        },
+        {
+          "kind": "docs",
+          "id": "RULES.md#open-redirect",
+          "url": "https://github.com/suthat/owlwarden/blob/main/RULES.md#open-redirect"
+        }
+      ]
+    },
+    {
+      "id": "open-redirect",
+      "severity": "medium",
+      "confidence": "likely",
+      "owasp": "A01:2021",
+      "cwe": 601,
+      "title": "Redirect target comes from the caller",
+      "why": "The whole redirect target comes from the request, so a link to this endpoint can send a visitor anywhere. The URL they click genuinely belongs to you, which is what makes the page they land on convincing — and on an OAuth callback the authorisation code goes with them.",
+      "location": {
+        "path": "app/api/proxy/route.ts",
+        "line": 36,
+        "col": 5
+      },
+      "snippet": {
+        "path": "app/api/proxy/route.ts",
+        "startLine": 34,
+        "lines": [
+          "  if (manualNext) {",
+          "    const headers = new Headers()",
+          "    headers.set('Location', manualNext)",
+          "    return new NextResponse(null, { status: 302, headers })",
+          "  }"
+        ],
+        "highlight": {
+          "line": 36,
+          "startCol": 5,
+          "endCol": 40,
           "label": "destination chosen by the caller"
         }
       },
@@ -597,21 +729,21 @@
       "why": "Logs are copied into aggregators, retained for months, and readable by anyone with access to the logging system. A credential that reaches a log has left the application's trust boundary.",
       "location": {
         "path": "app/api/users/route.ts",
-        "line": 10,
+        "line": 11,
         "col": 18
       },
       "snippet": {
         "path": "app/api/users/route.ts",
-        "startLine": 8,
+        "startLine": 9,
         "lines": [
           "export async function GET(request: Request) {",
           "  // sensitive-data-logged: the Authorization header lands in the log aggregator.",
           "  console.info({ authorization: request.headers.get('authorization') })",
-          "  try {",
-          "    const users = await listUsers()"
+          "  // sensitive-data-logged: the caller's access token, logged the same way.",
+          "  const accessToken = request.headers.get('x-access-token')"
         ],
         "highlight": {
-          "line": 10,
+          "line": 11,
           "startCol": 18,
           "endCol": 69,
           "label": "sensitive value written to a log"
@@ -621,6 +753,71 @@
         "framework": "next",
         "route": "/api/users",
         "evidence": "authorization: …"
+      },
+      "remediation": [
+        {
+          "framework": "next",
+          "summary": "Log that the attempt happened, not the credential.",
+          "patch": "console.info({ event: 'login_attempt', userId })\n// never: console.info({ password })",
+          "safety": "manual"
+        },
+        {
+          "summary": "Log a redacted shape — an id, a boolean, a length — never the secret itself.",
+          "safety": "manual"
+        }
+      ],
+      "references": [
+        {
+          "kind": "owasp",
+          "id": "A09:2021",
+          "url": "https://owasp.org/Top10/A09_2021-Security_Logging_and_Monitoring_Failures/"
+        },
+        {
+          "kind": "cwe",
+          "id": "CWE-532",
+          "url": "https://cwe.mitre.org/data/definitions/532.html"
+        },
+        {
+          "kind": "docs",
+          "id": "RULES.md#sensitive-data-logged",
+          "url": "https://github.com/suthat/owlwarden/blob/main/RULES.md#sensitive-data-logged"
+        }
+      ]
+    },
+    {
+      "id": "sensitive-data-logged",
+      "severity": "medium",
+      "confidence": "likely",
+      "owasp": "A09:2021",
+      "cwe": 532,
+      "title": "Sensitive data written to a log",
+      "why": "Logs are copied into aggregators, retained for months, and readable by anyone with access to the logging system. A credential that reaches a log has left the application's trust boundary.",
+      "location": {
+        "path": "app/api/users/route.ts",
+        "line": 14,
+        "col": 18
+      },
+      "snippet": {
+        "path": "app/api/users/route.ts",
+        "startLine": 12,
+        "lines": [
+          "  // sensitive-data-logged: the caller's access token, logged the same way.",
+          "  const accessToken = request.headers.get('x-access-token')",
+          "  console.info({ accessToken })",
+          "  try {",
+          "    const users = await listUsers()"
+        ],
+        "highlight": {
+          "line": 14,
+          "startCol": 18,
+          "endCol": 29,
+          "label": "sensitive value written to a log"
+        }
+      },
+      "context": {
+        "framework": "next",
+        "route": "/api/users",
+        "evidence": "accessToken: …"
       },
       "remediation": [
         {
@@ -726,7 +923,7 @@
       "why": "An unpinned range lets the next install resolve a different major version, including one with a known vulnerability or a breaking API change, without anyone reviewing the bump.",
       "location": {
         "path": "package.json",
-        "line": 10,
+        "line": 11,
         "col": 1
       },
       "context": {

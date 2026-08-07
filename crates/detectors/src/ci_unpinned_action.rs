@@ -215,6 +215,13 @@ fn remediation() -> Remediation {
         .manual(Framework::NEST, summary, patch)
         .manual(Framework::EXPRESS, summary, patch)
         .manual(Framework::FASTIFY, summary, patch)
+        .manual(Framework::HONO, summary, patch)
+        .manual(Framework::KOA, summary, patch)
+        .manual(Framework::HAPI, summary, patch)
+        .manual(Framework::SAILS, summary, patch)
+        .manual(Framework::ASTRO, summary, patch)
+        .manual(Framework::REMIX, summary, patch)
+        .manual(Framework::GATSBY, summary, patch)
 }
 
 /// Every framework's fix, for `owlwarden explain`.

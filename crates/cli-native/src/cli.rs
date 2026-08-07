@@ -334,7 +334,7 @@ pub fn help_text() -> String {
         .join("\n");
 
     format!(
-        "owlwarden {version} — keen-eyed security auditor
+        "owlwarden {version} — security scanner for Node apps
 
 USAGE
   owlwarden scan [PATH] [OPTIONS]
@@ -344,7 +344,10 @@ USAGE
   owlwarden explain <RULE_ID> [--json]
   owlwarden --version
 
-  watch re-scans on change. Static only — it never opens a network path.
+  Runs locally. No telemetry. Use --target only if you want a live probe
+  (scoped; deny by default). Prefer --format json for CI and agents.
+
+  watch re-scans on change. Static only — never opens a network path.
 
 SCAN OPTIONS
   --preset <NAME>      Rule bundle to run. Default: {default_preset}

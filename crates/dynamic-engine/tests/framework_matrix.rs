@@ -25,8 +25,8 @@ struct Row {
     clean: &'static str,
 }
 
-/// Same five frameworks as the static fixture matrix — kept as a table so a
-/// sixth framework without a dynamic row fails CI the same way.
+/// Same frameworks as the static fixture matrix — kept as a table so a
+/// framework without a dynamic row fails CI the same way.
 const MATRIX: &[Row] = &[
     Row {
         framework: "next",
@@ -52,6 +52,41 @@ const MATRIX: &[Row] = &[
         framework: "fastify",
         vulnerable: "vulnerable/fastify-api",
         clean: "should-not-fire/fastify-api-clean",
+    },
+    Row {
+        framework: "hono",
+        vulnerable: "vulnerable/hono-api",
+        clean: "should-not-fire/hono-api-clean",
+    },
+    Row {
+        framework: "koa",
+        vulnerable: "vulnerable/koa-api",
+        clean: "should-not-fire/koa-api-clean",
+    },
+    Row {
+        framework: "hapi",
+        vulnerable: "vulnerable/hapi-api",
+        clean: "should-not-fire/hapi-api-clean",
+    },
+    Row {
+        framework: "sails",
+        vulnerable: "vulnerable/sails-api",
+        clean: "should-not-fire/sails-api-clean",
+    },
+    Row {
+        framework: "astro",
+        vulnerable: "vulnerable/astro-api",
+        clean: "should-not-fire/astro-api-clean",
+    },
+    Row {
+        framework: "remix",
+        vulnerable: "vulnerable/remix-api",
+        clean: "should-not-fire/remix-api-clean",
+    },
+    Row {
+        framework: "gatsby",
+        vulnerable: "vulnerable/gatsby-api",
+        clean: "should-not-fire/gatsby-api-clean",
     },
 ];
 

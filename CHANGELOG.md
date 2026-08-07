@@ -10,7 +10,29 @@ are listed here under Changed.
 
 ## [Unreleased]
 
-Nothing yet.
+### Added
+
+- **Seven more Node frameworks** with first-class profiles, remediation on every
+  catalogue rule, and square fixture coverage: Hono, Koa, Hapi, Sails.js, Astro,
+  Remix, and Gatsby. Supported set is now twelve stacks (12 rules × 12
+  frameworks, locked in CI).
+- **Richer fixture corpus** — each framework exercises two real-world shapes for
+  `ssrf` (fetch + axios), `open-redirect` (redirect helper + `Location`
+  header), and `sensitive-data-logged` (password + accessToken), plus tempting
+  false-positive twins on every clean project.
+- **File-route mapping** for Astro (`src/pages/api`), Remix flat routes, and
+  Gatsby Functions (`src/api`).
+- Request-origin recognition for Hono’s `c` context and Astro’s `Astro.request`.
+
+### Changed
+
+- README and npm package text rewritten in plain language: what it does, that
+  it stays local, which frameworks it knows. MCP is not claimed as shipped.
+- Cookie detection: nested setters (`ctx.cookies.set`), Hapi `isHttpOnly` /
+  `isSecure` / `isSameSite`, and dropped false cookie matches on
+  `c.header` / `res.setHeader` / bare `serialize`.
+- Stack-trace rule recognises Koa-style `ctx.body = …` assignments.
+- `secureHeaders` counts as header middleware for Hono.
 
 ## [0.1.0]
 

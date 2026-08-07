@@ -57,6 +57,13 @@ build, so this column cannot silently drift to zero.
 | `nest` | 12 of 12 |
 | `express` | 12 of 12 |
 | `fastify` | 12 of 12 |
+| `hono` | 12 of 12 |
+| `koa` | 12 of 12 |
+| `hapi` | 12 of 12 |
+| `sails` | 12 of 12 |
+| `astro` | 12 of 12 |
+| `remix` | 12 of 12 |
+| `gatsby` | 12 of 12 |
 
 ## Catalogue
 
@@ -91,6 +98,41 @@ A workflow references a GitHub Action by a branch or version tag. Tags move; a c
   uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
   ```
 - *fastify* — Pin the action to a full commit SHA (keep the tag in a comment for humans).
+
+  ```ts
+  uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+  ```
+- *hono* — Pin the action to a full commit SHA (keep the tag in a comment for humans).
+
+  ```ts
+  uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+  ```
+- *koa* — Pin the action to a full commit SHA (keep the tag in a comment for humans).
+
+  ```ts
+  uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+  ```
+- *hapi* — Pin the action to a full commit SHA (keep the tag in a comment for humans).
+
+  ```ts
+  uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+  ```
+- *sails* — Pin the action to a full commit SHA (keep the tag in a comment for humans).
+
+  ```ts
+  uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+  ```
+- *astro* — Pin the action to a full commit SHA (keep the tag in a comment for humans).
+
+  ```ts
+  uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+  ```
+- *remix* — Pin the action to a full commit SHA (keep the tag in a comment for humans).
+
+  ```ts
+  uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+  ```
+- *gatsby* — Pin the action to a full commit SHA (keep the tag in a comment for humans).
 
   ```ts
   uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
@@ -154,6 +196,100 @@ The CORS configuration accepts requests from any origin. Combined with credentia
     credentials: true,
   })
   ```
+- *hono* — Use hono/cors with an explicit origin list.
+
+  ```ts
+  import { cors } from 'hono/cors'
+  
+  app.use('*', cors({
+    origin: ['https://app.example.com'],
+    credentials: true,
+  }))
+  ```
+- *koa* — Give @koa/cors an explicit origin list.
+
+  ```ts
+  import cors from '@koa/cors'
+  
+  app.use(cors({
+    origin: ['https://app.example.com'],
+    credentials: true,
+  }))
+  ```
+- *hapi* — Give the route's cors option an explicit origin list.
+
+  ```ts
+  server.route({
+    method: 'GET',
+    path: '/api/data',
+    options: {
+      cors: {
+        origin: ['https://app.example.com'],
+        credentials: true,
+      },
+    },
+    handler: (request, h) => h.response({ ok: true }),
+  })
+  ```
+- *sails* — Give sails.config.security.cors an explicit origin list.
+
+  ```ts
+  // config/security.js
+  module.exports.security = {
+    cors: {
+      allRoutes: true,
+      allowOrigins: ['https://app.example.com'],
+      allowCredentials: true,
+    },
+  }
+  ```
+- *astro* — Set the header explicitly in the endpoint rather than reflecting the caller's origin.
+
+  ```ts
+  // src/pages/api/data.ts
+  const ALLOWED_ORIGIN = 'https://app.example.com'
+  
+  export async function GET({ request }: APIContext) {
+    const origin = request.headers.get('origin')
+    const headers = new Headers()
+    if (origin === ALLOWED_ORIGIN) {
+      headers.set('Access-Control-Allow-Origin', ALLOWED_ORIGIN)
+      headers.set('Vary', 'Origin')
+    }
+    return new Response(JSON.stringify({ ok: true }), { headers })
+  }
+  ```
+- *remix* — Return an explicit origin from the loader/action headers, not '*'.
+
+  ```ts
+  import { json } from '@remix-run/node'
+  
+  export async function loader({ request }: LoaderFunctionArgs) {
+    const allowed = new Set(['https://app.example.com'])
+    const origin = request.headers.get('origin') ?? ''
+    const headers = new Headers()
+    if (allowed.has(origin)) {
+      headers.set('Access-Control-Allow-Origin', origin)
+      headers.set('Vary', 'Origin')
+    }
+    return json({ ok: true }, { headers })
+  }
+  ```
+- *gatsby* — Set the header explicitly in the Function handler, not '*'.
+
+  ```ts
+  // src/api/data.ts
+  const ALLOWED = new Set(['https://app.example.com'])
+  
+  export default function handler(req: GatsbyFunctionRequest, res: GatsbyFunctionResponse) {
+    const origin = req.headers.origin ?? ''
+    if (ALLOWED.has(origin)) {
+      res.setHeader('Access-Control-Allow-Origin', origin)
+      res.setHeader('Vary', 'Origin')
+    }
+    res.json({ ok: true })
+  }
+  ```
 - *any framework* — Replace the wildcard with the origins that actually need access, and only send credentials to those.
 
 `owlwarden explain cors-permissive` prints this in the terminal.
@@ -208,6 +344,52 @@ A credential appears as a literal in source. Anything committed is in the reposi
       properties: { API_KEY: { type: 'string' } },
     },
   })
+  ```
+- *hono* — Read it from the environment (or c.env on Workers) and fail fast if it is missing.
+
+  ```ts
+  const apiKey = process.env.API_KEY ?? c.env?.API_KEY
+  if (!apiKey) throw new Error('API_KEY is not set')
+  ```
+- *koa* — Read it from the environment and fail fast if it is missing.
+
+  ```ts
+  const apiKey = process.env.API_KEY
+  if (!apiKey) throw new Error('API_KEY is not set')
+  ```
+- *hapi* — Read it from the environment at server creation and fail fast if it is missing.
+
+  ```ts
+  const apiKey = process.env.API_KEY
+  if (!apiKey) throw new Error('API_KEY is not set')
+  ```
+- *sails* — Put it in config/local.js (or the environment) rather than the source.
+
+  ```ts
+  // config/local.js
+  module.exports = {
+    custom: {
+      apiKey: process.env.API_KEY,
+    },
+  }
+  ```
+- *astro* — Read it with import.meta.env on the server; never use a PUBLIC_ prefix for a secret.
+
+  ```ts
+  const apiKey = import.meta.env.API_KEY
+  if (!apiKey) throw new Error('API_KEY is not set')
+  ```
+- *remix* — Read it from the environment on the server, in a loader or action.
+
+  ```ts
+  const apiKey = process.env.API_KEY
+  if (!apiKey) throw new Error('API_KEY is not set')
+  ```
+- *gatsby* — Read it from the environment; only a GATSBY_ prefix ships a value to the browser, so never use one for a secret.
+
+  ```ts
+  const apiKey = process.env.API_KEY
+  if (!apiKey) throw new Error('API_KEY is not set')
   ```
 - *any framework* — Move the value into an environment variable or a secret manager, and rotate it — once committed it is in the history and in every clone, so removing the line does not revoke it.
 
@@ -270,6 +452,80 @@ A cookie is written without `httpOnly`, `secure`, or `sameSite`. Missing `httpOn
     path: '/',
   })
   ```
+- *hono* — Pass the attributes to setCookie.
+
+  ```ts
+  import { setCookie } from 'hono/cookie'
+  
+  setCookie(c, 'session', token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'Lax',
+    path: '/',
+  })
+  ```
+- *koa* — Pass the attributes to ctx.cookies.set.
+
+  ```ts
+  ctx.cookies.set('session', token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+  })
+  ```
+- *hapi* — Pass the attributes to h.state.
+
+  ```ts
+  h.state('session', token, {
+    isHttpOnly: true,
+    isSecure: process.env.NODE_ENV === 'production',
+    isSameSite: 'Lax',
+    path: '/',
+  })
+  ```
+- *sails* — Pass the attributes to res.cookie.
+
+  ```ts
+  res.cookie('session', token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+  })
+  ```
+- *astro* — Pass the attributes to cookies.set in the API route.
+
+  ```ts
+  cookies.set('session', token, {
+    httpOnly: true,
+    secure: import.meta.env.PROD,
+    sameSite: 'lax',
+    path: '/',
+  })
+  ```
+- *remix* — Declare the cookie with createCookie and serialize it into the response headers.
+
+  ```ts
+  import { createCookie } from '@remix-run/node'
+  
+  const sessionCookie = createCookie('session', {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/',
+  })
+  
+  headers.set('Set-Cookie', await sessionCookie.serialize(token))
+  ```
+- *gatsby* — Pass the attributes to res.cookie in the Function handler.
+
+  ```ts
+  res.cookie('session', token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/',
+  })
+  ```
 - *any framework* — Set httpOnly, secure, and sameSite when writing a cookie that carries anything the user would not want read or replayed.
 
 `owlwarden explain insecure-cookie` prints this in the terminal.
@@ -319,6 +575,56 @@ The destination of a redirect is taken from the request without being checked. A
   const base = `${request.protocol}://${request.hostname}`
   const next = (request.query as { next?: string }).next
   return reply.redirect(safeRedirect(next, base))
+  ```
+- *hono* — Validate before calling c.redirect(); new URL(c.req.url).origin is the base.
+
+  ```ts
+  const next = c.req.query('next')
+  const base = new URL(c.req.url).origin
+  return c.redirect(safeRedirect(next, base))
+  ```
+- *koa* — Validate before ctx.redirect().
+
+  ```ts
+  const base = `${ctx.protocol}://${ctx.host}`
+  ctx.redirect(safeRedirect(ctx.query.next, base))
+  ```
+- *hapi* — Validate before h.redirect().
+
+  ```ts
+  const base = `${request.server.info.protocol}://${request.info.host}`
+  return h.redirect(safeRedirect(request.query.next, base))
+  ```
+- *sails* — Validate before res.redirect().
+
+  ```ts
+  const base = `${req.protocol}://${req.get('host')}`
+  return res.redirect(safeRedirect(req.query.next, base))
+  ```
+- *astro* — Validate before calling redirect(); the request URL's origin is the base.
+
+  ```ts
+  export async function GET({ request, redirect }: APIContext) {
+    const next = new URL(request.url).searchParams.get('next')
+    return redirect(safeRedirect(next, new URL(request.url).origin))
+  }
+  ```
+- *remix* — Validate before calling redirect(); the request URL's origin is the base.
+
+  ```ts
+  import { redirect } from '@remix-run/node'
+  
+  export async function loader({ request }: LoaderFunctionArgs) {
+    const url = new URL(request.url)
+    const next = url.searchParams.get('next')
+    return redirect(safeRedirect(next, url.origin))
+  }
+  ```
+- *gatsby* — Validate before res.redirect() in the Function handler.
+
+  ```ts
+  const base = `${req.headers['x-forwarded-proto'] ?? 'https'}://${req.headers.host}`
+  res.redirect(safeRedirect(req.query.next, base))
   ```
 - *any framework* — Resolve the target against your own origin and refuse anything that lands elsewhere. Do not use a startsWith('/') check: '//evil.com' passes it and leaves the site.
 
@@ -411,6 +717,88 @@ The application does not set the baseline security response headers. Without the
   
   await app.register(helmet)
   ```
+- *hono* — Register hono/secure-headers before your routes.
+
+  ```ts
+  import { secureHeaders } from 'hono/secure-headers'
+  
+  app.use('*', secureHeaders())
+  ```
+- *koa* — Register koa-helmet before your routes; it sets all of these.
+
+  ```ts
+  import helmet from 'koa-helmet'
+  
+  app.use(helmet())
+  ```
+- *hapi* — Set the headers in an onPreResponse extension so every route gets them.
+
+  ```ts
+  server.ext('onPreResponse', (request, h) => {
+    const response = request.response
+    if (response.isBoom) return h.continue
+    response.header('Strict-Transport-Security', 'max-age=63072000; includeSubDomains')
+    response.header('Content-Security-Policy', "default-src 'self'")
+    response.header('X-Content-Type-Options', 'nosniff')
+    response.header('X-Frame-Options', 'DENY')
+    response.header('Referrer-Policy', 'strict-origin-when-cross-origin')
+    return h.continue
+  })
+  ```
+- *sails* — Register helmet as custom Express middleware in config/http.js.
+
+  ```ts
+  // config/http.js
+  const helmet = require('helmet')
+  
+  module.exports.http = {
+    middleware: {
+      order: ['helmet', 'cookieParser', 'session', 'router', 'www', 'favicon'],
+      helmet: helmet(),
+    },
+  }
+  ```
+- *astro* — Set the headers in middleware so every route gets them.
+
+  ```ts
+  // src/middleware.ts
+  import { defineMiddleware } from 'astro:middleware'
+  
+  export const onRequest = defineMiddleware(async (context, next) => {
+    const response = await next()
+    response.headers.set('Strict-Transport-Security', 'max-age=63072000; includeSubDomains')
+    response.headers.set('Content-Security-Policy', "default-src 'self'")
+    response.headers.set('X-Content-Type-Options', 'nosniff')
+    response.headers.set('X-Frame-Options', 'DENY')
+    response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin')
+    return response
+  })
+  ```
+- *remix* — Set the headers in entry.server.tsx so every response gets them.
+
+  ```ts
+  // app/entry.server.tsx
+  responseHeaders.set('Strict-Transport-Security', 'max-age=63072000; includeSubDomains')
+  responseHeaders.set('Content-Security-Policy', "default-src 'self'")
+  responseHeaders.set('X-Content-Type-Options', 'nosniff')
+  responseHeaders.set('X-Frame-Options', 'DENY')
+  responseHeaders.set('Referrer-Policy', 'strict-origin-when-cross-origin')
+  ```
+- *gatsby* — Set the headers on the dev server, and via your host's static headers config (e.g. gatsby-plugin-netlify) in production.
+
+  ```ts
+  // gatsby-node.js
+  exports.onCreateDevServer = ({ app }) => {
+    app.use((req, res, next) => {
+      res.setHeader('Strict-Transport-Security', 'max-age=63072000; includeSubDomains')
+      res.setHeader('Content-Security-Policy', "default-src 'self'")
+      res.setHeader('X-Content-Type-Options', 'nosniff')
+      res.setHeader('X-Frame-Options', 'DENY')
+      res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin')
+      next()
+    })
+  }
+  ```
 - *any framework* — Set these response headers at the edge or in the app: strict-transport-security, content-security-policy, x-content-type-options, x-frame-options, referrer-policy.
 
 `owlwarden explain security-headers-missing` prints this in the terminal.
@@ -454,6 +842,48 @@ A password, token, cookie, or similar value is passed to a log sink. Centralised
   ```ts
   request.log.info({ event: 'login_attempt', userId })
   // never: request.log.info({ password: request.body.password })
+  ```
+- *hono* — Log that the attempt happened, not the credential.
+
+  ```ts
+  console.info({ event: 'login_attempt', userId })
+  // never: console.info({ password: body.password })
+  ```
+- *koa* — Log that the attempt happened, not the credential.
+
+  ```ts
+  console.info({ event: 'login_attempt', userId })
+  // never: console.info({ password: ctx.request.body.password })
+  ```
+- *hapi* — Use request.log with a redacted payload.
+
+  ```ts
+  request.log(['info'], { event: 'login_attempt', userId })
+  // never: request.log(['info'], { password: request.payload.password })
+  ```
+- *sails* — Use sails.log with a redacted payload.
+
+  ```ts
+  sails.log.info({ event: 'login_attempt', userId })
+  // never: sails.log.info({ password: inputs.password })
+  ```
+- *astro* — Log that the attempt happened, not the credential.
+
+  ```ts
+  console.info({ event: 'login_attempt', userId })
+  // never: console.info({ password: body.password })
+  ```
+- *remix* — Log that the attempt happened, not the credential.
+
+  ```ts
+  console.info({ event: 'login_attempt', userId })
+  // never: console.info({ password: form.get('password') })
+  ```
+- *gatsby* — Log that the attempt happened, not the credential.
+
+  ```ts
+  console.info({ event: 'login_attempt', userId })
+  // never: console.info({ password: req.body.password })
   ```
 - *any framework* — Log a redacted shape — an id, a boolean, a length — never the secret itself.
 
@@ -501,6 +931,44 @@ A SQL string is assembled with a template literal or concatenation and passed to
   ```ts
   await fastify.pg.query('SELECT * FROM users WHERE id = $1', [request.params.id])
   ```
+- *hono* — Bind the value; keep the SQL text constant.
+
+  ```ts
+  await db.query('SELECT * FROM users WHERE id = $1', [c.req.param('id')])
+  ```
+- *koa* — Bind the value; keep the SQL text constant.
+
+  ```ts
+  await pool.query('SELECT * FROM users WHERE id = $1', [ctx.params.id])
+  ```
+- *hapi* — Bind the value; keep the SQL text constant.
+
+  ```ts
+  await pool.query('SELECT * FROM users WHERE id = $1', [request.params.id])
+  ```
+- *sails* — Use Waterline's query builder, or bind parameters on a raw query.
+
+  ```ts
+  await User.find({ id: inputs.id })
+  
+  // raw query: bind, do not interpolate
+  await sails.getDatastore().sendNativeQuery('SELECT * FROM users WHERE id = $1', [inputs.id])
+  ```
+- *astro* — Bind the value; keep the SQL text constant.
+
+  ```ts
+  await db.query('SELECT * FROM users WHERE id = $1', [id])
+  ```
+- *remix* — Bind the value; keep the SQL text constant.
+
+  ```ts
+  await db.query('SELECT * FROM users WHERE id = $1', [params.id])
+  ```
+- *gatsby* — Bind the value; keep the SQL text constant.
+
+  ```ts
+  await pool.query('SELECT * FROM users WHERE id = $1', [req.query.id])
+  ```
 - *any framework* — Pass the values as query parameters instead of interpolating them. Every driver supports it, and the binding is not optional formatting — it is what stops the value being parsed as SQL.
 
 `owlwarden explain sql-injection` prints this in the terminal.
@@ -544,6 +1012,53 @@ An outbound HTTP request is made to a URL that came from the caller. The server 
 
   ```ts
   const target = assertAllowedUrl((request.body as { url: string }).url)
+  const upstream = await fetch(target, { redirect: 'error' })
+  ```
+- *hono* — Validate the URL in the handler before fetching, and disable redirect following.
+
+  ```ts
+  const body = await c.req.json()
+  const target = assertAllowedUrl(body.url)
+  const upstream = await fetch(target, { redirect: 'error' })
+  ```
+- *koa* — Validate before fetching and refuse redirects.
+
+  ```ts
+  const target = assertAllowedUrl(ctx.request.body.url)
+  const upstream = await fetch(target, { redirect: 'error' })
+  ```
+- *hapi* — Validate in the handler; a schema alone checks the shape, not the destination.
+
+  ```ts
+  const target = assertAllowedUrl((request.payload as { url: string }).url)
+  const upstream = await fetch(target, { redirect: 'error' })
+  ```
+- *sails* — Validate in the action, not a helper, so every caller is covered.
+
+  ```ts
+  const target = assertAllowedUrl(inputs.url)
+  const upstream = await fetch(target, { redirect: 'error' })
+  ```
+- *astro* — Validate before fetching in the API route, and refuse redirects.
+
+  ```ts
+  const { url } = await request.json()
+  const target = assertAllowedUrl(url)
+  const upstream = await fetch(target, { redirect: 'error' })
+  ```
+- *remix* — Validate in the action before fetching, and refuse redirects.
+
+  ```ts
+  export async function action({ request }: ActionFunctionArgs) {
+    const body = await request.formData()
+    const target = assertAllowedUrl(body.get('url'))
+    return fetch(target, { redirect: 'error' })
+  }
+  ```
+- *gatsby* — Validate in the Function handler before fetching, and refuse redirects.
+
+  ```ts
+  const target = assertAllowedUrl(req.body.url)
   const upstream = await fetch(target, { redirect: 'error' })
   ```
 - *any framework* — Check the destination against an allowlist of hosts before fetching it. Blocklists do not work here: DNS rebinding, redirects, and IPv6-mapped addresses all defeat them.
@@ -608,6 +1123,54 @@ Returning an error's `.stack` to the client exposes absolute file paths, depende
   request.log.error(err)
   reply.code(500).send({ error: 'Internal Server Error' })
   ```
+- *hono* — Log server-side and send a generic body.
+
+  ```ts
+  console.error(err)
+  return c.json({ error: 'Internal Server Error' }, 500)
+  ```
+- *koa* — Log server-side and send a generic body.
+
+  ```ts
+  console.error(err)
+  ctx.status = 500
+  ctx.body = { error: 'Internal Server Error' }
+  ```
+- *hapi* — Log server-side and let Boom shape a generic error response.
+
+  ```ts
+  request.log(['error'], err)
+  throw Boom.internal('Internal Server Error')
+  ```
+- *sails* — Log server-side and send a generic body.
+
+  ```ts
+  sails.log.error(err)
+  return res.status(500).json({ error: 'Internal Server Error' })
+  ```
+- *astro* — Log server-side and return a generic response.
+
+  ```ts
+  console.error(err)
+  return new Response(JSON.stringify({ error: 'Internal Server Error' }), {
+    status: 500,
+    headers: { 'Content-Type': 'application/json' },
+  })
+  ```
+- *remix* — Log server-side and return a generic response.
+
+  ```ts
+  import { json } from '@remix-run/node'
+  
+  console.error(err)
+  return json({ error: 'Internal Server Error' }, { status: 500 })
+  ```
+- *gatsby* — Log server-side and send a generic body.
+
+  ```ts
+  console.error(err)
+  res.status(500).json({ error: 'Internal Server Error' })
+  ```
 - *any framework* — Log the error server-side and return a generic message to the client.
 
 `owlwarden explain stack-trace-leak` prints this in the terminal.
@@ -664,6 +1227,69 @@ A package.json dependency uses '*' or 'latest', so every install can pull a diff
   {
     "dependencies": {
       "fastify": "^4.28.0"
+    }
+  }
+  ```
+- *hono* — Pin the dependency in package.json and reinstall so the lockfile records it.
+
+  ```ts
+  {
+    "dependencies": {
+      "hono": "^4.5.0"
+    }
+  }
+  ```
+- *koa* — Pin the dependency in package.json and reinstall so the lockfile records it.
+
+  ```ts
+  {
+    "dependencies": {
+      "koa": "^2.15.0"
+    }
+  }
+  ```
+- *hapi* — Pin the dependency in package.json and reinstall so the lockfile records it.
+
+  ```ts
+  {
+    "dependencies": {
+      "@hapi/hapi": "^21.3.0"
+    }
+  }
+  ```
+- *sails* — Pin the dependency in package.json and reinstall so the lockfile records it.
+
+  ```ts
+  {
+    "dependencies": {
+      "sails": "^1.5.0"
+    }
+  }
+  ```
+- *astro* — Pin the dependency in package.json and reinstall so the lockfile records it.
+
+  ```ts
+  {
+    "dependencies": {
+      "astro": "^4.11.0"
+    }
+  }
+  ```
+- *remix* — Pin the dependency in package.json and reinstall so the lockfile records it.
+
+  ```ts
+  {
+    "dependencies": {
+      "@remix-run/node": "^2.10.0"
+    }
+  }
+  ```
+- *gatsby* — Pin the dependency in package.json and reinstall so the lockfile records it.
+
+  ```ts
+  {
+    "dependencies": {
+      "gatsby": "^5.13.0"
     }
   }
   ```
@@ -743,6 +1369,118 @@ A hash, cipher, or random source that cannot carry the weight it has been given:
   )
   ```
 - *fastify* — Replace the hash at the point of use. If you use @fastify/secure-session, let it generate the session key rather than deriving one yourself.
+
+  ```ts
+  import { randomBytes, randomUUID, scrypt } from 'node:crypto'
+  
+  // Tokens and session ids: unpredictable, not merely random-looking.
+  const sessionId = randomUUID()
+  const resetToken = randomBytes(32).toString('base64url')
+  
+  // Passwords: a slow hash with a per-password salt. bcrypt and argon2 are
+  // equally correct; scrypt needs no dependency.
+  const salt = randomBytes(16)
+  const hash = await new Promise<Buffer>((resolve, reject) =>
+    scrypt(password, salt, 64, (error, key) => (error ? reject(error) : resolve(key))),
+  )
+  ```
+- *hono* — Use node:crypto when running on Node; on Workers/Deno use the Web Crypto API instead.
+
+  ```ts
+  import { randomBytes, randomUUID, scrypt } from 'node:crypto'
+  
+  // Tokens and session ids: unpredictable, not merely random-looking.
+  const sessionId = randomUUID()
+  const resetToken = randomBytes(32).toString('base64url')
+  
+  // Passwords: a slow hash with a per-password salt. bcrypt and argon2 are
+  // equally correct; scrypt needs no dependency.
+  const salt = randomBytes(16)
+  const hash = await new Promise<Buffer>((resolve, reject) =>
+    scrypt(password, salt, 64, (error, key) => (error ? reject(error) : resolve(key))),
+  )
+  ```
+- *koa* — Replace the primitive at the point of use; there is no middleware for this.
+
+  ```ts
+  import { randomBytes, randomUUID, scrypt } from 'node:crypto'
+  
+  // Tokens and session ids: unpredictable, not merely random-looking.
+  const sessionId = randomUUID()
+  const resetToken = randomBytes(32).toString('base64url')
+  
+  // Passwords: a slow hash with a per-password salt. bcrypt and argon2 are
+  // equally correct; scrypt needs no dependency.
+  const salt = randomBytes(16)
+  const hash = await new Promise<Buffer>((resolve, reject) =>
+    scrypt(password, salt, 64, (error, key) => (error ? reject(error) : resolve(key))),
+  )
+  ```
+- *hapi* — Replace the primitive at the point of use; there is no plugin for this.
+
+  ```ts
+  import { randomBytes, randomUUID, scrypt } from 'node:crypto'
+  
+  // Tokens and session ids: unpredictable, not merely random-looking.
+  const sessionId = randomUUID()
+  const resetToken = randomBytes(32).toString('base64url')
+  
+  // Passwords: a slow hash with a per-password salt. bcrypt and argon2 are
+  // equally correct; scrypt needs no dependency.
+  const salt = randomBytes(16)
+  const hash = await new Promise<Buffer>((resolve, reject) =>
+    scrypt(password, salt, 64, (error, key) => (error ? reject(error) : resolve(key))),
+  )
+  ```
+- *sails* — Replace the primitive at the point of use in the model or service.
+
+  ```ts
+  import { randomBytes, randomUUID, scrypt } from 'node:crypto'
+  
+  // Tokens and session ids: unpredictable, not merely random-looking.
+  const sessionId = randomUUID()
+  const resetToken = randomBytes(32).toString('base64url')
+  
+  // Passwords: a slow hash with a per-password salt. bcrypt and argon2 are
+  // equally correct; scrypt needs no dependency.
+  const salt = randomBytes(16)
+  const hash = await new Promise<Buffer>((resolve, reject) =>
+    scrypt(password, salt, 64, (error, key) => (error ? reject(error) : resolve(key))),
+  )
+  ```
+- *astro* — Use node:crypto in server endpoints; on edge/Workers adapters use the Web Crypto API instead.
+
+  ```ts
+  import { randomBytes, randomUUID, scrypt } from 'node:crypto'
+  
+  // Tokens and session ids: unpredictable, not merely random-looking.
+  const sessionId = randomUUID()
+  const resetToken = randomBytes(32).toString('base64url')
+  
+  // Passwords: a slow hash with a per-password salt. bcrypt and argon2 are
+  // equally correct; scrypt needs no dependency.
+  const salt = randomBytes(16)
+  const hash = await new Promise<Buffer>((resolve, reject) =>
+    scrypt(password, salt, 64, (error, key) => (error ? reject(error) : resolve(key))),
+  )
+  ```
+- *remix* — Use node:crypto in loaders/actions on the Node runtime; on Workers/Deno use the Web Crypto API instead.
+
+  ```ts
+  import { randomBytes, randomUUID, scrypt } from 'node:crypto'
+  
+  // Tokens and session ids: unpredictable, not merely random-looking.
+  const sessionId = randomUUID()
+  const resetToken = randomBytes(32).toString('base64url')
+  
+  // Passwords: a slow hash with a per-password salt. bcrypt and argon2 are
+  // equally correct; scrypt needs no dependency.
+  const salt = randomBytes(16)
+  const hash = await new Promise<Buffer>((resolve, reject) =>
+    scrypt(password, salt, 64, (error, key) => (error ? reject(error) : resolve(key))),
+  )
+  ```
+- *gatsby* — Replace the primitive at the point of use in the Function handler.
 
   ```ts
   import { randomBytes, randomUUID, scrypt } from 'node:crypto'

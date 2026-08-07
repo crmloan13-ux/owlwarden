@@ -24,7 +24,20 @@ use super::{FrameworkProfile, HandlerStyle, HttpVocabulary, routing};
 /// Every profile owlwarden ships with.
 #[must_use]
 pub fn builtin() -> Vec<FrameworkProfile> {
-    vec![nest(), next(), nuxt(), fastify(), express()]
+    vec![
+        nest(),
+        sails(),
+        next(),
+        nuxt(),
+        astro(),
+        remix(),
+        gatsby(),
+        fastify(),
+        hono(),
+        hapi(),
+        express(),
+        koa(),
+    ]
 }
 
 /// Names shared by most Node HTTP code, regardless of framework.
@@ -251,6 +264,218 @@ fn fastify() -> FrameworkProfile {
     }
 }
 
+/// Hono. Context is `c`; responses are `c.json` / `c.text` / `c.html`.
+fn hono() -> FrameworkProfile {
+    FrameworkProfile {
+        id: Framework::HONO,
+        packages: strings(&["hono"]),
+        specificity: 15,
+        config_files: Vec::new(),
+        bootstrap_files: strings(&[
+            "src/index.ts",
+            "src/index.js",
+            "src/app.ts",
+            "src/app.js",
+            "index.ts",
+            "app.ts",
+        ]),
+        http: HttpVocabulary {
+            response_objects: strings(&["c", "context"]),
+            body_methods: strings(&["json", "text", "html", "body", "redirect"]),
+            response_helpers: Vec::new(),
+            response_constructors: strings(&["Response"]),
+            // Only the cookie helper. `c.header` sets any response header and
+            // must not be treated as a cookie write — that would flag every
+            // `c.header('X-Request-Id', …)` as insecure-cookie.
+            cookie_setters: strings(&["setCookie"]),
+            router_objects: strings(&["app", "hono", "api", "router"]),
+            cors_enablers: strings(&["cors"]),
+        },
+        handlers: vec![HandlerStyle::RouterCall],
+        route_for_path: None,
+    }
+}
+
+/// Koa. Middleware receives `ctx`; the body is often assigned (`ctx.body = …`).
+fn koa() -> FrameworkProfile {
+    let baseline = node_baseline();
+    FrameworkProfile {
+        id: Framework::KOA,
+        packages: strings(&["koa"]),
+        specificity: 10,
+        config_files: Vec::new(),
+        bootstrap_files: strings(&[
+            "src/app.ts",
+            "src/app.js",
+            "src/server.ts",
+            "src/server.js",
+            "src/index.ts",
+            "app.ts",
+            "server.ts",
+            "index.js",
+        ]),
+        http: HttpVocabulary {
+            response_objects: strings(&["ctx", "context", "res", "response"]),
+            // `body` is listed so assignment sinks (`ctx.body = …`) and the
+            // rarer `ctx.body(...)` helper spelling both resolve.
+            body_methods: strings(&["json", "send", "end", "write", "body"]),
+            cookie_setters: strings(&["cookies.set", "ctx.cookies.set"]),
+            router_objects: strings(&["app", "router"]),
+            cors_enablers: strings(&["cors"]),
+            ..baseline
+        },
+        handlers: vec![HandlerStyle::RouterCall],
+        route_for_path: None,
+    }
+}
+
+/// Hapi. Toolkit is `h`; handlers receive `request`.
+fn hapi() -> FrameworkProfile {
+    FrameworkProfile {
+        id: Framework::HAPI,
+        packages: strings(&["@hapi/hapi", "hapi"]),
+        specificity: 15,
+        config_files: Vec::new(),
+        bootstrap_files: strings(&[
+            "src/server.ts",
+            "src/server.js",
+            "src/index.ts",
+            "server.ts",
+            "server.js",
+            "index.js",
+        ]),
+        http: HttpVocabulary {
+            // `h.response(body)` builds the payload; `.code()` / `.header()`
+            // chain after it and must not count as body writes.
+            response_objects: strings(&["h", "reply", "response", "res"]),
+            body_methods: strings(&["response"]),
+            response_helpers: Vec::new(),
+            response_constructors: strings(&["Response"]),
+            cookie_setters: strings(&["h.state", "state"]),
+            router_objects: strings(&["server", "app"]),
+            cors_enablers: strings(&["cors"]),
+        },
+        handlers: vec![HandlerStyle::RouterCall],
+        route_for_path: None,
+    }
+}
+
+/// Sails.js sits on Express. Specificity beats Express so remediation names Sails.
+fn sails() -> FrameworkProfile {
+    let baseline = node_baseline();
+    FrameworkProfile {
+        id: Framework::SAILS,
+        packages: strings(&["sails"]),
+        specificity: 35,
+        config_files: strings(&[
+            "config/http.js",
+            "config/http.ts",
+            "config/security.js",
+            "config/security.ts",
+            "config/routes.js",
+            "config/routes.ts",
+        ]),
+        bootstrap_files: strings(&["config/http.js", "config/http.ts", "app.js", "app.ts"]),
+        http: HttpVocabulary {
+            body_methods: strings(&[
+                "json", "send", "end", "write", "jsonp", "sendFile", "view", "ok",
+            ]),
+            cookie_setters: strings(&["res.cookie", "response.cookie"]),
+            cors_enablers: strings(&["cors"]),
+            ..baseline
+        },
+        handlers: vec![HandlerStyle::RouterCall],
+        route_for_path: None,
+    }
+}
+
+/// Astro — file-based pages and `src/pages/api` endpoints.
+fn astro() -> FrameworkProfile {
+    let baseline = node_baseline();
+    FrameworkProfile {
+        id: Framework::ASTRO,
+        packages: strings(&["astro"]),
+        specificity: 30,
+        config_files: strings(&[
+            "astro.config.mjs",
+            "astro.config.js",
+            "astro.config.ts",
+            "astro.config.cjs",
+        ]),
+        bootstrap_files: strings(&["astro.config.mjs", "astro.config.js", "astro.config.ts"]),
+        http: HttpVocabulary {
+            response_objects: strings(&["Response", "Astro", "res", "response", "context"]),
+            response_constructors: strings(&["Response"]),
+            cookie_setters: strings(&["cookies.set", "Astro.cookies.set"]),
+            router_objects: Vec::new(),
+            cors_enablers: strings(&["cors"]),
+            ..baseline
+        },
+        handlers: vec![HandlerStyle::ExportedVerb],
+        route_for_path: Some(routing::astro),
+    }
+}
+
+/// Remix — loaders/actions on file routes, Web Fetch Response API.
+fn remix() -> FrameworkProfile {
+    FrameworkProfile {
+        id: Framework::REMIX,
+        packages: strings(&[
+            "@remix-run/node",
+            "@remix-run/react",
+            "remix",
+            "@remix-run/serve",
+        ]),
+        specificity: 30,
+        config_files: strings(&[
+            "remix.config.js",
+            "remix.config.mjs",
+            "vite.config.ts",
+            "vite.config.js",
+        ]),
+        bootstrap_files: strings(&["remix.config.js", "app/root.tsx", "app/entry.server.tsx"]),
+        http: HttpVocabulary {
+            response_objects: strings(&["Response", "res", "response"]),
+            body_methods: strings(&["json", "redirect", "defer"]),
+            response_helpers: strings(&["json", "redirect", "defer"]),
+            response_constructors: strings(&["Response"]),
+            // Options live on `createCookie(...)`, not on `serialize(token)`.
+            // Matching bare `serialize` would flag every schema.serialize call
+            // in the tree as an insecure cookie.
+            cookie_setters: strings(&["createCookie"]),
+            router_objects: Vec::new(),
+            cors_enablers: strings(&["cors"]),
+        },
+        handlers: vec![HandlerStyle::ExportedVerb],
+        route_for_path: Some(routing::remix),
+    }
+}
+
+/// Gatsby — Functions under `src/api` use an Express-shaped `(req, res)`.
+fn gatsby() -> FrameworkProfile {
+    let baseline = node_baseline();
+    FrameworkProfile {
+        id: Framework::GATSBY,
+        packages: strings(&["gatsby"]),
+        specificity: 25,
+        config_files: strings(&["gatsby-config.js", "gatsby-config.ts", "gatsby-node.js"]),
+        bootstrap_files: strings(&["gatsby-config.js", "gatsby-config.ts", "gatsby-node.js"]),
+        http: HttpVocabulary {
+            // `status()` only sets the code; counting it as a body write would
+            // double-report every `res.status(500).json(...)` chain.
+            body_methods: strings(&["json", "send", "end", "write"]),
+            // `res.setHeader` is every header, not a cookie write. Cookie
+            // helpers on Gatsby Functions are Express-shaped `res.cookie`.
+            cookie_setters: strings(&["res.cookie", "response.cookie"]),
+            router_objects: Vec::new(),
+            cors_enablers: strings(&["cors"]),
+            ..baseline
+        },
+        handlers: vec![HandlerStyle::ExportedVerb, HandlerStyle::RouterCall],
+        route_for_path: Some(routing::gatsby),
+    }
+}
+
 fn strings(values: &[&str]) -> Vec<String> {
     values.iter().map(|value| (*value).to_owned()).collect()
 }
@@ -325,14 +550,21 @@ mod tests {
 
         assert!(by_id(&Framework::NEXT).route_for_path.is_some());
         assert!(by_id(&Framework::NUXT).route_for_path.is_some());
+        assert!(by_id(&Framework::ASTRO).route_for_path.is_some());
+        assert!(by_id(&Framework::REMIX).route_for_path.is_some());
+        assert!(by_id(&Framework::GATSBY).route_for_path.is_some());
         // These register routes with a call, so a path tells us nothing.
         assert!(by_id(&Framework::EXPRESS).route_for_path.is_none());
         assert!(by_id(&Framework::FASTIFY).route_for_path.is_none());
         assert!(by_id(&Framework::NEST).route_for_path.is_none());
+        assert!(by_id(&Framework::HONO).route_for_path.is_none());
+        assert!(by_id(&Framework::KOA).route_for_path.is_none());
+        assert!(by_id(&Framework::HAPI).route_for_path.is_none());
+        assert!(by_id(&Framework::SAILS).route_for_path.is_none());
     }
 
     #[test]
-    fn nest_ranks_above_the_platforms_it_runs_on() {
+    fn nest_and_sails_rank_above_the_platforms_they_run_on() {
         let rank = |id: &Framework| {
             builtin()
                 .into_iter()
@@ -342,5 +574,8 @@ mod tests {
         };
         assert!(rank(&Framework::NEST) > rank(&Framework::EXPRESS));
         assert!(rank(&Framework::NEST) > rank(&Framework::FASTIFY));
+        assert!(rank(&Framework::SAILS) > rank(&Framework::EXPRESS));
+        assert!(rank(&Framework::HONO) > rank(&Framework::EXPRESS));
+        assert!(rank(&Framework::ASTRO) > rank(&Framework::GATSBY));
     }
 }

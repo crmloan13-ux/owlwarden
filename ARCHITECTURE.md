@@ -25,7 +25,8 @@ as a promise about dates — see [ROADMAP.md](ROADMAP.md) for that.
 - Not an exploitation toolkit. No payload damages, persists, or exfiltrates.
 - Not a GUI product and not an HTTP proxy.
 - Not every language at once. TypeScript web frameworks first — Next.js, Nuxt,
-  NestJS, Express, and Fastify — and generalise from there.
+  NestJS, Express, Fastify, Hono, Koa, Hapi, Sails.js, Astro, Remix, and
+  Gatsby — and generalise from there.
 
 ## 2. The dual-engine model
 

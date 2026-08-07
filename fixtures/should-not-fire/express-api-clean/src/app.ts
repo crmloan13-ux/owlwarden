@@ -14,6 +14,9 @@ app.use(helmet())
 app.use(cors({ origin: ['https://app.example.com'], credentials: true }))
 
 app.post('/login', async (req, res) => {
+  // Logging that a caller supplied a token, not the token itself.
+  console.info({ hasAccessToken: Boolean(req.body.accessToken) })
+
   // Bound, so the value is never parsed as SQL.
   const rows = await pool.query('SELECT id, role FROM users WHERE email = $1', [
     req.body.email,

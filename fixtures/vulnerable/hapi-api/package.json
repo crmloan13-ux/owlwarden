@@ -1,0 +1,11 @@
+{
+  "name": "fixture-hapi-api",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@hapi/hapi": "^21.0.0",
+    "axios": "^1.7.0",
+    "pg": "^8.12.0",
+    "left-pad": "*"
+  }
+}

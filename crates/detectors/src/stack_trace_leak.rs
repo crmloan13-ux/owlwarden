@@ -209,6 +209,30 @@ impl<'a> Visit<'a> for LeakVisitor<'_> {
         }
     }
 
+    fn visit_assignment_expression(&mut self, assignment: &oxc_ast::ast::AssignmentExpression<'a>) {
+        // Koa (and friends) write the body with `ctx.body = …` rather than a
+        // method call. Treat that assignment as a response sink when the left
+        // side is `<responseObject>.body`.
+        let is_body_assign = match &assignment.left {
+            oxc_ast::ast::AssignmentTarget::StaticMemberExpression(member)
+                if member.property.name.as_str() == "body" =>
+            {
+                root_identifier(&member.object).is_some_and(|root| {
+                    self.frameworks
+                        .any(|profile| profile.http.is_response_object(root))
+                })
+            }
+            _ => false,
+        };
+        if is_body_assign {
+            self.sink_depth = self.sink_depth.saturating_add(1);
+        }
+        oxc_ast_visit::walk::walk_assignment_expression(self, assignment);
+        if is_body_assign {
+            self.sink_depth = self.sink_depth.saturating_sub(1);
+        }
+    }
+
     fn visit_static_member_expression(&mut self, member: &StaticMemberExpression<'a>) {
         if self.sink_depth > 0
             && self.leaks.len() < MAX_LEAKS_PER_FILE
@@ -332,6 +356,47 @@ fn remediation() -> Remediation {
             "Log through the request logger and send a generic body.",
             "request.log.error(err)\n\
              reply.code(500).send({ error: 'Internal Server Error' })",
+        )
+        .manual(
+            Framework::HONO,
+            "Log server-side and send a generic body.",
+            "console.error(err)\nreturn c.json({ error: 'Internal Server Error' }, 500)",
+        )
+        .manual(
+            Framework::KOA,
+            "Log server-side and send a generic body.",
+            "console.error(err)\nctx.status = 500\nctx.body = { error: 'Internal Server Error' }",
+        )
+        .manual(
+            Framework::HAPI,
+            "Log server-side and let Boom shape a generic error response.",
+            "request.log(['error'], err)\nthrow Boom.internal('Internal Server Error')",
+        )
+        .manual(
+            Framework::SAILS,
+            "Log server-side and send a generic body.",
+            "sails.log.error(err)\nreturn res.status(500).json({ error: 'Internal Server Error' })",
+        )
+        .manual(
+            Framework::ASTRO,
+            "Log server-side and return a generic response.",
+            "console.error(err)\n\
+             return new Response(JSON.stringify({ error: 'Internal Server Error' }), {\n  \
+             status: 500,\n  \
+             headers: { 'Content-Type': 'application/json' },\n\
+             })",
+        )
+        .manual(
+            Framework::REMIX,
+            "Log server-side and return a generic response.",
+            "import { json } from '@remix-run/node'\n\n\
+             console.error(err)\n\
+             return json({ error: 'Internal Server Error' }, { status: 500 })",
+        )
+        .manual(
+            Framework::GATSBY,
+            "Log server-side and send a generic body.",
+            "console.error(err)\nres.status(500).json({ error: 'Internal Server Error' })",
         )
 }
 

@@ -64,8 +64,11 @@ pub fn is_response_constructor(frameworks: &FrameworkSet, callee: &Expression<'_
 /// Whether a call sets a cookie, and on which object.
 ///
 /// Matches both the `object.method` spelling any profile declares
-/// (`res.cookie`, `reply.setCookie`) and the bare helper form
-/// (`setCookie(event, ...)`) that h3 and Nuxt use.
+/// (`res.cookie`, `reply.setCookie`, `ctx.cookies.set`) and the bare helper
+/// form (`setCookie(event, ...)`) that h3 and Nuxt use.
+///
+/// Nested members matter: Koa's idiomatic `ctx.cookies.set(...)` is three
+/// parts, and matching only `root.method` would see `ctx.set` and miss it.
 #[must_use]
 pub fn is_cookie_setter(frameworks: &FrameworkSet, callee: &Expression<'_>) -> bool {
     if let Expression::Identifier(identifier) = callee {
@@ -79,20 +82,71 @@ pub fn is_cookie_setter(frameworks: &FrameworkSet, callee: &Expression<'_>) -> b
         });
     }
 
+    // Prefer the full static chain (`ctx.cookies.set`). When the chain has a
+    // call in the middle (`cookies().set`), fall back to `root.method` — the
+    // Next.js spelling — because there is no single identifier path.
+    if let Some(path) = member_path(callee)
+        && cookie_path_matches(frameworks, &path)
+    {
+        return true;
+    }
+
     let Some(method) = static_property(callee) else {
         return false;
     };
     let Some(root) = root_identifier(callee) else {
         return false;
     };
-    let qualified = format!("{root}.{method}");
+    cookie_path_matches(frameworks, &format!("{root}.{method}"))
+        || frameworks.any(|profile| {
+            profile
+                .http
+                .cookie_setters
+                .iter()
+                .any(|setter| setter == method)
+        })
+}
+
+fn cookie_path_matches(frameworks: &FrameworkSet, path: &str) -> bool {
     frameworks.any(|profile| {
-        profile
-            .http
-            .cookie_setters
-            .iter()
-            .any(|setter| setter == &qualified || setter == method)
+        profile.http.cookie_setters.iter().any(|setter| {
+            setter == path
+                || path.ends_with(&format!(".{setter}"))
+                || path
+                    .rsplit_once('.')
+                    .is_some_and(|(_, method)| method == setter)
+        })
     })
+}
+
+/// A dotted member path such as `ctx.cookies.set`, bounded so a hostile
+/// chain cannot force unbounded work. Stops at a call (`cookies().set`) —
+/// callers fall back to [`root_identifier`] for that spelling.
+fn member_path(expression: &Expression<'_>) -> Option<String> {
+    let mut parts: Vec<&str> = Vec::new();
+    let mut current = expression;
+    for _ in 0..8 {
+        match current {
+            Expression::StaticMemberExpression(member) => {
+                parts.push(member.property.name.as_str());
+                current = &member.object;
+            }
+            Expression::ChainExpression(chain) => match &chain.expression {
+                oxc_ast::ast::ChainElement::StaticMemberExpression(member) => {
+                    parts.push(member.property.name.as_str());
+                    current = &member.object;
+                }
+                _ => return None,
+            },
+            Expression::Identifier(identifier) => {
+                parts.push(identifier.name.as_str());
+                parts.reverse();
+                return Some(parts.join("."));
+            }
+            _ => return None,
+        }
+    }
+    None
 }
 
 /// Whether a call enables CORS (`app.use(cors(...))`, `app.enableCors(...)`).
@@ -263,6 +317,30 @@ mod tests {
         assert_eq!(probe(&Framework::EXPRESS, "res.cookie('s', v)").1, 1);
         assert_eq!(probe(&Framework::FASTIFY, "reply.setCookie('s', v)").1, 1);
         assert_eq!(probe(&Framework::NUXT, "setCookie(event, 's', v)").1, 1);
+        assert_eq!(
+            probe(&Framework::KOA, "ctx.cookies.set('s', v)").1,
+            1,
+            "Koa's three-part chain must match"
+        );
+        assert_eq!(
+            probe(&Framework::NEXT, "cookies().set('s', v)").1,
+            1,
+            "Next's cookies().set must still match through the call"
+        );
+        assert_eq!(
+            probe(&Framework::HONO, "c.header('X-Request-Id', '1')").1,
+            0,
+            "ordinary headers are not cookie writes"
+        );
+        assert_eq!(
+            probe(
+                &Framework::GATSBY,
+                "res.setHeader('Content-Type', 'text/plain')"
+            )
+            .1,
+            0,
+            "setHeader is not a cookie write"
+        );
     }
 
     #[test]

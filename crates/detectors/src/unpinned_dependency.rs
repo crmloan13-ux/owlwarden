@@ -184,6 +184,41 @@ fn remediation() -> Remediation {
         "Pin the dependency in package.json and reinstall so the lockfile records it.",
         "{\n  \"dependencies\": {\n    \"fastify\": \"^4.28.0\"\n  }\n}",
     )
+    .manual(
+        Framework::HONO,
+        "Pin the dependency in package.json and reinstall so the lockfile records it.",
+        "{\n  \"dependencies\": {\n    \"hono\": \"^4.5.0\"\n  }\n}",
+    )
+    .manual(
+        Framework::KOA,
+        "Pin the dependency in package.json and reinstall so the lockfile records it.",
+        "{\n  \"dependencies\": {\n    \"koa\": \"^2.15.0\"\n  }\n}",
+    )
+    .manual(
+        Framework::HAPI,
+        "Pin the dependency in package.json and reinstall so the lockfile records it.",
+        "{\n  \"dependencies\": {\n    \"@hapi/hapi\": \"^21.3.0\"\n  }\n}",
+    )
+    .manual(
+        Framework::SAILS,
+        "Pin the dependency in package.json and reinstall so the lockfile records it.",
+        "{\n  \"dependencies\": {\n    \"sails\": \"^1.5.0\"\n  }\n}",
+    )
+    .manual(
+        Framework::ASTRO,
+        "Pin the dependency in package.json and reinstall so the lockfile records it.",
+        "{\n  \"dependencies\": {\n    \"astro\": \"^4.11.0\"\n  }\n}",
+    )
+    .manual(
+        Framework::REMIX,
+        "Pin the dependency in package.json and reinstall so the lockfile records it.",
+        "{\n  \"dependencies\": {\n    \"@remix-run/node\": \"^2.10.0\"\n  }\n}",
+    )
+    .manual(
+        Framework::GATSBY,
+        "Pin the dependency in package.json and reinstall so the lockfile records it.",
+        "{\n  \"dependencies\": {\n    \"gatsby\": \"^5.13.0\"\n  }\n}",
+    )
 }
 
 /// Every framework's fix, for `owlwarden explain`.

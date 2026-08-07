@@ -421,6 +421,43 @@ fn remediation() -> Remediation {
         "Bind the value; keep the SQL text constant.",
         "await fastify.pg.query('SELECT * FROM users WHERE id = $1', [request.params.id])",
     )
+    .manual(
+        Framework::HONO,
+        "Bind the value; keep the SQL text constant.",
+        "await db.query('SELECT * FROM users WHERE id = $1', [c.req.param('id')])",
+    )
+    .manual(
+        Framework::KOA,
+        "Bind the value; keep the SQL text constant.",
+        "await pool.query('SELECT * FROM users WHERE id = $1', [ctx.params.id])",
+    )
+    .manual(
+        Framework::HAPI,
+        "Bind the value; keep the SQL text constant.",
+        "await pool.query('SELECT * FROM users WHERE id = $1', [request.params.id])",
+    )
+    .manual(
+        Framework::SAILS,
+        "Use Waterline's query builder, or bind parameters on a raw query.",
+        "await User.find({ id: inputs.id })\n\n\
+         // raw query: bind, do not interpolate\n\
+         await sails.getDatastore().sendNativeQuery('SELECT * FROM users WHERE id = $1', [inputs.id])",
+    )
+    .manual(
+        Framework::ASTRO,
+        "Bind the value; keep the SQL text constant.",
+        "await db.query('SELECT * FROM users WHERE id = $1', [id])",
+    )
+    .manual(
+        Framework::REMIX,
+        "Bind the value; keep the SQL text constant.",
+        "await db.query('SELECT * FROM users WHERE id = $1', [params.id])",
+    )
+    .manual(
+        Framework::GATSBY,
+        "Bind the value; keep the SQL text constant.",
+        "await pool.query('SELECT * FROM users WHERE id = $1', [req.query.id])",
+    )
 }
 
 /// Every framework's fix, for `owlwarden explain`.

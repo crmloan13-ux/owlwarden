@@ -73,7 +73,13 @@ pub const REQUIRED_HEADERS: &[(&str, &str)] = &[
 ///
 /// Auditing an individual helmet option is a separate, more precise rule than
 /// this one; this rule only answers "is anything setting these at all".
-const HEADER_MIDDLEWARE: &[&str] = &["helmet", "fastifyHelmet", "nuxtSecurity"];
+const HEADER_MIDDLEWARE: &[&str] = &[
+    "helmet",
+    "fastifyHelmet",
+    "nuxtSecurity",
+    "secureHeaders",
+    "koaHelmet",
+];
 
 /// The rule.
 #[derive(Debug, Default, Clone, Copy)]
@@ -265,7 +271,8 @@ impl<'a> Visit<'a> for ConfigVisitor {
             // `app.register(import('@fastify/helmet'))` names the middleware in
             // a string rather than as an identifier.
             self.note_middleware(literal.value.as_str());
-            if literal.value.as_str().contains("helmet") {
+            let literal = literal.value.as_str();
+            if literal.contains("helmet") || literal.contains("secure-headers") {
                 self.uses_middleware = true;
             }
         }
@@ -469,6 +476,49 @@ fn remediation(missing: &[&str]) -> Remediation {
         "Register @fastify/helmet before your routes.",
         "import helmet from '@fastify/helmet'\n\nawait app.register(helmet)",
     )
+    .manual(
+        Framework::HONO,
+        "Register hono/secure-headers before your routes.",
+        "import { secureHeaders } from 'hono/secure-headers'\n\napp.use('*', secureHeaders())",
+    )
+    .manual(
+        Framework::KOA,
+        "Register koa-helmet before your routes; it sets all of these.",
+        "import helmet from 'koa-helmet'\n\napp.use(helmet())",
+    )
+    .manual(
+        Framework::HAPI,
+        "Set the headers in an onPreResponse extension so every route gets them.",
+        HAPI_HEADERS_PATCH,
+    )
+    .manual(
+        Framework::SAILS,
+        "Register helmet as custom Express middleware in config/http.js.",
+        "// config/http.js\n\
+         const helmet = require('helmet')\n\n\
+         module.exports.http = {\n  \
+         middleware: {\n    \
+         order: ['helmet', 'cookieParser', 'session', 'router', 'www', 'favicon'],\n    \
+         helmet: helmet(),\n  \
+         },\n\
+         }",
+    )
+    .manual(
+        Framework::ASTRO,
+        "Set the headers in middleware so every route gets them.",
+        ASTRO_HEADERS_PATCH,
+    )
+    .manual(
+        Framework::REMIX,
+        "Set the headers in entry.server.tsx so every response gets them.",
+        REMIX_HEADERS_PATCH,
+    )
+    .manual(
+        Framework::GATSBY,
+        "Set the headers on the dev server, and via your host's static headers config (e.g. \
+         gatsby-plugin-netlify) in production.",
+        GATSBY_HEADERS_PATCH,
+    )
 }
 
 /// The copy-paste block for Next.js. Kept as a constant so the shipped
@@ -506,6 +556,56 @@ export default defineNuxtConfig({
     },
   },
 })"#;
+
+/// The copy-paste block for Hapi. Hapi has no first-party helmet plugin, so the
+/// fix sets the headers directly in an extension point every route runs through.
+const HAPI_HEADERS_PATCH: &str = r#"server.ext('onPreResponse', (request, h) => {
+  const response = request.response
+  if (response.isBoom) return h.continue
+  response.header('Strict-Transport-Security', 'max-age=63072000; includeSubDomains')
+  response.header('Content-Security-Policy', "default-src 'self'")
+  response.header('X-Content-Type-Options', 'nosniff')
+  response.header('X-Frame-Options', 'DENY')
+  response.header('Referrer-Policy', 'strict-origin-when-cross-origin')
+  return h.continue
+})"#;
+
+/// The copy-paste block for Astro.
+const ASTRO_HEADERS_PATCH: &str = r#"// src/middleware.ts
+import { defineMiddleware } from 'astro:middleware'
+
+export const onRequest = defineMiddleware(async (context, next) => {
+  const response = await next()
+  response.headers.set('Strict-Transport-Security', 'max-age=63072000; includeSubDomains')
+  response.headers.set('Content-Security-Policy', "default-src 'self'")
+  response.headers.set('X-Content-Type-Options', 'nosniff')
+  response.headers.set('X-Frame-Options', 'DENY')
+  response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin')
+  return response
+})"#;
+
+/// The copy-paste block for Remix.
+const REMIX_HEADERS_PATCH: &str = r#"// app/entry.server.tsx
+responseHeaders.set('Strict-Transport-Security', 'max-age=63072000; includeSubDomains')
+responseHeaders.set('Content-Security-Policy', "default-src 'self'")
+responseHeaders.set('X-Content-Type-Options', 'nosniff')
+responseHeaders.set('X-Frame-Options', 'DENY')
+responseHeaders.set('Referrer-Policy', 'strict-origin-when-cross-origin')"#;
+
+/// The copy-paste block for Gatsby. `onCreateDevServer` covers local dev; a
+/// static host's own headers config (e.g. `gatsby-plugin-netlify`) is needed
+/// for the built site, which the summary says and the patch cannot.
+const GATSBY_HEADERS_PATCH: &str = r#"// gatsby-node.js
+exports.onCreateDevServer = ({ app }) => {
+  app.use((req, res, next) => {
+    res.setHeader('Strict-Transport-Security', 'max-age=63072000; includeSubDomains')
+    res.setHeader('Content-Security-Policy', "default-src 'self'")
+    res.setHeader('X-Content-Type-Options', 'nosniff')
+    res.setHeader('X-Frame-Options', 'DENY')
+    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin')
+    next()
+  })
+}"#;
 
 #[cfg(test)]
 mod tests {

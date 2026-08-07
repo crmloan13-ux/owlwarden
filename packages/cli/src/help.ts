@@ -10,7 +10,7 @@ import type { NativeEngine } from "./native.js";
  * text more than most, not less.
  */
 export function helpText(native: NativeEngine | undefined): string {
-  return `owlwarden ${native?.engineVersion() ?? ""} — keen-eyed security auditor
+  return `owlwarden ${native?.engineVersion() ?? ""} — security scanner for Node apps
 
 USAGE
   owlwarden scan [PATH] [OPTIONS]
@@ -19,11 +19,12 @@ USAGE
   owlwarden coverage [--json] [--no-color] [--ascii]
   owlwarden explain <RULE_ID> [--json]
 
-  coverage reports which OWASP categories the rules reach, and which they do
-  not. A gap is stated rather than left blank, because "no findings" and "not
-  looked for" are different answers.
+  Runs locally. No telemetry. Use --target only if you want a live probe
+  (scoped; deny by default). Prefer --format json for CI and agents.
 
-  watch re-scans on change. Static only — it never opens a network path.
+  coverage shows which OWASP categories have rules, and which do not.
+
+  watch re-scans on change. Static only — never opens a network path.
 
 SCAN OPTIONS
   --preset <NAME>       Rule bundle to run

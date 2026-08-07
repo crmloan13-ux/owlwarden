@@ -65,7 +65,7 @@ async fn next_fixture_reports_the_stack_trace_leak_with_a_code_frame() {
         panic!("a static finding must have a source location");
     };
     assert_eq!(location.path, "app/api/users/route.ts");
-    assert_eq!(location.line, 16, "the line holding `err.stack`");
+    assert_eq!(location.line, 20, "the line holding `err.stack`");
 
     let frame = leak.snippet.as_ref().expect("a code frame is the whole DX");
     assert!(
@@ -73,7 +73,7 @@ async fn next_fixture_reports_the_stack_trace_leak_with_a_code_frame() {
         "the frame must contain the offending line: {:?}",
         frame.lines
     );
-    assert_eq!(frame.highlight.line, 16);
+    assert_eq!(frame.highlight.line, 20);
     assert_eq!(
         frame.highlight.label.as_deref(),
         Some("leaks internal stack trace to the client")
@@ -112,8 +112,8 @@ async fn next_fixture_reports_missing_headers_at_low_confidence() {
 ///
 /// The point of a table rather than a test per framework: adding a framework is
 /// a row, and a rule that quietly stops working on one framework while still
-/// passing on another fails here. Support for five frameworks is a property CI
-/// enforces, not a sentence in the README.
+/// passing on another fails here. Support for every framework in
+/// `SUPPORTED_FRAMEWORKS` is a property CI enforces, not a sentence in the README.
 struct Expectation {
     framework: &'static str,
     vulnerable: &'static str,
@@ -129,6 +129,9 @@ struct Expectation {
 /// Every catalogue rule × every supported framework — same counts, no kitchen
 /// sink. `weak-crypto` is three shapes (MD5-password, Math.random session,
 /// AES-ECB) on each twin so the grid is not "one shape here, three there".
+/// Counts are part of the contract. Two shapes per injection-adjacent rule
+/// (fetch + axios, redirect + Location header, password + accessToken) keep
+/// the corpus honest about real codebases rather than one-liner demos.
 const SHARED_FIRES: &[(&str, usize)] = &[
     ("stack-trace-leak", 1),
     ("sql-injection", 1),
@@ -136,12 +139,12 @@ const SHARED_FIRES: &[(&str, usize)] = &[
     ("insecure-cookie", 1),
     ("hardcoded-secret", 1),
     ("security-headers-missing", 1),
-    ("ssrf", 1),
-    ("open-redirect", 1),
+    ("ssrf", 2),
+    ("open-redirect", 2),
     ("weak-crypto", 3),
     ("unpinned-dependency", 1),
     ("ci-unpinned-action", 1),
-    ("sensitive-data-logged", 1),
+    ("sensitive-data-logged", 2),
 ];
 
 const MATRIX: &[Expectation] = &[
@@ -173,6 +176,48 @@ const MATRIX: &[Expectation] = &[
         framework: "fastify",
         vulnerable: "vulnerable/fastify-api",
         clean: "should-not-fire/fastify-api-clean",
+        fires: SHARED_FIRES,
+    },
+    Expectation {
+        framework: "hono",
+        vulnerable: "vulnerable/hono-api",
+        clean: "should-not-fire/hono-api-clean",
+        fires: SHARED_FIRES,
+    },
+    Expectation {
+        framework: "koa",
+        vulnerable: "vulnerable/koa-api",
+        clean: "should-not-fire/koa-api-clean",
+        fires: SHARED_FIRES,
+    },
+    Expectation {
+        framework: "hapi",
+        vulnerable: "vulnerable/hapi-api",
+        clean: "should-not-fire/hapi-api-clean",
+        fires: SHARED_FIRES,
+    },
+    Expectation {
+        framework: "sails",
+        vulnerable: "vulnerable/sails-api",
+        clean: "should-not-fire/sails-api-clean",
+        fires: SHARED_FIRES,
+    },
+    Expectation {
+        framework: "astro",
+        vulnerable: "vulnerable/astro-api",
+        clean: "should-not-fire/astro-api-clean",
+        fires: SHARED_FIRES,
+    },
+    Expectation {
+        framework: "remix",
+        vulnerable: "vulnerable/remix-api",
+        clean: "should-not-fire/remix-api-clean",
+        fires: SHARED_FIRES,
+    },
+    Expectation {
+        framework: "gatsby",
+        vulnerable: "vulnerable/gatsby-api",
+        clean: "should-not-fire/gatsby-api-clean",
         fires: SHARED_FIRES,
     },
 ];
@@ -220,13 +265,13 @@ fn every_catalogue_rule_is_exercised_on_every_framework() {
             );
         }
     }
-    // 12 rules × 5 frameworks = 60 cells. If this number moves, update the
+    // 12 rules × 12 frameworks = 144 cells. If this number moves, update the
     // table in fixtures/should-not-fire/README.md in the same PR.
     assert_eq!(
         SHARED_FIRES.len() * MATRIX.len(),
         owlwarden_detectors::SUPPORTED_FRAMEWORKS.len() * catalogue.len()
     );
-    assert_eq!(SHARED_FIRES.len() * MATRIX.len(), 60);
+    assert_eq!(SHARED_FIRES.len() * MATRIX.len(), 144);
 }
 
 #[tokio::test]

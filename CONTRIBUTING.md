@@ -70,7 +70,7 @@ how to add a framework rather than a rule. The short version:
 3. Fixtures on **every** supported framework: a vulnerable project that must
    fire, and a clean twin that must stay silent — ideally the tempting case a
    naive implementation would flag. Counts live in `SHARED_FIRES` /
-   `crates/detectors/tests/fixtures.rs` (12 × 5 cells today). CI fails if a
+   `crates/detectors/tests/fixtures.rs` (12 × 12 cells today). CI fails if a
    catalogue rule is missing from any framework row.
 
 Then the rule. Then run it against the whole corpus, and regenerate the

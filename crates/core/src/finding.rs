@@ -217,6 +217,20 @@ impl Framework {
     pub const EXPRESS: Self = Self::new_static("express");
     /// Fastify.
     pub const FASTIFY: Self = Self::new_static("fastify");
+    /// Hono.
+    pub const HONO: Self = Self::new_static("hono");
+    /// Koa.
+    pub const KOA: Self = Self::new_static("koa");
+    /// Hapi (`@hapi/hapi`).
+    pub const HAPI: Self = Self::new_static("hapi");
+    /// Sails.js (Express-based meta-framework).
+    pub const SAILS: Self = Self::new_static("sails");
+    /// Astro (SSR and API routes).
+    pub const ASTRO: Self = Self::new_static("astro");
+    /// Remix.
+    pub const REMIX: Self = Self::new_static("remix");
+    /// Gatsby (including Functions).
+    pub const GATSBY: Self = Self::new_static("gatsby");
     /// No framework detected, or one we have no specific advice for.
     pub const GENERIC: Self = Self::new_static("generic");
 
@@ -276,6 +290,13 @@ impl Framework {
             "nest" => "NestJS",
             "express" => "Express",
             "fastify" => "Fastify",
+            "hono" => "Hono",
+            "koa" => "Koa",
+            "hapi" => "Hapi",
+            "sails" => "Sails.js",
+            "astro" => "Astro",
+            "remix" => "Remix",
+            "gatsby" => "Gatsby",
             other => other,
         }
     }
@@ -830,9 +851,12 @@ mod tests {
 
     #[test]
     fn an_unknown_framework_id_renders_as_itself_rather_than_guessing() {
-        let plugin = Framework::parse("hono").expect("valid id");
-        assert_eq!(plugin.label(), "hono");
+        // A plugin id we do not ship a pretty name for must render verbatim —
+        // inventing "Elysia" from "elysia" would be worse than the author's id.
+        let plugin = Framework::parse("elysia").expect("valid id");
+        assert_eq!(plugin.label(), "elysia");
         assert_eq!(Framework::NEXT.label(), "Next.js");
+        assert_eq!(Framework::HONO.label(), "Hono");
     }
 
     #[test]

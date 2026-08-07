@@ -56,6 +56,13 @@ export const BUILTIN_FRAMEWORKS = [
   "nest",
   "express",
   "fastify",
+  "hono",
+  "koa",
+  "hapi",
+  "sails",
+  "astro",
+  "remix",
+  "gatsby",
   "generic",
 ] as const;
 

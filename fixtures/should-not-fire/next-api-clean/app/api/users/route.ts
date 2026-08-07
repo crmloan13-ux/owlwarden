@@ -4,7 +4,9 @@ import { NextResponse } from 'next/server'
 
 import { listUsers } from '../../lib/users'
 
-export async function GET() {
+export async function GET(request: Request) {
+  // Logging that a caller supplied a token, not the token itself.
+  console.info({ hasAccessToken: Boolean(request.headers.get('x-access-token')) })
   try {
     const users = await listUsers()
     return NextResponse.json({ users })

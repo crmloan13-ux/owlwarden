@@ -88,7 +88,17 @@ a hosted docs site remain later work — stated here so 0.1.0 does not overclaim
 
 ## v0.2 — Plugins and the agent surface
 
-**Goal:** extensibility that does not require trusting the extension.
+**Goal:** extensibility that does not require trusting the extension, on top of
+broad Node framework coverage developers already use.
+
+**Landed ahead of the formal cut (Unreleased):** twelve first-party frameworks
+(Hono, Koa, Hapi, Sails.js, Astro, Remix, Gatsby added to the original five),
+richer real-world fixture shapes, and messaging that states privacy-by-default
+and agent-ready JSON without overclaiming MCP. Adding another Node framework
+remains a `FrameworkProfile` — see
+[docs/how-to/extend.md](docs/how-to/extend.md).
+
+Still the release bar:
 
 - `plugin-host` on wasmtime, with the capability model.
 - Plugin-authoring types in `@dointhai/owlwarden-sdk`, and a scaffold command.
