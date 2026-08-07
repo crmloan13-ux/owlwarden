@@ -10,7 +10,7 @@
 //! `fs::read`, which races a growing file and follows a final-component
 //! symlink (same contract as `owlwarden_static::safe_io::read_bounded`).
 
-use std::fs::{File, OpenOptions};
+use std::fs::{self, File};
 use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -157,13 +157,16 @@ fn open_nofollow(path: &Path) -> std::io::Result<File> {
         )))]
         const O_NOFOLLOW: i32 = 0;
 
-        OpenOptions::new()
+        fs::OpenOptions::new()
             .read(true)
             .custom_flags(O_NOFOLLOW)
             .open(path)
     }
     #[cfg(not(unix))]
     {
+        // Windows has no portable O_NOFOLLOW; refuse a final-component symlink
+        // via symlink_metadata, then open. TOCTOU remains — same residual as
+        // other Windows sandbox boundaries in this crate.
         let meta = fs::symlink_metadata(path)?;
         if meta.file_type().is_symlink() {
             return Err(std::io::Error::new(
