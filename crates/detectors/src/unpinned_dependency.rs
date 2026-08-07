@@ -45,15 +45,16 @@ impl UnpinnedDependency {
     pub fn meta() -> DetectorMeta {
         DetectorMeta {
             id: RuleId::new_static(ID),
-            title: "Dependency version is unpinned",
+            title: "Dependency version is unpinned".into(),
             severity: Severity::Medium,
             max_confidence: Confidence::Likely,
             owasp: Some(OwaspRef::new_static("A06:2021")),
             cwe: Some(1104),
-            category: "dependencies",
+            category: "dependencies".into(),
             description: "A package.json dependency uses '*' or 'latest', so every install can \
                           pull a different major version with no review. Pin a lower bound (or \
-                          an exact version) so upgrades are a deliberate change.",
+                          an exact version) so upgrades are a deliberate change."
+                .into(),
         }
     }
 }

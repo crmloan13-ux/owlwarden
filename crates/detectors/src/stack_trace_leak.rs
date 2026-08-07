@@ -54,7 +54,7 @@ impl StackTraceLeak {
     pub fn meta() -> DetectorMeta {
         DetectorMeta {
             id: RuleId::new_static(ID),
-            title: "Stack trace leaked in error response",
+            title: "Stack trace leaked in error response".into(),
             severity: Severity::High,
             // Static analysis can see the expression but not whether the route
             // is reachable in production, so this rule stops at Likely. Only
@@ -62,12 +62,13 @@ impl StackTraceLeak {
             max_confidence: Confidence::Likely,
             owasp: Some(OwaspRef::new_static("A05:2021")),
             cwe: Some(209),
-            category: "error-handling",
+            category: "error-handling".into(),
             description: "Returning an error's `.stack` to the client exposes absolute file \
                           paths, dependency versions, and internal call structure. Attackers \
                           use it to map the application and to fingerprint vulnerable \
                           dependency versions. Log the stack server-side and return a generic \
-                          message.",
+                          message."
+                .into(),
         }
     }
 }

@@ -140,4 +140,44 @@ describe("parse", () => {
     expect(allowed.options.allowSuppressions).toBe(true);
     expect(allowed.options.allowBaseline).toBe(true);
   });
+
+  it("parses mcp, init --agent-rules, and plugin scaffold", () => {
+    expect(parse(["mcp", "./apps/api"])).toEqual({
+      command: "mcp",
+      path: "./apps/api",
+    });
+    expect(parse(["init", "--agent-rules"])).toEqual({
+      command: "init",
+      agentRules: true,
+    });
+    expect(parse(["init", "--agent-rules", "--out", "rules.md"])).toEqual({
+      command: "init",
+      agentRules: true,
+      out: "rules.md",
+    });
+    expect(parse(["plugin", "scaffold", "acme-rules"])).toEqual({
+      command: "plugin-scaffold",
+      name: "acme-rules",
+    });
+  });
+
+  it("parses --plugin and --allow-plugins", () => {
+    const cli = parse([
+      "scan",
+      "--plugin",
+      "./my-plugin",
+      "--plugin",
+      "./other",
+      "--allow-plugins",
+    ]);
+    if (cli.command !== "scan") throw new Error("expected scan");
+    expect(cli.options.plugins).toEqual(["./my-plugin", "./other"]);
+    expect(cli.options.allowPlugins).toBe(true);
+  });
+
+  it("requires --agent-rules for init and a name for plugin scaffold", () => {
+    expect(() => parse(["init"])).toThrow(/--agent-rules/);
+    expect(() => parse(["plugin", "scaffold"])).toThrow(/requires a name/);
+    expect(() => parse(["plugin", "build"])).toThrow(/usage:/);
+  });
 });

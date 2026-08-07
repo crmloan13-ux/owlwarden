@@ -74,17 +74,18 @@ impl OpenRedirect {
     pub fn meta() -> DetectorMeta {
         DetectorMeta {
             id: RuleId::new_static(ID),
-            title: "Redirect target comes from the caller",
+            title: "Redirect target comes from the caller".into(),
             severity: Severity::Medium,
             max_confidence: Confidence::Likely,
             owasp: Some(OwaspRef::new_static("A01:2021")),
             cwe: Some(601),
-            category: "redirect",
+            category: "redirect".into(),
             description: "The destination of a redirect is taken from the request without being \
                           checked. An attacker can send a link that starts with your domain and \
                           ends on theirs, which is what makes a phishing page credible — and in \
                           an OAuth callback it hands the authorisation code to whoever asked. \
-                          Resolve the target against your own origin and refuse anything else.",
+                          Resolve the target against your own origin and refuse anything else."
+                .into(),
         }
     }
 }

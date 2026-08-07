@@ -1,7 +1,7 @@
 {
   "name": "owlwarden",
   "version": "0.1.0",
-  "description": "Scan Node web apps for common security mistakes. Rust engine, runs locally, no telemetry.",
+  "description": "Find common security bugs in Node web apps. Runs on your machine. Rust engine, no telemetry, no upload.",
   "license": "MIT OR Apache-2.0",
   "repository": {
     "type": "git",

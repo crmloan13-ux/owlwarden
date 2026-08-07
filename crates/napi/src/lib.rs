@@ -59,6 +59,13 @@ struct ScanRequest {
     /// Extra scope allowlist entries. When empty, the target's origin is used.
     #[serde(default)]
     scope: Vec<String>,
+    /// Paths to WASM plugin directories (or bare `.wasm` files with a sidecar
+    /// manifest) to load alongside the first-party detectors. Operator intent
+    /// only, and the `--ci`/`--allow-plugins` trust decision is made by the
+    /// caller before this field is ever populated — this addon does not
+    /// second-guess it (`ARCHITECTURE.md` §6).
+    #[serde(default)]
+    plugins: Vec<String>,
 }
 
 fn default_honor_suppressions() -> bool {
@@ -158,6 +165,48 @@ pub async fn scan(request_json: String) -> napi::Result<String> {
         .map_err(|error| napi::Error::from_reason(format!("scan worker failed: {error}")))
 }
 
+/// Loads every plugin path the caller asked for into first-party-shaped
+/// detectors.
+///
+/// The `--ci`/`--allow-plugins` trust decision is made by the caller before
+/// `plugins` is ever populated (the native CLI decides locally; the npm CLI
+/// decides in TypeScript) — this addon only loads what it is handed.
+fn load_requested_plugins(
+    paths: &[String],
+) -> Result<Vec<std::sync::Arc<dyn owlwarden_core::detector::Detector>>, String> {
+    if paths.is_empty() {
+        return Ok(Vec::new());
+    }
+    let paths: Vec<std::path::PathBuf> = paths.iter().map(std::path::PathBuf::from).collect();
+    owlwarden_plugin_host::load_plugins(&paths).map_err(|error| error.to_string())
+}
+
+/// Resolves `target`/`scope` into a dynamic engine, wiring it into
+/// `scan_request` — extracted out of [`scan_blocking`] to stay under the
+/// line cap. Takes the two fields it needs rather than the whole request so
+/// a caller that has already partially moved other fields out of its own
+/// request (as `scan_blocking` has, building `write_baseline`) can still
+/// call this.
+fn prepare_dynamic_engine(
+    target: Option<&str>,
+    scope: &[String],
+    scan_request: &mut owlwarden_static::ScanRequest,
+) -> Result<Option<std::sync::Arc<owlwarden_dynamic::DynamicEngine>>, String> {
+    let Some(target) = target else {
+        if !scope.is_empty() {
+            return Err("--scope requires --target".to_owned());
+        }
+        return Ok(None);
+    };
+    let live =
+        owlwarden_dynamic::prepare_live(target, scope, false).map_err(|error| error.to_string())?;
+    let engine = live.engine.clone();
+    scan_request.network = Some(live.network);
+    scan_request.extra_detectors.push(live.engine);
+    scan_request.correlate = Some(owlwarden_dynamic::correlate);
+    Ok(Some(engine))
+}
+
 fn scan_blocking(request_json: String) -> String {
     let request: ScanRequest = match serde_json::from_str(&request_json) {
         Ok(request) => request,
@@ -219,23 +268,18 @@ fn scan_blocking(request_json: String) -> String {
         correlate: None,
     };
 
-    let dynamic_engine = if let Some(target) = request.target.as_deref() {
-        match owlwarden_dynamic::prepare_live(target, &request.scope, false) {
-            Ok(live) => {
-                let engine = live.engine.clone();
-                scan_request.network = Some(live.network);
-                scan_request.extra_detectors.push(live.engine);
-                scan_request.correlate = Some(owlwarden_dynamic::correlate);
-                Some(engine)
-            }
-            Err(error) => {
-                return Envelope::err("E_TARGET_INVALID", error.to_string()).encode();
-            }
-        }
-    } else if !request.scope.is_empty() {
-        return Envelope::err("E_TARGET_INVALID", "--scope requires --target").encode();
-    } else {
-        None
+    match load_requested_plugins(&request.plugins) {
+        Ok(detectors) => scan_request.extra_detectors.extend(detectors),
+        Err(message) => return Envelope::err("E_PLUGIN_INVALID", message).encode(),
+    }
+
+    let dynamic_engine = match prepare_dynamic_engine(
+        request.target.as_deref(),
+        &request.scope,
+        &mut scan_request,
+    ) {
+        Ok(engine) => engine,
+        Err(message) => return Envelope::err("E_TARGET_INVALID", message).encode(),
     };
 
     match owlwarden_dynamic::run_scan(

@@ -129,7 +129,7 @@ impl SqlInjection {
     pub fn meta() -> DetectorMeta {
         DetectorMeta {
             id: RuleId::new_static(ID),
-            title: "SQL query built by string interpolation",
+            title: "SQL query built by string interpolation".into(),
             severity: Severity::High,
             // A static read cannot prove the interpolated value is
             // attacker-controlled; only a live probe can. So this stops at
@@ -137,12 +137,13 @@ impl SqlInjection {
             max_confidence: Confidence::Likely,
             owasp: Some(OwaspRef::new_static("A03:2021")),
             cwe: Some(89),
-            category: "injection",
+            category: "injection".into(),
             description: "A SQL string is assembled with a template literal or concatenation and \
                           passed to a database driver. Any value interpolated into it is executed \
                           as SQL, so a request parameter can read, modify, or destroy data the \
                           query was never meant to touch. Use the driver's parameter binding \
-                          instead; every driver has it.",
+                          instead; every driver has it."
+                .into(),
         }
     }
 }

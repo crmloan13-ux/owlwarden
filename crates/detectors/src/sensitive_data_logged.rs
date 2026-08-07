@@ -70,16 +70,17 @@ impl SensitiveDataLogged {
     pub fn meta() -> DetectorMeta {
         DetectorMeta {
             id: RuleId::new_static(ID),
-            title: "Sensitive data written to a log",
+            title: "Sensitive data written to a log".into(),
             severity: Severity::Medium,
             max_confidence: Confidence::Likely,
             owasp: Some(OwaspRef::new_static("A09:2021")),
             cwe: Some(532),
-            category: "logging",
+            category: "logging".into(),
             description: "A password, token, cookie, or similar value is passed to a log sink. \
                           Centralised logs are widely readable inside an organisation and often \
                           retained for months — a credential that lands there is a credential \
-                          that has left the application's control.",
+                          that has left the application's control."
+                .into(),
         }
     }
 }

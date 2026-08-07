@@ -46,15 +46,16 @@ impl CiUnpinnedAction {
     pub fn meta() -> DetectorMeta {
         DetectorMeta {
             id: RuleId::new_static(ID),
-            title: "GitHub Action is not pinned to a commit SHA",
+            title: "GitHub Action is not pinned to a commit SHA".into(),
             severity: Severity::Medium,
             max_confidence: Confidence::Likely,
             owasp: Some(OwaspRef::new_static("A08:2021")),
             cwe: Some(829),
-            category: "ci",
+            category: "ci".into(),
             description: "A workflow references a GitHub Action by a branch or version tag. Tags \
                           move; a compromised or hijacked tag runs attacker-controlled code in CI \
-                          with repository secrets. Pin the full commit SHA.",
+                          with repository secrets. Pin the full commit SHA."
+                .into(),
         }
     }
 }

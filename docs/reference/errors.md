@@ -74,6 +74,19 @@ Target and scope are operator intent. They come from the command line only —
 never from a file inside the scanned tree — so a hostile pull request cannot
 point the scanner at an internal host.
 
+## E_PLUGIN_INVALID
+
+A path passed via `--plugin` could not be loaded: the manifest is missing or
+invalid, the module could not be compiled, the plugin declares a capability
+this host does not grant (`network` or `active`), or more plugins were listed
+than the per-scan limit.
+
+Plugins are sandboxed with wasmtime — a plugin that misbehaves at *runtime*
+(loops, floods findings, tries to escape its memory limit) is contained and
+does not surface here; this code is only for a plugin that never got as far
+as running. See `ARCHITECTURE.md` §6 and
+[ADR 0015](../adr/0015-plugin-host-wasmtime.md).
+
 ## E_ENCODE
 
 The report could not be serialised to JSON.

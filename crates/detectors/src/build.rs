@@ -16,7 +16,7 @@ use owlwarden_core::finding::{Finding, FindingBuilder, Severity};
 /// found, not of the rule.
 #[must_use]
 pub fn finding_builder(meta: &DetectorMeta) -> FindingBuilder {
-    let mut builder = Finding::builder(meta.id.clone(), meta.severity, meta.title);
+    let mut builder = Finding::builder(meta.id.clone(), meta.severity, meta.title.clone());
     if let Some(owasp) = &meta.owasp {
         builder = builder.owasp(owasp.clone());
     }
@@ -33,7 +33,7 @@ pub fn finding_builder(meta: &DetectorMeta) -> FindingBuilder {
 /// and reporting both at the same level would flatten a real distinction.
 #[must_use]
 pub fn finding_builder_with(meta: &DetectorMeta, severity: Severity) -> FindingBuilder {
-    let mut builder = Finding::builder(meta.id.clone(), severity, meta.title);
+    let mut builder = Finding::builder(meta.id.clone(), severity, meta.title.clone());
     if let Some(owasp) = &meta.owasp {
         builder = builder.owasp(owasp.clone());
     }
@@ -53,13 +53,13 @@ mod tests {
     fn meta() -> DetectorMeta {
         DetectorMeta {
             id: RuleId::new_static("stack-trace-leak"),
-            title: "Title",
+            title: "Title".into(),
             severity: Severity::High,
             max_confidence: Confidence::Likely,
             owasp: Some(OwaspRef::new_static("A05:2021")),
             cwe: Some(209),
-            category: "c",
-            description: "d",
+            category: "c".into(),
+            description: "d".into(),
         }
     }
 

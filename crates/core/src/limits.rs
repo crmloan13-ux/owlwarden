@@ -87,11 +87,59 @@ pub mod source {
 }
 
 /// Caps applied to WASM plugins (`plugin-host`, v0.2).
+///
+/// `plugin-host` is the only crate allowed to import `wasmtime`
+/// (`ARCHITECTURE.md` §3), but the numbers themselves live here so a reviewer
+/// auditing the resource posture never has to leave this file.
 pub mod plugin {
     use super::Duration;
 
-    /// Linear memory ceiling per plugin instance.
+    /// Linear memory ceiling per plugin instance. Enforced by a
+    /// `wasmtime::StoreLimits`, not merely requested of the guest.
     pub const MAX_MEMORY_BYTES: usize = 64 * 1024 * 1024;
-    /// Wall-clock ceiling per plugin invocation.
+    /// Wall-clock ceiling per plugin invocation. Belt-and-suspenders on top of
+    /// fuel: fuel bounds compute, this bounds a plugin that is technically
+    /// making progress but too slowly to be useful (e.g. host-call-bound).
     pub const MAX_INVOCATION_TIME: Duration = Duration::from_secs(5);
+    /// Fuel granted per invocation. Wasmtime decrements fuel on every bounded
+    /// unit of work and traps at zero, so a plugin that loops forever is
+    /// stopped deterministically rather than merely killed on a timer.
+    pub const MAX_FUEL: u64 = 10_000_000;
+    /// Largest compiled module we will load: 8 MiB. A legitimate detector
+    /// compiles to kilobytes; a module past this is either not what it claims
+    /// to be or is trying to make the host spend a long time compiling it.
+    pub const MAX_PLUGIN_BYTES: usize = 8 * 1024 * 1024;
+    /// Plugins a single scan will load. Guards against a config listing
+    /// hundreds of plugin directories turning `scan` into a compile farm.
+    pub const MAX_PLUGINS_PER_SCAN: usize = 32;
+    /// Findings accepted from one plugin invocation. A plugin that emits more
+    /// than this either found a generated file or is flooding the host on
+    /// purpose; either way the excess is dropped, not queued.
+    pub const MAX_FINDINGS_PER_INVOCATION: usize = 256;
+    /// Calls into `emit_finding` a single invocation may make, accepted or
+    /// not. Rejected findings still cost a call, so this is the backstop that
+    /// keeps a flood from costing the host more than a bounded number of
+    /// validations even before [`MAX_FINDINGS_PER_INVOCATION`] applies.
+    pub const MAX_HOST_CALLS: u32 = 10_000;
+    /// Largest `owlwarden.plugin.json` we will parse: 64 KiB. The manifest is
+    /// untrusted input read before any sandboxing exists, so its size is
+    /// clamped before the bytes are even handed to `serde_json`.
+    pub const MAX_MANIFEST_BYTES: u64 = 64 * 1024;
+    /// Rules a single plugin may declare. Bounds the loop that turns manifest
+    /// entries into `DetectorMeta` and the map `emit_finding` validates
+    /// against.
+    pub const MAX_RULES_PER_PLUGIN: usize = 64;
+    /// Files included in the source snapshot handed to one plugin invocation.
+    /// Independent of [`crate::limits::source::MAX_FILES`]: that cap is for
+    /// the whole scan, this one is for what a single sandboxed guest has to
+    /// hold in its 64 MiB of linear memory at once.
+    pub const MAX_SNAPSHOT_FILES: usize = 2_000;
+    /// Total bytes of source content placed in one snapshot. Comfortably
+    /// under [`MAX_MEMORY_BYTES`] so the guest's own analysis has room to work
+    /// in without immediately hitting the memory limiter.
+    pub const MAX_SNAPSHOT_BYTES: usize = 16 * 1024 * 1024;
+    /// Largest `emit_finding` payload the host will read out of guest memory.
+    /// The guest supplies `len` itself, so this is what stops a hostile
+    /// length from turning one host call into a multi-gigabyte allocation.
+    pub const MAX_FINDING_JSON_BYTES: usize = 64 * 1024;
 }

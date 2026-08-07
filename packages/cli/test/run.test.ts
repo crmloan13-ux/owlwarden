@@ -800,3 +800,43 @@ describe("owlwarden rules / explain", () => {
     expect(err).toContain("owlwarden rules");
   });
 });
+
+describe("owlwarden init / plugin scaffold", () => {
+  it("writes agent-rules from the compiled catalogue", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "owlwarden-init-"));
+    try {
+      const out = join(dir, "agent-rules.md");
+      const { code, err } = await cli(["init", "--agent-rules", "--out", out]);
+      expect(code).toBe(EXIT.CLEAN);
+      expect(err).toContain(out);
+      const body = await readFile(out, "utf8");
+      expect(body).toContain("<!-- owlwarden:agent-rules -->");
+      expect(body).toContain("stack-trace-leak");
+      expect(body).toContain("npx owlwarden scan --format json");
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("scaffolds a plugin directory with a valid manifest", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "owlwarden-scaffold-"));
+    const cwd = process.cwd();
+    try {
+      process.chdir(dir);
+      const { code, err } = await cli(["plugin", "scaffold", "acme-extra"]);
+      expect(code).toBe(EXIT.CLEAN);
+      expect(err).toMatch(/scaffolded/);
+      const manifestRaw = await readFile(
+        join(dir, "acme-extra", "owlwarden.plugin.json"),
+        "utf8",
+      );
+      const manifest = JSON.parse(manifestRaw) as { id: string; schemaVersion: string };
+      expect(manifest.id).toBe("acme-extra");
+      expect(manifest.schemaVersion).toBe("0.1");
+      await readFile(join(dir, "acme-extra", "plugin.wat"), "utf8");
+    } finally {
+      process.chdir(cwd);
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+});

@@ -181,17 +181,18 @@ impl HardcodedSecret {
     pub fn meta() -> DetectorMeta {
         DetectorMeta {
             id: RuleId::new_static(ID),
-            title: "Credential hardcoded in source",
+            title: "Credential hardcoded in source".into(),
             severity: Severity::High,
             max_confidence: Confidence::Likely,
             owasp: Some(OwaspRef::new_static("A07:2021")),
             cwe: Some(798),
-            category: "secrets",
+            category: "secrets".into(),
             description: "A credential appears as a literal in source. Anything committed is in \
                           the repository's history, in every clone, and in every build artefact, \
                           so removing the line later does not revoke it. Read secrets from the \
                           environment or a secret manager, and rotate anything that has been \
-                          committed.",
+                          committed."
+                .into(),
         }
     }
 }

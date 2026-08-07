@@ -1,24 +1,23 @@
 # owlwarden
 
-Scanner for common security mistakes in Node web apps. Install from npm, run
-it on your repo, get the line and a fix. The engine is Rust; the CLI is what
-you type.
+Security scanner for Node web apps. You run it on your repo; it points at the
+line and shows a fix. Rust under the hood, TypeScript CLI on npm.
 
-It does not send your code anywhere. No account, no telemetry, no “phone home”.
-Offline unless you pass `--target`.
+Nothing leaves your machine. No account, no telemetry. Offline unless you pass
+`--target`.
 
 ```bash
 npx owlwarden scan
 ```
 
-**v0.1.0** (plus unreleased work on more frameworks). Twelve rules covering
-nine of the OWASP Top 10. First-class fixes for Next.js, Nuxt, NestJS, Express,
-Fastify, Hono, Koa, Hapi, Sails.js, Astro, Remix, and Gatsby. Run
-`owlwarden coverage` to see what it still does not look for.
+Twelve rules, nine of the OWASP Top 10 categories. First-class fixes for
+Next.js, Nuxt, NestJS, Express, Fastify, Hono, Koa, Hapi, Sails.js, Astro,
+Remix, and Gatsby. Gaps are listed by `owlwarden coverage` — we would rather
+show an empty cell than pretend we cover something we do not.
 
 ---
 
-## What you get
+## Sample output
 
 ```
 ◉ᴥ◉ 2 files · quick · 0.31s
@@ -48,8 +47,8 @@ HIGH  likely  Stack trace leaked in error response  A05:2021
  ⓘ  ref             OWASP A05:2021 · CWE-209 · RULES.md#stack-trace-leak
 ```
 
-The fix is in the finding. You should not need another tab — useful for people
-and for agents that only see the terminal.
+The fix is in the finding. You should not need another browser tab. Same JSON
+shape works for CI and for agents that only see stdout.
 
 ## Install
 
@@ -58,8 +57,8 @@ npm i -D owlwarden
 npx owlwarden scan
 ```
 
-Needs Node 20+. Prebuilt native addon for macOS, Linux, and Windows — no
-compiler, no download in `postinstall`.
+Node 20+. Prebuilt addon for macOS, Linux, and Windows — no compiler on the
+user machine.
 
 ```json
 {
@@ -81,7 +80,7 @@ pnpm build
 node packages/cli/dist/bin.js scan /path/to/project
 ```
 
-`pnpm check` is the full gate (fmt, clippy, tests, typecheck, eslint).
+`pnpm check` runs the full gate (fmt, clippy, tests, typecheck, eslint).
 
 ## Usage
 
@@ -94,20 +93,24 @@ owlwarden scan --fail-on medium
 owlwarden scan --baseline .owlwarden-baseline.json
 owlwarden scan --write-baseline .owlwarden-baseline.json
 owlwarden scan --target http://127.0.0.1:3000/
+owlwarden scan --plugin ./my-plugin
 owlwarden watch
 owlwarden rules
 owlwarden coverage
 owlwarden explain stack-trace-leak
+owlwarden mcp
+owlwarden init --agent-rules
+owlwarden plugin scaffold my-rules
 ```
 
-`--target` is optional and only probes what you allow — see
+`--target` is optional. It only probes what you allow — see
 [docs/how-to/dynamic.md](docs/how-to/dynamic.md).
 
 Exit codes: `0` clean · `1` findings at or above `--fail-on` · `2` could not run.
 
 ## Config
 
-Optional. Defaults are fine for most repos. When you need more:
+Optional. Defaults are fine for most repos.
 
 ```ts
 import { defineConfig } from "@dointhai/owlwarden-config";
@@ -125,35 +128,37 @@ Flags win over the file. Config is never loaded from above the scan root.
 ## Safety
 
 - No network without `--target`. With `--target`, scope is deny-by-default.
-- Reads stay inside the project root; symlinks out are refused; `node_modules`
-  and `.gitignore` are respected; size caps apply.
+- Reads stay inside the project root; outbound symlinks are refused;
+  `node_modules` and `.gitignore` are respected; size caps apply.
 - No telemetry.
-- `#![forbid(unsafe_code)]` in library crates.
+- `#![forbid(unsafe_code)]` in library crates. The WASM host is the exception
+  (`plugin-host` / wasmtime).
 
 Details: [SECURITY.md](SECURITY.md).
 
-## What it does not do yet
+## Limits (honest ones)
 
 - Not all of OWASP. `coverage` lists the gaps. A04 is out of reach on purpose.
 - Dynamic checks are passive and opt-in. No active (state-changing) probes yet.
 - Other stacks get a generic scan; the twelve named frameworks get tailored
-  fixes. Matrix is locked in CI.
+  fixes. The matrix is locked in CI.
 - Origin tracking is one hop, not a full taint engine
   ([ADR 0012](docs/adr/0012-request-origin-not-taint.md)).
-- Plugins and `owlwarden mcp` are next on the roadmap. Today agents use
-  `--format json` and `explain`.
+- Plugins are source-only WASM. MCP is read-only / static. Autofix (`--fix`)
+  is later.
 
 [ROADMAP.md](ROADMAP.md) has the order.
 
-## Agents / editor loops
+## Agents / editors
 
 ```bash
 owlwarden scan --format json
+owlwarden mcp                # stdio MCP: scan, explain, list rules
+owlwarden init --agent-rules # writes .owlwarden/agent-rules.md from the catalogue
 ```
 
 Schemas live in `@dointhai/owlwarden-sdk` and are checked against the Rust
-output in CI. Each finding carries a fix and a confidence level so a bot is
-less likely to “fix” noise.
+output in CI. Each finding carries a fix and a confidence level.
 
 More: [docs/explanation/agent-integration.md](docs/explanation/agent-integration.md).
 

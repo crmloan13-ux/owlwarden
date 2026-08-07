@@ -61,19 +61,20 @@ impl CorsPermissive {
     pub fn meta() -> DetectorMeta {
         DetectorMeta {
             id: RuleId::new_static(ID),
-            title: "Cross-origin policy accepts any origin",
+            title: "Cross-origin policy accepts any origin".into(),
             // The catalogue severity is the common case; a finding that also
             // enables credentials is raised to High when it is built.
             severity: Severity::Medium,
             max_confidence: Confidence::Likely,
             owasp: Some(OwaspRef::new_static("A05:2021")),
             cwe: Some(942),
-            category: "cors",
+            category: "cors".into(),
             description: "The CORS configuration accepts requests from any origin. Combined with \
                           credentials this lets any site a logged-in user visits make \
                           authenticated calls to the API and read the responses. Without \
                           credentials it may be intentional for a public API — the finding says \
-                          which case it found.",
+                          which case it found."
+                .into(),
         }
     }
 }

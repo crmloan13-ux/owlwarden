@@ -60,18 +60,19 @@ impl InsecureCookie {
     pub fn meta() -> DetectorMeta {
         DetectorMeta {
             id: RuleId::new_static(ID),
-            title: "Cookie set without its protective attributes",
+            title: "Cookie set without its protective attributes".into(),
             severity: Severity::Medium,
             max_confidence: Confidence::Likely,
             owasp: Some(OwaspRef::new_static("A05:2021")),
             cwe: Some(614),
-            category: "cookies",
+            category: "cookies".into(),
             description: "A cookie is written without `httpOnly`, `secure`, or `sameSite`. \
                           Missing `httpOnly` turns any cross-site scripting bug into session \
                           theft; missing `secure` sends the cookie over plain HTTP; missing \
                           `sameSite` attaches it to cross-site requests. A cookie holding no \
                           sensitive value may not need all three, which is why the finding \
-                          names the ones it did not find rather than assuming the worst.",
+                          names the ones it did not find rather than assuming the worst."
+                .into(),
         }
     }
 }

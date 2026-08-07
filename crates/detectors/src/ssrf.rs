@@ -95,17 +95,18 @@ impl Ssrf {
     pub fn meta() -> DetectorMeta {
         DetectorMeta {
             id: RuleId::new_static(ID),
-            title: "Server fetches a URL the caller controls",
+            title: "Server fetches a URL the caller controls".into(),
             severity: Severity::High,
             max_confidence: Confidence::Likely,
             owasp: Some(OwaspRef::new_static("A10:2021")),
             cwe: Some(918),
-            category: "ssrf",
+            category: "ssrf".into(),
             description: "An outbound HTTP request is made to a URL that came from the caller. \
                           The server can reach hosts the caller cannot — cloud metadata \
                           endpoints, internal admin services, databases bound to localhost — so \
                           this turns the server into a proxy into its own network. Validate the \
-                          destination against an allowlist before fetching it.",
+                          destination against an allowlist before fetching it."
+                .into(),
         }
     }
 }

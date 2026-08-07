@@ -78,6 +78,7 @@ This keeps the core pure, testable, and free of I/O.
 | `transport` | `ReqwestTransport`: scope-enforced, streaming-capped HTTP. |
 | `dynamic-engine` | Passive probes and correlation that raises matching findings to `Confirmed`. |
 | `reporters` | `pretty` and `json` output, and the banner. |
+| `plugin-host` | Sandboxed WASM plugin host (wasmtime). Ships partial in v0.2: source-only. See §6. |
 | `napi` | The Node bridge. `scan` is async and runs the engine on a worker thread so a live probe cannot block the event loop. |
 | `cli-native` | Standalone binary — the same engine without Node. |
 
@@ -86,9 +87,6 @@ This keeps the core pure, testable, and free of I/O.
 | `@dointhai/owlwarden-sdk` | Report types and zod schemas, checked against the engine in CI. |
 | `@dointhai/owlwarden-config` | Config schema and resolution. |
 | `owlwarden` | The CLI. |
-
-`plugin-host` is planned. It does not exist yet, and an empty placeholder crate
-would only be noise.
 
 ## 4. Core interfaces
 
@@ -266,24 +264,41 @@ and agent rules files all key off them. A rename requires an alias retained for
 two minor versions. `RULES.md` is generated from source and checked in CI, so an
 accidental rename fails the build.
 
-## 6. Plugin system (planned)
+## 6. Plugin system (ships partial: source-only, v0.2)
 
 Two tiers, distinguished by how much they are trusted.
 
 | Tier | Language | Runs in | For | Trust |
 |---|---|---|---|---|
 | **Recipe** | TS/JS | the CLI process | presets, custom reporters, glue | the user's own code |
-| **Detector** | any → WASM/WASI | `plugin-host` (wasmtime) | scanning logic | untrusted, sandboxed |
+| **Detector** | any → WASM | `plugin-host` (wasmtime) | scanning logic | untrusted, sandboxed |
 
-- **Capability model.** A plugin manifest declares what it needs — `network`,
-  `active`. At load time the host wires only the granted host functions. No
-  declaration means no capability. `active` additionally requires the run to
-  pass `--allow-active` and the target to be in scope.
+`plugin-host` exists (`crates/plugin-host`) and ships a `WasmDetector` any
+`--plugin <path>` can load. What v0.2 grants is **source-only**: a plugin
+reads a capped snapshot of project source and calls back exactly once,
+through `emit_finding`. See [ADR 0015](docs/adr/0015-plugin-host-wasmtime.md)
+for why wasmtime, and `crates/plugin-host/tests/sandbox_escape.rs` for the
+containment tests every change to the host has to keep passing.
+
+- **Capability model.** A plugin manifest declares what it needs —
+  `source`, `network`, `active`. At load time the host wires only the granted
+  host functions. No declaration means no capability, and in v0.2 a manifest
+  declaring `network` or `active` is refused at load time rather than
+  silently downgraded — there is no host function yet to grant either one
+  through. `active` will additionally require the run to pass
+  `--allow-active` and the target to be in scope once it is wired.
 - **No ambient authority.** A WASM detector gets no clock, randomness,
-  filesystem, or network except through host functions the runner provides.
-  This is the whole reason a security tool can run third-party detectors.
-- **Bounded.** Each invocation gets a fuel and time budget and a memory cap. A
-  misbehaving plugin is starved; the host is not.
+  filesystem, or network — there is no WASI in this host at all, ambient or
+  otherwise — except through the one host function the runner provides. This
+  is the whole reason a security tool can run third-party detectors.
+- **Bounded.** Each invocation gets a fuel budget
+  (`limits::plugin::MAX_FUEL`), a wall-clock deadline via epoch interruption
+  (`limits::plugin::MAX_INVOCATION_TIME`), and a memory cap enforced by
+  `wasmtime::StoreLimits` (`limits::plugin::MAX_MEMORY_BYTES`) — not merely
+  requested of the guest. A misbehaving plugin is starved; the host is not.
+- **Untrusted by default.** `--plugin` is refused under `--ci` unless
+  `--allow-plugins` is also passed, the same trust posture as
+  `--allow-baseline` and `--allow-suppressions`.
 
 ## 7. Configuration
 
@@ -327,7 +342,9 @@ is never branded with the OWASP mark.
 | `explain <id>` | shipped | The full write-up for a rule, entirely offline. |
 | `watch` | shipped | Re-scan on change during development. Static only — refuses `--target`. |
 | `report` | planned | Re-render a saved JSON result in another format. |
-| `mcp` | planned | An MCP server, so an agent can call owlwarden as a tool. |
+| `mcp` | shipped | Stdio MCP server (static, read-only). |
+| `init --agent-rules` | shipped | Writes `.owlwarden/agent-rules.md` from the catalogue. |
+| `plugin scaffold` | shipped | Starter guest + `owlwarden.plugin.json`. |
 
 Exit codes are a contract: `0` clean, `1` findings at or above `--fail-on`, `2`
 the scan could not run.
@@ -345,14 +362,16 @@ Three adversaries, and what is done about each. The full version is in
    timeouts; bounded concurrency; deeply nested source rejected before it reaches
    the parser ([ADR 0008](docs/adr/0008-bound-parser-recursion.md)).
 2. **A hostile plugin.** WASM sandbox, capability-gated host calls, memory and
-   fuel limits, no ambient authority. Planned with the plugin host.
+   fuel limits, no ambient authority. Shipped, partial (source-only), in
+   `plugin-host` — see §6.
 3. **A hostile supply chain.** `cargo-deny` and `cargo-audit` in CI, committed
    lockfiles, an explicit allowlist for npm install scripts, npm provenance, and
    signed releases with an SBOM.
 
 Invariants throughout: scope is deny-by-default; secrets are redacted from
-output; `unsafe` will be confined to `plugin-host` and audited line by line; the
-standalone binary and the Node addon share one reviewed core.
+output; `unsafe` is confined to `plugin-host` (in practice, `wasmtime`'s own —
+this crate adds none of its own) and audited line by line; the standalone
+binary and the Node addon share one reviewed core.
 
 ## 10. Coding standards
 
@@ -417,8 +436,12 @@ Any path that turns an attacker-controlled size into an allocation clamps first.
   the JSON contract cannot drift silently.
 - **Cross-language contract** — golden files generated by the Rust engine and
   parsed by the TypeScript schemas, including the full exit-code truth table.
-- **Sandbox-escape suite** (planned) — a deliberately malicious sample plugin;
-  the test asserts containment. Will run on every PR touching `plugin-host`.
+- **Sandbox-escape suite** — `crates/plugin-host/tests/sandbox_escape.rs`.
+  Five deliberately adversarial WASM modules, assembled from `.wat` at test
+  time: a busy-loop (fuel exhaustion), an oversized `memory.grow` (store
+  limiter), a finding flood (per-invocation cap), a claim for an undeclared
+  rule id (dropped, not trapped), and a benign positive control. Runs on
+  every PR touching `plugin-host`.
 - **Property and fuzz testing** (planned) — `proptest` for parsers and bounds,
   `cargo-fuzz` on the response-handling and AST boundaries.
 

@@ -1,10 +1,8 @@
 # Serving AI agents as users
 
-**Status:** partly shipped. `--format json` and `explain` work today. The MCP
-server, editor hooks, and `--fix` are designed and scheduled for v0.2 and v0.3
-(see [ROADMAP.md](../../ROADMAP.md)). This document describes the whole design
-so the parts that exist can be understood in context; each section says where it
-stands.
+**Status:** v0.2 surface is shipped. `--format json`, `explain`, `owlwarden mcp`,
+and `init --agent-rules` work today. Editor post-edit hooks and `--fix` remain
+for later (hooks polish / v0.3). Each section below says what is live.
 
 If you are an agent working *on* this repository rather than using it, read
 [AGENTS.md](../../AGENTS.md).
@@ -62,40 +60,46 @@ owlwarden explain stack-trace-leak
 owlwarden explain stack-trace-leak --json
 ```
 
-## `owlwarden mcp` — planned, v0.2
+## `owlwarden mcp` — shipped (v0.2)
 
-An MCP server, so an agent can call owlwarden mid-task instead of shelling out
-and parsing text.
+```bash
+owlwarden mcp [PATH]
+```
+
+JSON-RPC over stdio. Hand-rolled subset (initialize, tools/list, tools/call) —
+no MCP SDK dependency. Wire it into an MCP-capable host the same way you would
+any other stdio server.
 
 | Tool | Purpose |
 |---|---|
 | `scan_project` | Scan the workspace; return findings as JSON |
-| `scan_file` | Scan one file — cheap enough for an edit loop |
+| `scan_file` | Full project scan, filtered to one file — for edit loops |
 | `explain_rule` | Full rationale and every framework's fix, for one rule |
-| `list_rules` | The catalogue, so an agent can check itself before writing |
+| `list_rules` | The catalogue |
 
-The surface is deliberately narrow, because an autonomous process drives it:
+Hard limits, because an agent drives it:
 
-- **Read-only.** The MCP server never writes files. Applying fixes is a separate
-  action a person takes.
-- **Static engine only**, unless the user has explicitly enabled dynamic
-  scanning for the project. An agent must not be able to cause network probes as
-  a side effect of asking a question.
-- **`--allow-active` is unreachable.** State-changing checks cannot be triggered
-  through MCP at all.
+- **Read-only.** Never writes files. Applying fixes is outside MCP.
+- **Static only.** No `--target`. An agent cannot trigger network probes.
+- **`--allow-active` unreachable.**
 - **Project-scoped.** Paths outside the workspace root are refused.
 
-## Editor and agent hooks — planned, v0.2
+## `owlwarden init --agent-rules` — shipped (v0.2)
 
-- A documented post-edit hook that runs a single-file scan on what changed and
-  feeds the findings back into the agent's context, so a problem is caught in
-  the same turn it was written.
-- `owlwarden watch --format json`, a stream of findings for any tool to consume.
-- `owlwarden init --agent-rules`, which writes a short rules file describing the
-  security conventions of *this* codebase — "never return `err.stack`; use the
-  shared `apiError()` helper" — derived from the enabled rule set. Prevention is
-  cheaper than detection.
-- An LSP mode is a candidate after v1, for people not working with agents.
+```bash
+owlwarden init --agent-rules
+# → .owlwarden/agent-rules.md
+```
+
+Writes a short markdown file from the compiled-in catalogue so agents load the
+same rule ids `scan` actually enforces. Re-run after upgrading the tool.
+
+## Editor hooks — later
+
+- A documented post-edit hook that runs a single-file check on what changed.
+- `owlwarden watch --format json` already streams findings; a thin editor
+  wrapper around it is the remaining piece.
+- An LSP mode is a candidate after v1.
 
 ## `--fix` — planned, v0.3
 

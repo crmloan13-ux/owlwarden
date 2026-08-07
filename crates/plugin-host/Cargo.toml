@@ -1,0 +1,28 @@
+[package]
+name = "owlwarden-plugin-host"
+description = "Sandboxed WASM plugin host for owlwarden, built on wasmtime."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+owlwarden-core.workspace = true
+
+async-trait.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+
+wasmtime.workspace = true
+anyhow.workspace = true
+
+[dev-dependencies]
+tempfile = "3"
+tokio = { version = "1", features = ["macros", "rt"] }
+wat.workspace = true

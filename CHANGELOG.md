@@ -12,6 +12,33 @@ are listed here under Changed.
 
 ### Added
 
+- **`owlwarden-plugin-host`** — sandboxed WASM plugin host (ROADMAP v0.2),
+  ships partial: source-only. A plugin is a `.wasm` module plus an
+  `owlwarden.plugin.json` manifest, loaded with `--plugin <path>` (repeatable)
+  and refused under `--ci` unless `--allow-plugins` is also passed. Every
+  invocation runs in a fresh `wasmtime` store bounded by fuel, a 64 MiB
+  `StoreLimits` memory cap, and a wall-clock deadline via epoch interruption;
+  the only host function wired is `emit_finding`, and every claim it receives
+  is re-validated against the plugin's own manifest before it becomes a
+  finding. A manifest declaring `network` or `active` is refused at load
+  time rather than silently downgraded — see
+  [ADR 0015](docs/adr/0015-plugin-host-wasmtime.md). `wasmtime` is a new
+  dependency, confined to this one crate with default features disabled
+  (only `cranelift`/`runtime`/`std`); every other crate keeps
+  `#![forbid(unsafe_code)]`. Floored at 36.0.13 — every earlier release has
+  an open RUSTSEC advisory, several of them sandbox escapes.
+- Sandbox-escape test suite (`crates/plugin-host/tests/sandbox_escape.rs`):
+  fuel exhaustion, an oversized `memory.grow`, a finding flood, an undeclared
+  rule id, and a benign positive control.
+- Error code **`E_PLUGIN_INVALID`** for a plugin that could not be loaded.
+- **`owlwarden mcp`** — stdio MCP server with `scan_project`, `scan_file`,
+  `explain_rule`, and `list_rules`. Static and read-only; no `--target`, no
+  file writes, paths sandboxed to the workspace root.
+- **`owlwarden init --agent-rules`** — writes `.owlwarden/agent-rules.md` from
+  the compiled catalogue.
+- **`owlwarden plugin scaffold <name>`** — guest stub (`plugin.wat`) plus a
+  valid `owlwarden.plugin.json`.
+- Plugin-authoring schemas in `@dointhai/owlwarden-sdk` (`pluginManifestSchema`).
 - **Seven more Node frameworks** with first-class profiles, remediation on every
   catalogue rule, and square fixture coverage: Hono, Koa, Hapi, Sails.js, Astro,
   Remix, and Gatsby. Supported set is now twelve stacks (12 rules × 12
@@ -26,8 +53,13 @@ are listed here under Changed.
 
 ### Changed
 
+- `DetectorMeta.title` / `.category` / `.description` are now
+  `Cow<'static, str>` (were `&'static str`), so a `WasmDetector` built from a
+  parsed plugin manifest can own its strings. No change to the JSON wire
+  shape or to first-party rules, which still write string literals.
 - README and npm package text rewritten in plain language: what it does, that
-  it stays local, which frameworks it knows. MCP is not claimed as shipped.
+  it stays local, which frameworks it knows, and what v0.2 actually ships
+  (plugins source-only, MCP read-only).
 - Cookie detection: nested setters (`ctx.cookies.set`), Hapi `isHttpOnly` /
   `isSecure` / `isSameSite`, and dropped false cookie matches on
   `c.header` / `res.setHeader` / bare `serialize`.

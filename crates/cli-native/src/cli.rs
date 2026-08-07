@@ -85,6 +85,11 @@ pub struct ScanArgs {
     pub target: Option<String>,
     /// Extra scope allowlist entries. Empty means the target's origin.
     pub scope: Vec<String>,
+    /// Paths to WASM plugin directories (or bare `.wasm` files with a
+    /// sidecar manifest) to load alongside the first-party detectors.
+    pub plugins: Vec<String>,
+    /// Permit `--plugin` under `--ci`.
+    pub allow_plugins: bool,
 }
 
 impl Default for ScanArgs {
@@ -111,6 +116,8 @@ impl Default for ScanArgs {
             hyperlinks: false,
             target: None,
             scope: Vec::new(),
+            plugins: Vec::new(),
+            allow_plugins: false,
         }
     }
 }
@@ -225,6 +232,8 @@ struct RawScan {
     hyperlinks: bool,
     target: Option<String>,
     scope: Vec<String>,
+    plugins: Vec<String>,
+    allow_plugins: bool,
 }
 
 /// Parses the flags of `scan`.
@@ -254,9 +263,11 @@ fn parse_scan<'a>(args: impl Iterator<Item = &'a String>) -> Result<ScanArgs, Ar
                 }
                 raw.scope.push(entry);
             }
+            "--plugin" => raw.plugins.push(value("--plugin")?),
             "--report-suppressions" => raw.report_suppressions = true,
             "--allow-suppressions" => raw.allow_suppressions = true,
             "--allow-baseline" => raw.allow_baseline = true,
+            "--allow-plugins" => raw.allow_plugins = true,
             "--fail-on" => {
                 let text = value("--fail-on")?;
                 let level = Severity::from_str_opt(&text).ok_or(ArgError::InvalidValue {
@@ -316,6 +327,8 @@ fn parse_scan<'a>(args: impl Iterator<Item = &'a String>) -> Result<ScanArgs, Ar
         hyperlinks: raw.hyperlinks,
         target: raw.target,
         scope: raw.scope,
+        plugins: raw.plugins,
+        allow_plugins: raw.allow_plugins,
     })
 }
 
@@ -364,6 +377,10 @@ SCAN OPTIONS
   --target <URL>       Probe this URL (passive GET/HEAD). Operator-only —
                        never read from project config
   --scope <URL>        Allowlist entry (repeatable). Default: origin of --target
+  --plugin <PATH>      Load a WASM detector (repeatable). Directory with
+                       owlwarden.plugin.json + plugin.wasm, or a bare .wasm
+                       with a sidecar manifest. Sandboxed; source-only in v0.2
+  --allow-plugins      Under --ci, permit --plugin (off by default)
   --ci                 JSON + quiet + no-color; ignores suppressions and
                        --baseline unless allow-* is set
   --no-color           Disable colour (also honours NO_COLOR)
@@ -436,6 +453,34 @@ mod tests {
                 "http://127.0.0.1:3000/api".to_owned()
             ]
         );
+    }
+
+    #[test]
+    fn repeated_plugin_flags_accumulate_in_order() {
+        let Command::Scan(parsed) = parse(&args(&[
+            "scan",
+            "--plugin",
+            "plugins/a",
+            "--plugin",
+            "plugins/b",
+        ]))
+        .unwrap() else {
+            panic!("expected a scan command");
+        };
+        assert_eq!(
+            parsed.plugins,
+            vec!["plugins/a".to_owned(), "plugins/b".to_owned()]
+        );
+        assert!(!parsed.allow_plugins);
+    }
+
+    #[test]
+    fn allow_plugins_is_off_by_default() {
+        let Command::Scan(parsed) = parse(&args(&["scan", "--allow-plugins"])).unwrap() else {
+            panic!("expected a scan command");
+        };
+        assert!(parsed.allow_plugins);
+        assert!(parsed.plugins.is_empty());
     }
 
     #[test]

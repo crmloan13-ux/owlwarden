@@ -25,6 +25,9 @@ export type Cli =
   | { command: "rules"; json: boolean }
   | { command: "coverage"; json: boolean; color: boolean; unicode: boolean }
   | { command: "explain"; rule: string; json: boolean }
+  | { command: "mcp"; path: string }
+  | { command: "init"; agentRules: boolean; out?: string }
+  | { command: "plugin-scaffold"; name: string }
   | { command: "help" }
   | { command: "version" };
 
@@ -78,6 +81,17 @@ export interface ScanOptions {
   target?: string;
   /** Extra scope allowlist entries. Empty means the target's origin. */
   scope: string[];
+  /**
+   * Paths to WASM plugin directories (or bare `.wasm` files with a sidecar
+   * manifest) to load alongside the first-party detectors. Sandboxed
+   * (wasmtime), source-only in v0.2 — see `ARCHITECTURE.md` §6.
+   */
+  plugins: string[];
+  /**
+   * Permit `--plugin` under `--ci`. Off by default — a hostile PR should not
+   * be able to smuggle a WASM module into the pipeline just by adding a path.
+   */
+  allowPlugins: boolean;
   color: boolean;
   unicode: boolean;
   quiet: boolean;
@@ -107,12 +121,15 @@ const OPTIONS = {
   "allow-baseline": { type: "boolean", default: false },
   target: { type: "string" },
   scope: { type: "string", multiple: true },
+  plugin: { type: "string", multiple: true },
+  "allow-plugins": { type: "boolean", default: false },
   ci: { type: "boolean", default: false },
   "no-color": { type: "boolean", default: false },
   ascii: { type: "boolean", default: false },
   hyperlinks: { type: "boolean", default: false },
   quiet: { type: "boolean", short: "q", default: false },
   json: { type: "boolean", default: false },
+  "agent-rules": { type: "boolean", default: false },
   help: { type: "boolean", short: "h", default: false },
   version: { type: "boolean", short: "V", default: false },
 } as const satisfies NonNullable<ParseArgsConfig["options"]>;
@@ -172,6 +189,31 @@ export function parse(argv: string[]): Cli {
       }
       return { command: "explain", rule, json: values.json };
     }
+    case "mcp": {
+      if (rest.length > 1) {
+        throw new ArgError(`mcp takes at most one path, got ${rest.length}`);
+      }
+      return { command: "mcp", path: rest[0] ?? "." };
+    }
+    case "init": {
+      if (!values["agent-rules"]) {
+        throw new ArgError("init requires --agent-rules");
+      }
+      return values.out === undefined
+        ? { command: "init", agentRules: true }
+        : { command: "init", agentRules: true, out: values.out };
+    }
+    case "plugin": {
+      const sub = rest[0];
+      if (sub !== "scaffold") {
+        throw new ArgError("usage: owlwarden plugin scaffold <name>");
+      }
+      const name = rest[1];
+      if (!name) {
+        throw new ArgError("plugin scaffold requires a name");
+      }
+      return { command: "plugin-scaffold", name };
+    }
     default:
       throw new ArgError(`unknown command ${JSON.stringify(command)}`);
   }
@@ -211,6 +253,8 @@ function scanOptions(values: Values, positionals: string[]): ScanOptions {
     allowSuppressions: values["allow-suppressions"],
     allowBaseline: values["allow-baseline"],
     scope,
+    plugins: values.plugin ?? [],
+    allowPlugins: values["allow-plugins"],
   };
 
   // Assigned conditionally because `exactOptionalPropertyTypes` distinguishes

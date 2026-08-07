@@ -91,17 +91,18 @@ impl SecurityHeadersMissing {
     pub fn meta() -> DetectorMeta {
         DetectorMeta {
             id: RuleId::new_static(ID),
-            title: "Security headers are not configured",
+            title: "Security headers are not configured".into(),
             severity: Severity::Medium,
             max_confidence: Confidence::Likely,
             owasp: Some(OwaspRef::new_static("A05:2021")),
             cwe: Some(693),
-            category: "headers",
+            category: "headers".into(),
             description: "The application does not set the baseline security response headers. \
                           Without them a browser will not enforce HTTPS, will guess content \
                           types, and will allow the page to be framed. Headers set by a CDN or \
                           ingress are invisible to static analysis, so this rule reports lower \
-                          confidence when it finds no header configuration at all.",
+                          confidence when it finds no header configuration at all."
+                .into(),
         }
     }
 }

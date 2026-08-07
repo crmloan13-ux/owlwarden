@@ -6,6 +6,8 @@
 //! about. This is the same capability idea as the plugin sandbox, applied one
 //! level up.
 
+use std::borrow::Cow;
+
 use async_trait::async_trait;
 
 use crate::context::ScanContext;
@@ -64,13 +66,19 @@ impl Capabilities {
 /// This is the source of `RULES.md`, of `explain <id>`, and of the MCP
 /// `list_rules` tool. It is generated from here rather than maintained
 /// separately so the catalogue cannot drift from the code.
+///
+/// `title`, `category`, and `description` are `Cow<'static, str>` rather than
+/// `&'static str` so a plugin can own them: a first-party rule still writes a
+/// string literal (`"foo".into()` borrows it for free), but a `WasmDetector`
+/// building its metadata from a JSON manifest has no `'static` string to
+/// borrow and needs `Cow::Owned` instead.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DetectorMeta {
     /// Permanent public identifier.
     pub id: RuleId,
     /// One line, sentence case: what the rule looks for.
-    pub title: &'static str,
+    pub title: Cow<'static, str>,
     /// Severity findings from this rule carry by default.
     pub severity: Severity,
     /// The best confidence this rule can reach on its own. A static-only rule
@@ -83,10 +91,10 @@ pub struct DetectorMeta {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub cwe: Option<u32>,
     /// Grouping used by presets and by the docs site, e.g. `error-handling`.
-    pub category: &'static str,
+    pub category: Cow<'static, str>,
     /// Two or three sentences for `RULES.md` and `explain`. Written for
     /// someone who has just seen the finding and wants to know if it matters.
-    pub description: &'static str,
+    pub description: Cow<'static, str>,
 }
 
 /// One unit of analysis.

@@ -170,15 +170,15 @@ impl Detector for StaticEngine {
     fn meta(&self) -> DetectorMeta {
         DetectorMeta {
             id: RuleId::new_static("static-engine"),
-            title: "Static analysis engine",
+            title: "Static analysis engine".into(),
             severity: Severity::Info,
             // The engine itself never produces findings; its rules do, and each
             // carries its own ceiling.
             max_confidence: Confidence::Likely,
             owasp: None,
             cwe: None,
-            category: "engine",
-            description: "Parses project source with oxc and runs the enabled static rules.",
+            category: "engine".into(),
+            description: "Parses project source with oxc and runs the enabled static rules.".into(),
         }
     }
 

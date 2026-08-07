@@ -110,17 +110,18 @@ impl WeakCrypto {
     pub fn meta() -> DetectorMeta {
         DetectorMeta {
             id: RuleId::new_static(ID),
-            title: "Broken cryptographic primitive protecting a secret",
+            title: "Broken cryptographic primitive protecting a secret".into(),
             severity: Severity::High,
             max_confidence: Confidence::Likely,
             owasp: Some(OwaspRef::new_static("A02:2021")),
             cwe: Some(327),
-            category: "crypto",
+            category: "crypto".into(),
             description: "A hash, cipher, or random source that cannot carry the weight it has \
                           been given: MD5 or SHA-1 over a password, a DES or ECB cipher, or \
                           Math.random() producing a token. Each has a drop-in replacement in the \
                           standard library, so the fix is small — the cost of not making it is \
-                          that the protection is decorative.",
+                          that the protection is decorative."
+                .into(),
         }
     }
 }
