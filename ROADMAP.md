@@ -86,7 +86,7 @@ correlation tests are green. (Suppressions, baseline, `watch`, and the
 A06/A08/A09 rules shipped in 0.0.2.) Active checks, deeper dynamic rules, and
 a hosted docs site remain later work — stated here so 0.1.0 does not overclaim.
 
-## v0.2 — Plugins and the agent surface — **Unreleased (bar met)**
+## v0.2 — Plugins and the agent surface — **shipped**
 
 **Goal:** extensibility that does not require trusting the extension, on top of
 broad Node framework coverage developers already use.
@@ -104,11 +104,12 @@ Delivered:
 - `owlwarden mcp` (stdio, static, read-only) and `init --agent-rules`. See
   [docs/explanation/agent-integration.md](docs/explanation/agent-integration.md).
 
-**Exit criteria, met for this cut:** an external plugin loads sandboxed and can
-contribute findings; malicious samples in the escape suite are contained; an
-MCP-capable agent can scan and pull remediations in one loop. Autofix (`--fix`)
-and polished editor post-edit hooks remain later work — stated so 0.2.0 does not
+**Exit criteria, met:** an external plugin loads sandboxed and can contribute
+findings; malicious samples in the escape suite are contained; an MCP-capable
+agent can scan and pull remediations in one loop. Autofix (`--fix`) and
+polished editor post-edit hooks remain later work — stated so 0.2.0 does not
 overclaim.
+
 ## v0.3 — Autofix and active checks
 
 **Goal:** close the loop from finding to fix, without breaking anyone's code.

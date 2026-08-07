@@ -4,6 +4,10 @@ Security scanner for Node web apps — built so coding agents and humans get the
 same answer: the line, a fix, and a confidence level. Rust engine, TypeScript
 CLI on npm. Nothing leaves your machine.
 
+**v0.2.0** — twelve frameworks, sandboxed WASM plugins (source-only), and
+`owlwarden mcp` for agent loops. Autofix and active probes are not in this
+release; see [ROADMAP.md](ROADMAP.md).
+
 ```bash
 npx owlwarden scan
 npx owlwarden mcp    # stdio MCP for Cursor, Claude, and other MCP hosts

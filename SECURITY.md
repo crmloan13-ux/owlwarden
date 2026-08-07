@@ -7,8 +7,15 @@ vulnerability.
 
 ## Reporting a vulnerability
 
-Email **security@dointhai.com**. Please do not open a public issue for anything
-that could be exploited.
+Report through GitHub — prefer a **private** security advisory so the details
+are not public until a fix is out:
+
+**[Report a vulnerability](https://github.com/suthat/owlwarden/security/advisories/new)**
+
+Do **not** open a public issue for anything that could be exploited. Ordinary
+bugs and false positives belong on
+[Issues](https://github.com/suthat/owlwarden/issues); see
+[CONTRIBUTING.md](CONTRIBUTING.md).
 
 Include:
 
@@ -150,7 +157,7 @@ hop ([ADR 0014](docs/adr/0014-passive-dynamic-and-correlation.md)).
 
 ### Residual risks (dynamic)
 
-These are accepted for 0.1.0 and documented rather than papered over:
+These are accepted for 0.2.0 and documented rather than papered over:
 
 - **DNS rebinding.** Scope matches the hostname (or IP literal) you named, not
   the resolved address after connect. An operator who allowlists a hostname

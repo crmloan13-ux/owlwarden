@@ -1,6 +1,6 @@
 {
   "name": "owlwarden",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Node webapp security scanner with MCP for coding agents. Local, fast, no telemetry — baseline checks without burning LLM tokens.",
   "license": "MIT OR Apache-2.0",
   "repository": {

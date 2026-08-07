@@ -10,6 +10,12 @@ are listed here under Changed.
 
 ## [Unreleased]
 
+## [0.2.0] — 2026-08-08
+
+Plugins (source-only WASM), MCP for agents, and twelve Node frameworks. The
+formal v0.2 bar from [ROADMAP.md](ROADMAP.md). Autofix and active checks stay
+later work.
+
 ### Added
 
 - **`owlwarden-plugin-host`** — sandboxed WASM plugin host (ROADMAP v0.2),
@@ -233,7 +239,8 @@ does and does not reach.
 - Bounded file count, file size, total bytes, and parser recursion depth, so a
   hostile repository cannot exhaust memory or the stack.
 
-[Unreleased]: https://github.com/suthat/owlwarden/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/suthat/owlwarden/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/suthat/owlwarden/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/suthat/owlwarden/compare/v0.0.2...v0.1.0
 [0.0.2]: https://github.com/suthat/owlwarden/compare/v0.0.1...v0.0.2
 [0.0.1]: https://github.com/suthat/owlwarden/releases/tag/v0.0.1
