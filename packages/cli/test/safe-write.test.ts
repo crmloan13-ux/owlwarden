@@ -4,7 +4,12 @@ import { join } from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { readFileBounded, refuseSymlinkAncestors, writeReplacing } from "../src/safe-write.js";
+import {
+  mkdirNoFollow,
+  readFileBounded,
+  refuseSymlinkAncestors,
+  writeReplacing,
+} from "../src/safe-write.js";
 
 let dir: string;
 
@@ -41,6 +46,25 @@ describe("writeReplacing", () => {
     expect(await readdir(outside)).toEqual([]);
   });
 
+  it("creates missing parents without following a directory symlink", async () => {
+    // Copilot concern: recursive mkdir would create `nested` inside `outside`.
+    const outside = join(dir, "outside");
+    await mkdir(outside);
+    const link = join(dir, "link");
+    await symlink(outside, link);
+
+    await expect(
+      writeReplacing(join(link, "nested", "report.json"), '{"ok":true}\n'),
+    ).rejects.toThrow(/symlinked directory/);
+    expect(await readdir(outside)).toEqual([]);
+  });
+
+  it("creates a nested real parent chain", async () => {
+    const path = join(dir, "a", "b", "report.json");
+    await writeReplacing(path, '{"ok":true}\n');
+    expect(await readFile(path, "utf8")).toBe('{"ok":true}\n');
+  });
+
   it("uses wx so a pre-planted temp name cannot be opened for write", async () => {
     // Mirror the Rust create_new contract: flag wx must fail on an existing node.
     const occupied = join(dir, "occupied.tmp");
@@ -48,6 +72,23 @@ describe("writeReplacing", () => {
     await expect(
       writeFile(occupied, "x", { encoding: "utf8", flag: "wx" }),
     ).rejects.toMatchObject({ code: "EEXIST" });
+  });
+});
+
+describe("mkdirNoFollow", () => {
+  it("creates nested real directories", async () => {
+    const nested = join(dir, "a", "b");
+    await mkdirNoFollow(nested);
+    await expect(refuseSymlinkAncestors(nested)).resolves.toBeUndefined();
+  });
+
+  it("refuses when an intermediate component is a symlink", async () => {
+    const outside = join(dir, "outside");
+    await mkdir(outside);
+    const link = join(dir, "linked");
+    await symlink(outside, link);
+    await expect(mkdirNoFollow(join(link, "nested"))).rejects.toThrow(/symlinked directory/);
+    expect(await readdir(outside)).toEqual([]);
   });
 });
 

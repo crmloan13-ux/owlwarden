@@ -8,13 +8,13 @@
  * Writes refuse symlinked destinations, matching `--out` / `init`.
  */
 
-import { lstat, mkdir } from "node:fs/promises";
+import { lstat } from "node:fs/promises";
 import { join, resolve } from "node:path";
 
 import { pluginManifestSchema } from "@dointhai/owlwarden-sdk";
 
 import { EXIT } from "../exit.js";
-import { refuseSymlinkAncestors, writeReplacing } from "../safe-write.js";
+import { mkdirNoFollow, refuseSymlinkAncestors, writeReplacing } from "../safe-write.js";
 
 /** Runs the scaffold command. */
 export async function runPluginScaffold(
@@ -69,8 +69,7 @@ export async function runPluginScaffold(
 
   try {
     await refuseSymlinkAncestors(cwd);
-    await mkdir(root, { recursive: true });
-    await refuseSymlinkAncestors(root);
+    await mkdirNoFollow(root);
     await writeReplacing(
       join(root, "owlwarden.plugin.json"),
       `${JSON.stringify(manifest, null, 2)}\n`,

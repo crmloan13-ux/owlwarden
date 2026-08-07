@@ -9,14 +9,13 @@
  * and the destination must stay under the working directory.
  */
 
-import { mkdir } from "node:fs/promises";
-import { dirname, isAbsolute, relative, resolve } from "node:path";
+import { isAbsolute, relative, resolve } from "node:path";
 
 import { ruleMetaListSchema, type RuleMeta } from "@dointhai/owlwarden-sdk";
 
 import type { NativeEngine } from "../native.js";
 import { EXIT } from "../exit.js";
-import { refuseSymlinkAncestors, writeReplacing } from "../safe-write.js";
+import { writeReplacing } from "../safe-write.js";
 
 const MARKER = "<!-- owlwarden:agent-rules -->";
 const DEFAULT_OUT = ".owlwarden/agent-rules.md";
@@ -52,12 +51,8 @@ export async function runInit(
   }
 
   const body = renderAgentRules(rules);
-  const parent = dirname(outPath);
   try {
-    await refuseSymlinkAncestors(parent);
-    await mkdir(parent, { recursive: true });
-    // Re-check after create: a race could replace a new directory with a link.
-    await refuseSymlinkAncestors(parent);
+    // writeReplacing creates missing parents without following dir symlinks.
     await writeReplacing(outPath, body);
   } catch (error) {
     stderr.write(
