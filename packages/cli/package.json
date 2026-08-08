@@ -1,14 +1,14 @@
 {
   "name": "owlwarden",
   "version": "0.2.0",
-  "description": "Node webapp security scanner with MCP for coding agents. Local, fast, no telemetry — baseline checks without burning LLM tokens.",
+  "description": "Local security scanner for Node web apps and coding agents. Rust-fast analysis, honest confidence, framework-specific fixes, no telemetry.",
   "license": "MIT OR Apache-2.0",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/suthat/owlwarden.git",
     "directory": "packages/cli"
   },
-  "homepage": "https://github.com/suthat/owlwarden",
+  "homepage": "https://suthat.github.io/owlwarden/",
   "keywords": [
     "mcp",
     "ai-agent",
@@ -16,6 +16,8 @@
     "security",
     "owasp",
     "sast",
+    "static-analysis",
+    "web-security",
     "scanner",
     "nextjs",
     "nuxt",

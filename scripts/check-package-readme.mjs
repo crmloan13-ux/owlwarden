@@ -1,0 +1,80 @@
+/**
+ * Keeps the README published with the `owlwarden` npm package aligned with the
+ * compiled v0.2 surface. The npm page is often the first and only document a
+ * prospective user reads, so missing safety limits are contract failures too.
+ */
+import assert from "node:assert/strict";
+import { readFile, stat } from "node:fs/promises";
+
+const root = new URL("../", import.meta.url);
+const readmeUrl = new URL("packages/cli/README.md", root);
+const [readme, packageJsonText] = await Promise.all([
+  readFile(readmeUrl, "utf8"),
+  readFile(new URL("packages/cli/package.json", root), "utf8"),
+]);
+const packageJson = JSON.parse(packageJsonText);
+const rules = [
+  "ci-unpinned-action",
+  "cors-permissive",
+  "hardcoded-secret",
+  "insecure-cookie",
+  "open-redirect",
+  "security-headers-missing",
+  "sensitive-data-logged",
+  "sql-injection",
+  "ssrf",
+  "stack-trace-leak",
+  "unpinned-dependency",
+  "weak-crypto",
+];
+const frameworks = [
+  "Next.js",
+  "Nuxt",
+  "NestJS",
+  "Express",
+  "Fastify",
+  "Hono",
+  "Koa",
+  "Hapi",
+  "Sails.js",
+  "Astro",
+  "Remix",
+  "Gatsby",
+];
+
+for (const heading of [
+  "Why Owlwarden",
+  "One finding, the whole answer",
+  "What it catches",
+  "Framework support",
+  "Coding agents and MCP",
+  "CI without greenwashing",
+  "Configuration",
+  "Adopting it in an existing codebase",
+  "Optional runtime confirmation",
+  "Safety model",
+  "Honest limits",
+]) {
+  assert.match(readme, new RegExp(`^## ${heading}$`, "m"), `missing ${heading}`);
+}
+
+for (const value of [...rules, ...frameworks]) {
+  assert(readme.includes(value), `npm README is missing ${value}`);
+}
+
+assert.match(readme, /npx owlwarden scan/);
+assert.match(readme, /npx owlwarden mcp/);
+assert.match(readme, /confirmed.*likely.*possible/is);
+assert.match(readme, /No telemetry/i);
+assert.match(readme, /static-only, read-only/i);
+assert.match(readme, /A04:2021.*Insecure Design/is);
+assert.match(readme, /Autofix is not shipped/i);
+assert.match(readme, /https:\/\/suthat\.github\.io\/owlwarden\//);
+assert.doesNotMatch(readme, /\]\((?!https:\/\/|#)/, "npm links must be absolute or local anchors");
+assert((await stat(readmeUrl)).size < 32_000, "npm README exceeds the 32 KB budget");
+assert.equal(packageJson.homepage, "https://suthat.github.io/owlwarden/");
+assert.match(packageJson.description, /Local security scanner.*coding agents.*framework-specific fixes/i);
+assert(packageJson.keywords.includes("static-analysis"));
+assert(packageJson.keywords.includes("web-security"));
+
+console.log("npm README contract passed");
