@@ -25,7 +25,7 @@
     <meta name="twitter:description" content="A local security scanner for Node web apps, built for humans and coding agents.">
     <meta name="twitter:image" content="https://suthat.github.io/owlwarden/og.jpg">
 
-    <link rel="stylesheet" href="./styles.css">
+    <link rel="stylesheet" href="./styles.css?v=0.2.0-2">
     <script defer src="./site.js"></script>
 
     <script type="application/ld+json">
@@ -137,19 +137,6 @@
         <div><strong>9 of 10</strong><span>OWASP Top 10 categories reached—and the gap is published</span></div>
       </section>
 
-      <section class="manifesto" id="why" aria-labelledby="why-title">
-        <div class="section-number" aria-hidden="true">01 / Method</div>
-        <div class="manifesto-heading">
-          <p class="eyebrow">The standard</p>
-          <h2 id="why-title">A scanner earns trust by knowing when to lower its voice.</h2>
-        </div>
-        <div class="manifesto-body">
-          <p class="lead">Security tools usually fail in one of two directions: they say too little to help, or too much to believe. Owlwarden treats a false positive as a product failure, not collateral damage.</p>
-          <p>Every finding carries <strong>confirmed</strong>, <strong>likely</strong>, or <strong>possible</strong>. Static analysis can never claim “confirmed”; that level requires a passive runtime probe to agree with the source. Possible findings stay visible but do not fail CI on their own.</p>
-          <p>The result is practical: developers know what deserves attention, and coding agents are less likely to edit good code because a heuristic sounded certain.</p>
-        </div>
-      </section>
-
       <section class="finding-section" aria-labelledby="finding-title">
         <div class="finding-intro">
           <p class="eyebrow">Evidence, not a ticket</p>
@@ -186,8 +173,38 @@
         </figure>
       </section>
 
+      <section class="agents" id="agents" aria-labelledby="agents-title">
+        <div class="agent-copy">
+          <div class="section-number light" aria-hidden="true">01 / Agent use</div>
+          <p class="eyebrow">For coding agents</p>
+          <h2 id="agents-title">Spend model judgment where judgment is needed.</h2>
+          <p class="lead">Owlwarden handles repeatable baseline checks locally, then gives the agent a bounded, structured result. Keep the model for architecture, authorization boundaries, and the decisions a parser cannot make.</p>
+          <div class="agent-command"><code>npx owlwarden mcp</code></div>
+          <p class="agent-safety">The MCP server is static-only, read-only, workspace-scoped, and cannot trigger network probes or write a “fix.” Scan and plugin text is wrapped as untrusted evidence, not instructions.</p>
+        </div>
+        <dl class="tool-list">
+          <div><dt>scan_project</dt><dd>Run the project scan and return typed JSON.</dd></div>
+          <div><dt>scan_file</dt><dd>Filter a project scan to the file in the edit loop.</dd></div>
+          <div><dt>explain_rule</dt><dd>Return rationale and every framework-specific fix.</dd></div>
+          <div><dt>list_rules</dt><dd>Expose the compiled catalogue, not a stale copy.</dd></div>
+        </dl>
+      </section>
+
+      <section class="manifesto" id="why" aria-labelledby="why-title">
+        <div class="section-number" aria-hidden="true">02 / Method</div>
+        <div class="manifesto-heading">
+          <p class="eyebrow">The standard</p>
+          <h2 id="why-title">A scanner earns trust by knowing when to lower its voice.</h2>
+        </div>
+        <div class="manifesto-body">
+          <p class="lead">Security tools usually fail in one of two directions: they say too little to help, or too much to believe. Owlwarden treats a false positive as a product failure, not collateral damage.</p>
+          <p>Every finding carries <strong>confirmed</strong>, <strong>likely</strong>, or <strong>possible</strong>. Static analysis can never claim “confirmed”; that level requires a passive runtime probe to agree with the source. Possible findings stay visible but do not fail CI on their own.</p>
+          <p>The result is practical: developers know what deserves attention, and coding agents are less likely to edit good code because a heuristic sounded certain.</p>
+        </div>
+      </section>
+
       <section class="principles" aria-labelledby="principles-title">
-        <div class="section-number" aria-hidden="true">02 / Practice</div>
+        <div class="section-number" aria-hidden="true">03 / Practice</div>
         <div class="principles-intro">
           <p class="eyebrow">Built for the edit loop</p>
           <h2 id="principles-title">A reliable floor. Judgment still goes on top.</h2>
@@ -207,23 +224,6 @@
           <h3>One truth for people and tools</h3>
           <p>The human report and JSON come from the same finding model. Schemas are checked across Rust and TypeScript in CI, so agents do not receive a convenient fiction that the engine never emitted.</p>
         </article>
-      </section>
-
-      <section class="agents" id="agents" aria-labelledby="agents-title">
-        <div class="agent-copy">
-          <div class="section-number light" aria-hidden="true">03 / Agent use</div>
-          <p class="eyebrow">For coding agents</p>
-          <h2 id="agents-title">Spend model judgment where judgment is needed.</h2>
-          <p class="lead">Owlwarden handles repeatable baseline checks locally, then gives the agent a bounded, structured result. Keep the model for architecture, authorization boundaries, and the decisions a parser cannot make.</p>
-          <div class="agent-command"><code>npx owlwarden mcp</code></div>
-          <p class="agent-safety">The MCP server is static-only, read-only, workspace-scoped, and cannot trigger network probes or write a “fix.” Scan and plugin text is wrapped as untrusted evidence, not instructions.</p>
-        </div>
-        <dl class="tool-list">
-          <div><dt>scan_project</dt><dd>Run the project scan and return typed JSON.</dd></div>
-          <div><dt>scan_file</dt><dd>Filter a project scan to the file in the edit loop.</dd></div>
-          <div><dt>explain_rule</dt><dd>Return rationale and every framework-specific fix.</dd></div>
-          <div><dt>list_rules</dt><dd>Expose the compiled catalogue, not a stale copy.</dd></div>
-        </dl>
       </section>
 
       <section class="frameworks" aria-labelledby="frameworks-title">

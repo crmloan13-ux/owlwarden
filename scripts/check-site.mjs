@@ -28,6 +28,7 @@ assert.match(html, /<html lang="en">/);
 assert.equal(occurrences(html, /<h1(?:\s|>)/g), 1, "the page needs exactly one h1");
 assert.match(html, /<main id="main-content">/);
 assert.match(html, /<a class="skip-link" href="#main-content">/);
+assert.match(html, /<link rel="stylesheet" href="\.\/styles\.css\?v=[^"]+">/);
 assert.match(html, new RegExp(`<link rel="canonical" href="${canonical}"`));
 assert.match(html, /name="description" content="[^"]{120,165}"/);
 assert.match(html, /property="og:image" content="https:\/\/suthat\.github\.io\/owlwarden\/og\.jpg"/);
@@ -42,6 +43,11 @@ assert.match(html, /9 of 10/);
 assert.match(html, /twelve rules/i);
 assert.match(html, /No telemetry/i);
 assert.match(html, /Insecure Design/);
+assert(
+  html.indexOf("Evidence, not a ticket") < html.indexOf("For coding agents") &&
+    html.indexOf("For coding agents") < html.indexOf("The standard"),
+  "the editorial sequence must lead with evidence, then agents, then the standard",
+);
 assert.doesNotMatch(html, /<img(?![^>]+(?:width|height)=)/);
 assert.doesNotMatch(html, /https:\/\/(?:fonts|use\.typekit|cdn\.)/);
 assert.doesNotMatch(html, /target="_blank"(?![^>]+rel="[^"]*noopener)/);
