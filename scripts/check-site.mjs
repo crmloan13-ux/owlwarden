@@ -16,8 +16,9 @@ function occurrences(source, pattern) {
   return source.match(pattern)?.length ?? 0;
 }
 
-const [html, robots, sitemap, llms] = await Promise.all([
+const [html, styles, robots, sitemap, llms] = await Promise.all([
   text("index.html"),
+  text("styles.css"),
   text("robots.txt"),
   text("sitemap.xml"),
   text("llms.txt"),
@@ -44,6 +45,11 @@ assert.match(html, /Insecure Design/);
 assert.doesNotMatch(html, /<img(?![^>]+(?:width|height)=)/);
 assert.doesNotMatch(html, /https:\/\/(?:fonts|use\.typekit|cdn\.)/);
 assert.doesNotMatch(html, /target="_blank"(?![^>]+rel="[^"]*noopener)/);
+
+const headerRule = styles.match(/\.site-header\s*\{([^}]*)\}/)?.[1] ?? "";
+const headerBackdropRule = styles.match(/\.site-header::before\s*\{([^}]*)\}/)?.[1] ?? "";
+assert.doesNotMatch(headerRule, /border(?:-bottom)?\s*:/, "the sticky header must not draw a local divider");
+assert.doesNotMatch(headerBackdropRule, /border-bottom\s*:/, "the sticky backdrop must not draw a second divider");
 
 const jsonLdMatch = html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/);
 assert(jsonLdMatch, "JSON-LD is required");
