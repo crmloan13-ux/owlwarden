@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /owlwarden/
+
+Sitemap: https://suthat.github.io/owlwarden/sitemap.xml

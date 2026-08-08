@@ -1,0 +1,33 @@
+# Owlwarden
+
+> Owlwarden is an open-source security scanner for Node web applications. It runs locally and reports the vulnerable line, why it matters, a framework-specific fix, and an honest confidence level. Version 0.2.0 supports twelve frameworks and includes a read-only MCP server for coding agents.
+
+Use Owlwarden as a repeatable security floor, not as proof that an application is secure. Static scans are offline and have no telemetry. Passive runtime probes only run when the operator explicitly supplies a target. The MCP server is static-only, read-only, and workspace-scoped.
+
+Install and scan: `npx owlwarden scan`
+
+## Primary resources
+
+- [Source repository](https://github.com/suthat/owlwarden): Canonical source, releases, issues, and contribution history.
+- [Rule catalogue](https://github.com/suthat/owlwarden/blob/main/RULES.md): Every rule, severity, confidence ceiling, OWASP/CWE mapping, and framework-specific remediation.
+- [Documentation index](https://github.com/suthat/owlwarden/blob/main/docs/README.md): Task-oriented guides and explanations.
+- [Agent integration](https://github.com/suthat/owlwarden/blob/main/docs/explanation/agent-integration.md): MCP tools, JSON reports, trust boundaries, and agent workflows.
+- [Coverage method](https://github.com/suthat/owlwarden/blob/main/docs/explanation/coverage.md): What Owlwarden reaches, what it does not, and why.
+- [Security model](https://github.com/suthat/owlwarden/blob/main/SECURITY.md): Local scanning, scope enforcement, resource limits, and vulnerability reporting.
+- [Architecture](https://github.com/suthat/owlwarden/blob/main/ARCHITECTURE.md): Engine boundaries and design constraints.
+- [npm package](https://www.npmjs.com/package/owlwarden): Published CLI for Node 20 and later.
+
+## Current release facts
+
+- Version: 0.2.0
+- Frameworks: Next.js, Nuxt, NestJS, Express, Fastify, Hono, Koa, Hapi, Sails.js, Astro, Remix, Gatsby
+- Rules: 12
+- OWASP Top 10 (2021): at least one rule in 9 of 10 categories; A04 Insecure Design is explicitly out of reach from source alone
+- Reports: human-readable terminal output and typed JSON from one finding model
+- Agent surface: `scan_project`, `scan_file`, `explain_rule`, `list_rules`
+- License: MIT OR Apache-2.0
+
+## Optional
+
+- [Roadmap](https://github.com/suthat/owlwarden/blob/main/ROADMAP.md): Planned work, including autofix, clearly separated from shipped capabilities.
+- [Contributing](https://github.com/suthat/owlwarden/blob/main/CONTRIBUTING.md): Development and review expectations.
