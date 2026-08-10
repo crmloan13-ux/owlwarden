@@ -15,7 +15,9 @@ categories.workspace = true
 owlwarden-core.workspace = true
 owlwarden-static.workspace = true
 
+async-trait.workspace = true
 serde.workspace = true
+serde_json.workspace = true
 
 oxc_ast.workspace = true
 oxc_ast_visit.workspace = true

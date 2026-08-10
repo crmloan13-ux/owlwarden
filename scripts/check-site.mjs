@@ -40,9 +40,11 @@ assert.match(html, /npx owlwarden scan/);
 assert.match(html, /Next\.js/);
 assert.match(html, /Gatsby/);
 assert.match(html, /9 of 10/);
-assert.match(html, /twelve rules/i);
+assert.match(html, /thirteen rules/i);
 assert.match(html, /No telemetry/i);
 assert.match(html, /Insecure Design/);
+assert.match(html, /Save tokens first/i);
+assert.match(html, /frontier model/i);
 assert(
   html.indexOf("Evidence, not a ticket") < html.indexOf("For coding agents") &&
     html.indexOf("For coding agents") < html.indexOf("The standard"),

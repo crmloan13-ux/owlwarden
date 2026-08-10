@@ -284,14 +284,21 @@ async fn the_matrix_covers_every_supported_framework() {
 
 #[test]
 fn every_catalogue_rule_is_exercised_on_every_framework() {
+    // Advisory-only rules (`known-vulnerable-dependency`) need `--osv` and a
+    // mock/live OSV client; they are covered by unit tests, not this matrix.
+    let advisory: std::collections::HashSet<_> = owlwarden_detectors::advisory_rule_infos()
+        .into_iter()
+        .map(|rule| rule.meta().id.to_string())
+        .collect();
     let catalogue: Vec<_> = owlwarden_detectors::all_rule_metas()
         .into_iter()
         .map(|meta| meta.id.to_string())
+        .filter(|id| !advisory.contains(id))
         .collect();
     assert_eq!(
         catalogue.len(),
         SHARED_FIRES.len(),
-        "SHARED_FIRES and the catalogue drifted apart"
+        "SHARED_FIRES and the offline catalogue drifted apart"
     );
     for rule in &catalogue {
         assert!(
@@ -312,8 +319,8 @@ fn every_catalogue_rule_is_exercised_on_every_framework() {
             );
         }
     }
-    // 12 rules × 12 frameworks = 144 cells. If this number moves, update the
-    // table in fixtures/should-not-fire/README.md in the same PR.
+    // 12 offline rules × 12 frameworks = 144 cells. If this number moves,
+    // update the table in fixtures/should-not-fire/README.md in the same PR.
     assert_eq!(
         SHARED_FIRES.len() * MATRIX.len(),
         owlwarden_detectors::SUPPORTED_FRAMEWORKS.len() * catalogue.len()

@@ -92,6 +92,28 @@ export interface ScanOptions {
    * be able to smuggle a WASM module into the pipeline just by adding a path.
    */
   allowPlugins: boolean;
+  /**
+   * Apply Safe remediations (highlight replacements) after the scan.
+   * Never applies to `Possible` findings. Requires a clean git tree unless
+   * {@link allowDirty}.
+   */
+  fix: boolean;
+  /** Also apply `Unsafe` remediations when {@link fix} is set. */
+  fixUnsafe: boolean;
+  /** With {@link fix}, show what would change without writing. */
+  dryRun: boolean;
+  /** With {@link fix}, allow a dirty git working tree. */
+  allowDirty: boolean;
+  /**
+   * Permit state-changing HTTP methods in the dynamic engine. No first-party
+   * detector uses this yet; the flag exists so the gate is testable.
+   */
+  allowActive: boolean;
+  /**
+   * Opt into Google OSV advisory lookup for lockfile dependencies.
+   * Sends package name+version to api.osv.dev — never source code.
+   */
+  osv: boolean;
   color: boolean;
   unicode: boolean;
   quiet: boolean;
@@ -123,6 +145,12 @@ const OPTIONS = {
   scope: { type: "string", multiple: true },
   plugin: { type: "string", multiple: true },
   "allow-plugins": { type: "boolean", default: false },
+  fix: { type: "boolean", default: false },
+  "fix-unsafe": { type: "boolean", default: false },
+  "dry-run": { type: "boolean", default: false },
+  "allow-dirty": { type: "boolean", default: false },
+  "allow-active": { type: "boolean", default: false },
+  osv: { type: "boolean", default: false },
   ci: { type: "boolean", default: false },
   "no-color": { type: "boolean", default: false },
   ascii: { type: "boolean", default: false },
@@ -255,7 +283,26 @@ function scanOptions(values: Values, positionals: string[]): ScanOptions {
     scope,
     plugins: values.plugin ?? [],
     allowPlugins: values["allow-plugins"],
+    fix: values.fix,
+    fixUnsafe: values["fix-unsafe"],
+    dryRun: values["dry-run"],
+    allowDirty: values["allow-dirty"],
+    allowActive: values["allow-active"],
+    osv: values.osv,
   };
+
+  if (options.fixUnsafe && !options.fix) {
+    throw new ArgError("--fix-unsafe requires --fix");
+  }
+  if (options.dryRun && !options.fix) {
+    throw new ArgError("--dry-run requires --fix");
+  }
+  if (options.allowDirty && !options.fix) {
+    throw new ArgError("--allow-dirty requires --fix");
+  }
+  if (options.fix && options.ci) {
+    throw new ArgError("--fix cannot be combined with --ci (autofix is a local operation)");
+  }
 
   // Assigned conditionally because `exactOptionalPropertyTypes` distinguishes
   // "absent" from "present and undefined", and absent is what tells the config
@@ -268,6 +315,9 @@ function scanOptions(values: Values, positionals: string[]): ScanOptions {
   if (values.target !== undefined) options.target = values.target;
   if (options.target === undefined && options.scope.length > 0) {
     throw new ArgError("--scope requires --target");
+  }
+  if (options.allowActive && options.target === undefined) {
+    throw new ArgError("--allow-active requires --target");
   }
   if (values["fail-on"] !== undefined) {
     options.failOn = parseWith(severitySchema, "--fail-on", values["fail-on"], [

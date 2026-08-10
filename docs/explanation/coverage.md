@@ -39,7 +39,11 @@ otherwise is worse than admitting it.
 *Partial* reach means part of the category is visible. A02 Cryptographic
 Failures is partial because `weak-crypto` sees a bad primitive in the source,
 but whether TLS terminates correctly at your load balancer is a property of a
-deployment this tool never sees.
+deployment this tool never sees. A06 is partial because
+`unpinned-dependency` covers pin hygiene offline, and
+`known-vulnerable-dependency` answers known CVEs only when you opt into
+`--osv` ([how-to/osv.md](../how-to/osv.md)) — we do not ship an offline
+advisory database.
 
 ## Why a category with one rule is not "covered"
 

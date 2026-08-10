@@ -8,6 +8,8 @@
 | add a framework, a rule, or a plugin | [how-to/extend.md](how-to/extend.md) |
 | wire it into CI | [how-to/ci.md](how-to/ci.md) |
 | probe a running app (`--target`) | [how-to/dynamic.md](how-to/dynamic.md) |
+| look up known vulns in lockfiles (`--osv`) | [how-to/osv.md](how-to/osv.md) |
+| apply Safe autofixes (`--fix`) | [how-to/fix.md](how-to/fix.md) |
 | suppress a finding or adopt with a baseline | [how-to/suppressions.md](how-to/suppressions.md) |
 | decode an engine error code | [reference/errors.md](reference/errors.md) |
 | understand why a finding says "possible" | [explanation/false-positives.md](explanation/false-positives.md) |

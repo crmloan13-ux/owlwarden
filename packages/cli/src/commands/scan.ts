@@ -3,6 +3,7 @@ import { reportSchema, shouldFail, type Report } from "@dointhai/owlwarden-sdk";
 
 import type { ScanOptions } from "../args.js";
 import { EXIT } from "../exit.js";
+import { applyFixes } from "../fix.js";
 import type { NativeEngine } from "../native.js";
 import { readFileBounded, writeReplacing } from "../safe-write.js";
 
@@ -14,6 +15,8 @@ interface Envelope {
   ok: boolean;
   report?: unknown;
   error?: { code: string; message: string; help: string };
+  /** Present when `--allow-active` ran; method/URL/status only. */
+  audit?: Array<{ method: string; url: string; status?: number }>;
 }
 
 /**
@@ -133,6 +136,8 @@ export async function runScan(
         ...(options.plugins.length > 0 ? { plugins: options.plugins } : {}),
         ...(options.ci ? { ci: true } : {}),
         ...(options.allowPlugins ? { allowPlugins: true } : {}),
+        ...(options.allowActive ? { allowActive: true } : {}),
+        ...(options.osv ? { osv: true } : {}),
       }),
     ),
   ) as Envelope;
@@ -164,6 +169,14 @@ export async function runScan(
     stderr.write(`wrote baseline to ${options.writeBaseline}\n`);
   }
 
+  if (options.allowActive && envelope.audit !== undefined && envelope.audit.length > 0) {
+    stderr.write(`request audit (${envelope.audit.length})\n`);
+    for (const entry of envelope.audit.slice(0, 1_000)) {
+      const status = entry.status === undefined ? "-" : String(entry.status);
+      stderr.write(`  ${entry.method} ${entry.url} → ${status}\n`);
+    }
+  }
+
   try {
     await emit(native, envelope.report, parsed.data, options, format, stdout, stderr);
   } catch (error) {
@@ -180,6 +193,76 @@ export async function runScan(
   // The JSON report already carries `suppressions` for agents and CI.
   if (options.reportSuppressions) {
     writeSuppressions(parsed.data, stderr);
+  }
+
+  if (options.fix) {
+    const fixResult = await applyFixes({
+      projectRoot: options.path,
+      report: parsed.data,
+      fixUnsafe: options.fixUnsafe,
+      dryRun: options.dryRun,
+      allowDirty: options.allowDirty,
+      stderr,
+    });
+    for (const error of fixResult.errors) {
+      stderr.write(`error: ${error}\n`);
+    }
+    if (fixResult.errors.some((message) => message.includes("working tree is not clean"))) {
+      return EXIT.ERROR;
+    }
+    if (!options.quiet) {
+      stderr.write(
+        `fix: ${fixResult.applied} applied, ${fixResult.skipped} skipped` +
+          `${options.dryRun ? " (dry-run)" : ""}\n`,
+      );
+    }
+    // Re-scan after real writes so we never claim success without checking.
+    if (!options.dryRun && fixResult.written.length > 0) {
+      const verify = JSON.parse(
+        await native.scan(
+          JSON.stringify({
+            projectRoot: options.path,
+            preset,
+            minConfidence,
+            honorSuppressions,
+            ...(baselineJson !== undefined ? { baselineJson } : {}),
+            ...(options.plugins.length > 0 ? { plugins: options.plugins } : {}),
+            ...(options.ci ? { ci: true } : {}),
+            ...(options.allowPlugins ? { allowPlugins: true } : {}),
+            ...(options.osv ? { osv: true } : {}),
+          }),
+        ),
+      ) as Envelope;
+      if (!verify.ok || verify.report === undefined) {
+        stderr.write(
+          `error: re-scan after --fix failed: ${
+            verify.error?.message ?? "the engine returned no report"
+          }\n`,
+        );
+        return EXIT.ERROR;
+      }
+      const verified = reportSchema.safeParse(verify.report);
+      if (!verified.success) {
+        stderr.write("error: re-scan after --fix returned an unreadable report\n");
+        return EXIT.ERROR;
+      }
+      const remaining = verified.data.findings.filter((finding) =>
+        fixResult.written.some((path) => {
+          if (!("path" in finding.location)) return false;
+          return path.endsWith(finding.location.path) || path.includes(finding.location.path);
+        }),
+      );
+      if (!options.quiet) {
+        stderr.write(
+          `re-scan: ${verified.data.findings.length} finding(s) remain` +
+            `${remaining.length > 0 ? ` (${remaining.length} still in rewritten files)` : ""}\n`,
+        );
+      }
+      return shouldFail(verified.data, failOn, minConfidence) ? EXIT.FINDINGS : EXIT.CLEAN;
+    }
+    if (fixResult.errors.length > 0 && fixResult.written.length === 0 && !options.dryRun) {
+      return EXIT.ERROR;
+    }
   }
 
   return shouldFail(parsed.data, failOn, minConfidence) ? EXIT.FINDINGS : EXIT.CLEAN;

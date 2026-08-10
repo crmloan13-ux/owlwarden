@@ -54,6 +54,30 @@ pub mod scan {
     pub const TOTAL_TIME: Duration = Duration::from_secs(600);
     /// HTTP requests one scan may issue in total.
     pub const MAX_REQUESTS: u32 = 10_000;
+    /// Minimum gap between state-changing (`--allow-active`) requests.
+    /// Passive probes are unaffected. Stops a buggy active detector from
+    /// hammering the target.
+    pub const ACTIVE_MIN_INTERVAL: Duration = Duration::from_millis(200);
+    /// Audit-log lines retained for one scan (method, URL, status).
+    pub const MAX_AUDIT_ENTRIES: usize = 1_000;
+}
+
+/// Caps on Google OSV / advisory lookup (`--osv`, ADR 0016).
+pub mod advisory {
+    use super::Duration;
+
+    /// Packages queried in one scan.
+    pub const MAX_PACKAGES: usize = 2_000;
+    /// Packages per `QueryBatch` HTTP call.
+    pub const MAX_BATCH_SIZE: usize = 100;
+    /// Wall-clock ceiling for one advisory HTTP exchange.
+    pub const TIMEOUT: Duration = Duration::from_secs(20);
+    /// Largest advisory response body buffered.
+    pub const MAX_BODY_BYTES: u64 = 4 * 1024 * 1024;
+    /// Findings emitted from advisory hits in one scan.
+    pub const MAX_FINDINGS: usize = 500;
+    /// Cap on an advisory summary string retained in a finding.
+    pub const MAX_SUMMARY_BYTES: usize = 512;
 }
 
 /// Caps on reading project source (static engine).

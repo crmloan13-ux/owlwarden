@@ -10,6 +10,47 @@ are listed here under Changed.
 
 ## [Unreleased]
 
+### Fixed
+
+- MCP `scan_project` / `scan_file` send the flat NAPI request shape (nested
+  `settings` was rejected by `deny_unknown_fields`, so agent scans failed).
+- NAPI rejects `--allow-active` without `--target`, matching the CLI gate.
+- `--fix` refuses to apply when highlight text drifted since the scan (TOCTOU /
+  dirty-tree safety).
+- Active request pacing reserves the next slot under a lock so concurrent
+  detectors cannot bypass `ACTIVE_MIN_INTERVAL`.
+- OSV advisory summaries strip control / ANSI characters before they enter
+  findings; package-lock line lookup is O(lines) not O(packages × lines).
+
+## [0.3.0] — 2026-08-10
+
+Autofix (`--fix`), `--allow-active` scaffold, and opt-in Google OSV lookup.
+Folded in the 0.2.1 docs/MCP polish so one publish updates npm `homepage`.
+
+### Added
+
+- **`owlwarden scan --fix`** — applies `Safe`, single-line highlight
+  replacements only. Never on `Possible`. Clean git tree by default
+  (`--allow-dirty` to override). `--dry-run` and `--fix-unsafe`. Re-scans
+  after writes. First Safe remediations: `stack-trace-leak` and `weak-crypto`
+  (GuessableToken / `Math.random()`).
+- **`--allow-active`** — with `--target`, permits state-changing HTTP methods.
+  Rate-limited, request audit log (method/URL/status). No first-party active
+  detector yet. MCP cannot set the flag.
+- **`--osv`** — opt-in Google OSV QueryBatch for lockfile dependencies
+  ([ADR 0016](docs/adr/0016-osv-advisory-lookup.md)). New rule
+  `known-vulnerable-dependency` (A06 / CWE-1395). See
+  [docs/how-to/osv.md](docs/how-to/osv.md).
+- `AdvisoryClient` port and `Capabilities.advisory`, distinct from target
+  `Transport` scope.
+
+### Changed
+
+- npm `homepage` → `https://suthat.github.io/owlwarden/`.
+- Token narrative: save tokens with local baseline scans; spend frontier models
+  on hard judgment (site, README, npm README, agent-integration).
+- `owlwarden mcp` stderr ready banner / TTY how-to; stdout remains JSON-RPC-only.
+
 ## [0.2.0] — 2026-08-08
 
 Plugins (source-only WASM), MCP for agents, and twelve Node frameworks. The

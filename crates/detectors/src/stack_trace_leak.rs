@@ -318,12 +318,20 @@ fn build_finding(unit: &FileUnit<'_>, leak: &Leak) -> Finding {
         .build()
 }
 
+/// Drop-in for the underlined `.stack` expression. Safe: same type (string),
+/// no API-shape guess — only stops leaking the trace. Framework-specific
+/// entries below stay Manual educational examples for `explain`.
+const SAFE_STACK_REPLACEMENT: &str = "'Internal Server Error'";
+
 /// Every framework's fix.
 ///
-/// All `Manual`: the correct replacement depends on what the handler is
-/// supposed to return, and `--fix` must never guess at an API contract.
+/// The generic entry is `Safe` so `--fix` can replace the highlighted
+/// `.stack` expression. Framework rows stay `Manual` multi-line examples —
+/// those rewrite the whole handler and must not be auto-applied.
 fn remediation() -> Remediation {
     Remediation::new("Log the error server-side and return a generic message to the client.")
+        .generic_patch(SAFE_STACK_REPLACEMENT)
+        .generic_safety(owlwarden_core::finding::FixSafety::Safe)
         .manual(
             Framework::NEXT,
             "Return a generic message; log the error server-side.",

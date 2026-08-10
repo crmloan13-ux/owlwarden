@@ -2,12 +2,11 @@
 //!
 //! # What this is, and what it is not
 //!
-//! A06 (Vulnerable and Outdated Components) is mostly answered by an advisory
-//! database. Shipping one inside owlwarden would make us a different tool with
-//! different update guarantees (`crates/core/src/owasp.rs`). This rule answers
-//! the part that is visible in source and needs no network: a dependency whose
-//! range is literally `"*"` or `"latest"`, so every install can pull a different
-//! major version with no review.
+//! A06 (Vulnerable and Outdated Components) needs an advisory database for
+//! known CVEs — that is `known-vulnerable-dependency` behind `--osv`
+//! (ADR 0016). This rule answers the offline half: a dependency whose range is
+//! literally `"*"` or `"latest"`, so every install can pull a different major
+//! version with no review.
 //!
 //! `^1.2.3` and `~1.2.3` are deliberate choices and stay silent. Flagging every
 //! caret range would drown a Node project in noise on day one.

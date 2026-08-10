@@ -24,6 +24,7 @@ an archaeology exercise.
 | [0013](0013-suppressions-and-baseline.md) | Inline suppressions and baseline fingerprints | Accepted |
 | [0014](0014-passive-dynamic-and-correlation.md) | Passive dynamic engine and correlation | Accepted |
 | [0015](0015-plugin-host-wasmtime.md) | Plugin host on wasmtime, source-only in v0.2 | Accepted |
+| [0016](0016-osv-advisory-lookup.md) | Opt-in Google OSV advisory lookup | Accepted |
 
 ## Writing one
 

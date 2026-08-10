@@ -104,7 +104,7 @@ fn run_scan(args: &ScanArgs) -> i32 {
     }
 
     let settings = ScanSettings {
-        allow_active: false,
+        allow_active: args.allow_active,
         min_confidence: args.min_confidence,
         min_severity: owlwarden_core::finding::Severity::Info,
         preset: args.preset.clone(),
@@ -146,12 +146,17 @@ fn run_scan(args: &ScanArgs) -> i32 {
         honor_suppressions,
         extra_detectors: Vec::new(),
         network: None,
+        advisory: None,
         correlate: None,
     };
 
     match load_requested_plugins(&args.plugins) {
         Ok(detectors) => scan_request.extra_detectors.extend(detectors),
         Err(message) => return fail(&message),
+    }
+
+    if let Err(message) = prepare_osv(args.osv, &mut scan_request) {
+        return fail(&message);
     }
 
     let dynamic_engine = match prepare_dynamic_engine(args, &mut scan_request) {
@@ -206,13 +211,29 @@ fn prepare_dynamic_engine(
         }
         return Ok(None);
     };
-    let live = owlwarden_dynamic::prepare_live(target, &args.scope, false)
+    let live = owlwarden_dynamic::prepare_live(target, &args.scope, args.allow_active)
         .map_err(|error| error.to_string())?;
     let engine = live.engine.clone();
     scan_request.network = Some(live.network);
     scan_request.extra_detectors.push(live.engine);
     scan_request.correlate = Some(owlwarden_dynamic::correlate);
     Ok(Some(engine))
+}
+
+/// Wires `--osv`: allowlisted OSV client + the advisory detector.
+fn prepare_osv(
+    enabled: bool,
+    scan_request: &mut owlwarden_static::ScanRequest,
+) -> Result<(), String> {
+    if !enabled {
+        return Ok(());
+    }
+    let client = owlwarden_transport::OsvHttpClient::new().map_err(|error| error.to_string())?;
+    scan_request.advisory = Some(std::sync::Arc::new(client));
+    scan_request
+        .extra_detectors
+        .push(owlwarden_detectors::osv_detector());
+    Ok(())
 }
 
 /// Loads every plugin path from `--plugin` into first-party-shaped detectors.
@@ -312,6 +333,10 @@ fn run_watch(args: &ScanArgs) -> i32 {
         scope: Vec::new(),
         plugins: args.plugins.clone(),
         allow_plugins: args.allow_plugins,
+        allow_active: false,
+        // Re-querying OSV on every save would hammer the API and the developer's
+        // network; watch stays offline. Use a one-shot `scan --osv` instead.
+        osv: false,
     };
 
     let _ = run_scan(&watch_args);

@@ -1,5 +1,5 @@
 import { createServer, type Server } from "node:http";
-import { mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from "node:fs/promises";
+import { cp, mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Writable } from "node:stream";
@@ -911,4 +911,60 @@ describe("owlwarden init / plugin scaffold", () => {
       await rm(dir, { recursive: true, force: true });
     }
   });
+});
+
+describe("owlwarden scan --fix", () => {
+  it("applies Safe highlight fixes on every framework fixture", async () => {
+    // Copy each vulnerable fixture — never mutate the corpus on disk.
+    expect(FRAMEWORK_FIXTURES).toHaveLength(12);
+    for (const name of FRAMEWORK_FIXTURES) {
+      const dir = await mkdtemp(join(tmpdir(), "owlwarden-fix-fw-"));
+      try {
+        await cp(fixture(name), dir, { recursive: true });
+        const before = await cli(["scan", dir, "--format", "json", "--quiet"]);
+        const beforeReport = reportSchema.parse(JSON.parse(before.out));
+        const stackBefore = beforeReport.findings.filter((f) => f.id === "stack-trace-leak");
+        const randomBefore = beforeReport.findings.filter(
+          (f) =>
+            f.id === "weak-crypto" &&
+            f.context?.evidence?.includes("Math.random()"),
+        );
+        expect(stackBefore.length).toBeGreaterThanOrEqual(1);
+        expect(randomBefore.length).toBeGreaterThanOrEqual(1);
+        expect(
+          stackBefore.some((f) => f.remediation.some((fix) => fix.safety === "safe")),
+        ).toBe(true);
+        expect(
+          randomBefore.some((f) => f.remediation.some((fix) => fix.safety === "safe")),
+        ).toBe(true);
+
+        const { err } = await cli([
+          "scan",
+          dir,
+          "--fix",
+          "--allow-dirty",
+          "--format",
+          "json",
+          "--quiet",
+        ]);
+        // Per-finding lines always go to stderr; the "fix: N applied" summary
+        // is suppressed under --quiet.
+        expect(err).toMatch(/fixed .+\(stack-trace-leak\)/);
+        expect(err).toMatch(/fixed .+\(weak-crypto\)/);
+
+        const after = await cli(["scan", dir, "--format", "json", "--quiet"]);
+        const afterReport = reportSchema.parse(JSON.parse(after.out));
+        expect(afterReport.findings.filter((f) => f.id === "stack-trace-leak")).toHaveLength(0);
+        expect(
+          afterReport.findings.filter(
+            (f) =>
+              f.id === "weak-crypto" &&
+              f.context?.evidence?.includes("Math.random()"),
+          ),
+        ).toHaveLength(0);
+      } finally {
+        await rm(dir, { recursive: true, force: true });
+      }
+    }
+  }, 300_000);
 });

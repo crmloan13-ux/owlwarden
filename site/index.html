@@ -25,7 +25,7 @@
     <meta name="twitter:description" content="A local security scanner for Node web apps, built for humans and coding agents.">
     <meta name="twitter:image" content="https://suthat.github.io/owlwarden/og.jpg">
 
-    <link rel="stylesheet" href="./styles.css?v=0.2.0-2">
+    <link rel="stylesheet" href="./styles.css?v=0.3.0">
     <script defer src="./site.js"></script>
 
     <script type="application/ld+json">
@@ -47,7 +47,7 @@
             "url": "https://suthat.github.io/owlwarden/",
             "codeRepository": "https://github.com/suthat/owlwarden",
             "downloadUrl": "https://www.npmjs.com/package/owlwarden",
-            "softwareVersion": "0.2.0",
+            "softwareVersion": "0.3.0",
             "applicationCategory": "SecurityApplication",
             "applicationSubCategory": "Static application security testing",
             "operatingSystem": "macOS, Linux, Windows",
@@ -98,7 +98,7 @@
     <main id="main-content">
       <section class="hero" id="top" aria-labelledby="hero-title">
         <div class="hero-copy">
-          <p class="eyebrow"><span>Open source</span> · v0.2.0</p>
+          <p class="eyebrow"><span>Open source</span> · v0.3.0</p>
           <h1 id="hero-title">Security review for code still in motion.</h1>
           <p class="hero-deck">Owlwarden scans Node web apps where you work. It returns the vulnerable line, why it matters, a fix written for your framework, and a confidence level you can act on.</p>
 
@@ -177,8 +177,8 @@
         <div class="agent-copy">
           <div class="section-number light" aria-hidden="true">01 / Agent use</div>
           <p class="eyebrow">For coding agents</p>
-          <h2 id="agents-title">Spend model judgment where judgment is needed.</h2>
-          <p class="lead">Owlwarden handles repeatable baseline checks locally, then gives the agent a bounded, structured result. Keep the model for architecture, authorization boundaries, and the decisions a parser cannot make.</p>
+          <h2 id="agents-title">Save tokens first. Spend frontier models on the hard parts.</h2>
+          <p class="lead">Run owlwarden locally for repeatable baseline checks — cheap, offline, same rules every time — so the agent does not burn tokens re-asking “did we leak a stack?” on every edit. Keep frontier models for architecture, auth boundaries, payments, personal data, and the decisions a parser cannot make.</p>
           <div class="agent-command"><code>npx owlwarden mcp</code></div>
           <p class="agent-safety">The MCP server is static-only, read-only, workspace-scoped, and cannot trigger network probes or write a “fix.” Scan and plugin text is wrapped as untrusted evidence, not instructions.</p>
         </div>
@@ -257,7 +257,7 @@
           <article>
             <h3>What it can see</h3>
             <p>Injection, insecure response behavior, unsafe request destinations, leaked secrets, weak cryptography, supply-chain mistakes, logging risks, and misconfiguration patterns across Node web apps.</p>
-            <a href="https://github.com/suthat/owlwarden/blob/main/RULES.md" target="_blank" rel="noopener noreferrer">Read all twelve rules <span aria-hidden="true">↗</span></a>
+            <a href="https://github.com/suthat/owlwarden/blob/main/RULES.md" target="_blank" rel="noopener noreferrer">Read all thirteen rules <span aria-hidden="true">↗</span></a>
           </article>
           <article class="out-of-reach">
             <h3>What source cannot prove</h3>
@@ -279,7 +279,7 @@
           </details>
           <details>
             <summary>Does the default scan send code anywhere?</summary>
-            <p>No. Static scans are local, offline, and have no telemetry. Network access only begins when you explicitly pass <code>--target</code>; those passive probes are deny-by-default and limited to the origin or scopes you name.</p>
+            <p>No by default. Static scans are local, offline, and have no telemetry. Network access only begins when you explicitly pass <code>--target</code> (passive probes) or <code>--osv</code> (package name+version to Google OSV — never source).</p>
           </details>
           <details>
             <summary>Is it a replacement for a security review?</summary>
@@ -287,7 +287,7 @@
           </details>
           <details>
             <summary>Can an agent change files through Owlwarden?</summary>
-            <p>Not through the shipped MCP server. It can scan, inspect one file, explain a rule, and list the catalogue. The MCP surface is read-only and static-only. Autofix is planned, but it is not part of version 0.2.0.</p>
+            <p>Not through the shipped MCP server. It can scan, inspect one file, explain a rule, and list the catalogue. The MCP surface is read-only and static-only. Autofix is a separate CLI flag (<code>owlwarden scan --fix</code>), never exposed over MCP.</p>
           </details>
           <details>
             <summary>How is noise controlled?</summary>

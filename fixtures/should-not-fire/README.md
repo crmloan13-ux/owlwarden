@@ -67,6 +67,17 @@ The clean twins matter more than they look. A rule that fires on the vulnerable
 fixture proves it can detect *something*; only the twin proves it detected the
 vulnerability rather than the framework.
 
+## Opt-in OSV corpus (outside the 144)
+
+`known-vulnerable-dependency` needs `--osv` and an advisory client, so it is
+**not** part of `SHARED_FIRES`. Its silent twin lives here:
+
+| Path | Role |
+|---|---|
+| `osv-demo-clean/` | Lockfile with a non-matching package; mock OSV returning no hits must stay silent |
+
+The vulnerable counterpart is `fixtures/vulnerable/osv-demo/`.
+
 ## Adding to it
 
 Every new rule ships with at least one entry here, and every false positive

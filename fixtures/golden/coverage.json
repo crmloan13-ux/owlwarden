@@ -51,6 +51,7 @@
       "id": "A06:2021",
       "title": "Vulnerable and Outdated Components",
       "rules": [
+        "known-vulnerable-dependency",
         "unpinned-dependency"
       ],
       "reachability": "partial",
@@ -96,65 +97,65 @@
   "frameworks": [
     {
       "id": "next",
-      "rulesWithSpecificFix": 12,
+      "rulesWithSpecificFix": 13,
       "rulesFallingBack": 0
     },
     {
       "id": "nuxt",
-      "rulesWithSpecificFix": 12,
+      "rulesWithSpecificFix": 13,
       "rulesFallingBack": 0
     },
     {
       "id": "nest",
-      "rulesWithSpecificFix": 12,
+      "rulesWithSpecificFix": 13,
       "rulesFallingBack": 0
     },
     {
       "id": "express",
-      "rulesWithSpecificFix": 12,
+      "rulesWithSpecificFix": 13,
       "rulesFallingBack": 0
     },
     {
       "id": "fastify",
-      "rulesWithSpecificFix": 12,
+      "rulesWithSpecificFix": 13,
       "rulesFallingBack": 0
     },
     {
       "id": "hono",
-      "rulesWithSpecificFix": 12,
+      "rulesWithSpecificFix": 13,
       "rulesFallingBack": 0
     },
     {
       "id": "koa",
-      "rulesWithSpecificFix": 12,
+      "rulesWithSpecificFix": 13,
       "rulesFallingBack": 0
     },
     {
       "id": "hapi",
-      "rulesWithSpecificFix": 12,
+      "rulesWithSpecificFix": 13,
       "rulesFallingBack": 0
     },
     {
       "id": "sails",
-      "rulesWithSpecificFix": 12,
+      "rulesWithSpecificFix": 13,
       "rulesFallingBack": 0
     },
     {
       "id": "astro",
-      "rulesWithSpecificFix": 12,
+      "rulesWithSpecificFix": 13,
       "rulesFallingBack": 0
     },
     {
       "id": "remix",
-      "rulesWithSpecificFix": 12,
+      "rulesWithSpecificFix": 13,
       "rulesFallingBack": 0
     },
     {
       "id": "gatsby",
-      "rulesWithSpecificFix": 12,
+      "rulesWithSpecificFix": 13,
       "rulesFallingBack": 0
     }
   ],
-  "ruleCount": 12,
+  "ruleCount": 13,
   "categoriesCovered": 9
 }

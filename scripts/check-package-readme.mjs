@@ -18,6 +18,7 @@ const rules = [
   "cors-permissive",
   "hardcoded-secret",
   "insecure-cookie",
+  "known-vulnerable-dependency",
   "open-redirect",
   "security-headers-missing",
   "sensitive-data-logged",
@@ -68,8 +69,14 @@ assert.match(readme, /confirmed.*likely.*possible/is);
 assert.match(readme, /No telemetry/i);
 assert.match(readme, /static-only, read-only/i);
 assert.match(readme, /A04:2021.*Insecure Design/is);
-assert.match(readme, /Autofix is not shipped/i);
+assert.match(readme, /`--fix` applies only/i);
+assert.match(readme, /`--osv` opts into/i);
+assert.match(readme, /12 rules × 12 frameworks|12 × 12/i);
+assert.match(readme, /osv-demo/);
 assert.match(readme, /https:\/\/suthat\.github\.io\/owlwarden\//);
+assert.match(readme, /Save tokens first/i);
+assert.match(readme, /frontier model/i);
+assert.match(readme, /Silence means/i);
 assert.doesNotMatch(readme, /\]\((?!https:\/\/|#)/, "npm links must be absolute or local anchors");
 assert((await stat(readmeUrl)).size < 32_000, "npm README exceeds the 32 KB budget");
 assert.equal(packageJson.homepage, "https://suthat.github.io/owlwarden/");

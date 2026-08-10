@@ -25,6 +25,8 @@ USAGE
   Local only. No telemetry. --target is opt-in (scoped; deny by default).
 
   mcp — stdio MCP for coding agents (scan / explain / list rules; static, read-only).
+        On a TTY it prints a how-to on stderr and then waits; silence means it
+        is waiting for a host, not hung. Under a host, stderr gets a ready line.
   init --agent-rules — writes .owlwarden/agent-rules.md from the catalogue.
   Prefer --format json for CI and agents.
   plugin scaffold writes a WASM guest stub + manifest.
@@ -54,6 +56,15 @@ ${presetLines(native)}
                         owlwarden.plugin.json + plugin.wasm, or a bare .wasm
                         with a sidecar manifest. Sandboxed; source-only in v0.2
   --allow-plugins       Under --ci, permit --plugin (off by default)
+  --fix                 Apply Safe highlight replacements (never on Possible).
+                        Requires a clean git tree unless --allow-dirty
+  --fix-unsafe          With --fix, also apply Unsafe remediations
+  --dry-run             With --fix, show changes without writing
+  --allow-dirty         With --fix, allow a dirty working tree
+  --allow-active        With --target, permit state-changing HTTP methods.
+                        No first-party detector uses this yet
+  --osv                 Opt into Google OSV lockfile advisory lookup
+                        (sends name+version to api.osv.dev; never source)
   --ci                  JSON + quiet + no-color; also ignores project gates,
                         suppressions, and --baseline unless allow-* is set
   --no-color            Disable colour (NO_COLOR is honoured too)

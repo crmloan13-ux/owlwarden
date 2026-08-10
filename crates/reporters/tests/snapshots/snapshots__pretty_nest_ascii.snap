@@ -72,18 +72,9 @@ HIGH  likely  Broken cryptographic primitive protecting a secret  A02:2021
   11 |   return sessionToken
   12 | }
 
- -> fix (NestJS)   Put the hashing behind a provider so every caller
-                   gets the same algorithm, rather than each service
-                   choosing one.
-                   @Injectable()
-                   export class PasswordService {
-                     async hash(plain: string) {
-                       return await argon2.hash(plain)
-                     }
-                     async verify(hash: string, plain: string) {
-                       return await argon2.verify(hash, plain)
-                     }
-                   }
+ -> fix (NestJS)   Use Web Crypto (or node:crypto) instead of
+                   Math.random() for tokens.
+                   (globalThis.crypto.getRandomValues(new Uint32Array(1))[0] / 0x100000000)
  -> why            Math.random() is a fast PRNG, not a cryptographic
                    one; V8 documents it as unsuitable for security. An
                    attacker who sees a few outputs can predict the rest,

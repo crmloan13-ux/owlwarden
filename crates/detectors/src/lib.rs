@@ -41,6 +41,8 @@ pub mod cors;
 pub mod decorator;
 pub mod hardcoded_secret;
 pub mod insecure_cookie;
+pub mod known_vulnerable_dependency;
+pub mod lockfile;
 pub mod open_redirect;
 pub mod security_headers;
 pub mod sensitive_data_logged;
@@ -63,6 +65,9 @@ pub use ci_unpinned_action::CiUnpinnedAction;
 pub use cors::CorsPermissive;
 pub use hardcoded_secret::HardcodedSecret;
 pub use insecure_cookie::InsecureCookie;
+pub use known_vulnerable_dependency::{
+    KnownVulnerableDependency, OsvAdvisoryDetector, osv_detector,
+};
 pub use open_redirect::OpenRedirect;
 pub use security_headers::SecurityHeadersMissing;
 pub use sensitive_data_logged::SensitiveDataLogged;
@@ -184,11 +189,18 @@ pub fn all_project_rules() -> Vec<Arc<dyn ProjectRule>> {
     ]
 }
 
+/// Advisory-only rules that are catalogue entries but run via
+/// [`osv_detector`] when `--osv` is set — not as FileRule/ProjectRule.
+#[must_use]
+pub fn advisory_rule_infos() -> Vec<Arc<dyn RuleInfo>> {
+    vec![Arc::new(KnownVulnerableDependency)]
+}
+
 /// Every rule, as the shape that only needs its metadata and remediation.
 ///
 /// The catalogue, `explain`, the coverage table, and the framework-coverage
 /// test all read this, so none of them can go stale relative to what actually
-/// runs.
+/// runs. Includes opt-in advisory rules (see [`advisory_rule_infos`]).
 #[must_use]
 pub fn all_rules() -> Vec<Arc<dyn RuleInfo>> {
     let mut rules: Vec<Arc<dyn RuleInfo>> = Vec::new();
@@ -196,6 +208,9 @@ pub fn all_rules() -> Vec<Arc<dyn RuleInfo>> {
         rules.push(rule);
     }
     for rule in all_file_rules() {
+        rules.push(rule);
+    }
+    for rule in advisory_rule_infos() {
         rules.push(rule);
     }
     rules.sort_by(|left, right| left.meta().id.cmp(&right.meta().id));
@@ -451,12 +466,16 @@ mod tests {
 
     #[test]
     fn owasp_top10_selects_exactly_the_mapped_rules() {
-        let (files, projects) = rules_for_preset("owasp-top10");
-        let selected = files.len() + projects.len();
-        let mapped = all_rule_metas()
-            .iter()
+        // Preset membership is derived from metadata (including advisory-only
+        // catalogue entries). Compare ids, not FileRule/ProjectRule counts —
+        // `known-vulnerable-dependency` is catalogued but runs via `--osv`.
+        let selected = preset_rule_ids("owasp-top10");
+        let mut mapped: Vec<String> = all_rule_metas()
+            .into_iter()
             .filter(|meta| meta.owasp.is_some())
-            .count();
+            .map(|meta| meta.id.to_string())
+            .collect();
+        mapped.sort();
         assert_eq!(selected, mapped);
     }
 

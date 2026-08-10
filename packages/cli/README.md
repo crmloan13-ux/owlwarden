@@ -11,9 +11,11 @@ account, and no source upload.
 npx owlwarden scan
 ```
 
-**Version 0.2.0** ships twelve rules, first-class remediation for twelve Node
-frameworks, a read-only MCP server for coding agents, passive opt-in runtime
-confirmation, and sandboxed source-only WASM plugins.
+**Version 0.3.0** ships thirteen rules (including opt-in
+`known-vulnerable-dependency` via `--osv`), Safe `--fix`, an `--allow-active`
+scaffold, first-class remediation for twelve Node frameworks, a read-only MCP
+server, passive opt-in runtime confirmation, and sandboxed source-only WASM
+plugins.
 
 [Website](https://suthat.github.io/owlwarden/) ·
 [Rule catalogue](https://github.com/suthat/owlwarden/blob/main/RULES.md) ·
@@ -84,15 +86,15 @@ Agents do not receive a simplified second version with different claims.
 
 ## What it catches
 
-The zero-config scan runs twelve high-signal rules mapped across nine OWASP Top
-10 (2021) categories.
+The catalogue has thirteen rules mapped across nine OWASP Top 10 (2021)
+categories. Zero-config stays offline; pass `--osv` for lockfile CVE lookup.
 
 | Area | Rules |
 |---|---|
 | Request and data flow | `sql-injection`, `ssrf`, `open-redirect` |
 | Secrets and cryptography | `hardcoded-secret`, `weak-crypto` |
 | Browser and response boundaries | `cors-permissive`, `insecure-cookie`, `security-headers-missing`, `stack-trace-leak` |
-| Supply chain and observability | `unpinned-dependency`, `ci-unpinned-action`, `sensitive-data-logged` |
+| Supply chain and observability | `unpinned-dependency`, `known-vulnerable-dependency` (needs `--osv`), `ci-unpinned-action`, `sensitive-data-logged` |
 
 ```bash
 owlwarden rules                 # the compiled rule catalogue
@@ -107,13 +109,19 @@ confidence ceilings, OWASP/CWE mappings, and remediation—is published in
 
 ## Coding agents and MCP
 
-Baseline security checks should not consume model tokens on every edit. Run
-them locally, deterministically, and keep the model for the decisions that need
-judgment.
+**Save tokens first. Spend frontier models on the hard parts.** Baseline
+security checks should not consume model tokens on every edit. Run them
+locally, deterministically, and cheaply — then keep a frontier model for
+architecture, auth boundaries, payments, personal data, and the judgments a
+parser cannot make.
 
 ```bash
 npx owlwarden mcp
 ```
+
+Running that command in a normal terminal looks quiet on purpose: the process
+speaks MCP over stdio and waits for a host. On a TTY it prints a short how-to
+on stderr (ready line under a host). Silence means “waiting,” not “hung.”
 
 The stdio MCP server exposes four tools:
 
@@ -155,8 +163,12 @@ See the full
 
 ## Framework support
 
-Every shipped rule carries specific remediation for every framework below. A
-release test fails if any cell in that 12 × 12 matrix is missing.
+Every offline catalogue rule carries specific remediation for every framework
+below. A release test fails if any cell in that **12 rules × 12 frameworks**
+fixture matrix is missing. The opt-in OSV rule
+(`known-vulnerable-dependency`) is outside that offline matrix — it has
+remediation for all twelve frameworks and is covered by
+`fixtures/vulnerable/osv-demo/` plus a clean twin.
 
 | | | | |
 |---|---|---|---|
@@ -291,8 +303,11 @@ listed with `--report-suppressions`. Details:
 
 ## Optional runtime confirmation
 
-Most scans stay static and offline. If a local or staging server is running,
-you can explicitly ask Owlwarden to compare source with a passive response:
+Most scans stay static and offline. Pass `--osv` to query Google OSV for known
+CVEs in lockfile versions
+([OSV lookup](https://github.com/suthat/owlwarden/blob/main/docs/how-to/osv.md)).
+If a local or staging server is running, you can also compare source with a
+passive response:
 
 ```bash
 npx owlwarden scan --target http://127.0.0.1:3000/
@@ -357,9 +372,14 @@ Read the complete threat model and vulnerability reporting policy in
   engine. A miss lowers confidence rather than hiding a finding.
 - Runtime correlation currently covers security headers only. Probes are
   passive and opt-in; no active detector ships.
-- Plugins are source-only in v0.2.0. MCP is static-only and read-only.
-- Autofix is not shipped in v0.2.0. The report includes remediation, but
-  Owlwarden does not edit the project.
+- Plugins are source-only. MCP is static-only and read-only.
+- `--fix` applies only `Safe`, single-line highlight replacements (never on
+  `Possible`), requires a clean git tree unless `--allow-dirty`, and re-scans
+  afterwards. Most remediations stay `Manual` on purpose.
+- `--osv` opts into Google OSV lockfile lookups (name+version only). See
+  [docs/how-to/osv.md](https://github.com/suthat/owlwarden/blob/main/docs/how-to/osv.md).
+- `--allow-active` opens state-changing HTTP methods under `--target`; no
+  first-party detector uses them yet.
 - Unrecognised stacks receive generic checks, not tailored framework fixes.
 
 `owlwarden coverage` computes reach from the rules in the engine you actually

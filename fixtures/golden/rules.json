@@ -40,6 +40,16 @@
     "description": "A cookie is written without `httpOnly`, `secure`, or `sameSite`. Missing `httpOnly` turns any cross-site scripting bug into session theft; missing `secure` sends the cookie over plain HTTP; missing `sameSite` attaches it to cross-site requests. A cookie holding no sensitive value may not need all three, which is why the finding names the ones it did not find rather than assuming the worst."
   },
   {
+    "id": "known-vulnerable-dependency",
+    "title": "Dependency has a known vulnerability",
+    "severity": "high",
+    "maxConfidence": "likely",
+    "owasp": "A06:2021",
+    "cwe": 1395,
+    "category": "dependencies",
+    "description": "A lockfile pins a package version that Google OSV reports as vulnerable. Requires `--osv` (sends package name and version to api.osv.dev — never source). Upgrade to a fixed release, or accept the risk with an inline suppression and a reason."
+  },
+  {
     "id": "open-redirect",
     "title": "Redirect target comes from the caller",
     "severity": "medium",

@@ -28,6 +28,9 @@ use serde::{Deserialize, Serialize};
 /// What the CLI asks for. Field names are camelCase to match the TypeScript
 /// side; zod validates this before it ever reaches us, and serde validates it
 /// again here — the addon does not assume its caller is our own CLI.
+///
+/// Independent presentation / trust switches; not a state machine.
+#[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct ScanRequest {
@@ -73,6 +76,12 @@ struct ScanRequest {
     /// Permit `plugins` when `ci` is true. Off by default.
     #[serde(default)]
     allow_plugins: bool,
+    /// Permit state-changing HTTP methods with `--target` (`--allow-active`).
+    #[serde(default)]
+    allow_active: bool,
+    /// Opt into Google OSV lockfile advisory lookup (`--osv`).
+    #[serde(default)]
+    osv: bool,
 }
 
 fn default_honor_suppressions() -> bool {
@@ -96,6 +105,18 @@ struct Envelope {
     report: Option<owlwarden_core::report::Report>,
     #[serde(skip_serializing_if = "Option::is_none")]
     error: Option<EngineError>,
+    /// Request audit when `--allow-active` was set (method, URL, status only).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    audit: Option<Vec<AuditLine>>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct AuditLine {
+    method: String,
+    url: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    status: Option<u16>,
 }
 
 /// A failure the user can act on.
@@ -116,6 +137,16 @@ impl Envelope {
             ok: true,
             report: Some(report),
             error: None,
+            audit: None,
+        }
+    }
+
+    fn ok_with_audit(report: owlwarden_core::report::Report, audit: Vec<AuditLine>) -> Self {
+        Self {
+            ok: true,
+            report: Some(report),
+            error: None,
+            audit: if audit.is_empty() { None } else { Some(audit) },
         }
     }
 
@@ -128,6 +159,7 @@ impl Envelope {
                 message: message.into(),
                 help: owlwarden_core::error_url(code),
             }),
+            audit: None,
         }
     }
 
@@ -194,24 +226,99 @@ fn load_requested_plugins(
 /// a caller that has already partially moved other fields out of its own
 /// request (as `scan_blocking` has, building `write_baseline`) can still
 /// call this.
+type LiveWire = (
+    Option<std::sync::Arc<owlwarden_dynamic::DynamicEngine>>,
+    Option<std::sync::Arc<owlwarden_transport::ReqwestTransport>>,
+);
+
 fn prepare_dynamic_engine(
     target: Option<&str>,
     scope: &[String],
+    allow_active: bool,
     scan_request: &mut owlwarden_static::ScanRequest,
-) -> Result<Option<std::sync::Arc<owlwarden_dynamic::DynamicEngine>>, String> {
+) -> Result<LiveWire, String> {
     let Some(target) = target else {
         if !scope.is_empty() {
             return Err("--scope requires --target".to_owned());
         }
-        return Ok(None);
+        if allow_active {
+            return Err("--allow-active requires --target".to_owned());
+        }
+        return Ok((None, None));
     };
-    let live =
-        owlwarden_dynamic::prepare_live(target, scope, false).map_err(|error| error.to_string())?;
+    let live = owlwarden_dynamic::prepare_live(target, scope, allow_active)
+        .map_err(|error| error.to_string())?;
     let engine = live.engine.clone();
+    let http = std::sync::Arc::clone(&live.http);
     scan_request.network = Some(live.network);
     scan_request.extra_detectors.push(live.engine);
     scan_request.correlate = Some(owlwarden_dynamic::correlate);
-    Ok(Some(engine))
+    Ok((Some(engine), Some(http)))
+}
+
+/// Wires `--osv`: allowlisted OSV client + the advisory detector.
+fn prepare_osv(
+    enabled: bool,
+    scan_request: &mut owlwarden_static::ScanRequest,
+) -> Result<(), String> {
+    if !enabled {
+        return Ok(());
+    }
+    let client = owlwarden_transport::OsvHttpClient::new().map_err(|error| error.to_string())?;
+    scan_request.advisory = Some(std::sync::Arc::new(client));
+    scan_request
+        .extra_detectors
+        .push(owlwarden_detectors::osv_detector());
+    Ok(())
+}
+
+fn settings_from_request(request: &ScanRequest) -> ScanSettings {
+    ScanSettings {
+        allow_active: request.allow_active,
+        min_confidence: request
+            .min_confidence
+            .as_deref()
+            .and_then(Confidence::from_str_opt)
+            .unwrap_or(Confidence::Possible),
+        min_severity: request
+            .min_severity
+            .as_deref()
+            .and_then(Severity::from_str_opt)
+            .unwrap_or(Severity::Info),
+        preset: request.preset.clone(),
+    }
+}
+
+/// Loads plugins / OSV / live stack onto `scan_request`.
+///
+/// On failure returns `(error_code, message)` for the envelope — not
+/// [`Envelope`] itself, which is too large for a `Result` err variant.
+fn wire_extras(
+    request: &ScanRequest,
+    scan_request: &mut owlwarden_static::ScanRequest,
+) -> Result<LiveWire, (&'static str, String)> {
+    if request.ci && !request.plugins.is_empty() && !request.allow_plugins {
+        return Err((
+            "E_PLUGIN_INVALID",
+            "--plugin under --ci requires --allow-plugins; \
+             omit --plugin on untrusted PRs, or pass --allow-plugins on a trusted tree"
+                .to_owned(),
+        ));
+    }
+    match load_requested_plugins(&request.plugins) {
+        Ok(detectors) => scan_request.extra_detectors.extend(detectors),
+        Err(message) => return Err(("E_PLUGIN_INVALID", message)),
+    }
+    if let Err(message) = prepare_osv(request.osv, scan_request) {
+        return Err(("E_SCAN_FAILED", message));
+    }
+    prepare_dynamic_engine(
+        request.target.as_deref(),
+        &request.scope,
+        request.allow_active,
+        scan_request,
+    )
+    .map_err(|message| ("E_TARGET_INVALID", message))
 }
 
 fn scan_blocking(request_json: String) -> String {
@@ -240,21 +347,6 @@ fn scan_blocking(request_json: String) -> String {
         .encode();
     }
 
-    let settings = ScanSettings {
-        allow_active: false,
-        min_confidence: request
-            .min_confidence
-            .as_deref()
-            .and_then(Confidence::from_str_opt)
-            .unwrap_or(Confidence::Possible),
-        min_severity: request
-            .min_severity
-            .as_deref()
-            .and_then(Severity::from_str_opt)
-            .unwrap_or(Severity::Info),
-        preset: request.preset.clone(),
-    };
-
     let baseline = match request.baseline_json.as_deref() {
         Some(json) => match owlwarden_core::baseline::BaselineFile::parse(json) {
             Ok(file) => Some(file),
@@ -266,36 +358,22 @@ fn scan_blocking(request_json: String) -> String {
     };
 
     let mut scan_request = owlwarden_static::ScanRequest {
-        settings,
+        settings: settings_from_request(&request),
         baseline,
-        write_baseline: request.write_baseline.map(std::path::PathBuf::from),
+        write_baseline: request
+            .write_baseline
+            .as_ref()
+            .map(std::path::PathBuf::from),
         honor_suppressions: request.honor_suppressions,
         extra_detectors: Vec::new(),
         network: None,
+        advisory: None,
         correlate: None,
     };
 
-    if request.ci && !request.plugins.is_empty() && !request.allow_plugins {
-        return Envelope::err(
-            "E_PLUGIN_INVALID",
-            "--plugin under --ci requires --allow-plugins; \
-             omit --plugin on untrusted PRs, or pass --allow-plugins on a trusted tree",
-        )
-        .encode();
-    }
-
-    match load_requested_plugins(&request.plugins) {
-        Ok(detectors) => scan_request.extra_detectors.extend(detectors),
-        Err(message) => return Envelope::err("E_PLUGIN_INVALID", message).encode(),
-    }
-
-    let dynamic_engine = match prepare_dynamic_engine(
-        request.target.as_deref(),
-        &request.scope,
-        &mut scan_request,
-    ) {
-        Ok(engine) => engine,
-        Err(message) => return Envelope::err("E_TARGET_INVALID", message).encode(),
+    let (dynamic_engine, http) = match wire_extras(&request, &mut scan_request) {
+        Ok(wired) => wired,
+        Err((code, message)) => return Envelope::err(code, message).encode(),
     };
 
     match owlwarden_dynamic::run_scan(
@@ -305,7 +383,27 @@ fn scan_blocking(request_json: String) -> String {
         scan_request,
         dynamic_engine,
     ) {
-        Ok(report) => Envelope::ok(report),
+        Ok(report) => {
+            if request.allow_active {
+                let audit = http
+                    .as_ref()
+                    .map(|transport| {
+                        transport
+                            .audit_log()
+                            .into_iter()
+                            .map(|entry| AuditLine {
+                                method: entry.method,
+                                url: entry.url,
+                                status: entry.status,
+                            })
+                            .collect()
+                    })
+                    .unwrap_or_default();
+                Envelope::ok_with_audit(report, audit)
+            } else {
+                Envelope::ok(report)
+            }
+        }
         Err(owlwarden_dynamic::DriveError::Run(owlwarden_static::RunError::Source(error))) => {
             Envelope::err(
                 "E_PROJECT_UNREADABLE",

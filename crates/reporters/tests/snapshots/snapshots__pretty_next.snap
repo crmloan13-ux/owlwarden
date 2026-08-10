@@ -174,22 +174,9 @@ HIGH  likely  Broken cryptographic primitive protecting a secret  A02:2021
   15 │   return sessionToken
   16 │ }
 
- ↳  fix (Next.js)  Use node:crypto in the route handler. Note that the
-                   edge runtime has no node:crypto — use
-                   globalThis.crypto.randomUUID() and Web Crypto there,
-                   or pin the route to nodejs.
-                   import { randomBytes, randomUUID, scrypt } from 'node:crypto'
-                   
-                   // Tokens and session ids: unpredictable, not merely random-looking.
-                   const sessionId = randomUUID()
-                   const resetToken = randomBytes(32).toString('base64url')
-                   
-                   // Passwords: a slow hash with a per-password salt. bcrypt and argon2 are
-                   // equally correct; scrypt needs no dependency.
-                   const salt = randomBytes(16)
-                   const hash = await new Promise<Buffer>((resolve, reject) =>
-                     scrypt(password, salt, 64, (error, key) => (error ? reject(error) : resolve(key))),
-                   )
+ ↳  fix (Next.js)  Use Web Crypto (or node:crypto) instead of
+                   Math.random() for tokens.
+                   (globalThis.crypto.getRandomValues(new Uint32Array(1))[0] / 0x100000000)
  ↳  why            Math.random() is a fast PRNG, not a cryptographic
                    one; V8 documents it as unsuitable for security. An
                    attacker who sees a few outputs can predict the rest,

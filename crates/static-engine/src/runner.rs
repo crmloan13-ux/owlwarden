@@ -11,6 +11,7 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use owlwarden_core::advisory::AdvisoryClient;
 use owlwarden_core::baseline::BaselineFile;
 use owlwarden_core::budget::Budget;
 use owlwarden_core::context::{ScanContext, ScanSettings};
@@ -82,6 +83,8 @@ pub struct ScanRequest {
     pub extra_detectors: Vec<Arc<dyn Detector>>,
     /// When set, detectors may use the network under this stack.
     pub network: Option<NetworkStack>,
+    /// Opt-in advisory client (`--osv`). Never shares `--target` scope.
+    pub advisory: Option<Arc<dyn AdvisoryClient>>,
     /// Optional correlation post-pass (static + dynamic → `Confirmed`).
     pub correlate: Option<fn(Vec<Finding>) -> Vec<Finding>>,
 }
@@ -95,6 +98,7 @@ impl Default for ScanRequest {
             honor_suppressions: true,
             extra_detectors: Vec::new(),
             network: None,
+            advisory: None,
             correlate: None,
         }
     }
@@ -125,6 +129,7 @@ pub async fn scan_project(
             honor_suppressions: true,
             extra_detectors: Vec::new(),
             network: None,
+            advisory: None,
             correlate: None,
         },
     )
@@ -163,7 +168,15 @@ pub async fn scan_project_with(
         ),
     };
 
-    let context = ScanContext::new(&provider, transport, scope, &request.settings, budget);
+    let advisory = request.advisory.as_deref();
+    let context = ScanContext::with_advisory(
+        &provider,
+        transport,
+        advisory,
+        scope,
+        &request.settings,
+        budget,
+    );
 
     let target = ScanTarget {
         project: root.display().to_string(),

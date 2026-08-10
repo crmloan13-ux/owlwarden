@@ -265,7 +265,8 @@ expression: encoded
         },
         {
           "summary": "Log the error server-side and return a generic message to the client.",
-          "safety": "manual"
+          "patch": "'Internal Server Error'",
+          "safety": "safe"
         }
       ],
       "references": [
@@ -452,14 +453,14 @@ expression: encoded
       "remediation": [
         {
           "framework": "next",
-          "summary": "Use node:crypto in the route handler. Note that the edge runtime has no node:crypto — use globalThis.crypto.randomUUID() and Web Crypto there, or pin the route to nodejs.",
-          "patch": "import { randomBytes, randomUUID, scrypt } from 'node:crypto'\n\n// Tokens and session ids: unpredictable, not merely random-looking.\nconst sessionId = randomUUID()\nconst resetToken = randomBytes(32).toString('base64url')\n\n// Passwords: a slow hash with a per-password salt. bcrypt and argon2 are\n// equally correct; scrypt needs no dependency.\nconst salt = randomBytes(16)\nconst hash = await new Promise<Buffer>((resolve, reject) =>\n  scrypt(password, salt, 64, (error, key) => (error ? reject(error) : resolve(key))),\n)",
-          "safety": "manual"
+          "summary": "Use Web Crypto (or node:crypto) instead of Math.random() for tokens.",
+          "patch": "(globalThis.crypto.getRandomValues(new Uint32Array(1))[0] / 0x100000000)",
+          "safety": "safe"
         },
         {
-          "summary": "Use a slow, salted hash for passwords and a cryptographic random source for tokens. Both are in the Node standard library; neither needs a dependency.",
-          "patch": "import { randomBytes, randomUUID, scrypt } from 'node:crypto'\n\n// Tokens and session ids: unpredictable, not merely random-looking.\nconst sessionId = randomUUID()\nconst resetToken = randomBytes(32).toString('base64url')\n\n// Passwords: a slow hash with a per-password salt. bcrypt and argon2 are\n// equally correct; scrypt needs no dependency.\nconst salt = randomBytes(16)\nconst hash = await new Promise<Buffer>((resolve, reject) =>\n  scrypt(password, salt, 64, (error, key) => (error ? reject(error) : resolve(key))),\n)",
-          "safety": "manual"
+          "summary": "Replace Math.random() with a cryptographic source when the value is a secret.",
+          "patch": "(globalThis.crypto.getRandomValues(new Uint32Array(1))[0] / 0x100000000)",
+          "safety": "safe"
         }
       ],
       "references": [

@@ -19,7 +19,12 @@ futures-util.workspace = true
 # hand-rolled client inside a security scanner. default-features off so we do
 # not silently enable cookies, gzip, or native-tls.
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "stream"] }
+serde.workspace = true
+serde_json.workspace = true
 thiserror.workspace = true
+# `time` only — used to pace `--allow-active` requests. The reactor comes from
+# the live-scan caller (napi / cli-native), not from this crate.
+tokio = { version = "1", default-features = false, features = ["time"] }
 url = { version = "2", default-features = false }
 
 [dev-dependencies]

@@ -180,6 +180,9 @@ fn is_eligible(detector: &dyn Detector, ctx: &ScanContext<'_>) -> bool {
     if capabilities.network && ctx.transport().is_none() {
         return false;
     }
+    if capabilities.advisory && ctx.advisory().is_none() {
+        return false;
+    }
     true
 }
 
@@ -320,6 +323,7 @@ mod tests {
         let active = Capabilities {
             source: true,
             network: false,
+            advisory: false,
             active: true,
         };
         let report = run_with(

@@ -102,6 +102,20 @@ impl Remediation {
         self.fix(framework, summary, Some(patch.into()), FixSafety::Manual)
     }
 
+    /// Adds a `Safe` single-line patch for one framework.
+    ///
+    /// `--fix` applies these as a highlight-span replacement. The patch must
+    /// be a drop-in for the underlined expression — never a multi-line example.
+    #[must_use]
+    pub fn safe(
+        self,
+        framework: Framework,
+        summary: impl Into<String>,
+        patch: impl Into<String>,
+    ) -> Self {
+        self.fix(framework, summary, Some(patch.into()), FixSafety::Safe)
+    }
+
     /// Adds the same `Manual` advice for every framework in `frameworks`.
     ///
     /// For fixes that truly do not vary by stack (pin a SHA, read from
@@ -118,6 +132,22 @@ impl Remediation {
         let patch = patch.into();
         for framework in frameworks {
             self = self.manual(framework.clone(), summary.clone(), patch.clone());
+        }
+        self
+    }
+
+    /// Adds the same `Safe` single-line patch for every framework in `frameworks`.
+    #[must_use]
+    pub fn safe_each(
+        mut self,
+        frameworks: &[Framework],
+        summary: impl Into<String>,
+        patch: impl Into<String>,
+    ) -> Self {
+        let summary = summary.into();
+        let patch = patch.into();
+        for framework in frameworks {
+            self = self.safe(framework.clone(), summary.clone(), patch.clone());
         }
         self
     }

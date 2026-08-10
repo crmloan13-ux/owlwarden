@@ -135,9 +135,11 @@ pub const TOP_10_2021: &[Category] = &[
         title: "Vulnerable and Outdated Components",
         slug: "A06_2021-Vulnerable_and_Outdated_Components",
         summary: "A dependency has a known vulnerability, or is too old to be receiving fixes.",
-        // Visible in a lockfile, but answering it means shipping or fetching an
-        // advisory database, which is a different tool with different update
-        // guarantees. See `docs/explanation/coverage.md`.
+        // Partial on purpose: `unpinned-dependency` sees pin hygiene in source;
+        // `known-vulnerable-dependency` answers known CVEs only with opt-in
+        // `--osv` (Google OSV QueryBatch — ADR 0016). We do not ship an offline
+        // advisory DB, so this is not full component intelligence.
+        // See `docs/explanation/coverage.md` and `docs/how-to/osv.md`.
         static_reachability: Reachability::Partial,
     },
     Category {

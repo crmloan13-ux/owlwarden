@@ -1,11 +1,21 @@
 # Serving AI agents as users
 
-**Status:** v0.2 surface is shipped. `--format json`, `explain`, `owlwarden mcp`,
-and `init --agent-rules` work today. Editor post-edit hooks and `--fix` remain
-for later (hooks polish / v0.3). Each section below says what is live.
+**Status:** v0.3 surface is shipped. `--format json`, `explain`, `owlwarden mcp`,
+`init --agent-rules`, `--fix` (CLI only), and opt-in `--osv` work today.
+Editor post-edit hooks remain later. Each section below says what is live.
 
 If you are an agent working *on* this repository rather than using it, read
 [AGENTS.md](../../AGENTS.md).
+
+---
+
+## Save tokens first; spend frontier models on the hard parts
+
+Baseline security checks are a poor use of model tokens. Run owlwarden locally
+(fast, offline, same rules every time) so an agent does not re-ask “did we leak
+a stack?” on every edit. Keep a frontier model for architecture, authorization
+boundaries, payments, personal data, and the decisions a parser cannot make.
+Floor first; judgment on top.
 
 ---
 
@@ -70,6 +80,24 @@ JSON-RPC over stdio. Hand-rolled subset (initialize, tools/list, tools/call) —
 no MCP SDK dependency. Wire it into an MCP-capable host the same way you would
 any other stdio server.
 
+**If you run it in a terminal and it looks hung:** that is expected. stdout is
+the protocol channel; the process waits for the host. On a TTY, stderr prints a
+short how-to (host config snippet, tools, Ctrl+C). Under a host, stderr gets a
+one-line ready notice. Never put human logs on stdout — that breaks JSON-RPC.
+
+Example host entry:
+
+```json
+{
+  "mcpServers": {
+    "owlwarden": {
+      "command": "npx",
+      "args": ["owlwarden", "mcp", "."]
+    }
+  }
+}
+```
+
 | Tool | Purpose |
 |---|---|
 | `scan_project` | Scan the workspace; return findings as JSON |
@@ -111,25 +139,26 @@ text planted in the scanned repo. Re-run after upgrading the tool.
   wrapper around it is the remaining piece.
 - An LSP mode is a candidate after v1.
 
-## `--fix` — planned, v0.3
+## `--fix` — shipped (v0.3)
 
 Many findings have one obvious correct patch, and applying it should be one
 command.
 
 ```bash
 owlwarden scan --fix           # safe fixes only
-owlwarden scan --fix --dry-run # show the diff, change nothing
+owlwarden scan --fix --dry-run # show the change, write nothing
 ```
 
 The rules around it exist because this is the feature most able to do harm:
 
 - Every `Fix` declares `safety: Safe | Unsafe | Manual`. Only `Safe` applies
-  without `--fix-unsafe`, and `Safe` means it cannot change behaviour beyond
-  removing the vulnerability.
+  without `--fix-unsafe`, and `Safe` means a single-line highlight replacement
+  that cannot change behaviour beyond removing the vulnerability.
+- Multi-line educational patches stay `Manual` and are never auto-applied.
 - **Never on a `Possible` finding.** Low confidence plus automatic edits is how
   a tool destroys a codebase and its own reputation in one command.
 - Fixes apply to a clean git tree by default, so every change is trivially
-  reversible.
+  reversible (`--allow-dirty` to override).
 - After applying, re-scan and report what remains. Never claim success without
   checking.
 

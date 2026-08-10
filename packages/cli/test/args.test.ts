@@ -180,4 +180,18 @@ describe("parse", () => {
     expect(() => parse(["plugin", "scaffold"])).toThrow(/requires a name/);
     expect(() => parse(["plugin", "build"])).toThrow(/usage:/);
   });
+
+  it("parses --fix flags and rejects invalid combinations", () => {
+    const cli = parse(["scan", "--fix", "--dry-run", "--allow-dirty"]);
+    if (cli.command !== "scan") throw new Error("expected scan");
+    expect(cli.options.fix).toBe(true);
+    expect(cli.options.dryRun).toBe(true);
+    expect(cli.options.allowDirty).toBe(true);
+    expect(() => parse(["scan", "--fix-unsafe"])).toThrow(/requires --fix/);
+    expect(() => parse(["scan", "--fix", "--ci"])).toThrow(/cannot be combined with --ci/);
+    expect(() => parse(["scan", "--allow-active"])).toThrow(/requires --target/);
+    const osv = parse(["scan", "--osv"]);
+    if (osv.command !== "scan") throw new Error("expected scan");
+    expect(osv.options.osv).toBe(true);
+  });
 });

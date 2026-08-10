@@ -78,9 +78,10 @@ pub fn run_scan(
     request: ScanRequest,
     engine: Option<Arc<DynamicEngine>>,
 ) -> Result<Report, DriveError> {
-    let live = request.network.is_some();
+    // reqwest needs a Tokio reactor for both `--target` and `--osv`.
+    let needs_tokio = request.network.is_some() || request.advisory.is_some();
     let future = scan_project_with(root, file_rules, project_rules, request);
-    let mut report = if live {
+    let mut report = if needs_tokio {
         block_on(future)??
     } else {
         futures_executor::block_on(future)?
@@ -97,6 +98,8 @@ pub struct LiveScan {
     pub network: NetworkStack,
     /// Detector to place in `extra_detectors`.
     pub engine: Arc<DynamicEngine>,
+    /// Concrete transport for the request audit log (`--allow-active`).
+    pub http: Arc<ReqwestTransport>,
 }
 
 /// Builds the network stack and dynamic engine from CLI/napi inputs.
@@ -129,7 +132,7 @@ pub fn prepare_live(
         limits::scan::MAX_REQUESTS,
         limits::scan::TOTAL_TIME,
     ));
-    let transport = Arc::new(ReqwestTransport::new(
+    let http = Arc::new(ReqwestTransport::new(
         Arc::clone(&scope) as Arc<dyn owlwarden_core::scope::ScopeResolver>,
         Arc::clone(&budget),
         allow_active,
@@ -139,12 +142,13 @@ pub fn prepare_live(
 
     Ok(LiveScan {
         network: NetworkStack {
-            transport,
+            transport: Arc::clone(&http) as Arc<dyn owlwarden_core::transport::Transport>,
             scope,
             budget,
             scope_labels,
         },
         engine,
+        http,
     })
 }
 

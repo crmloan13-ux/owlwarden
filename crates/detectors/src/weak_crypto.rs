@@ -395,9 +395,45 @@ fn build_finding(unit: &FileUnit<'_>, hit: &Hit) -> Finding {
         .location(unit.location(hit.span))
         .snippet(unit.code_frame(hit.span, label))
         .context(unit.context(None, Some(evidence)))
-        .fixes(remediation().select(unit.framework()))
+        .fixes(fixes_for(hit.weakness, unit.framework()))
         .reference(Reference::rule_page(&meta.id))
         .build()
+}
+
+/// `GuessableToken` gets a Safe drop-in for `Math.random()`; other weaknesses
+/// keep the educational Manual table — their patches are not highlight-sized.
+fn fixes_for(weakness: Weakness, framework: &Framework) -> Vec<owlwarden_core::finding::Fix> {
+    match weakness {
+        Weakness::GuessableToken => safe_random_remediation().select(framework),
+        Weakness::HashedSecret | Weakness::BrokenCipher => remediation().select(framework),
+    }
+}
+
+/// Drop-in for the underlined `Math.random()` call. Same numeric range, not
+/// predictable. Web Crypto is global in modern Node and browsers.
+fn safe_random_remediation() -> Remediation {
+    const PATCH: &str = "(globalThis.crypto.getRandomValues(new Uint32Array(1))[0] / 0x100000000)";
+    const SUMMARY: &str = "Use Web Crypto (or node:crypto) instead of Math.random() for tokens.";
+    let frameworks = [
+        Framework::NEXT,
+        Framework::NUXT,
+        Framework::NEST,
+        Framework::EXPRESS,
+        Framework::FASTIFY,
+        Framework::HONO,
+        Framework::KOA,
+        Framework::HAPI,
+        Framework::SAILS,
+        Framework::ASTRO,
+        Framework::REMIX,
+        Framework::GATSBY,
+    ];
+    Remediation::new(
+        "Replace Math.random() with a cryptographic source when the value is a secret.",
+    )
+    .generic_patch(PATCH)
+    .generic_safety(owlwarden_core::finding::FixSafety::Safe)
+    .safe_each(&frameworks, SUMMARY, PATCH)
 }
 
 /// The replacement, which is the same on every runtime because it is in the

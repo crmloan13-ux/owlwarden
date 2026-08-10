@@ -110,18 +110,27 @@ agent can scan and pull remediations in one loop. Autofix (`--fix`) and
 polished editor post-edit hooks remain later work — stated so 0.2.0 does not
 overclaim.
 
-## v0.3 — Autofix and active checks
+## v0.3 — Autofix, active gate, and OSV — **shipped**
 
-**Goal:** close the loop from finding to fix, without breaking anyone's code.
+**Goal:** close the loop from finding to fix, without breaking anyone's code;
+open the active-check gate safely; cover known lockfile advisories opt-in.
 
-- `--fix`: `Safe` fixes only, never on a `Possible` finding, clean git tree by
-  default, and a re-scan afterwards to verify rather than assume.
-- `--allow-active` gating for state-changing checks, with a scope-escape test
-  suite, rate limiting, and a request audit log.
+Delivered:
 
-**Exit criteria:** safe autofix verified across the fixture corpus with no
-behaviour changes; active checks unreachable without the flag; the scope-escape
-suite passes.
+- `--fix` / `--fix-unsafe` / `--dry-run` / `--allow-dirty`: `Safe` highlight
+  replacements only, never on `Possible`, clean git tree by default, re-scan
+  after apply. First Safe remediations on `stack-trace-leak` and
+  `weak-crypto` (GuessableToken).
+- `--allow-active` wired through CLI/napi, rate limit, request audit log,
+  existing scope-escape suite. No first-party active detector yet.
+- `--osv` + rule `known-vulnerable-dependency` via allowlisted OSV QueryBatch
+  ([ADR 0016](docs/adr/0016-osv-advisory-lookup.md)).
+- 0.2.1 polish: npm homepage → GitHub Pages, token/frontier narrative, MCP
+  stderr how-to.
+
+**Exit criteria, met for this slice:** Safe autofix gated and tested; active
+methods unreachable without the flag; scope-escape and OSV mock suites pass.
+Active detectors, offline OSV DB, and editor hooks remain later work.
 
 ## v0.4 — Pipelines and reporting
 

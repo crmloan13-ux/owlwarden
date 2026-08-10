@@ -15,6 +15,7 @@ import { reportSchema, ruleMetaListSchema } from "@dointhai/owlwarden-sdk";
 import {
   wrapUntrustedToolResult,
 } from "../mcp/agent-safety.js";
+import { writeMcpBanner } from "../mcp/banner.js";
 import { serveMcp, type McpTool, type ToolResult } from "../mcp/protocol.js";
 import type { NativeEngine } from "../native.js";
 
@@ -46,6 +47,7 @@ function resolveUnderRoot(root: string, path: string | undefined): string {
 /** Starts the MCP server. Blocks until stdin closes. */
 export async function runMcp(native: NativeEngine, workspaceRoot: string): Promise<number> {
   const root = resolve(workspaceRoot);
+  const version = native.engineVersion();
 
   const tools: McpTool[] = [
     {
@@ -105,20 +107,34 @@ export async function runMcp(native: NativeEngine, workspaceRoot: string): Promi
     },
   ];
 
+  // stdout is the protocol channel — banner goes to stderr only.
+  writeMcpBanner({
+    version,
+    workspaceRoot: root,
+    tools: tools.map((tool) => tool.name),
+    isTty: Boolean(process.stdin.isTTY),
+    write: (line) => {
+      process.stderr.write(`${line}\n`);
+    },
+  });
+
   await serveMcp({
     name: "owlwarden",
-    version: native.engineVersion(),
+    version,
     tools,
     handlers: {
       async scan_project(args) {
         try {
           const projectRoot = resolveUnderRoot(root, stringArg(args, "path"));
           const preset = stringArg(args, "preset") ?? "quick";
+          // Flat fields only — NAPI ScanRequest uses deny_unknown_fields and
+          // does not accept a nested `settings` object (same shape as CLI scan).
           const envelope = JSON.parse(
             await native.scan(
               JSON.stringify({
                 projectRoot,
-                settings: { preset, failOn: "info", minConfidence: "possible" },
+                preset,
+                minConfidence: "possible",
               }),
             ),
           ) as { ok: boolean; report?: unknown; error?: { message: string } };
@@ -143,23 +159,26 @@ export async function runMcp(native: NativeEngine, workspaceRoot: string): Promi
             await native.scan(
               JSON.stringify({
                 projectRoot: root,
-                settings: { preset, failOn: "info", minConfidence: "possible" },
+                preset,
+                minConfidence: "possible",
               }),
             ),
           ) as {
             ok: boolean;
-            report?: { findings: Array<{ location?: { path?: string } }> };
+            report?: unknown;
             error?: { message: string };
           };
           if (!envelope.ok || !envelope.report) {
             return text(envelope.error?.message ?? "scan failed", true);
           }
+          const report = reportSchema.parse(envelope.report);
           const normalised = filePath.replace(/\\/g, "/");
-          const findings = envelope.report.findings.filter((finding) => {
-            const path = finding.location?.path?.replace(/\\/g, "/");
-            return path === normalised || path?.endsWith(`/${normalised}`);
+          const findings = report.findings.filter((finding) => {
+            if (!("path" in finding.location)) return false;
+            const path = finding.location.path.replace(/\\/g, "/");
+            return path === normalised || path.endsWith(`/${normalised}`);
           });
-          return text({ ...envelope.report, findings }, false, "scan");
+          return text({ ...report, findings }, false, "scan");
         } catch (error) {
           return text(error instanceof Error ? error.message : String(error), true);
         }

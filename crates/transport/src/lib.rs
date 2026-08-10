@@ -18,7 +18,11 @@
 #![warn(clippy::pedantic)]
 #![allow(clippy::module_name_repetitions, clippy::must_use_candidate)]
 
-use std::sync::Arc;
+pub mod osv;
+
+pub use osv::OsvHttpClient;
+
+use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
 use async_trait::async_trait;
@@ -32,12 +36,27 @@ use owlwarden_core::transport::{
 use reqwest::Client;
 use reqwest::redirect::Policy;
 
+/// One line of the request audit log (method, URL, status). No bodies.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AuditEntry {
+    /// HTTP method name.
+    pub method: String,
+    /// Absolute URL that was requested (after redirects: the hop URL).
+    pub url: String,
+    /// Response status when the exchange completed; `None` on hard failure.
+    pub status: Option<u16>,
+}
+
 /// Production transport: reqwest behind the core port.
 pub struct ReqwestTransport {
     client: Client,
     scope: Arc<dyn ScopeResolver>,
     budget: Arc<Budget>,
     allow_active: bool,
+    /// Last state-changing request time — enforces [`limits::scan::ACTIVE_MIN_INTERVAL`].
+    last_active_at: Mutex<Option<Instant>>,
+    /// Bounded request audit trail for `--allow-active` operators.
+    audit: Mutex<Vec<AuditEntry>>,
 }
 
 impl ReqwestTransport {
@@ -68,7 +87,56 @@ impl ReqwestTransport {
             scope,
             budget,
             allow_active,
+            last_active_at: Mutex::new(None),
+            audit: Mutex::new(Vec::new()),
         })
+    }
+
+    /// Snapshot of the audit log (method, URL, status). Bodies are never stored.
+    #[must_use]
+    pub fn audit_log(&self) -> Vec<AuditEntry> {
+        self.audit
+            .lock()
+            .map(|guard| guard.clone())
+            .unwrap_or_default()
+    }
+
+    fn record_audit(&self, method: Method, url: &str, status: Option<u16>) {
+        let Ok(mut guard) = self.audit.lock() else {
+            return;
+        };
+        if guard.len() >= limits::scan::MAX_AUDIT_ENTRIES {
+            return;
+        }
+        guard.push(AuditEntry {
+            method: method.as_str().to_owned(),
+            url: url.to_owned(),
+            status,
+        });
+    }
+
+    async fn pace_active(&self, method: Method) {
+        if !method.is_state_changing() {
+            return;
+        }
+        // Reserve the next slot under the lock so concurrent active detectors
+        // cannot all sleep for the same gap and then fire together.
+        let wait = {
+            let Ok(mut guard) = self.last_active_at.lock() else {
+                return;
+            };
+            let now = Instant::now();
+            let wait = guard.and_then(|previous| {
+                let earliest = previous + limits::scan::ACTIVE_MIN_INTERVAL;
+                earliest.checked_duration_since(now)
+            });
+            let reserved_at = wait.map_or(now, |duration| now + duration);
+            *guard = Some(reserved_at);
+            wait
+        };
+        if let Some(duration) = wait {
+            tokio::time::sleep(duration).await;
+        }
     }
 }
 
@@ -98,6 +166,8 @@ impl Transport for ReqwestTransport {
             });
         }
 
+        self.pace_active(request.method).await;
+
         let mut current_url = request.url.clone();
         let mut redirects: u8 = 0;
         let started = Instant::now();
@@ -113,6 +183,7 @@ impl Transport for ReqwestTransport {
             match self.scope.in_scope(&target) {
                 owlwarden_core::scope::ScopeDecision::Allow => {}
                 owlwarden_core::scope::ScopeDecision::Deny(reason) => {
+                    self.record_audit(request.method, &current_url, None);
                     return Err(TransportError::OutOfScope {
                         url: current_url,
                         reason,
@@ -136,12 +207,13 @@ impl Transport for ReqwestTransport {
                 }
             }
 
-            let response = builder
-                .send()
-                .await
-                .map_err(|error| map_reqwest_error(error, &current_url, request.limits.timeout))?;
+            let response = builder.send().await.map_err(|error| {
+                self.record_audit(method, &current_url, None);
+                map_reqwest_error(error, &current_url, request.limits.timeout)
+            })?;
 
             let status = response.status();
+            self.record_audit(method, &current_url, Some(status.as_u16()));
             if status.is_redirection() {
                 let location = response
                     .headers()

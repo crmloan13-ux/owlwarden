@@ -4,9 +4,10 @@ Security scanner for Node web apps — built so coding agents and humans get the
 same answer: the line, a fix, and a confidence level. Rust engine, TypeScript
 CLI on npm. Nothing leaves your machine.
 
-**v0.2.0** — twelve frameworks, sandboxed WASM plugins (source-only), and
-`owlwarden mcp` for agent loops. Autofix and active probes are not in this
-release; see [ROADMAP.md](ROADMAP.md).
+**v0.3.0** — `--fix` (Safe only), `--osv` (Google OSV), `--allow-active`
+scaffold, twelve frameworks, WASM plugins (source-only), and `owlwarden mcp`.
+Site: [https://suthat.github.io/owlwarden/](https://suthat.github.io/owlwarden/).
+See [ROADMAP.md](ROADMAP.md).
 
 ```bash
 npx owlwarden scan
@@ -14,6 +15,12 @@ npx owlwarden mcp    # stdio MCP for Cursor, Claude, and other MCP hosts
 ```
 
 ## Agents and MCP (first-class)
+
+**Save tokens first, then spend a frontier model on the hard parts.** Run the
+scanner locally for baseline checks (fast, offline, same rules every time) so
+the agent does not burn tokens re-asking “did we leak a stack?” on every edit.
+Keep frontier models for architecture, auth, payments, personal data, and
+judgments a parser cannot make. Floor first; judgment on top.
 
 Wire it into an agent loop instead of pasting terminal output by hand:
 
@@ -24,14 +31,10 @@ owlwarden init --agent-rules   # writes .owlwarden/agent-rules.md from the catal
 ```
 
 MCP is read-only and static-only — no live `--target`, no file writes, paths
-stay under the workspace. Schemas live in `@dointhai/owlwarden-sdk` and are
-checked against the Rust output in CI.
-
-Baseline checks should not burn a pile of LLM tokens. Run the scanner locally
-(fast, offline, same rules every time) and keep the model for design work —
-not for re-asking “did we leak a stack?” on every edit. When the blast radius
-is high (auth, payments, personal data), still pair this with deeper
-AI-assisted review. Floor first; judgment on top.
+stay under the workspace. On a TTY, `owlwarden mcp` prints a short how-to on
+stderr and then waits; silence means it is waiting for a host, not hung.
+Schemas live in `@dointhai/owlwarden-sdk` and are checked against the Rust
+output in CI.
 
 More: [docs/explanation/agent-integration.md](docs/explanation/agent-integration.md).
 

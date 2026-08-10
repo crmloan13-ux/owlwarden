@@ -74,7 +74,10 @@ Expectation {
     framework: "hono",
     vulnerable: "vulnerable/hono-api",
     clean: "should-not-fire/hono-api-clean",
-    fires: &[("stack-trace-leak", 1), ("sql-injection", 1)],
+    // Use SHARED_FIRES — CI requires the full offline catalogue on every row,
+    // not a two-rule subset. Advisory-only rules (known-vulnerable-dependency)
+    // stay out of this matrix; they need --osv and live under osv-demo fixtures.
+    fires: SHARED_FIRES,
 },
 ```
 

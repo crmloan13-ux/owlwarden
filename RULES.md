@@ -2,7 +2,7 @@
 
 # Rules
 
-12 rules in owlwarden 0.2.0.
+13 rules in owlwarden 0.3.0.
 
 Rule ids are permanent. They appear in suppressions, in agent rules files, and
 in other people's CI configs, so they are treated as public API.
@@ -11,9 +11,9 @@ in other people's CI configs, so they are treated as public API.
 
 | Preset | Rules | What it is for |
 | --- | --- | --- |
-| `quick` | ci-unpinned-action, cors-permissive, hardcoded-secret, insecure-cookie, open-redirect, security-headers-missing, sensitive-data-logged, sql-injection, ssrf, stack-trace-leak, unpinned-dependency, weak-crypto | Fast, high-signal rules. The zero-config default. |
-| `owasp-top10` | ci-unpinned-action, cors-permissive, hardcoded-secret, insecure-cookie, open-redirect, security-headers-missing, sensitive-data-logged, sql-injection, ssrf, stack-trace-leak, unpinned-dependency, weak-crypto | Rules mapped to an OWASP Top 10 (2021) category. |
-| `deep` | ci-unpinned-action, cors-permissive, hardcoded-secret, insecure-cookie, open-redirect, security-headers-missing, sensitive-data-logged, sql-injection, ssrf, stack-trace-leak, unpinned-dependency, weak-crypto | Every rule, including the noisier heuristics. |
+| `quick` | ci-unpinned-action, cors-permissive, hardcoded-secret, insecure-cookie, known-vulnerable-dependency, open-redirect, security-headers-missing, sensitive-data-logged, sql-injection, ssrf, stack-trace-leak, unpinned-dependency, weak-crypto | Fast, high-signal rules. The zero-config default. |
+| `owasp-top10` | ci-unpinned-action, cors-permissive, hardcoded-secret, insecure-cookie, known-vulnerable-dependency, open-redirect, security-headers-missing, sensitive-data-logged, sql-injection, ssrf, stack-trace-leak, unpinned-dependency, weak-crypto | Rules mapped to an OWASP Top 10 (2021) category. |
+| `deep` | ci-unpinned-action, cors-permissive, hardcoded-secret, insecure-cookie, known-vulnerable-dependency, open-redirect, security-headers-missing, sensitive-data-logged, sql-injection, ssrf, stack-trace-leak, unpinned-dependency, weak-crypto | Every rule, including the noisier heuristics. |
 
 ## OWASP Top 10 (2021) coverage
 
@@ -35,7 +35,7 @@ or a human.
 | **A03:2021** Injection | good | `sql-injection` |
 | **A04:2021** Insecure Design | poor | *not reachable from source* |
 | **A05:2021** Security Misconfiguration | good | `cors-permissive`, `insecure-cookie`, `security-headers-missing`, `stack-trace-leak` |
-| **A06:2021** Vulnerable and Outdated Components | partial | `unpinned-dependency` |
+| **A06:2021** Vulnerable and Outdated Components | partial | `known-vulnerable-dependency`, `unpinned-dependency` |
 | **A07:2021** Identification and Authentication Failures | partial | `hardcoded-secret` |
 | **A08:2021** Software and Data Integrity Failures | partial | `ci-unpinned-action` |
 | **A09:2021** Security Logging and Monitoring Failures | partial | `sensitive-data-logged` |
@@ -52,18 +52,18 @@ build, so this column cannot silently drift to zero.
 
 | Framework | Rules with framework-specific remediation |
 | --- | --- |
-| `next` | 12 of 12 |
-| `nuxt` | 12 of 12 |
-| `nest` | 12 of 12 |
-| `express` | 12 of 12 |
-| `fastify` | 12 of 12 |
-| `hono` | 12 of 12 |
-| `koa` | 12 of 12 |
-| `hapi` | 12 of 12 |
-| `sails` | 12 of 12 |
-| `astro` | 12 of 12 |
-| `remix` | 12 of 12 |
-| `gatsby` | 12 of 12 |
+| `next` | 13 of 13 |
+| `nuxt` | 13 of 13 |
+| `nest` | 13 of 13 |
+| `express` | 13 of 13 |
+| `fastify` | 13 of 13 |
+| `hono` | 13 of 13 |
+| `koa` | 13 of 13 |
+| `hapi` | 13 of 13 |
+| `sails` | 13 of 13 |
+| `astro` | 13 of 13 |
+| `remix` | 13 of 13 |
+| `gatsby` | 13 of 13 |
 
 ## Catalogue
 
@@ -529,6 +529,128 @@ A cookie is written without `httpOnly`, `secure`, or `sameSite`. Missing `httpOn
 - *any framework* — Set httpOnly, secure, and sameSite when writing a cookie that carries anything the user would not want read or replayed.
 
 `owlwarden explain insecure-cookie` prints this in the terminal.
+
+### `known-vulnerable-dependency`
+
+Dependency has a known vulnerability
+
+**high** · confidence at most `likely` · [OWASP A06:2021](https://owasp.org/Top10/) · [CWE-1395](https://cwe.mitre.org/data/definitions/1395.html)
+
+A lockfile pins a package version that Google OSV reports as vulnerable. Requires `--osv` (sends package name and version to api.osv.dev — never source). Upgrade to a fixed release, or accept the risk with an inline suppression and a reason.
+
+**Fixes**
+
+- *next* — Bump the dependency in package.json (or override it), reinstall, and re-run `owlwarden scan --osv` to confirm the advisory is gone.
+
+  ```ts
+  {
+    "dependencies": {
+      "vulnerable-package": "^FIXED.VERSION"
+    }
+  }
+  ```
+- *nuxt* — Bump the dependency in package.json (or override it), reinstall, and re-run `owlwarden scan --osv` to confirm the advisory is gone.
+
+  ```ts
+  {
+    "dependencies": {
+      "vulnerable-package": "^FIXED.VERSION"
+    }
+  }
+  ```
+- *nest* — Bump the dependency in package.json (or override it), reinstall, and re-run `owlwarden scan --osv` to confirm the advisory is gone.
+
+  ```ts
+  {
+    "dependencies": {
+      "vulnerable-package": "^FIXED.VERSION"
+    }
+  }
+  ```
+- *express* — Bump the dependency in package.json (or override it), reinstall, and re-run `owlwarden scan --osv` to confirm the advisory is gone.
+
+  ```ts
+  {
+    "dependencies": {
+      "vulnerable-package": "^FIXED.VERSION"
+    }
+  }
+  ```
+- *fastify* — Bump the dependency in package.json (or override it), reinstall, and re-run `owlwarden scan --osv` to confirm the advisory is gone.
+
+  ```ts
+  {
+    "dependencies": {
+      "vulnerable-package": "^FIXED.VERSION"
+    }
+  }
+  ```
+- *hono* — Bump the dependency in package.json (or override it), reinstall, and re-run `owlwarden scan --osv` to confirm the advisory is gone.
+
+  ```ts
+  {
+    "dependencies": {
+      "vulnerable-package": "^FIXED.VERSION"
+    }
+  }
+  ```
+- *koa* — Bump the dependency in package.json (or override it), reinstall, and re-run `owlwarden scan --osv` to confirm the advisory is gone.
+
+  ```ts
+  {
+    "dependencies": {
+      "vulnerable-package": "^FIXED.VERSION"
+    }
+  }
+  ```
+- *hapi* — Bump the dependency in package.json (or override it), reinstall, and re-run `owlwarden scan --osv` to confirm the advisory is gone.
+
+  ```ts
+  {
+    "dependencies": {
+      "vulnerable-package": "^FIXED.VERSION"
+    }
+  }
+  ```
+- *sails* — Bump the dependency in package.json (or override it), reinstall, and re-run `owlwarden scan --osv` to confirm the advisory is gone.
+
+  ```ts
+  {
+    "dependencies": {
+      "vulnerable-package": "^FIXED.VERSION"
+    }
+  }
+  ```
+- *astro* — Bump the dependency in package.json (or override it), reinstall, and re-run `owlwarden scan --osv` to confirm the advisory is gone.
+
+  ```ts
+  {
+    "dependencies": {
+      "vulnerable-package": "^FIXED.VERSION"
+    }
+  }
+  ```
+- *remix* — Bump the dependency in package.json (or override it), reinstall, and re-run `owlwarden scan --osv` to confirm the advisory is gone.
+
+  ```ts
+  {
+    "dependencies": {
+      "vulnerable-package": "^FIXED.VERSION"
+    }
+  }
+  ```
+- *gatsby* — Bump the dependency in package.json (or override it), reinstall, and re-run `owlwarden scan --osv` to confirm the advisory is gone.
+
+  ```ts
+  {
+    "dependencies": {
+      "vulnerable-package": "^FIXED.VERSION"
+    }
+  }
+  ```
+- *any framework* — Upgrade the package to a version that OSV (or the advisory) marks as fixed, then regenerate the lockfile. Confirm the new version still satisfies your app's API requirements before deploying.
+
+`owlwarden explain known-vulnerable-dependency` prints this in the terminal.
 
 ### `open-redirect`
 
@@ -1172,6 +1294,10 @@ Returning an error's `.stack` to the client exposes absolute file paths, depende
   res.status(500).json({ error: 'Internal Server Error' })
   ```
 - *any framework* — Log the error server-side and return a generic message to the client.
+
+  ```ts
+  'Internal Server Error'
+  ```
 
 `owlwarden explain stack-trace-leak` prints this in the terminal.
 

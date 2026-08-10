@@ -90,6 +90,10 @@ pub struct ScanArgs {
     pub plugins: Vec<String>,
     /// Permit `--plugin` under `--ci`.
     pub allow_plugins: bool,
+    /// Permit state-changing HTTP methods with `--target`.
+    pub allow_active: bool,
+    /// Opt into Google OSV lockfile advisory lookup.
+    pub osv: bool,
 }
 
 impl Default for ScanArgs {
@@ -118,6 +122,8 @@ impl Default for ScanArgs {
             scope: Vec::new(),
             plugins: Vec::new(),
             allow_plugins: false,
+            allow_active: false,
+            osv: false,
         }
     }
 }
@@ -234,6 +240,8 @@ struct RawScan {
     scope: Vec<String>,
     plugins: Vec<String>,
     allow_plugins: bool,
+    allow_active: bool,
+    osv: bool,
 }
 
 /// Parses the flags of `scan`.
@@ -268,6 +276,8 @@ fn parse_scan<'a>(args: impl Iterator<Item = &'a String>) -> Result<ScanArgs, Ar
             "--allow-suppressions" => raw.allow_suppressions = true,
             "--allow-baseline" => raw.allow_baseline = true,
             "--allow-plugins" => raw.allow_plugins = true,
+            "--allow-active" => raw.allow_active = true,
+            "--osv" => raw.osv = true,
             "--fail-on" => {
                 let text = value("--fail-on")?;
                 let level = Severity::from_str_opt(&text).ok_or(ArgError::InvalidValue {
@@ -301,6 +311,14 @@ fn parse_scan<'a>(args: impl Iterator<Item = &'a String>) -> Result<ScanArgs, Ar
         }
     }
 
+    if raw.allow_active && raw.target.is_none() {
+        return Err(ArgError::InvalidValue {
+            option: "--allow-active",
+            value: "true".to_owned(),
+            expected: "use with --target",
+        });
+    }
+
     let defaults = ScanArgs::default();
     Ok(ScanArgs {
         path: raw.path.unwrap_or(defaults.path),
@@ -329,6 +347,8 @@ fn parse_scan<'a>(args: impl Iterator<Item = &'a String>) -> Result<ScanArgs, Ar
         scope: raw.scope,
         plugins: raw.plugins,
         allow_plugins: raw.allow_plugins,
+        allow_active: raw.allow_active,
+        osv: raw.osv,
     })
 }
 
@@ -381,6 +401,9 @@ SCAN OPTIONS
                        owlwarden.plugin.json + plugin.wasm, or a bare .wasm
                        with a sidecar manifest. Sandboxed; source-only in v0.2
   --allow-plugins      Under --ci, permit --plugin (off by default)
+  --allow-active       With --target, permit state-changing HTTP methods
+  --osv                Opt into Google OSV lockfile advisory lookup
+                       (sends name+version to api.osv.dev; never source)
   --ci                 JSON + quiet + no-color; ignores suppressions and
                        --baseline unless allow-* is set
   --no-color           Disable colour (also honours NO_COLOR)
@@ -393,8 +416,9 @@ EXIT CODES
   1  findings at or above --fail-on
   2  the scan could not run
 
-Without --target, scans are static-only and never touch the network.
-With --target, only passive methods are used; scope is deny-by-default.
+Without --target / --osv, scans are static-only and never touch the network.
+With --target, only passive methods are used unless --allow-active; scope is
+deny-by-default. --osv talks only to api.osv.dev (package names/versions).
 ",
         version = owlwarden_core::ENGINE_VERSION,
         default_preset = owlwarden_detectors::DEFAULT_PRESET,
@@ -481,6 +505,30 @@ mod tests {
         };
         assert!(parsed.allow_plugins);
         assert!(parsed.plugins.is_empty());
+    }
+
+    #[test]
+    fn osv_is_opt_in() {
+        let Command::Scan(parsed) = parse(&args(&["scan", "--osv"])).unwrap() else {
+            panic!("expected a scan command");
+        };
+        assert!(parsed.osv);
+        assert!(!parsed.allow_active);
+    }
+
+    #[test]
+    fn allow_active_requires_target() {
+        assert!(parse(&args(&["scan", "--allow-active"])).is_err());
+        let Command::Scan(parsed) = parse(&args(&[
+            "scan",
+            "--target",
+            "http://127.0.0.1:3000/",
+            "--allow-active",
+        ]))
+        .unwrap() else {
+            panic!("expected a scan command");
+        };
+        assert!(parsed.allow_active);
     }
 
     #[test]

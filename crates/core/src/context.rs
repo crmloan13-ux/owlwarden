@@ -4,6 +4,7 @@
 //! transport, open a file, or widen its own scope; it can only ask the context,
 //! and the context is built once, by the runner, from validated settings.
 
+use crate::advisory::AdvisoryClient;
 use crate::budget::Budget;
 use crate::finding::{Confidence, Severity};
 use crate::scope::ScopeResolver;
@@ -40,9 +41,11 @@ impl Default for ScanSettings {
 /// `transport` is `Option` on purpose: a passive run has no transport at all,
 /// so a detector that reaches for the network during one gets a clear
 /// `MissingCapability` rather than a silently permitted request.
+/// `advisory` is likewise optional and opt-in (`--osv`).
 pub struct ScanContext<'a> {
     source: &'a dyn SourceProvider,
     transport: Option<&'a dyn Transport>,
+    advisory: Option<&'a dyn AdvisoryClient>,
     scope: &'a dyn ScopeResolver,
     settings: &'a ScanSettings,
     budget: &'a Budget,
@@ -58,9 +61,23 @@ impl<'a> ScanContext<'a> {
         settings: &'a ScanSettings,
         budget: &'a Budget,
     ) -> Self {
+        Self::with_advisory(source, transport, None, scope, settings, budget)
+    }
+
+    /// Builds a context that may perform advisory lookups.
+    #[must_use]
+    pub fn with_advisory(
+        source: &'a dyn SourceProvider,
+        transport: Option<&'a dyn Transport>,
+        advisory: Option<&'a dyn AdvisoryClient>,
+        scope: &'a dyn ScopeResolver,
+        settings: &'a ScanSettings,
+        budget: &'a Budget,
+    ) -> Self {
         Self {
             source,
             transport,
+            advisory,
             scope,
             settings,
             budget,
@@ -77,6 +94,12 @@ impl<'a> ScanContext<'a> {
     #[must_use]
     pub fn transport(&self) -> Option<&'a dyn Transport> {
         self.transport
+    }
+
+    /// The advisory client, if this run opted into `--osv`.
+    #[must_use]
+    pub fn advisory(&self) -> Option<&'a dyn AdvisoryClient> {
+        self.advisory
     }
 
     /// The scope resolver.

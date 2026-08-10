@@ -28,12 +28,21 @@ pub enum DetectorKind {
 
 /// What a detector needs in order to run. Anything not declared is not
 /// granted.
+///
+/// Four independent grants, not a state machine — a detector can need source
+/// and advisory without network, and folding them into an enum would invent
+/// combinations the scheduler does not care about.
+#[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct Capabilities {
     /// Needs to read project source.
     pub source: bool,
-    /// Needs to make network requests.
+    /// Needs to probe a live `--target` through [`crate::transport::Transport`].
     pub network: bool,
+    /// Needs advisory-DB lookup through [`crate::advisory::AdvisoryClient`].
+    /// Distinct from `network`: OSV traffic must not share the target scope
+    /// ([ADR 0016](../../../docs/adr/0016-osv-advisory-lookup.md)).
+    pub advisory: bool,
     /// Needs to make state-changing requests. Requires `--allow-active` at run
     /// time on top of this declaration.
     pub active: bool,
@@ -46,6 +55,7 @@ impl Capabilities {
         Self {
             source: true,
             network: false,
+            advisory: false,
             active: false,
         }
     }
@@ -56,6 +66,18 @@ impl Capabilities {
         Self {
             source: false,
             network: true,
+            advisory: false,
+            active: false,
+        }
+    }
+
+    /// A detector that reads lockfiles and queries an advisory database.
+    #[must_use]
+    pub const fn source_and_advisory() -> Self {
+        Self {
+            source: true,
+            network: false,
+            advisory: true,
             active: false,
         }
     }
