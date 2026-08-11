@@ -496,6 +496,70 @@ mod tests {
         .unwrap();
     }
 
+    #[test]
+    fn require_signed_without_signature_is_refused() {
+        let wasm = b"unsigned-wasm";
+        let manifest = manifest_with_digest(wasm);
+        let dir = tempdir().unwrap();
+        let module = dir.path().join("plugin.wasm");
+        fs::write(&module, wasm).unwrap();
+
+        let error = enforce_artifact_policy(
+            dir.path(),
+            &manifest,
+            wasm,
+            &module,
+            &LoadOptions {
+                require_signed_plugins: true,
+            },
+        )
+        .unwrap_err();
+        assert!(matches!(error, PluginError::SignatureRequired { .. }));
+    }
+
+    #[test]
+    fn require_signed_rejects_wrong_key() {
+        let wasm = b"signed-wasm-wrong-key";
+        let manifest = manifest_with_digest(wasm);
+        let dir = tempdir().unwrap();
+        let module = dir.path().join("plugin.wasm");
+        fs::write(&module, wasm).unwrap();
+
+        let signing = test_signing_key();
+        let digest = Sha256::digest(wasm);
+        let sig = signing.sign(digest.as_slice());
+        fs::write(
+            signature_path(&module),
+            base64_encode(sig.to_bytes().as_slice()),
+        )
+        .unwrap();
+
+        // Trust a different key — signature must not verify.
+        let other = SigningKey::from_bytes(&[9u8; 32]);
+        let hex_key = hex_encode(other.verifying_key().as_bytes());
+        fs::create_dir_all(dir.path().join(".owlwarden")).unwrap();
+        fs::write(
+            dir.path().join(TRUST_REL_PATH),
+            format!(r#"{{"keys":["{hex_key}"]}}"#),
+        )
+        .unwrap();
+
+        let inspection = inspect_artifact(dir.path(), &manifest, wasm, &module);
+        assert_eq!(inspection.signature, SignatureStatus::Untrusted);
+
+        let error = enforce_artifact_policy(
+            dir.path(),
+            &manifest,
+            wasm,
+            &module,
+            &LoadOptions {
+                require_signed_plugins: true,
+            },
+        )
+        .unwrap_err();
+        assert!(matches!(error, PluginError::SignatureRequired { .. }));
+    }
+
     fn base64_encode(bytes: &[u8]) -> String {
         const TABLE: &[u8; 64] =
             b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";

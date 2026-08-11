@@ -283,4 +283,38 @@ mod tests {
         ]));
         assert!(!any_forces_full_rescan(&["src/a.ts".to_owned()]));
     }
+
+    #[test]
+    fn merge_clears_finding_when_dirty_rescan_is_clean() {
+        // Wrong-cache / false-negative guard: a finding on a dirty path must
+        // disappear when the new scan does not re-emit it.
+        let previous = empty_report(vec![
+            source_finding("file-rule", "clean.ts"),
+            source_finding("file-rule", "fixed.ts"),
+        ]);
+        let dirty: HashSet<String> = ["fixed.ts".to_owned()].into_iter().collect();
+        let project_rules: Vec<Arc<dyn ProjectRule>> = vec![Arc::new(DummyProjectRule)];
+        let merged = merge_incremental_findings(&previous, Vec::new(), &dirty, &project_rules);
+        let paths: Vec<&str> = merged
+            .iter()
+            .filter_map(|finding| finding.location.as_source().map(|loc| loc.path.as_str()))
+            .collect();
+        assert_eq!(paths, vec!["clean.ts"]);
+    }
+
+    #[test]
+    fn merge_drops_findings_for_deleted_dirty_paths() {
+        let previous = empty_report(vec![
+            source_finding("file-rule", "keep.ts"),
+            source_finding("file-rule", "gone.ts"),
+        ]);
+        let dirty: HashSet<String> = ["gone.ts".to_owned()].into_iter().collect();
+        let project_rules: Vec<Arc<dyn ProjectRule>> = vec![Arc::new(DummyProjectRule)];
+        let merged = merge_incremental_findings(&previous, Vec::new(), &dirty, &project_rules);
+        let path = merged
+            .first()
+            .and_then(|finding| finding.location.as_source())
+            .map(|loc| loc.path.as_str());
+        assert_eq!(path, Some("keep.ts"));
+    }
 }

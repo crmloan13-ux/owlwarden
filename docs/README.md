@@ -5,7 +5,7 @@
 | install it and run a first scan | [README](../README.md) |
 | know what it can find | [RULES.md](../RULES.md), or `owlwarden rules` |
 | know what it **cannot** find | [explanation/coverage.md](explanation/coverage.md), or `owlwarden coverage` |
-| add a framework, a rule, or a plugin | [how-to/extend.md](how-to/extend.md) |
+| add a framework, a rule, or a plugin | [how-to/extend.md](how-to/extend.md), [how-to/plugins.md](how-to/plugins.md) |
 | wire it into CI (Action, SARIF, exit codes) | [how-to/ci.md](how-to/ci.md) |
 | measure cold-scan performance | [how-to/performance.md](how-to/performance.md) |
 | probe a running app (`--target`) | [how-to/dynamic.md](how-to/dynamic.md) |

@@ -109,6 +109,15 @@ async fn non_2xx_is_silent() {
 }
 
 #[tokio::test]
+async fn settings_without_allow_active_stay_silent() {
+    // Defence in depth: even if a transport somehow allows POST, the detector
+    // itself must not fire when the run did not pass `--allow-active`.
+    let (url, _) = spawn_once("HTTP/1.1 204 No Content").await;
+    let findings = run_probe(&url, true, false).await.unwrap();
+    assert!(findings.is_empty());
+}
+
+#[tokio::test]
 async fn transport_without_allow_active_refuses_post() {
     let (url, _) = spawn_once("HTTP/1.1 204 No Content").await;
     let err = run_probe(&url, false, true).await.unwrap_err();

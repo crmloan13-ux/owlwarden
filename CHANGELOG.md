@@ -33,6 +33,20 @@ stackable formats, incremental watch
 - Version **0.5.0**. Release-assurance (cosign/SBOM) moves to the next roadmap
   slice.
 
+### Security
+
+- Offline OSV index ingest sanitises advisory ids, package names, versions, and
+  summaries before they enter findings (control/ANSI stripping, shared with live
+  OSV).
+- `owlwarden osv update` writes indexes via atomic `write_replacing` so a
+  partial write cannot leave CI with a truncated index file.
+
+### Fixed
+
+- Incremental `watch` refuses to hash files above the source size cap (2 MiB),
+  matching bounded read limits elsewhere — giant blobs no longer blow the
+  content-hash cache.
+
 ## [0.4.0] — 2026-08-11
 
 CI-ready depth: pipelines teams already run, plus a deeper fixture corpus so

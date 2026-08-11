@@ -103,13 +103,14 @@ jobs:
     steps:
       # Pin full commit SHAs — `ci-unpinned-action` flags moving tags like @v4.
       - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
-      - uses: suthat/owlwarden/action@v0.4.0
+      - uses: suthat/owlwarden/action@v0.5.0
         with:
           fail-on: medium
           min-confidence: likely
           format: sarif
           out: owlwarden-results.sarif
-          # osv: true   # opt-in Google OSV — typed input only (no free-form args)
+          # osv: true   # live Google OSV — typed input only (no free-form args)
+          # For air-gapped CI, omit osv and call the CLI with --osv-db instead (see osv.md).
       - if: success() || failure()
         uses: github/codeql-action/upload-sarif@5595ccaf912efad79be6eef63a5619ff05969be3 # v4.37.6
         with:
@@ -166,6 +167,22 @@ npx owlwarden scan --ci --fail-on medium --min-confidence likely \
 
 Today that correlates `security-headers-missing` only. Details:
 [dynamic.md](dynamic.md).
+
+**Active CSRF** (`csrf-cross-origin-post`) needs `--target` and `--allow-active`.
+It is for staging you control, not production, and is **not** exposed in the
+GitHub Action or MCP. Do not pass `--allow-active` on pull requests from forks.
+
+## Offline OSV
+
+The Action's typed `osv: true` input calls Google OSV at scan time. For
+air-gapped or fork-safe CI, build an index on a trusted machine
+(`owlwarden osv update`), commit or cache it, and scan with `--osv-db` in a
+`run:` step instead. A committed index is a freshness and trust boundary — see
+[osv.md](osv.md).
+
+On pull requests from outside the team, keep all `--allow-*` flags off
+(including `--allow-plugins`, `--allow-baseline`, and `--allow-suppressions`).
+Pin gate knobs on the command line or Action inputs.
 
 ## Speed
 

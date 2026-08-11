@@ -1,8 +1,8 @@
 # Owlwarden
 
-> Owlwarden is an open-source security scanner for Node web applications. It runs locally and reports the vulnerable line, why it matters, a framework-specific fix, and an honest confidence level. Version 0.5.0 adds an active CSRF canary, offline OSV indexes, plugin artifact signing, stackable report formats, and incremental watch — on top of CI-ready SARIF/JUnit and the twelve-framework corpus.
+> Owlwarden is an open-source security scanner for Node web applications. It runs locally and reports the vulnerable line, why it matters, a framework-specific fix, and an honest confidence level. Version 0.5.0 adds an active CSRF canary (staging + `--allow-active`), offline OSV indexes, plugin artifact signing, stackable report formats, and incremental watch — on top of CI-ready SARIF/JUnit and the twelve-framework corpus.
 
-Use Owlwarden as a repeatable security floor, not as proof that an application is secure. Static scans are offline and have no telemetry. Runtime probes and OSV lookups only run when the operator explicitly opts in. The MCP server is static-only, read-only, and workspace-scoped. Prefer local baseline scans before spending frontier-model tokens on hard judgment.
+Use Owlwarden as a repeatable security floor, not as proof that an application is secure. Static scans are offline and have no telemetry. Runtime probes and OSV lookups only run when the operator explicitly opts in. Active CSRF requires `--target` and `--allow-active` — not in the GitHub Action. The MCP server is static-only, read-only, and workspace-scoped. There is no hosted plugin store. Prefer local baseline scans before spending frontier-model tokens on hard judgment.
 
 Install and scan: `npx owlwarden scan`
 
@@ -13,7 +13,8 @@ Install and scan: `npx owlwarden scan`
 - [Documentation index](https://github.com/suthat/owlwarden/blob/main/docs/README.md): Task-oriented guides and explanations.
 - [CI how-to](https://github.com/suthat/owlwarden/blob/main/docs/how-to/ci.md): Exit codes, GitHub Action, SARIF upload.
 - [Agent integration](https://github.com/suthat/owlwarden/blob/main/docs/explanation/agent-integration.md): MCP tools, JSON reports, trust boundaries, and agent workflows.
-- [OSV how-to](https://github.com/suthat/owlwarden/blob/main/docs/how-to/osv.md): Opt-in Google OSV lockfile advisory lookup.
+- [OSV how-to](https://github.com/suthat/owlwarden/blob/main/docs/how-to/osv.md): Opt-in Google OSV lockfile advisory lookup and offline indexes.
+- [Plugins how-to](https://github.com/suthat/owlwarden/blob/main/docs/how-to/plugins.md): Scaffold, inspect, artifact SHA-256, signatures, trust roots.
 - [Coverage method](https://github.com/suthat/owlwarden/blob/main/docs/explanation/coverage.md): What Owlwarden reaches, what it does not, and why.
 - [Security model](https://github.com/suthat/owlwarden/blob/main/SECURITY.md): Local scanning, scope enforcement, resource limits, and vulnerability reporting.
 - [Architecture](https://github.com/suthat/owlwarden/blob/main/ARCHITECTURE.md): Engine boundaries and design constraints.
@@ -24,13 +25,14 @@ Install and scan: `npx owlwarden scan`
 
 - Version: 0.5.0
 - Frameworks: Next.js, Nuxt, NestJS, Express, Fastify, Hono, Koa, Hapi, Sails.js, Astro, Remix, Gatsby
-- Rules: 13 (including opt-in `known-vulnerable-dependency` via `--osv`)
+- Rules: 14 (including opt-in `known-vulnerable-dependency` via `--osv` / `--osv-db` and active `csrf-cross-origin-post` via `--target` + `--allow-active`)
 - OWASP Top 10 (2021): at least one rule in 9 of 10 categories; A04 Insecure Design is explicitly out of reach from source alone
-- Reports: pretty, JSON, SARIF 2.1.0, JUnit — one finding model
-- CI: first-party GitHub Action; exit codes 0 / 1 / 2 (canonical in docs/how-to/ci.md)
+- Reports: pretty, JSON, SARIF 2.1.0, JUnit — one finding model; repeat `--format` for stackable outputs
+- CI: first-party GitHub Action at `suthat/owlwarden/action@v0.5.0`; exit codes 0 / 1 / 2 (canonical in docs/how-to/ci.md)
 - Agent surface: `scan_project`, `scan_file`, `explain_rule`, `list_rules` (MCP never writes files or probes the network)
 - Autofix: `owlwarden scan --fix` (Safe highlight replacements only; never on Possible)
-- Plugins: `owlwarden plugin inspect` shows capabilities before load; source-only WASM host
+- Plugins: `owlwarden plugin inspect` shows capabilities and integrity before load; `--require-signed-plugins` for verified-only CI; no hosted registry
+- Watch: incremental re-scan on save; static-only (no `--target` / `--osv`)
 - License: MIT OR Apache-2.0
 
 ## Optional

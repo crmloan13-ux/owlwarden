@@ -230,6 +230,63 @@ describe("owlwarden scan", () => {
     expect(err).toMatch(/multiple machine formats require --out/);
   });
 
+  it("writes report.* into a directory --out for stacked machine formats", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "owlwarden-multi-dir-"));
+    const outDir = join(dir, "reports") + "/";
+    try {
+      await mkdir(outDir, { recursive: true });
+      const { code } = await cli([
+        "scan",
+        fixture("vulnerable/next-api"),
+        "--format",
+        "json",
+        "--format",
+        "junit",
+        "--out",
+        outDir,
+      ]);
+      expect(code).toBe(EXIT.FINDINGS);
+      reportSchema.parse(JSON.parse(await readFile(join(dir, "reports", "report.json"), "utf8")));
+      const junit = await readFile(join(dir, "reports", "report.xml"), "utf8");
+      expect(junit).toContain("<testsuite");
+      expect(junit).toContain("stack-trace-leak");
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("finds known-vulnerable-dependency from an offline OSV index", async () => {
+    const { code, out } = await cli([
+      "scan",
+      fixture("vulnerable/osv-demo"),
+      "--osv-db",
+      fixture("osv/osv-index-demo.json"),
+      "--format",
+      "json",
+      "--quiet",
+    ]);
+    expect(code).toBe(EXIT.FINDINGS);
+    const report = reportSchema.parse(JSON.parse(out));
+    const hits = report.findings.filter((f) => f.id === "known-vulnerable-dependency");
+    expect(hits.length).toBeGreaterThanOrEqual(1);
+    expect(hits.some((f) => f.context?.evidence?.includes("lodash"))).toBe(true);
+  });
+
+  it("stays silent on the clean OSV twin with the same offline index", async () => {
+    const { code, out } = await cli([
+      "scan",
+      fixture("should-not-fire/osv-demo-clean"),
+      "--osv-db",
+      fixture("osv/osv-index-demo.json"),
+      "--format",
+      "json",
+      "--quiet",
+    ]);
+    expect(code).toBe(EXIT.CLEAN);
+    const report = reportSchema.parse(JSON.parse(out));
+    expect(report.findings.filter((f) => f.id === "known-vulnerable-dependency")).toHaveLength(0);
+  });
+
   it("reports an unreadable project instead of pretending it scanned", async () => {
     const { code, err } = await cli(["scan", fixture("does-not-exist"), "--quiet"]);
     expect(code).toBe(EXIT.ERROR);

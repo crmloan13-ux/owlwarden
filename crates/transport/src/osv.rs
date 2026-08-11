@@ -292,7 +292,10 @@ fn truncate_summary(value: &str) -> String {
 
 /// Strips C0/C1 controls and ANSI escapes from advisory prose before it enters
 /// a finding — same posture as plugin-host / MCP text sanitisation.
-fn sanitize_advisory_text(value: &str) -> String {
+///
+/// Shared with the offline index client so a tampered `--osv-db` file cannot
+/// inject control characters into findings (ADR 0020).
+pub(crate) fn sanitize_advisory_text(value: &str) -> String {
     value
         .chars()
         .filter(|ch| {

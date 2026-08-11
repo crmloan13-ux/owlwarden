@@ -55,6 +55,14 @@ Index format (schema version 1):
 Size is capped in `limits::advisory` (file bytes and package count). Freshness
 is the operator's job — re-run `osv update` when the lockfile changes.
 
+## Trust boundary in CI
+
+A committed or cached index is convenient, but it is also a **freshness and
+trust boundary**: whoever can update the index file controls which advisories
+CI sees. Treat it like any other pinned dependency artifact — review changes,
+regenerate when the lockfile moves, and prefer a trusted build job over letting
+an untrusted pull request replace the index silently.
+
 ## What you get
 
 Findings under the rule id `known-vulnerable-dependency` (High / Likely), with

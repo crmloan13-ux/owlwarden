@@ -69,7 +69,9 @@
               "SARIF and JUnit reporters for CI",
               "First-party GitHub Action preserving exit 0/1/2",
               "Read-only MCP server for coding agents",
-              "Passive opt-in runtime probes",
+              "Passive opt-in runtime probes and active CSRF canary with --allow-active",
+              "Offline OSV indexes and plugin artifact integrity",
+              "Incremental watch and stackable report formats",
               "Sandboxed source-only WASM plugins",
               "Human-readable, JSON, SARIF, and JUnit reports"
             ],
@@ -102,7 +104,7 @@
         <div class="hero-copy">
           <p class="eyebrow"><span>Open source</span> · v0.5.0</p>
           <h1 id="hero-title">Security review for code still in motion.</h1>
-          <p class="hero-deck">Owlwarden scans Node web apps where you work — and gates PRs with SARIF when you are ready. It returns the vulnerable line, why it matters, a fix written for your framework, and a confidence level you can act on.</p>
+          <p class="hero-deck">A local-first security floor for Node web apps and the agents that edit them — offline by default, honest about confidence, fix-in-finding. Gate PRs with SARIF when you are ready; the vulnerable line, why it matters, and a framework-specific fix stay in one answer.</p>
 
           <div class="install" aria-label="Install Owlwarden">
             <code><span aria-hidden="true">$</span> npx owlwarden scan</code>
@@ -259,7 +261,7 @@
           <article>
             <h3>What it can see</h3>
             <p>Injection, insecure response behavior, unsafe request destinations, leaked secrets, weak cryptography, supply-chain mistakes, logging risks, and misconfiguration patterns across Node web apps.</p>
-            <a href="https://github.com/suthat/owlwarden/blob/main/RULES.md" target="_blank" rel="noopener noreferrer">Read all thirteen rules <span aria-hidden="true">↗</span></a>
+            <a href="https://github.com/suthat/owlwarden/blob/main/RULES.md" target="_blank" rel="noopener noreferrer">Read all fourteen rules <span aria-hidden="true">↗</span></a>
           </article>
           <article class="out-of-reach">
             <h3>What source cannot prove</h3>

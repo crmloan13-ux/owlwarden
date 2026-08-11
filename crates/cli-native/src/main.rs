@@ -346,12 +346,9 @@ fn run_osv_update(project_root: &str, out: Option<&str>) -> i32 {
         Err(error) => return fail(&error.to_string()),
     };
 
-    if let Some(parent) = out_path.parent()
-        && let Err(error) = std::fs::create_dir_all(parent)
-    {
-        return fail(&format!("could not create {}: {error}", parent.display()));
-    }
-    if let Err(error) = std::fs::write(&out_path, &bytes) {
+    // Same nofollow write path as the npm CLI — do not follow a planted symlink
+    // at the destination (or a symlinked parent) into an attacker-chosen file.
+    if let Err(error) = owlwarden_static::safe_io::write_replacing(&out_path, &bytes) {
         return fail(&format!("could not write {}: {error}", out_path.display()));
     }
 

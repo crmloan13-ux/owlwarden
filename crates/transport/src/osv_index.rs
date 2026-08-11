@@ -119,17 +119,19 @@ impl AdvisoryClient for OsvIndexClient {
                 if hits.len() >= limits::advisory::MAX_FINDINGS {
                     return Ok(hits);
                 }
-                let id = truncate_id(id);
+                let id = crate::osv::sanitize_advisory_text(&truncate_id(id));
                 if id.is_empty() {
                     continue;
                 }
+                let name = crate::osv::sanitize_advisory_text(&query.name);
+                let version = crate::osv::sanitize_advisory_text(&query.version);
+                let summary = crate::osv::sanitize_advisory_text(&format!(
+                    "Known vulnerability {id} in {name}@{version}"
+                ));
                 hits.push(AdvisoryHit {
-                    id: id.clone(),
+                    id,
                     cve: None,
-                    summary: format!(
-                        "Known vulnerability {id} in {}@{}",
-                        query.name, query.version
-                    ),
+                    summary,
                     package: query.clone(),
                 });
             }
@@ -325,6 +327,31 @@ mod tests {
     #[test]
     fn prepare_offline_without_db_is_refused() {
         assert!(prepare_advisory_client(true, None, true).is_err());
+    }
+
+    #[test]
+    fn offline_hits_strip_control_characters_from_ids() {
+        let raw = br#"{
+          "schemaVersion": 1,
+          "ecosystem": "npm",
+          "updatedAt": "2026-08-11T00:00:00Z",
+          "packages": {
+            "lodash": {
+              "4.17.19": ["GHSA-\u001b[31mred\u001b[0m"]
+            }
+          }
+        }"#;
+        let client = OsvIndexClient::from_bytes(raw).unwrap();
+        let queries = vec![PackageQuery {
+            ecosystem: "npm".to_owned(),
+            name: "lodash".to_owned(),
+            version: "4.17.19".to_owned(),
+        }];
+        let hits = futures_executor::block_on(client.query(&queries)).unwrap();
+        let hit = hits.first().expect("one offline hit");
+        assert!(!hit.id.contains('\u{1b}'));
+        assert!(!hit.summary.contains('\u{1b}'));
+        assert!(hit.id.contains("GHSA-"));
     }
 
     #[test]
