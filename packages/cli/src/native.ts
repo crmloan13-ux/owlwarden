@@ -11,11 +11,14 @@ import { createRequire } from "node:module";
  * frames deep.
  */
 export interface NativeEngine {
-  /**
-   * Runs a passive scan. Takes a JSON `ScanRequest`, returns a JSON envelope.
-   * Async so a live `--target` probe does not deadlock the Node event loop.
-   */
+  /** Runs a passive scan. Takes a JSON `ScanRequest`, returns a JSON envelope. */
   scan(requestJson: string): Promise<string>;
+
+  /**
+   * Builds a lockfile-scoped OSV index JSON string for `owlwarden osv update`.
+   * Queries api.osv.dev (online).
+   */
+  buildOsvIndex(projectRoot: string): Promise<string>;
 
   /** Renders a report to text. Takes JSON report + JSON render options. */
   render(reportJson: string, optionsJson: string): string;
@@ -47,6 +50,7 @@ export class NativeLoadError extends Error {
 
 const REQUIRED_EXPORTS = [
   "scan",
+  "buildOsvIndex",
   "render",
   "listRules",
   "listPresets",

@@ -22,10 +22,13 @@ reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
+# RFC3339 `updatedAt` on the on-disk index — same crate core uses for report timestamps.
+time = { workspace = true }
 # `time` only — used to pace `--allow-active` requests. The reactor comes from
 # the live-scan caller (napi / cli-native), not from this crate.
 tokio = { version = "1", default-features = false, features = ["time"] }
 url = { version = "2", default-features = false }
 
 [dev-dependencies]
+futures-executor = "0.3"
 tokio = { version = "1", features = ["macros", "rt", "rt-multi-thread", "net", "io-util", "time"] }

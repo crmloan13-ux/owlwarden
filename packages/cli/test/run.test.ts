@@ -171,6 +171,65 @@ describe("owlwarden scan", () => {
     expect(out).not.toContain("\u001b[");
   });
 
+  it("emits json on stdout and pretty on stderr when both are requested", async () => {
+    const { code, out, err } = await cli([
+      "scan",
+      fixture("vulnerable/next-api"),
+      "--format",
+      "json",
+      "--format",
+      "pretty",
+      "--quiet",
+    ]);
+    expect(code).toBe(EXIT.FINDINGS);
+    const report = reportSchema.parse(JSON.parse(out));
+    expect(report.findings.length).toBeGreaterThan(0);
+    expect(err).toContain("err.stack");
+    expect(err).toContain("leaks internal stack trace to the client");
+  });
+
+  it("writes prefixed machine files when several formats share --out", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "owlwarden-multi-out-"));
+    const prefix = join(dir, "results");
+    try {
+      const { code, err } = await cli([
+        "scan",
+        fixture("vulnerable/next-api"),
+        "--format",
+        "json",
+        "--format",
+        "sarif",
+        "--out",
+        prefix,
+      ]);
+      expect(code).toBe(EXIT.FINDINGS);
+      const jsonPath = `${prefix}.json`;
+      const sarifPath = `${prefix}.sarif`;
+      reportSchema.parse(JSON.parse(await readFile(jsonPath, "utf8")));
+      const sarif = await readFile(sarifPath, "utf8");
+      expect(sarif).toContain('"version"');
+      expect(sarif).toContain("stack-trace-leak");
+      expect(err).toMatch(/wrote .* to .*\.json/);
+      expect(err).toMatch(/wrote .* to .*\.sarif/);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("refuses several machine formats without --out", async () => {
+    const { code, err } = await cli([
+      "scan",
+      fixture("vulnerable/next-api"),
+      "--format",
+      "json",
+      "--format",
+      "sarif",
+      "--quiet",
+    ]);
+    expect(code).toBe(EXIT.ERROR);
+    expect(err).toMatch(/multiple machine formats require --out/);
+  });
+
   it("reports an unreadable project instead of pretending it scanned", async () => {
     const { code, err } = await cli(["scan", fixture("does-not-exist"), "--quiet"]);
     expect(code).toBe(EXIT.ERROR);
@@ -926,6 +985,8 @@ describe("owlwarden init / plugin scaffold", () => {
       expect(code).toBe(EXIT.CLEAN);
       expect(out).toMatch(/plugin acme-inspect@/);
       expect(out).toMatch(/capabilities:/);
+      expect(out).toMatch(/digest: absent/);
+      expect(out).toMatch(/signature: absent/);
       expect(out).toMatch(/No WASM was loaded/);
     } finally {
       process.chdir(cwd);

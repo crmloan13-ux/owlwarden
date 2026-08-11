@@ -2,7 +2,7 @@
 
 # Rules
 
-13 rules in owlwarden 0.4.0.
+14 rules in owlwarden 0.5.0.
 
 Rule ids are permanent. They appear in suppressions, in agent rules files, and
 in other people's CI configs, so they are treated as public API.
@@ -11,9 +11,9 @@ in other people's CI configs, so they are treated as public API.
 
 | Preset | Rules | What it is for |
 | --- | --- | --- |
-| `quick` | ci-unpinned-action, cors-permissive, hardcoded-secret, insecure-cookie, known-vulnerable-dependency, open-redirect, security-headers-missing, sensitive-data-logged, sql-injection, ssrf, stack-trace-leak, unpinned-dependency, weak-crypto | Fast, high-signal rules. The zero-config default. |
-| `owasp-top10` | ci-unpinned-action, cors-permissive, hardcoded-secret, insecure-cookie, known-vulnerable-dependency, open-redirect, security-headers-missing, sensitive-data-logged, sql-injection, ssrf, stack-trace-leak, unpinned-dependency, weak-crypto | Rules mapped to an OWASP Top 10 (2021) category. |
-| `deep` | ci-unpinned-action, cors-permissive, hardcoded-secret, insecure-cookie, known-vulnerable-dependency, open-redirect, security-headers-missing, sensitive-data-logged, sql-injection, ssrf, stack-trace-leak, unpinned-dependency, weak-crypto | Every rule, including the noisier heuristics. |
+| `quick` | ci-unpinned-action, cors-permissive, csrf-cross-origin-post, hardcoded-secret, insecure-cookie, known-vulnerable-dependency, open-redirect, security-headers-missing, sensitive-data-logged, sql-injection, ssrf, stack-trace-leak, unpinned-dependency, weak-crypto | Fast, high-signal rules. The zero-config default. |
+| `owasp-top10` | ci-unpinned-action, cors-permissive, csrf-cross-origin-post, hardcoded-secret, insecure-cookie, known-vulnerable-dependency, open-redirect, security-headers-missing, sensitive-data-logged, sql-injection, ssrf, stack-trace-leak, unpinned-dependency, weak-crypto | Rules mapped to an OWASP Top 10 (2021) category. |
+| `deep` | ci-unpinned-action, cors-permissive, csrf-cross-origin-post, hardcoded-secret, insecure-cookie, known-vulnerable-dependency, open-redirect, security-headers-missing, sensitive-data-logged, sql-injection, ssrf, stack-trace-leak, unpinned-dependency, weak-crypto | Every rule, including the noisier heuristics. |
 
 ## OWASP Top 10 (2021) coverage
 
@@ -30,7 +30,7 @@ or a human.
 
 | Category | Reach | Rules |
 | --- | --- | --- |
-| **A01:2021** Broken Access Control | partial | `open-redirect` |
+| **A01:2021** Broken Access Control | partial | `csrf-cross-origin-post`, `open-redirect` |
 | **A02:2021** Cryptographic Failures | partial | `weak-crypto` |
 | **A03:2021** Injection | good | `sql-injection` |
 | **A04:2021** Insecure Design | poor | *not reachable from source* |
@@ -52,18 +52,18 @@ build, so this column cannot silently drift to zero.
 
 | Framework | Rules with framework-specific remediation |
 | --- | --- |
-| `next` | 13 of 13 |
-| `nuxt` | 13 of 13 |
-| `nest` | 13 of 13 |
-| `express` | 13 of 13 |
-| `fastify` | 13 of 13 |
-| `hono` | 13 of 13 |
-| `koa` | 13 of 13 |
-| `hapi` | 13 of 13 |
-| `sails` | 13 of 13 |
-| `astro` | 13 of 13 |
-| `remix` | 13 of 13 |
-| `gatsby` | 13 of 13 |
+| `next` | 14 of 14 |
+| `nuxt` | 14 of 14 |
+| `nest` | 14 of 14 |
+| `express` | 14 of 14 |
+| `fastify` | 14 of 14 |
+| `hono` | 14 of 14 |
+| `koa` | 14 of 14 |
+| `hapi` | 14 of 14 |
+| `sails` | 14 of 14 |
+| `astro` | 14 of 14 |
+| `remix` | 14 of 14 |
+| `gatsby` | 14 of 14 |
 
 ## Catalogue
 
@@ -293,6 +293,123 @@ The CORS configuration accepts requests from any origin. Combined with credentia
 - *any framework* — Replace the wildcard with the origins that actually need access, and only send credentials to those.
 
 `owlwarden explain cors-permissive` prints this in the terminal.
+
+### `csrf-cross-origin-post`
+
+Endpoint accepted a cross-origin state-changing POST
+
+**high** · confidence at most `likely` · [OWASP A01:2021](https://owasp.org/Top10/) · [CWE-352](https://cwe.mitre.org/data/definitions/352.html)
+
+With `--allow-active`, owlwarden POSTs a canary body to `--target` using Origin https://owlwarden-untrusted.invalid. A 2xx response means the route accepted a cross-origin state-changing request — the classic CSRF shape on cookie-session apps. Requires staging you control; the canary may still create a resource if the route is a create endpoint.
+
+**Fixes**
+
+- *next* — Require a CSRF synchroniser token (or SameSite=Strict session cookies plus Origin checks) before accepting state-changing requests from browsers.
+
+  ```ts
+  // Reject cross-site state-changing requests without a CSRF token.
+  // Example (Express):
+  // app.use(csrfProtection)
+  // Or set session cookies with SameSite=Strict / Lax and verify Origin.
+  ```
+- *nuxt* — Require a CSRF synchroniser token (or SameSite=Strict session cookies plus Origin checks) before accepting state-changing requests from browsers.
+
+  ```ts
+  // Reject cross-site state-changing requests without a CSRF token.
+  // Example (Express):
+  // app.use(csrfProtection)
+  // Or set session cookies with SameSite=Strict / Lax and verify Origin.
+  ```
+- *nest* — Require a CSRF synchroniser token (or SameSite=Strict session cookies plus Origin checks) before accepting state-changing requests from browsers.
+
+  ```ts
+  // Reject cross-site state-changing requests without a CSRF token.
+  // Example (Express):
+  // app.use(csrfProtection)
+  // Or set session cookies with SameSite=Strict / Lax and verify Origin.
+  ```
+- *express* — Require a CSRF synchroniser token (or SameSite=Strict session cookies plus Origin checks) before accepting state-changing requests from browsers.
+
+  ```ts
+  // Reject cross-site state-changing requests without a CSRF token.
+  // Example (Express):
+  // app.use(csrfProtection)
+  // Or set session cookies with SameSite=Strict / Lax and verify Origin.
+  ```
+- *fastify* — Require a CSRF synchroniser token (or SameSite=Strict session cookies plus Origin checks) before accepting state-changing requests from browsers.
+
+  ```ts
+  // Reject cross-site state-changing requests without a CSRF token.
+  // Example (Express):
+  // app.use(csrfProtection)
+  // Or set session cookies with SameSite=Strict / Lax and verify Origin.
+  ```
+- *hono* — Require a CSRF synchroniser token (or SameSite=Strict session cookies plus Origin checks) before accepting state-changing requests from browsers.
+
+  ```ts
+  // Reject cross-site state-changing requests without a CSRF token.
+  // Example (Express):
+  // app.use(csrfProtection)
+  // Or set session cookies with SameSite=Strict / Lax and verify Origin.
+  ```
+- *koa* — Require a CSRF synchroniser token (or SameSite=Strict session cookies plus Origin checks) before accepting state-changing requests from browsers.
+
+  ```ts
+  // Reject cross-site state-changing requests without a CSRF token.
+  // Example (Express):
+  // app.use(csrfProtection)
+  // Or set session cookies with SameSite=Strict / Lax and verify Origin.
+  ```
+- *hapi* — Require a CSRF synchroniser token (or SameSite=Strict session cookies plus Origin checks) before accepting state-changing requests from browsers.
+
+  ```ts
+  // Reject cross-site state-changing requests without a CSRF token.
+  // Example (Express):
+  // app.use(csrfProtection)
+  // Or set session cookies with SameSite=Strict / Lax and verify Origin.
+  ```
+- *sails* — Require a CSRF synchroniser token (or SameSite=Strict session cookies plus Origin checks) before accepting state-changing requests from browsers.
+
+  ```ts
+  // Reject cross-site state-changing requests without a CSRF token.
+  // Example (Express):
+  // app.use(csrfProtection)
+  // Or set session cookies with SameSite=Strict / Lax and verify Origin.
+  ```
+- *astro* — Require a CSRF synchroniser token (or SameSite=Strict session cookies plus Origin checks) before accepting state-changing requests from browsers.
+
+  ```ts
+  // Reject cross-site state-changing requests without a CSRF token.
+  // Example (Express):
+  // app.use(csrfProtection)
+  // Or set session cookies with SameSite=Strict / Lax and verify Origin.
+  ```
+- *remix* — Require a CSRF synchroniser token (or SameSite=Strict session cookies plus Origin checks) before accepting state-changing requests from browsers.
+
+  ```ts
+  // Reject cross-site state-changing requests without a CSRF token.
+  // Example (Express):
+  // app.use(csrfProtection)
+  // Or set session cookies with SameSite=Strict / Lax and verify Origin.
+  ```
+- *gatsby* — Require a CSRF synchroniser token (or SameSite=Strict session cookies plus Origin checks) before accepting state-changing requests from browsers.
+
+  ```ts
+  // Reject cross-site state-changing requests without a CSRF token.
+  // Example (Express):
+  // app.use(csrfProtection)
+  // Or set session cookies with SameSite=Strict / Lax and verify Origin.
+  ```
+- *any framework* — Require a CSRF synchroniser token (or SameSite=Strict session cookies plus Origin checks) before accepting state-changing requests from browsers.
+
+  ```ts
+  // Reject cross-site state-changing requests without a CSRF token.
+  // Example (Express):
+  // app.use(csrfProtection)
+  // Or set session cookies with SameSite=Strict / Lax and verify Origin.
+  ```
+
+`owlwarden explain csrf-cross-origin-post` prints this in the terminal.
 
 ### `hardcoded-secret`
 

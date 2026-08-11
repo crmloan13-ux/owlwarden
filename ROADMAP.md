@@ -154,11 +154,32 @@ Delivered:
 **Exit criteria, met for this slice:** Action smoke against a clean fixture
 exits 0; SARIF/JUnit snapshots green; square matrix still silent on clean /
 tempting; shape contracts expanded without per-framework expectation drift.
-Active detectors, offline OSV DB, signed plugin registry, stackable
-multi-format emit, Markdown reporter, and true incremental watch remain later
-work.
 
-## v0.5 — Release assurance
+## v0.5 — Depth beyond CI — **shipped**
+
+**Goal:** close the later-work gaps that 0.3/0.4 left named: active probes,
+air-gapped OSV, plugin integrity, multi-format emit, incremental watch.
+
+Delivered:
+
+- **Active detector** ([ADR 0019](docs/adr/0019-first-party-active-detector.md)):
+  `csrf-cross-origin-post` behind `--allow-active`.
+- **Offline OSV** ([ADR 0020](docs/adr/0020-offline-osv-cache.md)):
+  `owlwarden osv update`, `--osv-db`, fail-closed `--osv --offline`.
+- **Plugin integrity** ([ADR 0021](docs/adr/0021-plugin-artifact-signing.md)):
+  manifest `artifact.sha256`, optional ed25519 `.sig`, `--require-signed-plugins`
+  (local trust roots — not a hosted registry).
+- **Stackable formats** ([ADR 0022](docs/adr/0022-stackable-formats.md)):
+  repeated `--format` from one scan.
+- **Incremental watch** ([ADR 0023](docs/adr/0023-incremental-watch.md)):
+  dirty-path re-parse + finding merge (no <300 ms claim until measured).
+
+**Exit criteria, met for this slice:** active canary suite green; offline OSV
+fixture client green; digest/signature host tests green; multi-format CLI tests
+green; incremental merge unit tests green. Markdown reporter, hosted plugin
+store, and signed npm releases remain later.
+
+## v0.6 — Release assurance
 
 **Goal:** releases you can verify rather than trust.
 
@@ -187,7 +208,8 @@ exist; a changelog and an upgrade guide.
 Candidate directions, in no particular order: GraphQL and gRPC awareness;
 authenticated scan flows; frameworks outside the Node ecosystem, which needs a
 second language before the parsing layer can honestly be called generic; an LSP
-mode; a curated, signed plugin registry.
+mode; a hosted curated plugin registry (local digest/signature trust shipped
+in v0.5).
 
 Adding another Node framework is no longer a roadmap item, because it is no
 longer a change to the engine — it is a `FrameworkProfile`, and

@@ -133,6 +133,14 @@ Without the Action, the equivalent CLI:
 that already render test reports. `--out` writes the report to a file and
 prints a one-line summary on stderr.
 
+Repeat `--format` to emit several renderings from one scan — for example a SARIF
+file for GitHub Code Scanning and a pretty log for humans:
+
+```bash
+npx owlwarden scan --format pretty --format sarif --out owlwarden-results
+# → stderr: human summary; owlwarden-results.sarif on disk
+```
+
 ## Suppressions in CI
 
 Under `--ci`, inline suppressions are listed in the report but do **not** hide

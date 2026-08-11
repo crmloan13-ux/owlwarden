@@ -1,6 +1,6 @@
 # Owlwarden
 
-> Owlwarden is an open-source security scanner for Node web applications. It runs locally and reports the vulnerable line, why it matters, a framework-specific fix, and an honest confidence level. Version 0.4.0 is CI-ready depth: SARIF and JUnit reporters, a first-party GitHub Action, a deeper twelve-framework fixture corpus, Safe autofix, opt-in Google OSV lookup, and a read-only MCP server for coding agents.
+> Owlwarden is an open-source security scanner for Node web applications. It runs locally and reports the vulnerable line, why it matters, a framework-specific fix, and an honest confidence level. Version 0.5.0 adds an active CSRF canary, offline OSV indexes, plugin artifact signing, stackable report formats, and incremental watch — on top of CI-ready SARIF/JUnit and the twelve-framework corpus.
 
 Use Owlwarden as a repeatable security floor, not as proof that an application is secure. Static scans are offline and have no telemetry. Runtime probes and OSV lookups only run when the operator explicitly opts in. The MCP server is static-only, read-only, and workspace-scoped. Prefer local baseline scans before spending frontier-model tokens on hard judgment.
 
@@ -22,7 +22,7 @@ Install and scan: `npx owlwarden scan`
 
 ## Current release facts
 
-- Version: 0.4.0
+- Version: 0.5.0
 - Frameworks: Next.js, Nuxt, NestJS, Express, Fastify, Hono, Koa, Hapi, Sails.js, Astro, Remix, Gatsby
 - Rules: 13 (including opt-in `known-vulnerable-dependency` via `--osv`)
 - OWASP Top 10 (2021): at least one rule in 9 of 10 categories; A04 Insecure Design is explicitly out of reach from source alone

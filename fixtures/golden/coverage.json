@@ -5,6 +5,7 @@
       "id": "A01:2021",
       "title": "Broken Access Control",
       "rules": [
+        "csrf-cross-origin-post",
         "open-redirect"
       ],
       "reachability": "partial",
@@ -97,65 +98,65 @@
   "frameworks": [
     {
       "id": "next",
-      "rulesWithSpecificFix": 13,
+      "rulesWithSpecificFix": 14,
       "rulesFallingBack": 0
     },
     {
       "id": "nuxt",
-      "rulesWithSpecificFix": 13,
+      "rulesWithSpecificFix": 14,
       "rulesFallingBack": 0
     },
     {
       "id": "nest",
-      "rulesWithSpecificFix": 13,
+      "rulesWithSpecificFix": 14,
       "rulesFallingBack": 0
     },
     {
       "id": "express",
-      "rulesWithSpecificFix": 13,
+      "rulesWithSpecificFix": 14,
       "rulesFallingBack": 0
     },
     {
       "id": "fastify",
-      "rulesWithSpecificFix": 13,
+      "rulesWithSpecificFix": 14,
       "rulesFallingBack": 0
     },
     {
       "id": "hono",
-      "rulesWithSpecificFix": 13,
+      "rulesWithSpecificFix": 14,
       "rulesFallingBack": 0
     },
     {
       "id": "koa",
-      "rulesWithSpecificFix": 13,
+      "rulesWithSpecificFix": 14,
       "rulesFallingBack": 0
     },
     {
       "id": "hapi",
-      "rulesWithSpecificFix": 13,
+      "rulesWithSpecificFix": 14,
       "rulesFallingBack": 0
     },
     {
       "id": "sails",
-      "rulesWithSpecificFix": 13,
+      "rulesWithSpecificFix": 14,
       "rulesFallingBack": 0
     },
     {
       "id": "astro",
-      "rulesWithSpecificFix": 13,
+      "rulesWithSpecificFix": 14,
       "rulesFallingBack": 0
     },
     {
       "id": "remix",
-      "rulesWithSpecificFix": 13,
+      "rulesWithSpecificFix": 14,
       "rulesFallingBack": 0
     },
     {
       "id": "gatsby",
-      "rulesWithSpecificFix": 13,
+      "rulesWithSpecificFix": 14,
       "rulesFallingBack": 0
     }
   ],
-  "ruleCount": 13,
+  "ruleCount": 14,
   "categoriesCovered": 9
 }

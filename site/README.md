@@ -11,7 +11,7 @@ answer engines to extract without executing JavaScript:
 - Owlwarden scans Node web applications locally and has no telemetry.
 - A finding contains the source location, rationale, remediation, and an honest
   confidence level.
-- Version 0.4.0 ships thirteen rules (including opt-in OSV), SARIF/JUnit and a
+- Version 0.5.0 ships fourteen rules (active CSRF canary + offline OSV), SARIF/JUnit and a
   GitHub Action, Safe `--fix`, first-class remediation for twelve named
   frameworks, coverage in nine OWASP Top 10 (2021) categories, passive opt-in
   runtime probes, source-only sandboxed WASM plugins, and a read-only MCP

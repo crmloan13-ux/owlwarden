@@ -299,16 +299,17 @@ async fn the_matrix_covers_every_supported_framework() {
 
 #[test]
 fn every_catalogue_rule_is_exercised_on_every_framework() {
-    // Advisory-only rules (`known-vulnerable-dependency`) need `--osv` and a
-    // mock/live OSV client; they are covered by unit tests, not this matrix.
-    let advisory: std::collections::HashSet<_> = owlwarden_detectors::advisory_rule_infos()
+    // Opt-in rules stay out of this matrix: advisory needs `--osv`, active
+    // needs `--allow-active` + a live target. Both have dedicated tests.
+    let opt_in: std::collections::HashSet<_> = owlwarden_detectors::advisory_rule_infos()
         .into_iter()
+        .chain(owlwarden_detectors::active_rule_infos())
         .map(|rule| rule.meta().id.to_string())
         .collect();
     let catalogue: Vec<_> = owlwarden_detectors::all_rule_metas()
         .into_iter()
         .map(|meta| meta.id.to_string())
-        .filter(|id| !advisory.contains(id))
+        .filter(|id| !opt_in.contains(id))
         .collect();
     assert_eq!(
         catalogue.len(),

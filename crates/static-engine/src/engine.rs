@@ -1,5 +1,6 @@
 //! `StaticEngine` — the [`Detector`] that owns the static rules.
 
+use std::collections::HashSet;
 use std::sync::{Arc, Mutex};
 
 use async_trait::async_trait;
@@ -103,13 +104,26 @@ impl StaticEngine {
     }
 
     /// Runs the per-file rules, parsing each interested file exactly once.
-    fn run_file_rules(&self, project: &Project<'_>, findings: &mut Vec<Finding>) {
+    ///
+    /// When `dirty_paths` is set, only those project-relative paths are parsed.
+    fn run_file_rules(
+        &self,
+        project: &Project<'_>,
+        findings: &mut Vec<Finding>,
+        dirty_paths: Option<&HashSet<String>>,
+    ) {
         let mut scanned = 0u32;
 
         for file in project.files().iter().take(limits::source::MAX_FILES) {
             if findings.len() >= limits::scan::MAX_FINDINGS {
                 self.mark_truncated();
                 break;
+            }
+
+            if let Some(dirty) = dirty_paths
+                && !dirty.contains(file.path.as_str())
+            {
+                continue;
             }
 
             let interested: Vec<&Arc<dyn FileRule>> = self
@@ -200,8 +214,15 @@ impl Detector for StaticEngine {
         let project = Project::discover(ctx.source())?;
         let mut findings = Vec::new();
 
+        let dirty_paths = ctx
+            .settings()
+            .dirty_paths
+            .as_ref()
+            .filter(|paths| !paths.is_empty())
+            .map(|paths| paths.iter().cloned().collect::<HashSet<String>>());
+
         self.run_project_rules(&project, &mut findings);
-        self.run_file_rules(&project, &mut findings);
+        self.run_file_rules(&project, &mut findings, dirty_paths.as_ref());
 
         if findings.len() > limits::scan::MAX_FINDINGS {
             findings.truncate(limits::scan::MAX_FINDINGS);

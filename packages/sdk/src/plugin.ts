@@ -43,6 +43,24 @@ export const pluginRuleMetaSchema = z
   })
   .strict();
 
+/** Optional pinned WASM artifact digest (ADR 0021). */
+export const pluginArtifactSchema = z
+  .object({
+    path: z
+      .string()
+      .min(1)
+      .max(256)
+      .refine(
+        (value) => !value.includes("..") && !value.startsWith("/") && !value.includes("\\"),
+        "artifact.path must be a relative path without '..'",
+      ),
+    sha256: z
+      .string()
+      .length(64)
+      .regex(/^[0-9a-fA-F]+$/, "artifact.sha256 must be 64 hex characters"),
+  })
+  .strict();
+
 /** The manifest that sits next to `plugin.wasm`. */
 export const pluginManifestSchema = z
   .object({
@@ -55,6 +73,7 @@ export const pluginManifestSchema = z
       .regex(/^[a-z][a-z0-9-]*$/, "plugin id is lowercase, digits, hyphens"),
     version: z.string().min(1).max(64),
     license: z.string().max(64).optional(),
+    artifact: pluginArtifactSchema.optional(),
     capabilities: pluginCapabilitiesSchema,
     rules: z.array(pluginRuleMetaSchema).min(1).max(64),
   })
@@ -82,5 +101,6 @@ export const pluginManifestSchema = z
   });
 
 export type PluginManifest = z.infer<typeof pluginManifestSchema>;
+export type PluginArtifact = z.infer<typeof pluginArtifactSchema>;
 export type PluginRuleMeta = z.infer<typeof pluginRuleMetaSchema>;
 export type PluginCapabilities = z.infer<typeof pluginCapabilitiesSchema>;

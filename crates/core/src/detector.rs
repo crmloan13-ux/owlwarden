@@ -81,6 +81,17 @@ impl Capabilities {
             active: false,
         }
     }
+
+    /// A detector that sends state-changing requests (needs `--allow-active`).
+    #[must_use]
+    pub const fn active_network() -> Self {
+        Self {
+            source: false,
+            network: true,
+            advisory: false,
+            active: true,
+        }
+    }
 }
 
 /// Everything about a rule that is stable, public, and documentable.

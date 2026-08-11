@@ -20,6 +20,7 @@ use owlwarden_core::limits::plugin as limits;
 
 use crate::detector::WasmDetector;
 use crate::error::PluginError;
+use crate::integrity::{self, LoadOptions};
 use crate::manifest::PluginManifest;
 
 /// Manifest filename expected inside a plugin directory.
@@ -36,6 +37,14 @@ pub const MODULE_FILENAME: &str = "plugin.wasm";
 /// was explicitly asked to load is a worse failure mode than one that names
 /// which one broke and refuses to start.
 pub fn load_plugins(paths: &[PathBuf]) -> Result<Vec<Arc<dyn Detector>>, PluginError> {
+    load_plugins_with(paths, &LoadOptions::default())
+}
+
+/// Like [`load_plugins`] with explicit load policy (ADR 0021).
+pub fn load_plugins_with(
+    paths: &[PathBuf],
+    options: &LoadOptions,
+) -> Result<Vec<Arc<dyn Detector>>, PluginError> {
     if paths.len() > limits::MAX_PLUGINS_PER_SCAN {
         return Err(PluginError::TooManyPlugins {
             found: paths.len(),
@@ -45,7 +54,9 @@ pub fn load_plugins(paths: &[PathBuf]) -> Result<Vec<Arc<dyn Detector>>, PluginE
 
     paths
         .iter()
-        .map(|path| load_one(path).map(|detector| Arc::new(detector) as Arc<dyn Detector>))
+        .map(|path| {
+            load_one_with(path, options).map(|detector| Arc::new(detector) as Arc<dyn Detector>)
+        })
         .collect()
 }
 
@@ -56,7 +67,12 @@ pub fn load_plugins(paths: &[PathBuf]) -> Result<Vec<Arc<dyn Detector>>, PluginE
 /// See [`PluginManifest::parse`] and [`WasmDetector::load`] for the specific
 /// [`PluginError`] variants this can return.
 pub fn load_one(path: &Path) -> Result<WasmDetector, PluginError> {
-    let (manifest_path, module_path) = resolve_paths(path);
+    load_one_with(path, &LoadOptions::default())
+}
+
+/// Like [`load_one`] with explicit load policy (ADR 0021).
+pub fn load_one_with(path: &Path, options: &LoadOptions) -> Result<WasmDetector, PluginError> {
+    let (plugin_dir, manifest_path) = resolve_manifest(path);
 
     let manifest_bytes = read_bounded(&manifest_path, limits::MAX_MANIFEST_BYTES)
         .map_err(|error| map_read_error(&manifest_path, limits::MAX_MANIFEST_BYTES, error, true))?;
@@ -67,29 +83,33 @@ pub fn load_one(path: &Path) -> Result<WasmDetector, PluginError> {
         })?;
     let manifest = PluginManifest::parse(&manifest_json, &manifest_path.display().to_string())?;
 
+    let module_path = integrity::module_path(&plugin_dir, &manifest);
     let wasm_bytes =
         read_bounded(&module_path, limits::MAX_PLUGIN_BYTES as u64).map_err(|error| {
             map_read_error(&module_path, limits::MAX_PLUGIN_BYTES as u64, error, false)
         })?;
 
+    integrity::enforce_artifact_policy(&plugin_dir, &manifest, &wasm_bytes, &module_path, options)?;
+
     WasmDetector::load(&manifest, &wasm_bytes)
 }
 
-/// Resolves `path` to a `(manifest, module)` pair without touching the
-/// filesystem beyond `is_dir` — the actual reads happen in [`read_bounded`],
-/// which is where a missing file becomes a typed error.
-fn resolve_paths(path: &Path) -> (PathBuf, PathBuf) {
+/// Resolves `path` to `(plugin_dir, manifest_path)` without reading bytes.
+fn resolve_manifest(path: &Path) -> (PathBuf, PathBuf) {
     if path.is_dir() {
-        return (path.join(MANIFEST_FILENAME), path.join(MODULE_FILENAME));
+        return (path.to_path_buf(), path.join(MANIFEST_FILENAME));
     }
+    let plugin_dir = path
+        .parent()
+        .map_or_else(|| PathBuf::from("."), Path::to_path_buf);
     let mut sidecar = path.to_path_buf();
     sidecar.set_extension("plugin.json");
     let manifest = if sidecar.is_file() {
         sidecar
     } else {
-        path.with_file_name(MANIFEST_FILENAME)
+        plugin_dir.join(MANIFEST_FILENAME)
     };
-    (manifest, path.to_path_buf())
+    (plugin_dir, manifest)
 }
 
 fn map_read_error(path: &Path, max: u64, error: std::io::Error, is_manifest: bool) -> PluginError {
@@ -185,9 +205,12 @@ mod tests {
     use std::fs;
     use std::io::Write;
 
+    use ed25519_dalek::{Signer, SigningKey};
+    use sha2::{Digest, Sha256};
     use tempfile::tempdir;
 
     use super::*;
+    use crate::integrity::sha256_hex;
 
     const MANIFEST: &str = r#"{
         "schemaVersion": 1,
@@ -216,6 +239,26 @@ mod tests {
         .unwrap()
     }
 
+    fn manifest_with_digest(wasm: &[u8]) -> String {
+        format!(
+            r#"{{
+                "schemaVersion": 1,
+                "id": "demo-plugin",
+                "version": "0.1.0",
+                "artifact": {{ "path": "plugin.wasm", "sha256": "{}" }},
+                "rules": [{{
+                    "id": "demo-plugin-rule",
+                    "title": "Demo",
+                    "severity": "medium",
+                    "maxConfidence": "likely",
+                    "category": "demo",
+                    "description": "A demonstration rule."
+                }}]
+            }}"#,
+            sha256_hex(wasm)
+        )
+    }
+
     #[test]
     fn a_plugin_directory_with_both_files_loads() {
         let dir = tempdir().unwrap();
@@ -224,6 +267,75 @@ mod tests {
 
         let detector = load_one(dir.path()).unwrap();
         assert_eq!(detector.plugin_id(), "demo-plugin");
+    }
+
+    #[test]
+    fn matching_declared_digest_loads() {
+        let wasm = trivial_wasm();
+        let dir = tempdir().unwrap();
+        fs::write(
+            dir.path().join(MANIFEST_FILENAME),
+            manifest_with_digest(&wasm),
+        )
+        .unwrap();
+        fs::write(dir.path().join(MODULE_FILENAME), &wasm).unwrap();
+
+        load_one(dir.path()).unwrap();
+    }
+
+    #[test]
+    fn digest_mismatch_refuses_load() {
+        let wasm = trivial_wasm();
+        let dir = tempdir().unwrap();
+        fs::write(
+            dir.path().join(MANIFEST_FILENAME),
+            manifest_with_digest(&wasm),
+        )
+        .unwrap();
+        fs::write(dir.path().join(MODULE_FILENAME), b"tampered").unwrap();
+
+        assert!(matches!(
+            load_one(dir.path()),
+            Err(PluginError::ArtifactDigestMismatch { .. })
+        ));
+    }
+
+    #[test]
+    fn signed_plugin_loads_with_trust_root_and_require_signed() {
+        let wasm = trivial_wasm();
+        let dir = tempdir().unwrap();
+        fs::write(
+            dir.path().join(MANIFEST_FILENAME),
+            manifest_with_digest(&wasm),
+        )
+        .unwrap();
+        let module = dir.path().join(MODULE_FILENAME);
+        fs::write(&module, &wasm).unwrap();
+
+        let signing = SigningKey::from_bytes(&[9u8; 32]);
+        let digest = Sha256::digest(&wasm);
+        let sig = signing.sign(digest.as_slice());
+        fs::write(
+            format!("{}.sig", module.display()),
+            base64_encode(sig.to_bytes().as_slice()),
+        )
+        .unwrap();
+
+        fs::create_dir_all(dir.path().join(".owlwarden")).unwrap();
+        let hex_key = hex_encode(signing.verifying_key().as_bytes());
+        fs::write(
+            dir.path().join(".owlwarden/plugin-trust.json"),
+            format!(r#"{{"keys":["{hex_key}"]}}"#),
+        )
+        .unwrap();
+
+        load_one_with(
+            dir.path(),
+            &LoadOptions {
+                require_signed_plugins: true,
+            },
+        )
+        .unwrap();
     }
 
     #[test]
@@ -288,5 +400,41 @@ mod tests {
         fs::write(dir.path().join(MODULE_FILENAME), trivial_wasm()).unwrap();
 
         assert!(matches!(load_one(dir.path()), Err(PluginError::Io { .. })));
+    }
+
+    fn hex_encode(bytes: &[u8]) -> String {
+        const HEX: &[u8; 16] = b"0123456789abcdef";
+        let mut out = String::with_capacity(bytes.len() * 2);
+        for byte in bytes {
+            out.push(HEX[(byte >> 4) as usize] as char);
+            out.push(HEX[(byte & 0xf) as usize] as char);
+        }
+        out
+    }
+
+    fn base64_encode(bytes: &[u8]) -> String {
+        const TABLE: &[u8; 64] =
+            b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+        let mut out = String::new();
+        let mut index = 0;
+        while index < bytes.len() {
+            let b0 = bytes[index];
+            let b1 = bytes.get(index + 1).copied().unwrap_or(0);
+            let b2 = bytes.get(index + 2).copied().unwrap_or(0);
+            out.push(TABLE[(b0 >> 2) as usize] as char);
+            out.push(TABLE[(((b0 & 0x3) << 4) | (b1 >> 4)) as usize] as char);
+            if index + 1 < bytes.len() {
+                out.push(TABLE[(((b1 & 0xf) << 2) | (b2 >> 6)) as usize] as char);
+            } else {
+                out.push('=');
+            }
+            if index + 2 < bytes.len() {
+                out.push(TABLE[(b2 & 0x3f) as usize] as char);
+            } else if index + 1 < bytes.len() {
+                out.push('=');
+            }
+            index += 3;
+        }
+        out
     }
 }

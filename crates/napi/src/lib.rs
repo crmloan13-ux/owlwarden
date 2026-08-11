@@ -76,12 +76,27 @@ struct ScanRequest {
     /// Permit `plugins` when `ci` is true. Off by default.
     #[serde(default)]
     allow_plugins: bool,
+    /// Refuse plugins whose detached ed25519 signature did not verify (ADR 0021).
+    #[serde(default)]
+    require_signed_plugins: bool,
     /// Permit state-changing HTTP methods with `--target` (`--allow-active`).
     #[serde(default)]
     allow_active: bool,
     /// Opt into Google OSV lockfile advisory lookup (`--osv`).
     #[serde(default)]
     osv: bool,
+    /// Path to a cached OSV index (`--osv-db`). File-backed; no network.
+    #[serde(default)]
+    osv_db: Option<String>,
+    /// When true with `--osv`, `--osv-db` is required ([ADR 0020](../../docs/adr/0020-offline-osv-cache.md)).
+    #[serde(default)]
+    osv_offline: bool,
+    /// Project-relative paths that changed since the last scan (watch mode).
+    #[serde(default)]
+    dirty_paths: Vec<String>,
+    /// Previous report JSON for incremental merge in watch mode.
+    #[serde(default)]
+    previous_report_json: Option<String>,
 }
 
 fn default_honor_suppressions() -> bool {
@@ -212,12 +227,16 @@ pub async fn scan(request_json: String) -> napi::Result<String> {
 /// decides in TypeScript) — this addon only loads what it is handed.
 fn load_requested_plugins(
     paths: &[String],
+    require_signed_plugins: bool,
 ) -> Result<Vec<std::sync::Arc<dyn owlwarden_core::detector::Detector>>, String> {
     if paths.is_empty() {
         return Ok(Vec::new());
     }
     let paths: Vec<std::path::PathBuf> = paths.iter().map(std::path::PathBuf::from).collect();
-    owlwarden_plugin_host::load_plugins(&paths).map_err(|error| error.to_string())
+    let options = owlwarden_plugin_host::LoadOptions {
+        require_signed_plugins,
+    };
+    owlwarden_plugin_host::load_plugins_with(&paths, &options).map_err(|error| error.to_string())
 }
 
 /// Resolves `target`/`scope` into a dynamic engine, wiring it into
@@ -252,20 +271,30 @@ fn prepare_dynamic_engine(
     let http = std::sync::Arc::clone(&live.http);
     scan_request.network = Some(live.network);
     scan_request.extra_detectors.push(live.engine);
+    if allow_active {
+        scan_request
+            .extra_detectors
+            .push(owlwarden_detectors::csrf_cross_origin_post_detector(
+                live.probe.url.clone(),
+                live.probe.path.clone(),
+            ));
+    }
     scan_request.correlate = Some(owlwarden_dynamic::correlate);
     Ok((Some(engine), Some(http)))
 }
 
-/// Wires `--osv`: allowlisted OSV client + the advisory detector.
+/// Wires `--osv` / `--osv-db`: advisory client + the advisory detector.
 fn prepare_osv(
-    enabled: bool,
+    osv: bool,
+    osv_db: Option<&str>,
+    osv_offline: bool,
     scan_request: &mut owlwarden_static::ScanRequest,
 ) -> Result<(), String> {
-    if !enabled {
+    let Some(client) = owlwarden_transport::prepare_advisory_client(osv, osv_db, osv_offline)?
+    else {
         return Ok(());
-    }
-    let client = owlwarden_transport::OsvHttpClient::new().map_err(|error| error.to_string())?;
-    scan_request.advisory = Some(std::sync::Arc::new(client));
+    };
+    scan_request.advisory = Some(client);
     scan_request
         .extra_detectors
         .push(owlwarden_detectors::osv_detector());
@@ -286,6 +315,7 @@ fn settings_from_request(request: &ScanRequest) -> ScanSettings {
             .and_then(Severity::from_str_opt)
             .unwrap_or(Severity::Info),
         preset: request.preset.clone(),
+        dirty_paths: None,
     }
 }
 
@@ -305,11 +335,16 @@ fn wire_extras(
                 .to_owned(),
         ));
     }
-    match load_requested_plugins(&request.plugins) {
+    match load_requested_plugins(&request.plugins, request.require_signed_plugins) {
         Ok(detectors) => scan_request.extra_detectors.extend(detectors),
         Err(message) => return Err(("E_PLUGIN_INVALID", message)),
     }
-    if let Err(message) = prepare_osv(request.osv, scan_request) {
+    if let Err(message) = prepare_osv(
+        request.osv,
+        request.osv_db.as_deref(),
+        request.osv_offline,
+        scan_request,
+    ) {
         return Err(("E_SCAN_FAILED", message));
     }
     prepare_dynamic_engine(
@@ -332,33 +367,64 @@ fn scan_blocking(request_json: String) -> String {
 
     let (file_rules, project_rules) = owlwarden_detectors::rules_for_preset(&request.preset);
     if file_rules.is_empty() && project_rules.is_empty() {
-        let known: Vec<&str> = owlwarden_detectors::PRESETS
-            .iter()
-            .map(|preset| preset.name)
-            .collect();
-        return Envelope::err(
-            "E_UNKNOWN_PRESET",
-            format!(
-                "unknown preset {:?}; available presets are {}",
-                request.preset,
-                known.join(", ")
-            ),
-        )
-        .encode();
+        return Envelope::err("E_UNKNOWN_PRESET", unknown_preset_message(&request.preset)).encode();
     }
 
+    let mut scan_request = match build_scan_request(&request) {
+        Ok(built) => built,
+        Err((code, message)) => return Envelope::err(code, message).encode(),
+    };
+
+    let (dynamic_engine, http) = match wire_extras(&request, &mut scan_request) {
+        Ok(wired) => wired,
+        Err((code, message)) => return Envelope::err(code, message).encode(),
+    };
+
+    encode_scan_drive(
+        owlwarden_dynamic::run_scan(
+            &request.project_root,
+            file_rules,
+            project_rules,
+            scan_request,
+            dynamic_engine,
+        ),
+        &request,
+        http.as_deref(),
+    )
+}
+
+fn unknown_preset_message(preset: &str) -> String {
+    let known: Vec<&str> = owlwarden_detectors::PRESETS
+        .iter()
+        .map(|entry| entry.name)
+        .collect();
+    format!(
+        "unknown preset {preset:?}; available presets are {}",
+        known.join(", ")
+    )
+}
+
+fn build_scan_request(
+    request: &ScanRequest,
+) -> Result<owlwarden_static::ScanRequest, (&'static str, String)> {
     let baseline = match request.baseline_json.as_deref() {
         Some(json) => match owlwarden_core::baseline::BaselineFile::parse(json) {
             Ok(file) => Some(file),
-            Err(error) => {
-                return Envelope::err("E_BASELINE_INVALID", error.to_string()).encode();
-            }
+            Err(error) => return Err(("E_BASELINE_INVALID", error.to_string())),
         },
         None => None,
     };
-
-    let mut scan_request = owlwarden_static::ScanRequest {
-        settings: settings_from_request(&request),
+    let previous_report = match request.previous_report_json.as_deref() {
+        None => None,
+        Some(json) => match serde_json::from_str(json) {
+            Ok(report) => Some(report),
+            Err(error) => {
+                return Err(("E_SCAN_FAILED", format!("invalid previous report: {error}")));
+            }
+        },
+    };
+    Ok(owlwarden_static::ScanRequest {
+        settings: settings_from_request(request),
         baseline,
         write_baseline: request
             .write_baseline
@@ -369,24 +435,24 @@ fn scan_blocking(request_json: String) -> String {
         network: None,
         advisory: None,
         correlate: None,
-    };
+        dirty_paths: if request.dirty_paths.is_empty() {
+            None
+        } else {
+            Some(request.dirty_paths.clone())
+        },
+        previous_report,
+    })
+}
 
-    let (dynamic_engine, http) = match wire_extras(&request, &mut scan_request) {
-        Ok(wired) => wired,
-        Err((code, message)) => return Envelope::err(code, message).encode(),
-    };
-
-    match owlwarden_dynamic::run_scan(
-        &request.project_root,
-        file_rules,
-        project_rules,
-        scan_request,
-        dynamic_engine,
-    ) {
+fn encode_scan_drive(
+    result: Result<owlwarden_core::report::Report, owlwarden_dynamic::DriveError>,
+    request: &ScanRequest,
+    http: Option<&owlwarden_transport::ReqwestTransport>,
+) -> String {
+    match result {
         Ok(report) => {
             if request.allow_active {
                 let audit = http
-                    .as_ref()
                     .map(|transport| {
                         transport
                             .audit_log()
@@ -417,6 +483,9 @@ fn scan_blocking(request_json: String) -> String {
             "E_BASELINE_WRITE",
             format!("could not write {path}: {message}"),
         ),
+        Err(owlwarden_dynamic::DriveError::Run(
+            owlwarden_static::RunError::InvalidDirtyPaths { message },
+        )) => Envelope::err("E_SCAN_FAILED", format!("invalid dirty paths: {message}")),
         Err(error) => Envelope::err("E_SCAN_FAILED", error.to_string()),
     }
     .encode()
@@ -624,6 +693,57 @@ pub fn list_presets() -> napi::Result<String> {
         .collect();
 
     serde_json::to_string(&presets).map_err(|error| napi::Error::from_reason(error.to_string()))
+}
+
+/// Builds a lockfile-scoped OSV index JSON string for [`owlwarden osv update`].
+///
+/// Queries `api.osv.dev` with the same allowlisted client as `--osv`. Runs on a
+/// worker thread with its own Tokio runtime so Node's event loop stays free.
+///
+/// # Errors
+/// Throws when the project cannot be read, OSV refuses the lookup, or encoding fails.
+#[napi]
+pub async fn build_osv_index(project_root: String) -> napi::Result<String> {
+    napi::bindgen_prelude::spawn_blocking(move || build_osv_index_blocking(&project_root))
+        .await
+        .map_err(|error| napi::Error::from_reason(format!("osv index worker failed: {error}")))?
+}
+
+fn build_osv_index_blocking(project_root: &str) -> napi::Result<String> {
+    let provider = owlwarden_static::FsSourceProvider::new(project_root)
+        .map_err(|error| napi::Error::from_reason(error.to_string()))?;
+    let packages = owlwarden_detectors::lockfile::collect_packages(&provider);
+    let mut seen = std::collections::HashSet::new();
+    let mut queries = Vec::new();
+    for package in packages {
+        let key = (
+            package.query.ecosystem.clone(),
+            package.query.name.clone(),
+            package.query.version.clone(),
+        );
+        if !seen.insert(key) {
+            continue;
+        }
+        queries.push(package.query);
+        if queries.len() >= owlwarden_core::limits::advisory::MAX_PACKAGES {
+            break;
+        }
+    }
+    let client = owlwarden_transport::OsvHttpClient::new()
+        .map_err(|error| napi::Error::from_reason(error.to_string()))?;
+    let index =
+        match owlwarden_dynamic::block_on(owlwarden_transport::fetch_index(&client, &queries)) {
+            Ok(Ok(index)) => index,
+            Ok(Err(error)) => {
+                return Err(napi::Error::from_reason(error.to_string()));
+            }
+            Err(error) => {
+                return Err(napi::Error::from_reason(error.to_string()));
+            }
+        };
+    let bytes = owlwarden_transport::serialize_index(&index)
+        .map_err(|error| napi::Error::from_reason(error.to_string()))?;
+    String::from_utf8(bytes).map_err(|error| napi::Error::from_reason(error.to_string()))
 }
 
 /// The engine version, which is also what appears in `report.tool.version`.

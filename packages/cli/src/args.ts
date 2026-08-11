@@ -29,8 +29,12 @@ export type Cli =
   | { command: "init"; agentRules: boolean; out?: string }
   | { command: "plugin-scaffold"; name: string }
   | { command: "plugin-inspect"; path: string }
+  | { command: "osv-update"; path: string; out?: string }
   | { command: "help" }
   | { command: "version" };
+
+/** A scan report rendering target. */
+export type ReportFormat = "pretty" | "json" | "sarif" | "junit";
 
 /** Everything `scan` / `watch` needs, before config is merged in. */
 export interface ScanOptions {
@@ -38,7 +42,10 @@ export interface ScanOptions {
   path: string;
   /** Unset means "whatever the config file says". */
   preset?: string;
-  format?: "pretty" | "json" | "sarif" | "junit";
+  /** First stacked `--format`, kept for callers that still read one value. */
+  format?: ReportFormat;
+  /** Stacked `--format` values from the CLI (deduped, order preserved). */
+  formats?: ReportFormat[];
   failOn?: Severity;
   minConfidence?: Confidence;
   out?: string;
@@ -94,6 +101,10 @@ export interface ScanOptions {
    */
   allowPlugins: boolean;
   /**
+   * Refuse plugins without a verified detached ed25519 signature (ADR 0021).
+   */
+  requireSignedPlugins: boolean;
+  /**
    * Apply Safe remediations (highlight replacements) after the scan.
    * Never applies to `Possible` findings. Requires a clean git tree unless
    * {@link allowDirty}.
@@ -115,10 +126,22 @@ export interface ScanOptions {
    * Sends package name+version to api.osv.dev — never source code.
    */
   osv: boolean;
+  /**
+   * Path to a cached OSV index (`--osv-db`). File-backed; no network.
+   */
+  osvDb?: string;
+  /**
+   * With `--osv`, require `--osv-db` (fail closed). Air-gapped CI posture.
+   */
+  offline: boolean;
   color: boolean;
   unicode: boolean;
   quiet: boolean;
   hyperlinks: boolean;
+  /** Incremental watch: project-relative paths that changed since the last scan. */
+  dirtyPaths?: string[];
+  /** Incremental watch: previous report JSON for finding merge. */
+  previousReportJson?: string;
 }
 
 /** A command line we could not make sense of. */
@@ -131,7 +154,7 @@ export class ArgError extends Error {
 
 const OPTIONS = {
   preset: { type: "string" },
-  format: { type: "string" },
+  format: { type: "string", multiple: true },
   out: { type: "string" },
   baseline: { type: "string" },
   "write-baseline": { type: "string" },
@@ -146,12 +169,15 @@ const OPTIONS = {
   scope: { type: "string", multiple: true },
   plugin: { type: "string", multiple: true },
   "allow-plugins": { type: "boolean", default: false },
+  "require-signed-plugins": { type: "boolean", default: false },
   fix: { type: "boolean", default: false },
   "fix-unsafe": { type: "boolean", default: false },
   "dry-run": { type: "boolean", default: false },
   "allow-dirty": { type: "boolean", default: false },
   "allow-active": { type: "boolean", default: false },
   osv: { type: "boolean", default: false },
+  "osv-db": { type: "string" },
+  offline: { type: "boolean", default: false },
   ci: { type: "boolean", default: false },
   "no-color": { type: "boolean", default: false },
   ascii: { type: "boolean", default: false },
@@ -250,6 +276,15 @@ export function parse(argv: string[]): Cli {
       }
       return { command: "plugin-scaffold", name };
     }
+    case "osv": {
+      if (rest[0] !== "update") {
+        throw new ArgError("usage: owlwarden osv update [PATH] [--out FILE]");
+      }
+      const path = rest[1] ?? ".";
+      return values.out === undefined
+        ? { command: "osv-update", path }
+        : { command: "osv-update", path, out: values.out };
+    }
     default:
       throw new ArgError(`unknown command ${JSON.stringify(command)}`);
   }
@@ -265,7 +300,7 @@ function scanOptions(values: Values, positionals: string[]): ScanOptions {
   // `--ci` sets machine-readable defaults and refuses project-controlled mute
   // switches (config gates, suppressions, baseline) unless explicitly allowed.
   const ci = values.ci;
-  const format = enumValue(
+  const formats = parseFormats(
     "--format",
     ci ? (values.format ?? "json") : values.format,
     ["pretty", "json", "sarif", "junit"] as const,
@@ -291,13 +326,22 @@ function scanOptions(values: Values, positionals: string[]): ScanOptions {
     scope,
     plugins: values.plugin ?? [],
     allowPlugins: values["allow-plugins"],
+    requireSignedPlugins: values["require-signed-plugins"],
     fix: values.fix,
     fixUnsafe: values["fix-unsafe"],
     dryRun: values["dry-run"],
     allowDirty: values["allow-dirty"],
     allowActive: values["allow-active"],
     osv: values.osv,
+    offline: values.offline,
   };
+
+  if (options.osv && options.offline && values["osv-db"] === undefined) {
+    throw new ArgError("--osv --offline requires --osv-db");
+  }
+  if (values["osv-db"] !== undefined) {
+    options.osvDb = values["osv-db"];
+  }
 
   if (options.fixUnsafe && !options.fix) {
     throw new ArgError("--fix-unsafe requires --fix");
@@ -316,7 +360,11 @@ function scanOptions(values: Values, positionals: string[]): ScanOptions {
   // "absent" from "present and undefined", and absent is what tells the config
   // layer it may supply the value.
   if (values.preset !== undefined) options.preset = values.preset;
-  if (format !== undefined) options.format = format;
+  if (formats !== undefined) {
+    options.formats = formats;
+    const [first] = formats;
+    if (first !== undefined) options.format = first;
+  }
   if (values.out !== undefined) options.out = values.out;
   if (values.baseline !== undefined) options.baseline = values.baseline;
   if (values["write-baseline"] !== undefined) options.writeBaseline = values["write-baseline"];
@@ -362,18 +410,26 @@ function parseWith<T>(
   return result.data;
 }
 
-function enumValue<const T extends readonly string[]>(
+function parseFormats<const T extends readonly string[]>(
   flag: string,
-  raw: string | undefined,
+  raw: string | string[] | undefined,
   accepted: T,
-): T[number] | undefined {
+): T[number][] | undefined {
   if (raw === undefined) return undefined;
-  if (!accepted.includes(raw)) {
-    throw new ArgError(
-      `invalid value ${JSON.stringify(raw)} for ${flag}; expected one of: ${accepted.join(", ")}`,
-    );
+  const list = Array.isArray(raw) ? raw : [raw];
+  const seen = new Set<string>();
+  const result: T[number][] = [];
+  for (const item of list) {
+    if (!accepted.includes(item)) {
+      throw new ArgError(
+        `invalid value ${JSON.stringify(item)} for ${flag}; expected one of: ${accepted.join(", ")}`,
+      );
+    }
+    if (seen.has(item)) continue;
+    seen.add(item);
+    result.push(item);
   }
-  return raw;
+  return result;
 }
 
 /**

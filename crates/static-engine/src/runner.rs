@@ -25,6 +25,7 @@ use owlwarden_core::transport::Transport;
 
 use crate::engine::StaticEngine;
 use crate::fs_source::FsSourceProvider;
+use crate::incremental;
 use crate::postprocess::{apply_baseline, apply_suppressions_with};
 use crate::rule::{FileRule, ProjectRule};
 
@@ -43,6 +44,12 @@ pub enum RunError {
         /// Destination path.
         path: String,
         /// Underlying message.
+        message: String,
+    },
+    /// Incremental watch received an invalid dirty-path list.
+    #[error("invalid dirty paths: {message}")]
+    InvalidDirtyPaths {
+        /// Why the list was rejected.
         message: String,
     },
 }
@@ -87,6 +94,10 @@ pub struct ScanRequest {
     pub advisory: Option<Arc<dyn AdvisoryClient>>,
     /// Optional correlation post-pass (static + dynamic → `Confirmed`).
     pub correlate: Option<fn(Vec<Finding>) -> Vec<Finding>>,
+    /// Project-relative paths that changed since the last scan. Empty/absent → full scan.
+    pub dirty_paths: Option<Vec<String>>,
+    /// Previous report for incremental merge in watch mode.
+    pub previous_report: Option<Report>,
 }
 
 impl Default for ScanRequest {
@@ -100,6 +111,8 @@ impl Default for ScanRequest {
             network: None,
             advisory: None,
             correlate: None,
+            dirty_paths: None,
+            previous_report: None,
         }
     }
 }
@@ -131,6 +144,8 @@ pub async fn scan_project(
             network: None,
             advisory: None,
             correlate: None,
+            dirty_paths: None,
+            previous_report: None,
         },
     )
     .await
@@ -148,7 +163,15 @@ pub async fn scan_project_with(
 ) -> Result<Report, RunError> {
     let root = root.as_ref();
     let provider = FsSourceProvider::new(root)?;
+    let project_rules_for_merge = project_rules.clone();
     let engine = Arc::new(StaticEngine::new(file_rules, project_rules));
+
+    let (settings, merge_previous, merge_dirty) = prepare_incremental(
+        root,
+        request.settings,
+        request.dirty_paths.clone(),
+        request.previous_report.clone(),
+    )?;
 
     let deny_all = DenyAllScope;
     let passive_budget = Budget::passive();
@@ -169,21 +192,15 @@ pub async fn scan_project_with(
     };
 
     let advisory = request.advisory.as_deref();
-    let context = ScanContext::with_advisory(
-        &provider,
-        transport,
-        advisory,
-        scope,
-        &request.settings,
-        budget,
-    );
+    let context =
+        ScanContext::with_advisory(&provider, transport, advisory, scope, &settings, budget);
 
     let target = ScanTarget {
         project: root.display().to_string(),
         scope: scope_labels,
         files_scanned: 0,
         routes_probed: 0,
-        preset: request.settings.preset.clone(),
+        preset: settings.preset.clone(),
     };
 
     let mut detectors: Vec<Arc<dyn Detector>> =
@@ -215,8 +232,12 @@ pub async fn scan_project_with(
         report.summary = owlwarden_core::report::ReportSummary::of(&report.findings);
     }
 
+    if let (Some(previous), Some(dirty)) = (merge_previous.as_ref(), merge_dirty.as_ref()) {
+        incremental::merge_into_report(&mut report, previous, dirty, &project_rules_for_merge);
+    }
+
     // After correlation so a Possible static finding can still become Confirmed.
-    report.apply_min_confidence(request.settings.min_confidence);
+    report.apply_min_confidence(settings.min_confidence);
 
     // Suppression re-reads files; do not double-charge the byte budget.
     provider.reset_bytes_read();
@@ -242,4 +263,31 @@ pub async fn scan_project_with(
     }
 
     Ok(report)
+}
+
+/// Settings + optional previous report + validated dirty paths for a merge.
+type IncrementalPlan = (ScanSettings, Option<Report>, Option<Vec<String>>);
+
+/// Resolves incremental inputs into engine settings and optional merge inputs.
+fn prepare_incremental(
+    root: &std::path::Path,
+    mut base_settings: ScanSettings,
+    dirty_paths: Option<Vec<String>>,
+    previous_report: Option<Report>,
+) -> Result<IncrementalPlan, RunError> {
+    let Some(raw_dirty) = dirty_paths.filter(|paths| !paths.is_empty()) else {
+        return Ok((base_settings, None, None));
+    };
+
+    if incremental::any_forces_full_rescan(&raw_dirty) {
+        return Ok((base_settings, None, None));
+    }
+
+    let validated = incremental::validate_dirty_paths(root, &raw_dirty)?;
+    let Some(previous) = previous_report else {
+        // Partial file scan without a previous report would drop untouched findings.
+        return Ok((base_settings, None, None));
+    };
+    base_settings.dirty_paths = Some(validated.clone());
+    Ok((base_settings, Some(previous), Some(validated)))
 }

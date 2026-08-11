@@ -22,6 +22,7 @@ describe("parse", () => {
     const cli = parse(["scan", "--ci"]);
     if (cli.command !== "scan") throw new Error("expected scan");
     expect(cli.options.format).toBe("json");
+    expect(cli.options.formats).toEqual(["json"]);
     expect(cli.options.quiet).toBe(true);
     expect(cli.options.color).toBe(false);
   });
@@ -30,6 +31,28 @@ describe("parse", () => {
     const cli = parse(["scan", "--ci", "--format", "pretty"]);
     if (cli.command !== "scan") throw new Error("expected scan");
     expect(cli.options.format).toBe("pretty");
+    expect(cli.options.formats).toEqual(["pretty"]);
+  });
+
+  it("stacks repeated --format, ignores duplicates, preserves order", () => {
+    const cli = parse([
+      "scan",
+      "--format",
+      "sarif",
+      "--format",
+      "pretty",
+      "--format",
+      "sarif",
+      "--format",
+      "json",
+    ]);
+    if (cli.command !== "scan") throw new Error("expected scan");
+    expect(cli.options.formats).toEqual(["sarif", "pretty", "json"]);
+    expect(cli.options.format).toBe("sarif");
+  });
+
+  it("rejects an unknown format value", () => {
+    expect(() => parse(["scan", "--format", "yaml"])).toThrow(/pretty, json, sarif, junit/);
   });
 
   it("accepts a path alongside flags", () => {
@@ -183,6 +206,12 @@ describe("parse", () => {
     expect(cli.options.allowPlugins).toBe(true);
   });
 
+  it("parses --require-signed-plugins", () => {
+    const cli = parse(["scan", "--require-signed-plugins"]);
+    if (cli.command !== "scan") throw new Error("expected scan");
+    expect(cli.options.requireSignedPlugins).toBe(true);
+  });
+
   it("requires --agent-rules for init and a name for plugin scaffold", () => {
     expect(() => parse(["init"])).toThrow(/--agent-rules/);
     expect(() => parse(["plugin", "scaffold"])).toThrow(/requires a name/);
@@ -201,5 +230,14 @@ describe("parse", () => {
     const osv = parse(["scan", "--osv"]);
     if (osv.command !== "scan") throw new Error("expected scan");
     expect(osv.options.osv).toBe(true);
+    const offline = parse(["scan", "--osv", "--offline", "--osv-db", ".owlwarden/osv-index.json"]);
+    if (offline.command !== "scan") throw new Error("expected scan");
+    expect(offline.options.offline).toBe(true);
+    expect(offline.options.osvDb).toBe(".owlwarden/osv-index.json");
+    expect(() => parse(["scan", "--osv", "--offline"])).toThrow(/requires --osv-db/);
+    const update = parse(["osv", "update", "./app", "--out", "idx.json"]);
+    if (update.command !== "osv-update") throw new Error("expected osv-update");
+    expect(update.path).toBe("./app");
+    expect(update.out).toBe("idx.json");
   });
 });

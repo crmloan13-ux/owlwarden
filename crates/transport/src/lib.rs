@@ -19,8 +19,12 @@
 #![allow(clippy::module_name_repetitions, clippy::must_use_candidate)]
 
 pub mod osv;
+pub mod osv_index;
 
 pub use osv::OsvHttpClient;
+pub use osv_index::{
+    OsvIndex, OsvIndexClient, fetch_index, prepare_advisory_client, serialize_index,
+};
 
 use std::sync::{Arc, Mutex};
 use std::time::Instant;

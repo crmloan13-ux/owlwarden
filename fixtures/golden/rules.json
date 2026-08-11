@@ -20,6 +20,16 @@
     "description": "The CORS configuration accepts requests from any origin. Combined with credentials this lets any site a logged-in user visits make authenticated calls to the API and read the responses. Without credentials it may be intentional for a public API — the finding says which case it found."
   },
   {
+    "id": "csrf-cross-origin-post",
+    "title": "Endpoint accepted a cross-origin state-changing POST",
+    "severity": "high",
+    "maxConfidence": "likely",
+    "owasp": "A01:2021",
+    "cwe": 352,
+    "category": "csrf",
+    "description": "With `--allow-active`, owlwarden POSTs a canary body to `--target` using Origin https://owlwarden-untrusted.invalid. A 2xx response means the route accepted a cross-origin state-changing request — the classic CSRF shape on cookie-session apps. Requires staging you control; the canary may still create a resource if the route is a create endpoint."
+  },
+  {
     "id": "hardcoded-secret",
     "title": "Credential hardcoded in source",
     "severity": "high",

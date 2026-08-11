@@ -61,9 +61,14 @@ problem is if it is real; confidence is how sure owlwarden is that it is real.
 Collapsing them into one number is how a scanner ends up shouting — see
 [docs/explanation/false-positives.md](docs/explanation/false-positives.md).
 
-**Shipped:** `pretty`, `json`, `sarif`, `junit`. **Planned:** `md`, and
-stackable reporters (`--format pretty --format json --out report.json` in one
-run).
+**Shipped:** `pretty`, `json`, `sarif`, `junit`. **Planned:** `md`.
+
+**Stackable reporters** (ADR 0022): repeat `--format` to render several outputs
+from one scan. With one machine format, `--out` is the destination file; with
+several, `--out` is a prefix (`results` → `results.json`, `results.sarif`, …)
+or a directory (`./reports/` → `./reports/report.json`, …). `pretty` goes to
+stdout when it is the only format, otherwise stderr so machine stdout stays one
+parseable document.
 
 ## 2. Terminal reporter — `pretty`
 
@@ -317,4 +322,4 @@ and [docs/how-to/suppressions.md](docs/how-to/suppressions.md).
 
 Still planned:
 
-- **Stackable reporters** — more than one format in a single run.
+- **Markdown reporter** — `--format md` for PR/issue paste.

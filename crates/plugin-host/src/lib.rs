@@ -59,11 +59,17 @@ pub mod capability;
 pub mod detector;
 pub mod error;
 pub mod host;
+pub mod integrity;
 pub mod loader;
 pub mod manifest;
 
 pub use capability::ManifestCapabilities;
 pub use detector::WasmDetector;
 pub use error::PluginError;
-pub use loader::{MANIFEST_FILENAME, MODULE_FILENAME, load_one, load_plugins};
-pub use manifest::{PluginManifest, PluginRule, SCHEMA_VERSION};
+pub use integrity::{
+    ArtifactInspection, DigestStatus, LoadOptions, SignatureStatus, inspect_artifact, module_path,
+};
+pub use loader::{
+    MANIFEST_FILENAME, MODULE_FILENAME, load_one, load_one_with, load_plugins, load_plugins_with,
+};
+pub use manifest::{PluginArtifact, PluginManifest, PluginRule, SCHEMA_VERSION};

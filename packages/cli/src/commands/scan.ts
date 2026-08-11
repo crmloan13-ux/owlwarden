@@ -1,7 +1,9 @@
 import { formatConfigError, resolveConfig } from "@dointhai/owlwarden-config";
 import { reportSchema, shouldFail, type Report } from "@dointhai/owlwarden-sdk";
+import { lstat } from "node:fs/promises";
+import { join } from "node:path";
 
-import type { ScanOptions } from "../args.js";
+import type { ReportFormat, ScanOptions } from "../args.js";
 import { EXIT } from "../exit.js";
 import { applyFixes } from "../fix.js";
 import type { NativeEngine } from "../native.js";
@@ -19,6 +21,11 @@ interface Envelope {
   audit?: Array<{ method: string; url: string; status?: number }>;
 }
 
+/** Optional output from {@link runScan} for callers that need the report object. */
+export interface ScanCapture {
+  report?: Report;
+}
+
 /**
  * Runs a scan and prints the report.
  *
@@ -30,6 +37,7 @@ export async function runScan(
   options: ScanOptions,
   stderr: NodeJS.WritableStream,
   stdout: NodeJS.WritableStream,
+  capture?: ScanCapture,
 ): Promise<number> {
   const resolved = await resolveConfig(options.path, {
     allowConfigJs: options.allowConfigJs,
@@ -53,7 +61,7 @@ export async function runScan(
   const config = resolved.config;
   const trustProjectGates = !options.ci || options.allowProjectConfig;
   const preset = options.preset ?? (trustProjectGates ? config.preset : "quick");
-  const format = options.format ?? (trustProjectGates ? config.format : "json");
+  const formats = resolveFormats(options, trustProjectGates ? config.format : "json");
   const failOn = options.failOn ?? (trustProjectGates ? config.failOn : "info");
   const minConfidence =
     options.minConfidence ?? (trustProjectGates ? config.minConfidence : "possible");
@@ -100,7 +108,7 @@ export async function runScan(
     return EXIT.ERROR;
   }
 
-  if (!options.quiet && format === "pretty") {
+  if (!options.quiet && formats.includes("pretty")) {
     writeBanner(native, options, stderr);
   }
 
@@ -136,8 +144,15 @@ export async function runScan(
         ...(options.plugins.length > 0 ? { plugins: options.plugins } : {}),
         ...(options.ci ? { ci: true } : {}),
         ...(options.allowPlugins ? { allowPlugins: true } : {}),
+        ...(options.requireSignedPlugins ? { requireSignedPlugins: true } : {}),
         ...(options.allowActive ? { allowActive: true } : {}),
-        ...(options.osv ? { osv: true } : {}),
+        ...osvScanFields(options),
+        ...(options.dirtyPaths !== undefined && options.dirtyPaths.length > 0
+          ? { dirtyPaths: options.dirtyPaths }
+          : {}),
+        ...(options.previousReportJson !== undefined
+          ? { previousReportJson: options.previousReportJson }
+          : {}),
       }),
     ),
   ) as Envelope;
@@ -165,6 +180,10 @@ export async function runScan(
     return EXIT.ERROR;
   }
 
+  if (capture !== undefined) {
+    capture.report = parsed.data;
+  }
+
   if (options.writeBaseline !== undefined && !options.quiet) {
     stderr.write(`wrote baseline to ${options.writeBaseline}\n`);
   }
@@ -178,7 +197,7 @@ export async function runScan(
   }
 
   try {
-    await emit(native, envelope.report, parsed.data, options, format, stdout, stderr);
+    await emitAll(native, envelope.report, parsed.data, options, formats, stdout, stderr);
   } catch (error) {
     const where = options.out ?? "report";
     stderr.write(
@@ -229,7 +248,8 @@ export async function runScan(
             ...(options.plugins.length > 0 ? { plugins: options.plugins } : {}),
             ...(options.ci ? { ci: true } : {}),
             ...(options.allowPlugins ? { allowPlugins: true } : {}),
-            ...(options.osv ? { osv: true } : {}),
+            ...(options.requireSignedPlugins ? { requireSignedPlugins: true } : {}),
+            ...osvScanFields(options),
           }),
         ),
       ) as Envelope;
@@ -269,44 +289,120 @@ export async function runScan(
 }
 
 /**
- * Renders and writes the report.
+ * Resolves the format list: CLI stacks beat config; config beats the default.
+ */
+function resolveFormats(options: ScanOptions, configDefault: ReportFormat): ReportFormat[] {
+  if (options.formats !== undefined) return options.formats;
+  if (options.format !== undefined) return [options.format];
+  return [configDefault];
+}
+
+function isMachineFormat(format: ReportFormat): boolean {
+  return format !== "pretty";
+}
+
+function machineExtension(format: ReportFormat): string {
+  switch (format) {
+    case "json":
+      return ".json";
+    case "sarif":
+      return ".sarif";
+    case "junit":
+      return ".xml";
+    case "pretty":
+      throw new Error("pretty is not a machine format");
+  }
+}
+
+/**
+ * Renders each requested format from one report (ADR 0022).
  *
- * `raw` is the object exactly as the engine produced it, and that is what goes
- * to the renderer — `validated` has been through zod, which strips keys it does
+ * `raw` is the object exactly as the engine produced it — that is what goes
+ * to the renderer. `validated` has been through zod, which strips keys it does
  * not know about, and a newer engine's extra fields would vanish.
  */
-async function emit(
+async function emitAll(
   native: NativeEngine,
   raw: unknown,
   validated: Report,
   options: ScanOptions,
-  format: "pretty" | "json" | "sarif" | "junit",
+  formats: ReportFormat[],
   stdout: NodeJS.WritableStream,
   stderr: NodeJS.WritableStream,
 ): Promise<void> {
-  const toFile = options.out !== undefined;
-  const rendered = native.render(
-    JSON.stringify(raw),
-    JSON.stringify({
-      format,
-      // Colour in a file is noise for whoever opens it next.
-      color: options.color && !toFile,
-      unicode: options.unicode,
-      hyperlinks: options.hyperlinks,
-      prettyJson: toFile,
-    }),
-  );
-
-  if (options.out !== undefined) {
-    await writeReplacing(options.out, `${rendered}\n`);
-    if (!options.quiet) {
-      const count = validated.findings.length;
-      stderr.write(`wrote ${count} finding${count === 1 ? "" : "s"} to ${options.out}\n`);
-    }
-    return;
+  const machineFormats = formats.filter(isMachineFormat);
+  if (machineFormats.length > 1 && options.out === undefined) {
+    throw new Error("multiple machine formats require --out");
   }
 
-  stdout.write(`${rendered}\n`);
+  for (const format of formats) {
+    const outPath = await resolveOutputPath(options.out, format, machineFormats.length);
+    const toFile = outPath !== undefined;
+    const rendered = native.render(
+      JSON.stringify(raw),
+      JSON.stringify({
+        format,
+        color: options.color && !toFile && format === "pretty",
+        unicode: options.unicode,
+        hyperlinks: options.hyperlinks,
+        prettyJson: toFile && format === "json",
+      }),
+    );
+
+    if (toFile) {
+      await writeReplacing(outPath, `${rendered}\n`);
+      if (!options.quiet) {
+        const count = validated.findings.length;
+        stderr.write(`wrote ${count} finding${count === 1 ? "" : "s"} to ${outPath}\n`);
+      }
+      continue;
+    }
+
+    streamFor(format, formats, stdout, stderr).write(`${rendered}\n`);
+  }
+}
+
+/** Picks stdout vs stderr so at most one machine document hits stdout. */
+function streamFor(
+  format: ReportFormat,
+  formats: ReportFormat[],
+  stdout: NodeJS.WritableStream,
+  stderr: NodeJS.WritableStream,
+): NodeJS.WritableStream {
+  if (format === "pretty") {
+    return formats.length === 1 ? stdout : stderr;
+  }
+  return stdout;
+}
+
+/** Maps `--out` to a destination path for one machine format. */
+async function resolveOutputPath(
+  out: string | undefined,
+  format: ReportFormat,
+  machineCount: number,
+): Promise<string | undefined> {
+  if (format === "pretty" || out === undefined) return undefined;
+  if (machineCount === 1) return out;
+
+  const ext = machineExtension(format);
+  if (out.endsWith("/") || out.endsWith("\\")) {
+    return join(out, `report${ext}`);
+  }
+  try {
+    const info = await lstat(out);
+    if (info.isDirectory()) {
+      return join(out, `report${ext}`);
+    }
+  } catch (error) {
+    const code =
+      error && typeof error === "object" && "code" in error
+        ? (error as { code?: string }).code
+        : undefined;
+    if (code !== "ENOENT") {
+      throw error;
+    }
+  }
+  return `${out}${ext}`;
 }
 
 /** Prints every suppression so stale ones cannot rot unnoticed. */
@@ -344,4 +440,23 @@ function writeBanner(
   } catch {
     // Decoration is not worth failing a scan over.
   }
+}
+
+/** OSV / offline fields for the native `ScanRequest`. */
+function osvScanFields(options: ScanOptions): Record<string, unknown> {
+  const enabled = options.osv || options.osvDb !== undefined;
+  if (!enabled && !options.offline) {
+    return {};
+  }
+  const fields: Record<string, unknown> = {};
+  if (enabled) {
+    fields["osv"] = true;
+  }
+  if (options.osvDb !== undefined) {
+    fields["osvDb"] = options.osvDb;
+  }
+  if (options.offline) {
+    fields["osvOffline"] = true;
+  }
+  return fields;
 }

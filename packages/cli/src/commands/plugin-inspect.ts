@@ -11,6 +11,7 @@ import { basename, dirname, isAbsolute, join, relative, resolve } from "node:pat
 import { pluginManifestSchema } from "@dointhai/owlwarden-sdk";
 
 import { EXIT } from "../exit.js";
+import { inspectArtifactStatus } from "../plugin-integrity.js";
 import { readFileBounded, refuseSymlinkAncestors } from "../safe-write.js";
 
 /** Largest manifest we will parse — matches `limits::plugin::MAX_MANIFEST_BYTES`. */
@@ -184,6 +185,12 @@ export async function runPluginInspect(
       `  ${rule.id}  ${rule.severity}/${rule.maxConfidence}  ${rule.title}\n`,
     );
   }
+
+  const artifact = await inspectArtifactStatus(dirname(manifestPath), manifest);
+  stdout.write(`artifact: ${artifact.modulePath}\n`);
+  stdout.write(`digest: ${artifact.digest}\n`);
+  stdout.write(`signature: ${artifact.signature}\n`);
+
   stdout.write(
     "\nNo WASM was loaded. Review capabilities, then: owlwarden scan --plugin <path>\n",
   );

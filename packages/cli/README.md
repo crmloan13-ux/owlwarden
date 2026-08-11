@@ -224,6 +224,7 @@ Common scans:
 owlwarden scan ./apps/api
 owlwarden scan --preset owasp-top10
 owlwarden scan --format json
+owlwarden scan --format pretty --format sarif --out owlwarden-results
 owlwarden scan --fail-on medium --min-confidence likely
 owlwarden scan --out owlwarden-report.json
 ```

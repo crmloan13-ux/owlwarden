@@ -10,6 +10,29 @@ are listed here under Changed.
 
 ## [Unreleased]
 
+## [0.5.0] — 2026-08-11
+
+Depth beyond CI: first active detector, offline OSV index, plugin integrity,
+stackable formats, incremental watch
+([ADR 0019](docs/adr/0019-first-party-active-detector.md)–[0023](docs/adr/0023-incremental-watch.md)).
+
+### Added
+
+- **`csrf-cross-origin-post`** — canary cross-origin POST behind `--allow-active`
+  (ADR 0019). Staging only.
+- **`owlwarden osv update`**, **`--osv-db`**, fail-closed **`--osv --offline`**
+  (ADR 0020). Index is lockfile-scoped; not bundled in npm.
+- **Plugin `artifact.sha256`**, optional ed25519 `.sig`, trust roots via
+  `OWLWARDEN_PLUGIN_TRUST` / `.owlwarden/plugin-trust.json`,
+  **`--require-signed-plugins`** (ADR 0021). Still not a hosted registry.
+- **Repeated `--format`** — one scan, N renders (ADR 0022).
+- **Incremental `watch`** — dirty-path re-parse + finding merge (ADR 0023).
+
+### Changed
+
+- Version **0.5.0**. Release-assurance (cosign/SBOM) moves to the next roadmap
+  slice.
+
 ## [0.4.0] — 2026-08-11
 
 CI-ready depth: pipelines teams already run, plus a deeper fixture corpus so

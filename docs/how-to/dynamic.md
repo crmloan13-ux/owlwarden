@@ -52,20 +52,25 @@ npx owlwarden scan --ci --fail-on medium --min-confidence likely \
 Do not put the URL in project config. Under `--ci`, mute switches from the tree
 still stay off unless you explicitly allow them — see [ci.md](ci.md).
 
-## `--allow-active` (scaffold)
+## `--allow-active`
 
 State-changing methods (POST/PUT/PATCH/DELETE) stay refused unless you pass
-both `--target` and `--allow-active`. No first-party detector issues those
-methods yet — the flag exists so the gate, rate limit
-(`ACTIVE_MIN_INTERVAL`), request audit log (method/URL/status on stderr), and
-scope-escape suite can be exercised before an active rule ships.
+both `--target` and `--allow-active`. Rate limit (`ACTIVE_MIN_INTERVAL`) and a
+request audit log (method/URL/status on stderr) always apply.
+
+First-party rule: **`csrf-cross-origin-post`** ([ADR 0019](../adr/0019-first-party-active-detector.md)).
+It sends one canary `POST` to the exact `--target` URL with
+`Origin: https://owlwarden-untrusted.invalid` and body `owlwarden_probe=1`.
+A 2xx response becomes a `Likely` finding. Point this only at staging you
+control — the canary may still create a resource if the route is a create
+endpoint.
 
 MCP never sets `--allow-active`.
 
 ## What this is not
 
 - Not a crawler. One URL, on purpose.
-- Not an exploit toolkit. Active methods are gated; no detector uses them yet.
+- Not an exploit toolkit. Active methods are gated; the canary body is fixed.
 - Not for `watch`. Re-probing on every save is refused.
 - Not “this framework’s real server.” The correlation tests use a dumb HTTP
   probe next to each framework’s static fixture; production still needs your
