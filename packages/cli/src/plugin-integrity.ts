@@ -164,11 +164,8 @@ function parseEnvTrust(): Buffer[] {
 async function readTrustFile(path: string): Promise<Buffer[]> {
   let raw: string;
   try {
-    raw = await readFile(path, "utf8");
+    raw = await readFileBounded(path, MAX_TRUST_FILE_BYTES);
   } catch {
-    return [];
-  }
-  if (raw.length > MAX_TRUST_FILE_BYTES) {
     return [];
   }
   let parsed: unknown;
