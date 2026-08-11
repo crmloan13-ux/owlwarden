@@ -1,5 +1,5 @@
-# Proves the v0.4 CI surface: SARIF emit + exit 0 on a clean fixture.
-# Uses the locally built CLI (npm may not have 0.4.0 yet on a PR).
+# Proves the CI surface: SARIF emit + exit 0 on a clean fixture.
+# Uses the locally built CLI (npm may not have this version yet on a PR).
 name: Action smoke
 
 on:
@@ -36,7 +36,8 @@ jobs:
         run: |
           set -euo pipefail
           set +e
-          pnpm exec owlwarden scan --ci \
+          # Root workspace has no owlwarden bin; invoke the built CLI like ci.yml.
+          node packages/cli/dist/bin.js scan --ci \
             --fail-on medium \
             --min-confidence likely \
             --format sarif \
