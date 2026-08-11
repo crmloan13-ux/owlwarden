@@ -1,5 +1,8 @@
 // FIXTURE: deliberately vulnerable, no framework dependency.
 // Exercises generic-profile vocabulary (res.json / res.cookie / fetch).
+//
+// Stripe suffix keeps a non-alphanumeric character so GitHub push protection
+// does not treat the fixture as a real key (see hono-api billing.ts).
 import { createServer } from 'node:http'
 
 const SECRET_KEY = 'sk_live_51Nx-AbCdEfGhIjKlMnOpQrStUvWx'
