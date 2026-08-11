@@ -336,8 +336,8 @@ function scanOptions(values: Values, positionals: string[]): ScanOptions {
     offline: values.offline,
   };
 
-  if (options.osv && options.offline && values["osv-db"] === undefined) {
-    throw new ArgError("--osv --offline requires --osv-db");
+  if (options.offline && values["osv-db"] === undefined) {
+    throw new ArgError("--offline requires --osv-db");
   }
   if (values["osv-db"] !== undefined) {
     options.osvDb = values["osv-db"];
