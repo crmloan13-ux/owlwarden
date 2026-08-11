@@ -110,14 +110,15 @@ export async function runWatch(
     await inFlight;
   };
 
-  const noteChange = (filename: string | null): void => {
-    if (filename === null) {
-      kick();
-      return;
-    }
-    void (async () => {
-      const rel = filename.replace(/\\/g, "/");
-      if (shouldIgnore(rel)) return;
+const noteChange = (filename: string | Buffer | null): void => {
+  if (filename === null) {
+    kick();
+    return;
+  }
+  const name = typeof filename === "string" ? filename : filename.toString("utf8");
+  void (async () => {
+    const rel = name.replace(/\\/g, "/");
+    if (shouldIgnore(rel)) return;
 
       const absolute = join(watchOptions.path, rel);
       const hash = await hashFile(absolute);
