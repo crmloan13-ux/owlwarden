@@ -417,6 +417,14 @@ fn write_report(args: &ScanArgs, report: &Report, color: bool) -> Result<(), Str
     let rendered = match args.format.as_str() {
         "pretty" => owlwarden_reporters::render_to_string(report, options),
         "json" => owlwarden_reporters::JsonReporter::to_string(report, args.out.is_some()),
+        "sarif" => {
+            if args.out.is_some() {
+                owlwarden_reporters::SarifReporter::to_string_pretty(report)
+            } else {
+                owlwarden_reporters::SarifReporter::to_string(report)
+            }
+        }
+        "junit" => owlwarden_reporters::JunitReporter::to_string(report),
         other => {
             return Err(format!(
                 "unknown format {other:?}; available: {}",

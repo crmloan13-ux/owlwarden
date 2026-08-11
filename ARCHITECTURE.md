@@ -454,8 +454,10 @@ Any path that turns an attacker-controlled size into an allocation clamps first.
 | Peak memory, same project | < 300 MB |
 
 The 300 ms figure is not arbitrary: it is what fits inside an editor save and an
-agent's edit loop. Benchmarks against a large fixture repository are planned for
-CI, failing on a regression over 20%.
+agent's edit loop. v0.4 ships a cold-scan baseline harness
+(`cargo test -p owlwarden-detectors --test perf_baseline -- --ignored`); a hard
+CI regression gate over 20% and true incremental watch remain later. See
+[docs/how-to/performance.md](docs/how-to/performance.md).
 
 ### Platforms
 

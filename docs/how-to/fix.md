@@ -26,7 +26,10 @@ owlwarden scan --fix --allow-dirty
 |---|---|
 | `stack-trace-leak` | underlined `.stack` expression → `'Internal Server Error'` |
 | `weak-crypto` (GuessableToken) | underlined `Math.random()` → Web Crypto expression |
+| `weak-crypto` (HashedSecret) | underlined algorithm literal only (`'md5'` / `'sha1'` → `'sha256'`) |
+| `insecure-cookie` | underlined options object with only security keys (or `{}`) → full `httpOnly`/`secure`/`sameSite` object |
 
+`Possible` cookie writes with no options object stay Manual — never autofixed.
 Framework-specific multi-line examples in `explain` remain `Manual`.
 
 ## See also

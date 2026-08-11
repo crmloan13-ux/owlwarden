@@ -6,7 +6,8 @@
 | know what it can find | [RULES.md](../RULES.md), or `owlwarden rules` |
 | know what it **cannot** find | [explanation/coverage.md](explanation/coverage.md), or `owlwarden coverage` |
 | add a framework, a rule, or a plugin | [how-to/extend.md](how-to/extend.md) |
-| wire it into CI | [how-to/ci.md](how-to/ci.md) |
+| wire it into CI (Action, SARIF, exit codes) | [how-to/ci.md](how-to/ci.md) |
+| measure cold-scan performance | [how-to/performance.md](how-to/performance.md) |
 | probe a running app (`--target`) | [how-to/dynamic.md](how-to/dynamic.md) |
 | look up known vulns in lockfiles (`--osv`) | [how-to/osv.md](how-to/osv.md) |
 | apply Safe autofixes (`--fix`) | [how-to/fix.md](how-to/fix.md) |

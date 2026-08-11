@@ -21,6 +21,7 @@ USAGE
   owlwarden coverage [--json] [--no-color] [--ascii]
   owlwarden explain <RULE_ID> [--json]
   owlwarden plugin scaffold <NAME>
+  owlwarden plugin inspect <PATH>
 
   Local only. No telemetry. --target is opt-in (scoped; deny by default).
 
@@ -30,6 +31,7 @@ USAGE
   init --agent-rules — writes .owlwarden/agent-rules.md from the catalogue.
   Prefer --format json for CI and agents.
   plugin scaffold writes a WASM guest stub + manifest.
+  plugin inspect prints capabilities from owlwarden.plugin.json (no WASM load).
 
   coverage shows which OWASP categories have rules, and which do not.
 
@@ -38,7 +40,7 @@ USAGE
 SCAN OPTIONS
   --preset <NAME>       Rule bundle to run
 ${presetLines(native)}
-  --format <FORMAT>     pretty (default) or json
+  --format <FORMAT>     pretty (default), json, sarif, or junit
   --out <FILE>          Write the report to a file instead of stdout
   --baseline <FILE>     Report only findings new since this baseline
   --write-baseline <F>  Write current findings to a baseline file

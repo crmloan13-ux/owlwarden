@@ -1,7 +1,7 @@
 import { createServer, type Server } from "node:http";
 import { cp, mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { Writable } from "node:stream";
 import { fileURLToPath } from "node:url";
 
@@ -14,9 +14,10 @@ import { run } from "../src/run.js";
 /**
  * Finding ids every framework fixture must demonstrate.
  * Mirrors `SHARED_FIRES` in `crates/detectors/tests/fixtures.rs` (counts matter).
- * Multi-fire shapes: ssrf = fetch/$fetch + axios; open-redirect = helper +
- * Location; weak-crypto = MD5 + Math.random + AES-ECB; sensitive = password +
- * accessToken — locked in the Rust shape-contract tests.
+ * Multi-fire shapes: ssrf = fetch/$fetch + axios + got + https; open-redirect =
+ * helper + Location + extra/status-first; weak-crypto = MD5 + Math.random +
+ * AES-ECB; sensitive = password + accessToken — locked in the Rust
+ * shape-contract tests.
  */
 const SHARED_FINDING_IDS = [
   "ci-unpinned-action",
@@ -25,10 +26,13 @@ const SHARED_FINDING_IDS = [
   "insecure-cookie",
   "open-redirect",
   "open-redirect",
+  "open-redirect",
   "security-headers-missing",
   "sensitive-data-logged",
   "sensitive-data-logged",
   "sql-injection",
+  "ssrf",
+  "ssrf",
   "ssrf",
   "ssrf",
   "stack-trace-leak",
@@ -911,9 +915,112 @@ describe("owlwarden init / plugin scaffold", () => {
       await rm(dir, { recursive: true, force: true });
     }
   });
+
+  it("plugin inspect prints capabilities without loading WASM", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "owlwarden-inspect-"));
+    const cwd = process.cwd();
+    try {
+      process.chdir(dir);
+      expect((await cli(["plugin", "scaffold", "acme-inspect"])).code).toBe(EXIT.CLEAN);
+      const { code, out } = await cli(["plugin", "inspect", "acme-inspect"]);
+      expect(code).toBe(EXIT.CLEAN);
+      expect(out).toMatch(/plugin acme-inspect@/);
+      expect(out).toMatch(/capabilities:/);
+      expect(out).toMatch(/No WASM was loaded/);
+    } finally {
+      process.chdir(cwd);
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("plugin inspect refuses path escape and symlinked manifests", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "owlwarden-inspect-sec-"));
+    const outside = await mkdtemp(join(tmpdir(), "owlwarden-inspect-out-"));
+    const cwd = process.cwd();
+    try {
+      process.chdir(dir);
+      await writeFile(
+        join(outside, "owlwarden.plugin.json"),
+        JSON.stringify({
+          schemaVersion: 1,
+          id: "evil",
+          version: "0.0.1",
+          capabilities: { source: true, network: false, active: false },
+          rules: [],
+        }),
+      );
+      const escape = await cli(["plugin", "inspect", "../" + basename(outside)]);
+      expect(escape.code).toBe(EXIT.ERROR);
+      expect(escape.err).toMatch(/escapes working directory/);
+
+      await mkdir(join(dir, "plugin"));
+      await symlink(
+        join(outside, "owlwarden.plugin.json"),
+        join(dir, "plugin", "owlwarden.plugin.json"),
+      );
+      const linked = await cli(["plugin", "inspect", "plugin"]);
+      expect(linked.code).toBe(EXIT.ERROR);
+      expect(linked.err).toMatch(/symlink|escapes/i);
+    } finally {
+      process.chdir(cwd);
+      await rm(dir, { recursive: true, force: true });
+      await rm(outside, { recursive: true, force: true });
+    }
+  });
 });
 
 describe("owlwarden scan --fix", () => {
+  it("replaces only the weak-crypto algorithm literal (keeps HMAC key and crypto. prefix)", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "owlwarden-fix-hmac-"));
+    try {
+      await writeFile(
+        join(dir, "package.json"),
+        JSON.stringify({ name: "hmac-fix", dependencies: { express: "4.19.2" } }),
+      );
+      await mkdir(join(dir, "src"));
+      await writeFile(
+        join(dir, "src", "crypto.ts"),
+        [
+          "import crypto, { createHmac } from 'node:crypto'",
+          "export function hashPassword(password: string, secret: string): string {",
+          "  // Names must look credential-shaped — the rule ignores MD5 used as a cache key.",
+          "  const passwordHash = createHmac('md5', secret).update(password).digest('hex')",
+          "  const tokenHash = crypto.createHash('sha1').update(password).digest('hex')",
+          "  return passwordHash + tokenHash",
+          "}",
+          "",
+        ].join("\n"),
+      );
+      const before = await cli(["scan", dir, "--format", "json", "--quiet"]);
+      const beforeReport = reportSchema.parse(JSON.parse(before.out));
+      const hashed = beforeReport.findings.filter(
+        (f) => f.id === "weak-crypto" && f.context?.evidence?.includes("create"),
+      );
+      expect(hashed.length).toBeGreaterThanOrEqual(2);
+      expect(hashed.every((f) => f.remediation.some((fix) => fix.patch === "'sha256'"))).toBe(
+        true,
+      );
+
+      const { code } = await cli([
+        "scan",
+        dir,
+        "--fix",
+        "--allow-dirty",
+        "--format",
+        "json",
+        "--quiet",
+      ]);
+      expect(code).toBeLessThan(2);
+      const source = await readFile(join(dir, "src", "crypto.ts"), "utf8");
+      expect(source).toContain("const passwordHash = createHmac('sha256', secret)");
+      expect(source).toContain("const tokenHash = crypto.createHash('sha256')");
+      expect(source).not.toContain("'md5'");
+      expect(source).not.toContain("'sha1'");
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  }, 60_000);
+
   it("applies Safe highlight fixes on every framework fixture", async () => {
     // Copy each vulnerable fixture — never mutate the corpus on disk.
     expect(FRAMEWORK_FIXTURES).toHaveLength(12);

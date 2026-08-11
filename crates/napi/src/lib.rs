@@ -431,7 +431,7 @@ fn scan_blocking(request_json: String) -> String {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct RenderRequest {
-    /// `pretty` or `json`.
+    /// `pretty`, `json`, `sarif`, or `junit`.
     format: String,
     #[serde(default)]
     color: bool,
@@ -471,6 +471,14 @@ pub fn render(report_json: String, options_json: String) -> napi::Result<String>
         )
         .map_err(|error| napi::Error::from_reason(error.to_string())),
         "json" => JsonReporter::to_string(&report, options.pretty_json)
+            .map_err(|error| napi::Error::from_reason(error.to_string())),
+        "sarif" => if options.pretty_json {
+            owlwarden_reporters::SarifReporter::to_string_pretty(&report)
+        } else {
+            owlwarden_reporters::SarifReporter::to_string(&report)
+        }
+        .map_err(|error| napi::Error::from_reason(error.to_string())),
+        "junit" => owlwarden_reporters::JunitReporter::to_string(&report)
             .map_err(|error| napi::Error::from_reason(error.to_string())),
         other => Err(napi::Error::from_reason(format!(
             "unknown format {other:?}; available: {}",

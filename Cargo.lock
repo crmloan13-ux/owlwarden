@@ -1188,7 +1188,7 @@ checksum = "384b8ab6d37215f3c5301a95a4accb5d64aa607f1fcb26a11b5303878451b4fe"
 
 [[package]]
 name = "owlwarden-cli"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "anstream",
  "owlwarden-core",
@@ -1204,7 +1204,7 @@ dependencies = [
 
 [[package]]
 name = "owlwarden-core"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "async-trait",
  "futures-util",
@@ -1218,7 +1218,7 @@ dependencies = [
 
 [[package]]
 name = "owlwarden-detectors"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "async-trait",
  "owlwarden-core",
@@ -1235,7 +1235,7 @@ dependencies = [
 
 [[package]]
 name = "owlwarden-dynamic"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "async-trait",
  "futures-executor",
@@ -1249,7 +1249,7 @@ dependencies = [
 
 [[package]]
 name = "owlwarden-napi"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "napi",
  "napi-build",
@@ -1267,7 +1267,7 @@ dependencies = [
 
 [[package]]
 name = "owlwarden-plugin-host"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -1283,7 +1283,7 @@ dependencies = [
 
 [[package]]
 name = "owlwarden-reporters"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "anstream",
  "anstyle",
@@ -1298,7 +1298,7 @@ dependencies = [
 
 [[package]]
 name = "owlwarden-static"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "async-trait",
  "globset",
@@ -1318,7 +1318,7 @@ dependencies = [
 
 [[package]]
 name = "owlwarden-transport"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "async-trait",
  "futures-util",

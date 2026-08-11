@@ -385,7 +385,7 @@ USAGE
 SCAN OPTIONS
   --preset <NAME>      Rule bundle to run. Default: {default_preset}
 {presets}
-  --format <FORMAT>    pretty (default) or json
+  --format <FORMAT>    pretty (default), json, sarif, or junit
   --out <FILE>         Write the report to a file instead of stdout
   --baseline <FILE>    Report only findings new since this baseline
   --write-baseline <F> Write current findings to a baseline file

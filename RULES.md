@@ -2,7 +2,7 @@
 
 # Rules
 
-13 rules in owlwarden 0.3.0.
+13 rules in owlwarden 0.4.0.
 
 Rule ids are permanent. They appear in suppressions, in agent rules files, and
 in other people's CI configs, so they are treated as public API.

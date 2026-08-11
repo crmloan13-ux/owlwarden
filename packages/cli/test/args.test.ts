@@ -141,6 +141,14 @@ describe("parse", () => {
     expect(allowed.options.allowBaseline).toBe(true);
   });
 
+  it("parses plugin inspect", () => {
+    expect(parse(["plugin", "inspect", "./acme"])).toEqual({
+      command: "plugin-inspect",
+      path: "./acme",
+    });
+    expect(() => parse(["plugin", "inspect"])).toThrow(/requires a path/);
+  });
+
   it("parses mcp, init --agent-rules, and plugin scaffold", () => {
     expect(parse(["mcp", "./apps/api"])).toEqual({
       command: "mcp",

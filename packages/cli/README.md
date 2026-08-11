@@ -11,11 +11,11 @@ account, and no source upload.
 npx owlwarden scan
 ```
 
-**Version 0.3.0** ships thirteen rules (including opt-in
-`known-vulnerable-dependency` via `--osv`), Safe `--fix`, an `--allow-active`
-scaffold, first-class remediation for twelve Node frameworks, a read-only MCP
-server, passive opt-in runtime confirmation, and sandboxed source-only WASM
-plugins.
+**Version 0.4.0** ships thirteen rules (including opt-in
+`known-vulnerable-dependency` via `--osv`), `--format sarif` / `junit`, a
+first-party GitHub Action, Safe `--fix`, an `--allow-active` scaffold,
+first-class remediation for twelve Node frameworks, a read-only MCP server,
+passive opt-in runtime confirmation, and sandboxed source-only WASM plugins.
 
 [Website](https://suthat.github.io/owlwarden/) ·
 [Rule catalogue](https://github.com/suthat/owlwarden/blob/main/RULES.md) ·
@@ -216,6 +216,7 @@ Add a repeatable local command:
 | `owlwarden explain <RULE_ID>` | Print a rule's rationale and fixes offline |
 | `owlwarden init --agent-rules` | Write agent guidance from the compiled catalogue |
 | `owlwarden plugin scaffold <NAME>` | Create a source-only WASM plugin stub and manifest |
+| `owlwarden plugin inspect <PATH>` | Print plugin capabilities without loading WASM |
 
 Common scans:
 
@@ -233,13 +234,16 @@ and `deep` enables every compiled rule, including noisier heuristics.
 ## CI without greenwashing
 
 ```bash
-npx owlwarden scan --ci --fail-on medium --min-confidence likely
+npx owlwarden scan --ci --fail-on medium --min-confidence likely --format sarif --out owlwarden-results.sarif
 ```
 
-`--ci` emits quiet JSON and also refuses controls that an untrusted pull request
-could plant in the scanned tree. Unless the workflow explicitly opts in, it
-ignores project gate settings, does not apply inline suppressions, refuses a
-baseline, and refuses plugins.
+Or use the first-party Action at `suthat/owlwarden/action` (JUnit via
+`--format junit`). Canonical exit codes: [docs/how-to/ci.md](https://github.com/suthat/owlwarden/blob/main/docs/how-to/ci.md).
+
+`--ci` emits quiet machine-readable output and also refuses controls that an
+untrusted pull request could plant in the scanned tree. Unless the workflow
+explicitly opts in, it ignores project gate settings, does not apply inline
+suppressions, refuses a baseline, and refuses plugins.
 
 Severity and confidence remain separate in CI. A high-impact heuristic at
 `possible` confidence remains visible but does not fail CI on its own. A

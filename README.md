@@ -4,9 +4,10 @@ Security scanner for Node web apps — built so coding agents and humans get the
 same answer: the line, a fix, and a confidence level. Rust engine, TypeScript
 CLI on npm. Nothing leaves your machine.
 
-**v0.3.0** — `--fix` (Safe only), `--osv` (Google OSV), `--allow-active`
-scaffold, twelve frameworks, WASM plugins (source-only), and `owlwarden mcp`.
-Site: [https://suthat.github.io/owlwarden/](https://suthat.github.io/owlwarden/).
+**v0.4.0** — CI-ready depth: `--format sarif` / `junit`, first-party GitHub
+Action, deeper framework fixtures, more Safe `--fix`, `plugin inspect`, and
+everything from 0.3 (`--osv`, `--allow-active` scaffold, MCP). Site:
+[https://suthat.github.io/owlwarden/](https://suthat.github.io/owlwarden/).
 See [ROADMAP.md](ROADMAP.md).
 
 ```bash
@@ -174,8 +175,8 @@ Details: [SECURITY.md](SECURITY.md).
   fixes. The matrix is locked in CI.
 - Origin tracking is one hop, not a full taint engine
   ([ADR 0012](docs/adr/0012-request-origin-not-taint.md)).
-- Plugins are source-only WASM. MCP is read-only / static. Autofix (`--fix`)
-  is later.
+- Plugins are source-only WASM. MCP is read-only / static. `--fix` applies
+  Safe highlight replacements only (never `Possible`).
 
 [ROADMAP.md](ROADMAP.md) has the order.
 

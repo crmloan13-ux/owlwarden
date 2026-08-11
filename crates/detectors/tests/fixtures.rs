@@ -137,8 +137,8 @@ const SHARED_FIRES: &[(&str, usize)] = &[
     ("insecure-cookie", 1),
     ("hardcoded-secret", 1),
     ("security-headers-missing", 1),
-    ("ssrf", 2),          // fetch-or-$fetch + axios — see SHAPE_CONTRACTS
-    ("open-redirect", 2), // redirect-helper + Location header
+    ("ssrf", 4),          // fetch/$fetch + axios + got + https — see SHAPE_CONTRACTS
+    ("open-redirect", 3), // redirect-helper + Location + extra/status-first
     ("weak-crypto", 3),   // MD5-password + Math.random + AES-ECB
     ("unpinned-dependency", 1),
     ("ci-unpinned-action", 1),
@@ -162,6 +162,8 @@ const SHAPE_CONTRACTS: &[ShapeContract] = &[
         shapes: &[
             ("fetch-or-$fetch", &["fetch(", "$fetch("]),
             ("axios", &["axios.get(", "axios("]),
+            ("got", &["got.get("]),
+            ("http-or-https", &["https.get(", "http.get("]),
         ],
     },
     ShapeContract {
@@ -172,6 +174,19 @@ const SHAPE_CONTRACTS: &[ShapeContract] = &[
                 &["redirect(", "sendRedirect(", ".redirect("],
             ),
             ("Location-header", &["'Location'", "\"Location\""]),
+            (
+                "extra-or-status-redirect",
+                &[
+                    "redirect(302",
+                    "reply.redirect(302",
+                    "res.redirect(302",
+                    "redirect(extraNext",
+                    "query.extraNext",
+                    "ctx.query.extraNext",
+                    "c.req.query('extraNext'",
+                    "(request.query as { extraNext",
+                ],
+            ),
         ],
     },
     ShapeContract {
@@ -580,6 +595,46 @@ async fn the_false_positive_corpus_is_silent() {
             report.errors
         );
     }
+}
+
+#[tokio::test]
+async fn generic_profile_fixture_is_outside_the_matrix_but_works() {
+    // No framework package → generic vocabulary. Kept out of MATRIX so the
+    // square product grid stays "supported frameworks only" (ADR 0018).
+    let vulnerable = scan("vulnerable/generic-api").await;
+    assert!(
+        !vulnerable.findings.is_empty(),
+        "generic vulnerable fixture must exercise at least one rule"
+    );
+    for finding in &vulnerable.findings {
+        assert_eq!(
+            finding
+                .context
+                .framework
+                .as_ref()
+                .map(owlwarden_core::finding::Framework::as_str),
+            Some("generic"),
+            "{} should be attributed to generic",
+            finding.id.as_str()
+        );
+        assert!(
+            finding.primary_fix().is_some(),
+            "{} needs a remediation that does not panic on generic",
+            finding.id.as_str()
+        );
+    }
+
+    let clean = scan("should-not-fire/generic-api-clean").await;
+    assert!(
+        clean.findings.is_empty(),
+        "generic clean twin produced {} finding(s): {:#?}",
+        clean.findings.len(),
+        clean
+            .findings
+            .iter()
+            .map(|f| (f.id.as_str(), &f.location))
+            .collect::<Vec<_>>()
+    );
 }
 
 #[tokio::test]

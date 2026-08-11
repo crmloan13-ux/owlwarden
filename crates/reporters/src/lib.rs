@@ -9,6 +9,8 @@
 //!   Unicode with an ASCII fallback.
 //! - [`JsonReporter`] — for CI, for tooling, and for agents. One JSON object on
 //!   stdout, schema-versioned.
+//! - [`SarifReporter`] — SARIF 2.1.0 for GitHub code scanning (ADR 0017).
+//! - [`JunitReporter`] — `JUnit` XML for CI test-report UIs (ADR 0017).
 //!
 //! Decoration goes to **stderr**, never stdout, so `owlwarden scan --format json`
 //! stays a single parseable object no matter what else is printed.
@@ -30,18 +32,22 @@
 pub mod banner;
 pub mod coverage;
 pub mod json;
+pub mod junit;
 pub mod pretty;
+pub mod sarif;
 pub mod theme;
 
 pub use banner::{BannerOpts, owl_mark, print_banner, render_banner};
 pub use json::JsonReporter;
+pub use junit::JunitReporter;
 pub use pretty::{PrettyOptions, PrettyReporter, render_to_string};
+pub use sarif::SarifReporter;
 pub use theme::Glyphs;
 
 use owlwarden_core::reporter::{ReportError, Reporter};
 
 /// Names accepted by `--format`, in the order they are offered in help text.
-pub const AVAILABLE_FORMATS: &[&str] = &["pretty", "json"];
+pub const AVAILABLE_FORMATS: &[&str] = &["pretty", "json", "sarif", "junit"];
 
 /// Builds a reporter by name, writing to the given sink.
 ///
@@ -57,6 +63,8 @@ pub fn reporter_by_name<'w>(
     match name {
         "pretty" => Ok(Box::new(PrettyReporter::new(writer, options))),
         "json" => Ok(Box::new(JsonReporter::new(writer))),
+        "sarif" => Ok(Box::new(SarifReporter::new(writer))),
+        "junit" => Ok(Box::new(JunitReporter::new(writer))),
         other => Err(ReportError::UnknownFormat {
             name: other.to_owned(),
             available: AVAILABLE_FORMATS.join(", "),

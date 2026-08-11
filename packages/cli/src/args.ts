@@ -28,6 +28,7 @@ export type Cli =
   | { command: "mcp"; path: string }
   | { command: "init"; agentRules: boolean; out?: string }
   | { command: "plugin-scaffold"; name: string }
+  | { command: "plugin-inspect"; path: string }
   | { command: "help" }
   | { command: "version" };
 
@@ -37,7 +38,7 @@ export interface ScanOptions {
   path: string;
   /** Unset means "whatever the config file says". */
   preset?: string;
-  format?: "pretty" | "json";
+  format?: "pretty" | "json" | "sarif" | "junit";
   failOn?: Severity;
   minConfidence?: Confidence;
   out?: string;
@@ -233,8 +234,15 @@ export function parse(argv: string[]): Cli {
     }
     case "plugin": {
       const sub = rest[0];
+      if (sub === "inspect") {
+        const path = rest[1];
+        if (!path) {
+          throw new ArgError("plugin inspect requires a path");
+        }
+        return { command: "plugin-inspect", path };
+      }
       if (sub !== "scaffold") {
-        throw new ArgError("usage: owlwarden plugin scaffold <name>");
+        throw new ArgError("usage: owlwarden plugin scaffold <name> | plugin inspect <path>");
       }
       const name = rest[1];
       if (!name) {
@@ -260,7 +268,7 @@ function scanOptions(values: Values, positionals: string[]): ScanOptions {
   const format = enumValue(
     "--format",
     ci ? (values.format ?? "json") : values.format,
-    ["pretty", "json"] as const,
+    ["pretty", "json", "sarif", "junit"] as const,
   );
 
   const scope = values.scope ?? [];

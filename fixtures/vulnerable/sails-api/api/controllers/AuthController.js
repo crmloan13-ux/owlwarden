@@ -1,4 +1,5 @@
 // Fixture: Sails controllers use Express-shaped res.json / res.cookie / res.redirect.
+const https = require('node:https')
 const axios = require('axios')
 const { Pool } = require('pg')
 
@@ -60,5 +61,27 @@ module.exports = {
     // ssrf: axios reaches a second caller-controlled host.
     const upstream = await axios.get(req.body.callerUrl)
     return res.json(upstream.data)
+  },
+
+  goStatus(req, res) {
+    // open-redirect: status-first form — still caller-controlled.
+    return res.redirect(302, req.query.extraNext)
+  },
+
+  async importViaGot(req, res) {
+    // ssrf: got reaches a third caller-controlled host.
+    const upstream = await got.get(req.body.gotUrl)
+    return res.json(upstream.body)
+  },
+
+  async importViaHttps(req, res) {
+    // ssrf: node https.get to a fourth caller-controlled host.
+    await new Promise((resolve, reject) => {
+      https.get(req.body.nodeUrl, (up) => {
+        up.resume()
+        up.on('end', () => resolve())
+      }).on('error', reject)
+    })
+    return res.json({ ok: true })
   },
 }

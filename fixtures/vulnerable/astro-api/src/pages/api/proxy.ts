@@ -1,3 +1,4 @@
+import https from 'node:https'
 import axios from 'axios'
 import type { APIRoute } from 'astro'
 
@@ -24,9 +25,39 @@ export const GET: APIRoute = async ({ request, redirect }) => {
     })
   }
 
+  const gotUrl = url.searchParams.get('gotUrl')
+  const nodeUrl = url.searchParams.get('nodeUrl')
+  const extraNext = url.searchParams.get('extraNext')
+
+  // ssrf: got reaches a third caller-controlled host.
+  if (gotUrl) {
+    const upstream = await got.get(gotUrl)
+    return new Response(JSON.stringify(upstream.body), {
+      headers: { 'Content-Type': 'application/json' },
+    })
+  }
+
+  // ssrf: node https.get to a fourth caller-controlled host.
+  if (nodeUrl) {
+    await new Promise<void>((resolve, reject) => {
+      https.get(nodeUrl, (res) => {
+        res.resume()
+        res.on('end', () => resolve())
+      }).on('error', reject)
+    })
+    return new Response(JSON.stringify({ ok: true }), {
+      headers: { 'Content-Type': 'application/json' },
+    })
+  }
+
   // open-redirect: Astro's redirect() to a caller-chosen target.
   if (next) {
     return redirect(next)
+  }
+
+  // open-redirect: a third caller-chosen target.
+  if (extraNext) {
+    return redirect(extraNext)
   }
 
   // open-redirect: a hand-rolled Location header instead of redirect().

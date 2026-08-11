@@ -38,7 +38,7 @@ export const configSchema = z.object({
   minConfidence: confidenceSchema.default("possible"),
 
   /** Default output format. `--format` overrides it. */
-  format: z.enum(["pretty", "json"]).default("pretty"),
+  format: z.enum(["pretty", "json", "sarif", "junit"]).default("pretty"),
 });
 
 /** The config as written by the user: everything optional. */

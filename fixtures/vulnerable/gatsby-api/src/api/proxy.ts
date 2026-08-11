@@ -1,3 +1,4 @@
+import https from 'node:https'
 import axios from 'axios'
 import type { GatsbyFunctionRequest, GatsbyFunctionResponse } from 'gatsby'
 
@@ -22,9 +23,35 @@ export default async function handler(
     return res.json(upstream.data)
   }
 
+  const gotUrl = req.query.gotUrl as string | undefined
+  const nodeUrl = req.query.nodeUrl as string | undefined
+  const extraNext = req.query.extraNext as string | undefined
+
+  // ssrf: got reaches a third caller-controlled host.
+  if (gotUrl) {
+    const upstream = await got.get(gotUrl)
+    return res.json(upstream.body)
+  }
+
+  // ssrf: node https.get to a fourth caller-controlled host.
+  if (nodeUrl) {
+    await new Promise<void>((resolve, reject) => {
+      https.get(nodeUrl, (up) => {
+        up.resume()
+        up.on('end', () => resolve())
+      }).on('error', reject)
+    })
+    return res.json({ ok: true })
+  }
+
   // open-redirect
   if (next) {
     return res.redirect(next)
+  }
+
+  // open-redirect: status-first form — still caller-controlled.
+  if (extraNext) {
+    return res.redirect(302, extraNext)
   }
 
   // open-redirect: a hand-rolled Location header instead of res.redirect().

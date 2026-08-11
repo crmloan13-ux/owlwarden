@@ -280,7 +280,7 @@ async function emit(
   raw: unknown,
   validated: Report,
   options: ScanOptions,
-  format: "pretty" | "json",
+  format: "pretty" | "json" | "sarif" | "junit",
   stdout: NodeJS.WritableStream,
   stderr: NodeJS.WritableStream,
 ): Promise<void> {

@@ -1,0 +1,1000 @@
+---
+source: crates/reporters/tests/snapshots.rs
+expression: encoded
+---
+{
+  "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+  "runs": [
+    {
+      "results": [
+        {
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "app/api/login/route.ts",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "endColumn": 63,
+                  "endLine": 16,
+                  "snippet": {
+                    "text": "    `SELECT id, role FROM users WHERE email = '${body.email}'`,"
+                  },
+                  "startColumn": 5,
+                  "startLine": 16
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "SQL query built by string interpolation: A value taken from the request is interpolated into SQL, so the caller controls part of the statement. That is enough to read other users' rows, bypass a WHERE clause, or drop a table."
+          },
+          "properties": {
+            "confidence": "likely",
+            "cwe": "CWE-89",
+            "owasp": "A03:2021",
+            "severity": "high"
+          },
+          "ruleId": "sql-injection",
+          "taxa": [
+            {
+              "id": "CWE-89",
+              "toolComponent": {
+                "name": "CWE"
+              }
+            }
+          ]
+        },
+        {
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "app/api/proxy/route.ts",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "endColumn": 41,
+                  "endLine": 19,
+                  "snippet": {
+                    "text": "    const upstream = await fetch(target)"
+                  },
+                  "startColumn": 28,
+                  "startLine": 19
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Server fetches a URL the caller controls: The destination of this request comes from the caller, so they choose which host the server connects to. That includes hosts they cannot reach themselves: the cloud metadata endpoint that hands out IAM credentials, internal services that skip authentication because they are 'not exposed', and anything bound to localhost."
+          },
+          "properties": {
+            "confidence": "likely",
+            "cwe": "CWE-918",
+            "owasp": "A10:2021",
+            "severity": "high"
+          },
+          "ruleId": "ssrf",
+          "taxa": [
+            {
+              "id": "CWE-918",
+              "toolComponent": {
+                "name": "CWE"
+              }
+            }
+          ]
+        },
+        {
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "app/api/proxy/route.ts",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "endColumn": 48,
+                  "endLine": 25,
+                  "snippet": {
+                    "text": "    const upstream = await axios.get(callerUrl)"
+                  },
+                  "startColumn": 28,
+                  "startLine": 25
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Server fetches a URL the caller controls: The destination of this request comes from the caller, so they choose which host the server connects to. That includes hosts they cannot reach themselves: the cloud metadata endpoint that hands out IAM credentials, internal services that skip authentication because they are 'not exposed', and anything bound to localhost."
+          },
+          "properties": {
+            "confidence": "likely",
+            "cwe": "CWE-918",
+            "owasp": "A10:2021",
+            "severity": "high"
+          },
+          "ruleId": "ssrf",
+          "taxa": [
+            {
+              "id": "CWE-918",
+              "toolComponent": {
+                "name": "CWE"
+              }
+            }
+          ]
+        },
+        {
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "app/api/proxy/route.ts",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "endColumn": 43,
+                  "endLine": 32,
+                  "snippet": {
+                    "text": "    const upstream = await got.get(gotUrl)"
+                  },
+                  "startColumn": 28,
+                  "startLine": 32
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Server fetches a URL the caller controls: The destination of this request comes from the caller, so they choose which host the server connects to. That includes hosts they cannot reach themselves: the cloud metadata endpoint that hands out IAM credentials, internal services that skip authentication because they are 'not exposed', and anything bound to localhost."
+          },
+          "properties": {
+            "confidence": "likely",
+            "cwe": "CWE-918",
+            "owasp": "A10:2021",
+            "severity": "high"
+          },
+          "ruleId": "ssrf",
+          "taxa": [
+            {
+              "id": "CWE-918",
+              "toolComponent": {
+                "name": "CWE"
+              }
+            }
+          ]
+        },
+        {
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "app/api/proxy/route.ts",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "endColumn": 36,
+                  "endLine": 40,
+                  "snippet": {
+                    "text": "      https.get(nodeUrl, (res) => {"
+                  },
+                  "startColumn": 7,
+                  "startLine": 40
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Server fetches a URL the caller controls: The destination of this request comes from the caller, so they choose which host the server connects to. That includes hosts they cannot reach themselves: the cloud metadata endpoint that hands out IAM credentials, internal services that skip authentication because they are 'not exposed', and anything bound to localhost."
+          },
+          "properties": {
+            "confidence": "likely",
+            "cwe": "CWE-918",
+            "owasp": "A10:2021",
+            "severity": "high"
+          },
+          "ruleId": "ssrf",
+          "taxa": [
+            {
+              "id": "CWE-918",
+              "toolComponent": {
+                "name": "CWE"
+              }
+            }
+          ]
+        },
+        {
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "app/api/users/route.ts",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "endColumn": 25,
+                  "endLine": 20,
+                  "snippet": {
+                    "text": "      { error: err.stack },"
+                  },
+                  "startColumn": 16,
+                  "startLine": 20
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Stack trace leaked in error response: Stack traces expose absolute file paths, dependency versions, and internal call structure — enough to fingerprint the stack and locate other weaknesses."
+          },
+          "properties": {
+            "confidence": "likely",
+            "cwe": "CWE-209",
+            "owasp": "A05:2021",
+            "severity": "high"
+          },
+          "ruleId": "stack-trace-leak",
+          "taxa": [
+            {
+              "id": "CWE-209",
+              "toolComponent": {
+                "name": "CWE"
+              }
+            }
+          ]
+        },
+        {
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "app/lib/billing.ts",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "endColumn": 59,
+                  "endLine": 3,
+                  "snippet": {
+                    "text": "const STRIPE_KEY = 'sk_l***'"
+                  },
+                  "startColumn": 20,
+                  "startLine": 3
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Credential hardcoded in source: This literal carries the prefix of a Stripe live secret key, so it is a real credential rather than a placeholder. It is in the repository's history and in every clone; deleting the line does not revoke it."
+          },
+          "properties": {
+            "confidence": "likely",
+            "cwe": "CWE-798",
+            "owasp": "A07:2021",
+            "severity": "high"
+          },
+          "ruleId": "hardcoded-secret",
+          "taxa": [
+            {
+              "id": "CWE-798",
+              "toolComponent": {
+                "name": "CWE"
+              }
+            }
+          ]
+        },
+        {
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "app/lib/crypto.ts",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "endColumn": 40,
+                  "endLine": 8,
+                  "snippet": {
+                    "text": "  const passwordHash = createHash('md5').update(password).digest('hex')"
+                  },
+                  "startColumn": 35,
+                  "startLine": 8
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Broken cryptographic primitive protecting a secret: This hash is fast, and speed is the attacker's advantage: a commodity GPU tries billions of candidates a second, so a leaked table of these hashes is a leaked table of the values behind them. Password hashing needs a deliberately slow algorithm with a per-value salt."
+          },
+          "properties": {
+            "confidence": "likely",
+            "cwe": "CWE-327",
+            "owasp": "A02:2021",
+            "severity": "high"
+          },
+          "ruleId": "weak-crypto",
+          "taxa": [
+            {
+              "id": "CWE-327",
+              "toolComponent": {
+                "name": "CWE"
+              }
+            }
+          ]
+        },
+        {
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "app/lib/crypto.ts",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "endColumn": 37,
+                  "endLine": 14,
+                  "snippet": {
+                    "text": "  const sessionToken = Math.random().toString(36).slice(2)"
+                  },
+                  "startColumn": 24,
+                  "startLine": 14
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Broken cryptographic primitive protecting a secret: Math.random() is a fast PRNG, not a cryptographic one; V8 documents it as unsuitable for security. An attacker who sees a few outputs can predict the rest, which for a session id or a reset token means minting valid ones."
+          },
+          "properties": {
+            "confidence": "likely",
+            "cwe": "CWE-327",
+            "owasp": "A02:2021",
+            "severity": "high"
+          },
+          "ruleId": "weak-crypto",
+          "taxa": [
+            {
+              "id": "CWE-327",
+              "toolComponent": {
+                "name": "CWE"
+              }
+            }
+          ]
+        },
+        {
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "app/lib/crypto.ts",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "endColumn": 58,
+                  "endLine": 20,
+                  "snippet": {
+                    "text": "  const cipher = createCipheriv('aes-256-ecb', key, null)"
+                  },
+                  "startColumn": 18,
+                  "startLine": 20
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Broken cryptographic primitive protecting a secret: This cipher or mode is broken independently of the key. DES has a keyspace small enough to search, RC4 has biased output, and ECB encrypts identical plaintext blocks to identical ciphertext blocks — the structure of the data survives encryption."
+          },
+          "properties": {
+            "confidence": "likely",
+            "cwe": "CWE-327",
+            "owasp": "A02:2021",
+            "severity": "high"
+          },
+          "ruleId": "weak-crypto",
+          "taxa": [
+            {
+              "id": "CWE-327",
+              "toolComponent": {
+                "name": "CWE"
+              }
+            }
+          ]
+        },
+        {
+          "level": "warning",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": ".github/workflows/ci.yml",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startColumn": 1,
+                  "startLine": 8
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "GitHub Action is not pinned to a commit SHA: A moving tag can be retargeted to a different commit. Anyone who can push that tag — or who compromises the action's repository — runs code in your CI with access to repository secrets."
+          },
+          "properties": {
+            "confidence": "likely",
+            "cwe": "CWE-829",
+            "owasp": "A08:2021",
+            "severity": "medium"
+          },
+          "ruleId": "ci-unpinned-action",
+          "taxa": [
+            {
+              "id": "CWE-829",
+              "toolComponent": {
+                "name": "CWE"
+              }
+            }
+          ]
+        },
+        {
+          "level": "warning",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "app/api/proxy/route.ts",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "endColumn": 19,
+                  "endLine": 50,
+                  "snippet": {
+                    "text": "    redirect(next)"
+                  },
+                  "startColumn": 5,
+                  "startLine": 50
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Redirect target comes from the caller: The whole redirect target comes from the request, so a link to this endpoint can send a visitor anywhere. The URL they click genuinely belongs to you, which is what makes the page they land on convincing — and on an OAuth callback the authorisation code goes with them."
+          },
+          "properties": {
+            "confidence": "likely",
+            "cwe": "CWE-601",
+            "owasp": "A01:2021",
+            "severity": "medium"
+          },
+          "ruleId": "open-redirect",
+          "taxa": [
+            {
+              "id": "CWE-601",
+              "toolComponent": {
+                "name": "CWE"
+              }
+            }
+          ]
+        },
+        {
+          "level": "warning",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "app/api/proxy/route.ts",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "endColumn": 24,
+                  "endLine": 56,
+                  "snippet": {
+                    "text": "    redirect(extraNext)"
+                  },
+                  "startColumn": 5,
+                  "startLine": 56
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Redirect target comes from the caller: The whole redirect target comes from the request, so a link to this endpoint can send a visitor anywhere. The URL they click genuinely belongs to you, which is what makes the page they land on convincing — and on an OAuth callback the authorisation code goes with them."
+          },
+          "properties": {
+            "confidence": "likely",
+            "cwe": "CWE-601",
+            "owasp": "A01:2021",
+            "severity": "medium"
+          },
+          "ruleId": "open-redirect",
+          "taxa": [
+            {
+              "id": "CWE-601",
+              "toolComponent": {
+                "name": "CWE"
+              }
+            }
+          ]
+        },
+        {
+          "level": "warning",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "app/api/proxy/route.ts",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "endColumn": 40,
+                  "endLine": 62,
+                  "snippet": {
+                    "text": "    headers.set('Location', manualNext)"
+                  },
+                  "startColumn": 5,
+                  "startLine": 62
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Redirect target comes from the caller: The whole redirect target comes from the request, so a link to this endpoint can send a visitor anywhere. The URL they click genuinely belongs to you, which is what makes the page they land on convincing — and on an OAuth callback the authorisation code goes with them."
+          },
+          "properties": {
+            "confidence": "likely",
+            "cwe": "CWE-601",
+            "owasp": "A01:2021",
+            "severity": "medium"
+          },
+          "ruleId": "open-redirect",
+          "taxa": [
+            {
+              "id": "CWE-601",
+              "toolComponent": {
+                "name": "CWE"
+              }
+            }
+          ]
+        },
+        {
+          "level": "warning",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "app/api/users/route.ts",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "endColumn": 69,
+                  "endLine": 11,
+                  "snippet": {
+                    "text": "  console.info({ authorization: request.headers.get('authorization') })"
+                  },
+                  "startColumn": 18,
+                  "startLine": 11
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Sensitive data written to a log: Logs are copied into aggregators, retained for months, and readable by anyone with access to the logging system. A credential that reaches a log has left the application's trust boundary."
+          },
+          "properties": {
+            "confidence": "likely",
+            "cwe": "CWE-532",
+            "owasp": "A09:2021",
+            "severity": "medium"
+          },
+          "ruleId": "sensitive-data-logged",
+          "taxa": [
+            {
+              "id": "CWE-532",
+              "toolComponent": {
+                "name": "CWE"
+              }
+            }
+          ]
+        },
+        {
+          "level": "warning",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "app/api/users/route.ts",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "endColumn": 29,
+                  "endLine": 14,
+                  "snippet": {
+                    "text": "  console.info({ accessToken })"
+                  },
+                  "startColumn": 18,
+                  "startLine": 14
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Sensitive data written to a log: Logs are copied into aggregators, retained for months, and readable by anyone with access to the logging system. A credential that reaches a log has left the application's trust boundary."
+          },
+          "properties": {
+            "confidence": "likely",
+            "cwe": "CWE-532",
+            "owasp": "A09:2021",
+            "severity": "medium"
+          },
+          "ruleId": "sensitive-data-logged",
+          "taxa": [
+            {
+              "id": "CWE-532",
+              "toolComponent": {
+                "name": "CWE"
+              }
+            }
+          ]
+        },
+        {
+          "level": "warning",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "app/lib/cors.ts",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "endColumn": 59,
+                  "endLine": 7,
+                  "snippet": {
+                    "text": "  response.headers.set('Access-Control-Allow-Origin', '*')"
+                  },
+                  "startColumn": 3,
+                  "startLine": 7
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Cross-origin policy accepts any origin: Any origin may call this API and read the response. That is a deliberate choice for a public endpoint and a mistake for anything behind a session — nothing in the source says which this is, so it is reported for you to decide."
+          },
+          "properties": {
+            "confidence": "likely",
+            "cwe": "CWE-942",
+            "owasp": "A05:2021",
+            "severity": "medium"
+          },
+          "ruleId": "cors-permissive",
+          "taxa": [
+            {
+              "id": "CWE-942",
+              "toolComponent": {
+                "name": "CWE"
+              }
+            }
+          ]
+        },
+        {
+          "level": "warning",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "package.json",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startColumn": 1,
+                  "startLine": 11
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Dependency version is unpinned: An unpinned range lets the next install resolve a different major version, including one with a known vulnerability or a breaking API change, without anyone reviewing the bump."
+          },
+          "properties": {
+            "confidence": "likely",
+            "cwe": "CWE-1104",
+            "owasp": "A06:2021",
+            "severity": "medium"
+          },
+          "ruleId": "unpinned-dependency",
+          "taxa": [
+            {
+              "id": "CWE-1104",
+              "toolComponent": {
+                "name": "CWE"
+              }
+            }
+          ]
+        },
+        {
+          "level": "warning",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "app/api/login/route.ts",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "endColumn": 55,
+                  "endLine": 20,
+                  "snippet": {
+                    "text": "  cookies().set('session', rows.rows[0]?.id ?? 'anon')"
+                  },
+                  "startColumn": 3,
+                  "startLine": 20
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Cookie set without its protective attributes: This cookie is missing protections: httpOnly keeps the cookie out of reach of JavaScript, so a cross-site scripting bug cannot read the session; secure stops the cookie being sent over plain HTTP; sameSite stops the browser attaching the cookie to cross-site requests."
+          },
+          "properties": {
+            "confidence": "possible",
+            "cwe": "CWE-614",
+            "owasp": "A05:2021",
+            "severity": "medium"
+          },
+          "ruleId": "insecure-cookie",
+          "taxa": [
+            {
+              "id": "CWE-614",
+              "toolComponent": {
+                "name": "CWE"
+              }
+            }
+          ]
+        },
+        {
+          "level": "warning",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "package.json",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startColumn": 1,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Security headers are not configured: Without these headers the browser enforces nothing: strict-transport-security forces HTTPS for future requests; content-security-policy limits which scripts and origins the page may load; x-content-type-options stops browsers guessing a response's content type; x-frame-options blocks clickjacking via framing; referrer-policy stops URLs leaking to third parties."
+          },
+          "properties": {
+            "confidence": "possible",
+            "cwe": "CWE-693",
+            "owasp": "A05:2021",
+            "severity": "medium"
+          },
+          "ruleId": "security-headers-missing",
+          "taxa": [
+            {
+              "id": "CWE-693",
+              "toolComponent": {
+                "name": "CWE"
+              }
+            }
+          ]
+        }
+      ],
+      "tool": {
+        "driver": {
+          "informationUri": "https://github.com/suthat/owlwarden",
+          "name": "owlwarden",
+          "rules": [
+            {
+              "defaultConfiguration": {
+                "level": "warning"
+              },
+              "fullDescription": {
+                "text": "A moving tag can be retargeted to a different commit. Anyone who can push that tag — or who compromises the action's repository — runs code in your CI with access to repository secrets."
+              },
+              "help": {
+                "text": "Pin the action to a full commit SHA (keep the tag in a comment for humans)."
+              },
+              "id": "ci-unpinned-action",
+              "name": "ci-unpinned-action",
+              "shortDescription": {
+                "text": "GitHub Action is not pinned to a commit SHA"
+              }
+            },
+            {
+              "defaultConfiguration": {
+                "level": "warning"
+              },
+              "fullDescription": {
+                "text": "Any origin may call this API and read the response. That is a deliberate choice for a public endpoint and a mistake for anything behind a session — nothing in the source says which this is, so it is reported for you to decide."
+              },
+              "help": {
+                "text": "Return an explicit origin from the route or middleware, not '*'."
+              },
+              "id": "cors-permissive",
+              "name": "cors-permissive",
+              "shortDescription": {
+                "text": "Cross-origin policy accepts any origin"
+              }
+            },
+            {
+              "defaultConfiguration": {
+                "level": "error"
+              },
+              "fullDescription": {
+                "text": "This literal carries the prefix of a Stripe live secret key, so it is a real credential rather than a placeholder. It is in the repository's history and in every clone; deleting the line does not revoke it."
+              },
+              "help": {
+                "text": "Read it from the environment on the server. A NEXT_PUBLIC_ prefix ships the value to the browser, so never use one for a secret."
+              },
+              "id": "hardcoded-secret",
+              "name": "hardcoded-secret",
+              "shortDescription": {
+                "text": "Credential hardcoded in source"
+              }
+            },
+            {
+              "defaultConfiguration": {
+                "level": "warning"
+              },
+              "fullDescription": {
+                "text": "This cookie is missing protections: httpOnly keeps the cookie out of reach of JavaScript, so a cross-site scripting bug cannot read the session; secure stops the cookie being sent over plain HTTP; sameSite stops the browser attaching the cookie to cross-site requests."
+              },
+              "help": {
+                "text": "Pass the attributes to the cookie store."
+              },
+              "id": "insecure-cookie",
+              "name": "insecure-cookie",
+              "shortDescription": {
+                "text": "Cookie set without its protective attributes"
+              }
+            },
+            {
+              "defaultConfiguration": {
+                "level": "warning"
+              },
+              "fullDescription": {
+                "text": "The whole redirect target comes from the request, so a link to this endpoint can send a visitor anywhere. The URL they click genuinely belongs to you, which is what makes the page they land on convincing — and on an OAuth callback the authorisation code goes with them."
+              },
+              "help": {
+                "text": "Validate before calling redirect(); request.nextUrl.origin is the base."
+              },
+              "id": "open-redirect",
+              "name": "open-redirect",
+              "shortDescription": {
+                "text": "Redirect target comes from the caller"
+              }
+            },
+            {
+              "defaultConfiguration": {
+                "level": "warning"
+              },
+              "fullDescription": {
+                "text": "Without these headers the browser enforces nothing: strict-transport-security forces HTTPS for future requests; content-security-policy limits which scripts and origins the page may load; x-content-type-options stops browsers guessing a response's content type; x-frame-options blocks clickjacking via framing; referrer-policy stops URLs leaking to third parties."
+              },
+              "help": {
+                "text": "Add a headers() block to next.config.js."
+              },
+              "id": "security-headers-missing",
+              "name": "security-headers-missing",
+              "shortDescription": {
+                "text": "Security headers are not configured"
+              }
+            },
+            {
+              "defaultConfiguration": {
+                "level": "warning"
+              },
+              "fullDescription": {
+                "text": "Logs are copied into aggregators, retained for months, and readable by anyone with access to the logging system. A credential that reaches a log has left the application's trust boundary."
+              },
+              "help": {
+                "text": "Log that the attempt happened, not the credential."
+              },
+              "id": "sensitive-data-logged",
+              "name": "sensitive-data-logged",
+              "shortDescription": {
+                "text": "Sensitive data written to a log"
+              }
+            },
+            {
+              "defaultConfiguration": {
+                "level": "error"
+              },
+              "fullDescription": {
+                "text": "A value taken from the request is interpolated into SQL, so the caller controls part of the statement. That is enough to read other users' rows, bypass a WHERE clause, or drop a table."
+              },
+              "help": {
+                "text": "Use a parameterised query, or Prisma's tagged $queryRaw which binds automatically."
+              },
+              "id": "sql-injection",
+              "name": "sql-injection",
+              "shortDescription": {
+                "text": "SQL query built by string interpolation"
+              }
+            },
+            {
+              "defaultConfiguration": {
+                "level": "error"
+              },
+              "fullDescription": {
+                "text": "The destination of this request comes from the caller, so they choose which host the server connects to. That includes hosts they cannot reach themselves: the cloud metadata endpoint that hands out IAM credentials, internal services that skip authentication because they are 'not exposed', and anything bound to localhost."
+              },
+              "help": {
+                "text": "Validate the URL in the route handler before fetching, and disable redirect following."
+              },
+              "id": "ssrf",
+              "name": "ssrf",
+              "shortDescription": {
+                "text": "Server fetches a URL the caller controls"
+              }
+            },
+            {
+              "defaultConfiguration": {
+                "level": "error"
+              },
+              "fullDescription": {
+                "text": "Stack traces expose absolute file paths, dependency versions, and internal call structure — enough to fingerprint the stack and locate other weaknesses."
+              },
+              "help": {
+                "text": "Return a generic message; log the error server-side."
+              },
+              "id": "stack-trace-leak",
+              "name": "stack-trace-leak",
+              "shortDescription": {
+                "text": "Stack trace leaked in error response"
+              }
+            },
+            {
+              "defaultConfiguration": {
+                "level": "warning"
+              },
+              "fullDescription": {
+                "text": "An unpinned range lets the next install resolve a different major version, including one with a known vulnerability or a breaking API change, without anyone reviewing the bump."
+              },
+              "help": {
+                "text": "Pin the dependency in package.json and reinstall so the lockfile records it."
+              },
+              "id": "unpinned-dependency",
+              "name": "unpinned-dependency",
+              "shortDescription": {
+                "text": "Dependency version is unpinned"
+              }
+            },
+            {
+              "defaultConfiguration": {
+                "level": "error"
+              },
+              "fullDescription": {
+                "text": "This hash is fast, and speed is the attacker's advantage: a commodity GPU tries billions of candidates a second, so a leaked table of these hashes is a leaked table of the values behind them. Password hashing needs a deliberately slow algorithm with a per-value salt."
+              },
+              "help": {
+                "text": "Replace the broken digest algorithm with sha256 (or prefer scrypt/argon2 for passwords)."
+              },
+              "id": "weak-crypto",
+              "name": "weak-crypto",
+              "shortDescription": {
+                "text": "Broken cryptographic primitive protecting a secret"
+              }
+            }
+          ],
+          "version": "0.0.0-test"
+        }
+      }
+    }
+  ],
+  "version": "2.1.0"
+}

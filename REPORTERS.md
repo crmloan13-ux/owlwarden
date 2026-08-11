@@ -61,8 +61,9 @@ problem is if it is real; confidence is how sure owlwarden is that it is real.
 Collapsing them into one number is how a scanner ends up shouting — see
 [docs/explanation/false-positives.md](docs/explanation/false-positives.md).
 
-**Shipped:** `pretty`, `json`. **Planned:** `md`, `sarif`, and stackable
-reporters (`--format pretty --format json --out report.json` in one run).
+**Shipped:** `pretty`, `json`, `sarif`, `junit`. **Planned:** `md`, and
+stackable reporters (`--format pretty --format json --out report.json` in one
+run).
 
 ## 2. Terminal reporter — `pretty`
 
@@ -208,19 +209,16 @@ describe a format the tool does not emit —
 
 ### Exit codes
 
+Canonical contract: [docs/how-to/ci.md](docs/how-to/ci.md) (ADR 0017).
+
 | Code | Meaning |
 |---|---|
-| 0 | Nothing at or above `--fail-on` |
-| 1 | Findings at or above `--fail-on` |
+| 0 | Nothing at or above `--fail-on` (after `--min-confidence`) |
+| 1 | Findings at or above `--fail-on`, **or** `truncated` |
 | 2 | The scan could not run |
 
-A `Possible`-confidence finding never produces exit 1 on its own, whatever
-`--fail-on` says. Failing someone's pipeline on a guess is how a scanner gets
-removed from it.
-
-`2` is deliberately distinct from `1`. A broken install or an unreadable project
-is not a clean scan, and a pipeline that treats "non-zero" as "found something"
-reports the wrong thing. [docs/how-to/ci.md](docs/how-to/ci.md) has the detail.
+A `Possible`-confidence finding never produces exit 1 on its own. `truncated`
+always fails. `2` is deliberately distinct from `1`.
 
 ## 4. Markdown reporter — `md` (planned)
 
@@ -250,8 +248,27 @@ Intended options: `--md-group-by {severity|category|file}` and `--md-collapse`,
 which wraps each finding in `<details>` so a long report stays readable in a PR
 comment.
 
-A `sarif` reporter (SARIF 2.1.0) is planned alongside it, so GitHub code
-scanning and similar tools can ingest results natively.
+## 4b. SARIF reporter — `sarif` (shipped in v0.4)
+
+SARIF 2.1.0 rendering of the same `Report` (ADR 0017). Severity maps to SARIF
+`level`: High → `error`, Medium → `warning`, Low → `note`, Info → `none`.
+Confidence, OWASP, and CWE sit in `result.properties`.
+
+```bash
+owlwarden scan --ci --format sarif --out owlwarden-results.sarif
+```
+
+Upload with a SHA-pinned `github/codeql-action/upload-sarif` — see
+[docs/how-to/ci.md](docs/how-to/ci.md).
+
+## 4c. JUnit reporter — `junit` (shipped in v0.4)
+
+One `<testcase>` failure per finding. A clean scan is a single passing case.
+JUnit does not redefine exit codes — pipelines still read the CLI's 0 / 1 / 2.
+
+```bash
+owlwarden scan --ci --format junit --out owlwarden-results.xml
+```
 
 ## 5. Context-aware remediation
 

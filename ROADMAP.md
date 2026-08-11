@@ -132,17 +132,31 @@ Delivered:
 methods unreachable without the flag; scope-escape and OSV mock suites pass.
 Active detectors, offline OSV DB, and editor hooks remain later work.
 
-## v0.4 — Pipelines and reporting
+## v0.4 — CI-ready depth — **shipped**
 
-**Goal:** fits into the tooling teams already run.
+**Goal:** fit the pipelines teams already run, and make the findings those
+pipelines gate on deep enough to trust — not a thin matrix with a SARIF coat of
+paint.
 
-- SARIF reporter for GitHub code scanning, and a JUnit reporter.
-- A GitHub Action.
-- A documented exit-code contract.
-- A plugin registry that shows an extension's capabilities before install.
+Delivered:
 
-**Exit criteria:** a demonstration repository gates pull requests on owlwarden
-through the Action, with a baseline suppressing pre-existing findings.
+- **Pipelines** ([ADR 0017](docs/adr/0017-ci-reporting-surface.md)): `--format
+  sarif` (SARIF 2.1.0) and `--format junit`; composite GitHub Action under
+  `action/`; exit-code contract documented as canonical in
+  [docs/how-to/ci.md](docs/how-to/ci.md) (still 0 / 1 / 2).
+- **Corpus depth** ([ADR 0018](docs/adr/0018-corpus-depth-bar.md)): dialect
+  tempting on every clean twin; richer `ssrf` / `open-redirect` shape
+  contracts; generic-profile fixtures outside the square matrix.
+- **Capability deepen from 0.3:** more `Safe` autofix remediations; `owlwarden
+  plugin inspect` for capabilities-before-load (local preview, not a signed
+  store); cold-scan performance baseline harness.
+
+**Exit criteria, met for this slice:** Action smoke against a clean fixture
+exits 0; SARIF/JUnit snapshots green; square matrix still silent on clean /
+tempting; shape contracts expanded without per-framework expectation drift.
+Active detectors, offline OSV DB, signed plugin registry, stackable
+multi-format emit, Markdown reporter, and true incremental watch remain later
+work.
 
 ## v0.5 — Release assurance
 

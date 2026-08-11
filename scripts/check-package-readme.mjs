@@ -1,6 +1,6 @@
 /**
  * Keeps the README published with the `owlwarden` npm package aligned with the
- * compiled v0.2 surface. The npm page is often the first and only document a
+ * compiled v0.4 surface. The npm page is often the first and only document a
  * prospective user reads, so missing safety limits are contract failures too.
  */
 import assert from "node:assert/strict";
@@ -71,6 +71,9 @@ assert.match(readme, /static-only, read-only/i);
 assert.match(readme, /A04:2021.*Insecure Design/is);
 assert.match(readme, /`--fix` applies only/i);
 assert.match(readme, /`--osv` opts into/i);
+assert.match(readme, /sarif/i);
+assert.match(readme, /junit/i);
+assert.match(readme, /Version 0\.4\.0/);
 assert.match(readme, /12 rules × 12 frameworks|12 × 12/i);
 assert.match(readme, /osv-demo/);
 assert.match(readme, /https:\/\/suthat\.github\.io\/owlwarden\//);

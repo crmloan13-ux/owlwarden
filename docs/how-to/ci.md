@@ -23,15 +23,20 @@ npx owlwarden scan --ci --fail-on medium --min-confidence likely
 
 ## Exit codes
 
+This table is the **canonical** exit-code contract (ADR 0017). README,
+`REPORTERS.md`, and the GitHub Action all mean the same thing:
+
 | Code | Meaning |
 |---|---|
-| 0 | Nothing at or above `--fail-on` |
-| 1 | Findings at or above `--fail-on` |
-| 2 | The scan could not run |
+| 0 | Nothing at or above `--fail-on` (after `--min-confidence`) |
+| 1 | Findings at or above `--fail-on`, **or** the report was `truncated` |
+| 2 | The scan could not run (bad args, unreadable project, install failure) |
 
-Note that `2` is distinct from `1`. A broken install, an unreadable project, or
-a typo in a preset name is not the same as a clean scan, and a pipeline that
-treats "non-zero" as "found something" will report the wrong thing.
+`Possible` confidence alone never fails the build. `truncated` always fails —
+a capped report is not a clean bill of health.
+
+Note that `2` is distinct from `1`. A pipeline that treats every non-zero as
+"found something" will file the wrong ticket when the install is broken.
 
 ## Choosing a threshold
 
@@ -80,9 +85,17 @@ Fields that deserve attention:
 
 ## GitHub Actions
 
+Prefer the first-party composite action ([`action/`](../../action/)). It runs
+the same CLI flags and **preserves exit 0 / 1 / 2** — it does not re-score
+findings.
+
 ```yaml
 name: security
 on: [pull_request]
+
+permissions:
+  contents: read
+  security-events: write
 
 jobs:
   owlwarden:
@@ -90,19 +103,35 @@ jobs:
     steps:
       # Pin full commit SHAs — `ci-unpinned-action` flags moving tags like @v4.
       - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      - uses: suthat/owlwarden/action@v0.4.0
+        with:
+          fail-on: medium
+          min-confidence: likely
+          format: sarif
+          out: owlwarden-results.sarif
+          # osv: true   # opt-in Google OSV — typed input only (no free-form args)
+      - if: success() || failure()
+        uses: github/codeql-action/upload-sarif@5595ccaf912efad79be6eef63a5619ff05969be3 # v4.37.6
+        with:
+          sarif_file: owlwarden-results.sarif
+```
+
+The Action has **no `args` input** on purpose — unquoted extras were a shell
+injection and mute-switch footgun. Need another flag? Call the CLI in a `run:`
+step with an argv array, or extend the Action with a typed input.
+
+Without the Action, the equivalent CLI:
+
+```yaml
       - uses: actions/setup-node@60edb5dd545a775178f52524783378180af0d1f8 # v4.0.2
         with:
           node-version: 20
-      - run: npx owlwarden scan --ci --fail-on medium --min-confidence likely --out report.json
-      - if: failure()
-        uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
-        with:
-          name: owlwarden-report
-          path: report.json
+      - run: npx owlwarden scan --ci --fail-on medium --min-confidence likely --format sarif --out owlwarden-results.sarif
 ```
 
-`--out` writes the report to a file and prints a one-line summary, which keeps
-the log readable while preserving the detail as an artifact.
+`--format junit` writes a JUnit XML suite (one failure per finding) for CI UIs
+that already render test reports. `--out` writes the report to a file and
+prints a one-line summary on stderr.
 
 ## Suppressions in CI
 
