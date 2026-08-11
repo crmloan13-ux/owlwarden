@@ -3,6 +3,8 @@ import { runCoverage } from "./commands/coverage.js";
 import { runExplain } from "./commands/explain.js";
 import { runInit } from "./commands/init.js";
 import { runMcp } from "./commands/mcp.js";
+import { runOsvUpdate } from "./commands/osv-update.js";
+import { runPluginInspect } from "./commands/plugin-inspect.js";
 import { runPluginScaffold } from "./commands/plugin-scaffold.js";
 import { runRules } from "./commands/rules.js";
 import { runScan } from "./commands/scan.js";
@@ -83,6 +85,10 @@ export async function run(argv: string[], streams: Streams): Promise<number> {
       );
     case "plugin-scaffold":
       return runPluginScaffold(cli.name, process.cwd(), stderr);
+    case "plugin-inspect":
+      return runPluginInspect(cli.path, process.cwd(), stdout, stderr);
+    case "osv-update":
+      return runOsvUpdate(mustLoad(native), cli.path, cli.out, stderr);
   }
 }
 

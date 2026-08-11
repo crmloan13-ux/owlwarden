@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "ecosystem": "npm",
+  "updatedAt": "2026-08-11T00:00:00Z",
+  "packages": {
+    "lodash": {
+      "4.17.19": ["GHSA-aaaa-demo"]
+    }
+  }
+}

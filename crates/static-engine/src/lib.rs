@@ -46,6 +46,7 @@ pub mod engine;
 pub mod framework;
 pub mod fs_source;
 pub mod http;
+pub mod incremental;
 pub mod line_index;
 pub mod parse;
 pub mod postprocess;

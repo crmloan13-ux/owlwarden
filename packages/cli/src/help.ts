@@ -21,6 +21,8 @@ USAGE
   owlwarden coverage [--json] [--no-color] [--ascii]
   owlwarden explain <RULE_ID> [--json]
   owlwarden plugin scaffold <NAME>
+  owlwarden plugin inspect <PATH>
+  owlwarden osv update [PATH] [--out FILE]
 
   Local only. No telemetry. --target is opt-in (scoped; deny by default).
 
@@ -28,8 +30,10 @@ USAGE
         On a TTY it prints a how-to on stderr and then waits; silence means it
         is waiting for a host, not hung. Under a host, stderr gets a ready line.
   init --agent-rules — writes .owlwarden/agent-rules.md from the catalogue.
-  Prefer --format json for CI and agents.
+  Prefer --format json for CI and agents. Repeat --format to emit several
+  renderings from one scan (e.g. --format pretty --format sarif --out results).
   plugin scaffold writes a WASM guest stub + manifest.
+  plugin inspect prints capabilities from owlwarden.plugin.json (no WASM load).
 
   coverage shows which OWASP categories have rules, and which do not.
 
@@ -38,8 +42,9 @@ USAGE
 SCAN OPTIONS
   --preset <NAME>       Rule bundle to run
 ${presetLines(native)}
-  --format <FORMAT>     pretty (default) or json
-  --out <FILE>          Write the report to a file instead of stdout
+  --format <FORMAT>     Output format (repeatable): pretty, json, sarif, junit
+  --out <FILE|DIR>      Write machine output to a file, or a prefix / directory
+                        when several machine formats are requested
   --baseline <FILE>     Report only findings new since this baseline
   --write-baseline <F>  Write current findings to a baseline file
   --report-suppressions List every inline suppression; flag stale ones
@@ -56,6 +61,7 @@ ${presetLines(native)}
                         owlwarden.plugin.json + plugin.wasm, or a bare .wasm
                         with a sidecar manifest. Sandboxed; source-only in v0.2
   --allow-plugins       Under --ci, permit --plugin (off by default)
+  --require-signed-plugins  Refuse plugins without a verified .sig (ADR 0021)
   --fix                 Apply Safe highlight replacements (never on Possible).
                         Requires a clean git tree unless --allow-dirty
   --fix-unsafe          With --fix, also apply Unsafe remediations
@@ -65,6 +71,8 @@ ${presetLines(native)}
                         No first-party detector uses this yet
   --osv                 Opt into Google OSV lockfile advisory lookup
                         (sends name+version to api.osv.dev; never source)
+  --osv-db <PATH>       Use a cached OSV index file (no network)
+  --offline             With --osv, require --osv-db (fail closed)
   --ci                  JSON + quiet + no-color; also ignores project gates,
                         suppressions, and --baseline unless allow-* is set
   --no-color            Disable colour (NO_COLOR is honoured too)

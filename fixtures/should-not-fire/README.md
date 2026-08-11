@@ -20,10 +20,15 @@ Pinned by `SHARED_FIRES` in `crates/detectors/tests/fixtures.rs` — 12 rules ×
 12 frameworks = **144 cells**. CI fails if any cell is missing.
 
 Multi-fire counts are locked to named shapes (`SHAPE_CONTRACTS` in the same
-file): `ssrf` = fetch/$fetch + axios; `open-redirect` = redirect helper +
-`Location` header; `weak-crypto` = MD5-password + `Math.random` + AES-ECB;
+file): `ssrf` = fetch/$fetch + axios + `got.get` + `https.get`/`http.get`;
+`open-redirect` = redirect helper + `Location` header + extra/status-first
+redirect; `weak-crypto` = MD5-password + `Math.random` + AES-ECB;
 `sensitive-data-logged` = password + accessToken. Each clean twin must also
-ship a `*tempting*` file and a `*safe-redirect*` helper (filename check in CI).
+ship a `*tempting*` file (dialect depth from v0.4) and a `*safe-redirect*`
+helper (filename check in CI).
+
+Generic-profile fixtures (`generic-api` / `generic-api-clean`) live **outside**
+this 144-cell grid — see ADR 0018.
 
 | rule | next | nuxt | nest | express | fastify | hono | koa | hapi | sails | astro | remix | gatsby |
 |---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|

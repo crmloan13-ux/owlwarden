@@ -32,7 +32,8 @@ use owlwarden_core::finding::{
 use owlwarden_core::remediation::Remediation;
 use owlwarden_core::source::RelPath;
 use owlwarden_static::ast::{
-    argument_object, is_false_literal, is_true_literal, object_property, string_value,
+    argument_object, is_false_literal, is_true_literal, object_property, property_name,
+    string_value,
 };
 use owlwarden_static::framework::FrameworkSet;
 use owlwarden_static::http::is_cookie_setter;
@@ -117,6 +118,12 @@ struct Hit {
     /// A `sameSite: 'none'` without `secure`, which browsers reject outright —
     /// worth naming separately because the cookie simply will not work.
     same_site_none_without_secure: bool,
+    /// When set, `--fix` can replace this options object with a Safe patch.
+    /// Only for object literals that carry no non-security keys (path, domain,
+    /// …) — those must stay Manual so autofix cannot drop them.
+    safe_options_span: Option<Span>,
+    /// Hapi-style `isHttpOnly` / `isSecure` / `isSameSite` in the Safe patch.
+    hapi_spelling: bool,
 }
 
 struct CookieVisitor<'f> {
@@ -205,6 +212,8 @@ fn inspect(call: &CallExpression<'_>) -> Option<Hit> {
             missing: vec!["httpOnly", "secure", "sameSite"],
             has_options: false,
             same_site_none_without_secure: false,
+            safe_options_span: None,
+            hapi_spelling: false,
         });
     };
 
@@ -239,12 +248,45 @@ fn inspect(call: &CallExpression<'_>) -> Option<Hit> {
         return None;
     }
 
+    let (safe_options_span, hapi_spelling) = safe_options_target(options);
+
     Some(Hit {
         span: call.span,
         missing,
         has_options: true,
         same_site_none_without_secure,
+        safe_options_span,
+        hapi_spelling,
     })
+}
+
+fn safe_options_target(options: &oxc_ast::ast::ObjectExpression<'_>) -> (Option<Span>, bool) {
+    /// Security-attribute keys only — anything else (path, maxAge, domain)
+    /// means autofix must not replace the object.
+    const SECURITY_OPTION_KEYS: &[&str] = &[
+        "httpOnly",
+        "secure",
+        "sameSite",
+        "isHttpOnly",
+        "isSecure",
+        "isSameSite",
+    ];
+    let mut hapi = false;
+    for property in &options.properties {
+        let oxc_ast::ast::ObjectPropertyKind::ObjectProperty(entry) = property else {
+            return (None, false);
+        };
+        let Some(name) = property_name(&entry.key) else {
+            return (None, false);
+        };
+        if !SECURITY_OPTION_KEYS.contains(&name) {
+            return (None, false);
+        }
+        if matches!(name, "isHttpOnly" | "isSecure" | "isSameSite") {
+            hapi = true;
+        }
+    }
+    (Some(options.span), hapi)
 }
 
 /// What each attribute would have prevented. Written out so the reader can
@@ -297,15 +339,60 @@ fn build_finding(unit: &FileUnit<'_>, hit: &Hit) -> Finding {
         "no cookie options passed".to_owned()
     };
 
+    let highlight_span = hit.safe_options_span.unwrap_or(hit.span);
+    let label = if hit.safe_options_span.is_some() {
+        "cookie options missing protective attributes"
+    } else {
+        "cookie written without httpOnly/secure/sameSite"
+    };
+
     finding_builder(&meta)
         .confidence(confidence)
         .why(why)
-        .location(unit.location(hit.span))
-        .snippet(unit.code_frame(hit.span, "cookie written without httpOnly/secure/sameSite"))
+        .location(unit.location(highlight_span))
+        .snippet(unit.code_frame(highlight_span, label))
         .context(unit.context(None, Some(evidence)))
-        .fixes(remediation().select(unit.framework()))
+        .fixes(fixes_for(unit.framework(), hit))
         .reference(Reference::rule_page(&meta.id))
         .build()
+}
+
+fn fixes_for(framework: &Framework, hit: &Hit) -> Vec<owlwarden_core::finding::Fix> {
+    let mut fixes = Vec::new();
+    if hit.safe_options_span.is_some() {
+        fixes.extend(safe_options_remediation(hit.hapi_spelling).select(framework));
+    }
+    fixes.extend(remediation().select(framework));
+    fixes
+}
+
+/// Single-line options object for `--fix`. Only offered when the existing
+/// object has no non-security keys to preserve (see [`safe_options_target`]).
+fn safe_options_remediation(hapi_spelling: bool) -> Remediation {
+    const SUMMARY: &str = "Set httpOnly, secure, and sameSite on the cookie options object.";
+    let patch = if hapi_spelling {
+        "{ isHttpOnly: true, isSecure: true, isSameSite: 'Lax' }"
+    } else {
+        "{ httpOnly: true, secure: true, sameSite: 'lax' }"
+    };
+    let frameworks = [
+        Framework::NEXT,
+        Framework::NUXT,
+        Framework::NEST,
+        Framework::EXPRESS,
+        Framework::FASTIFY,
+        Framework::HONO,
+        Framework::KOA,
+        Framework::HAPI,
+        Framework::SAILS,
+        Framework::ASTRO,
+        Framework::REMIX,
+        Framework::GATSBY,
+    ];
+    Remediation::new(SUMMARY)
+        .generic_patch(patch)
+        .generic_safety(owlwarden_core::finding::FixSafety::Safe)
+        .safe_each(&frameworks, SUMMARY, patch)
 }
 
 /// Every framework's fix.

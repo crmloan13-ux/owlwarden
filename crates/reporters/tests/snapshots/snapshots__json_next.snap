@@ -18,8 +18,8 @@ expression: encoded
     "preset": "owasp-top10"
   },
   "summary": {
-    "high": 8,
-    "medium": 9,
+    "high": 10,
+    "medium": 10,
     "low": 0,
     "info": 0
   },
@@ -98,12 +98,12 @@ expression: encoded
       "why": "The destination of this request comes from the caller, so they choose which host the server connects to. That includes hosts they cannot reach themselves: the cloud metadata endpoint that hands out IAM credentials, internal services that skip authentication because they are 'not exposed', and anything bound to localhost.",
       "location": {
         "path": "app/api/proxy/route.ts",
-        "line": 18,
+        "line": 19,
         "col": 28
       },
       "snippet": {
         "path": "app/api/proxy/route.ts",
-        "startLine": 16,
+        "startLine": 17,
         "lines": [
           "  // ssrf",
           "  if (target) {",
@@ -112,7 +112,7 @@ expression: encoded
           "  }"
         ],
         "highlight": {
-          "line": 18,
+          "line": 19,
           "startCol": 28,
           "endCol": 41,
           "label": "destination chosen by the caller"
@@ -164,12 +164,12 @@ expression: encoded
       "why": "The destination of this request comes from the caller, so they choose which host the server connects to. That includes hosts they cannot reach themselves: the cloud metadata endpoint that hands out IAM credentials, internal services that skip authentication because they are 'not exposed', and anything bound to localhost.",
       "location": {
         "path": "app/api/proxy/route.ts",
-        "line": 24,
+        "line": 25,
         "col": 28
       },
       "snippet": {
         "path": "app/api/proxy/route.ts",
-        "startLine": 22,
+        "startLine": 23,
         "lines": [
           "  // ssrf: axios reaches a second caller-controlled host.",
           "  if (callerUrl) {",
@@ -178,9 +178,141 @@ expression: encoded
           "  }"
         ],
         "highlight": {
-          "line": 24,
+          "line": 25,
           "startCol": 28,
           "endCol": 48,
+          "label": "destination chosen by the caller"
+        }
+      },
+      "context": {
+        "framework": "next",
+        "route": "/api/proxy",
+        "evidence": "the URL argument is caller-controlled"
+      },
+      "remediation": [
+        {
+          "framework": "next",
+          "summary": "Validate the URL in the route handler before fetching, and disable redirect following.",
+          "patch": "const url = assertAllowedUrl(body.url)\nconst upstream = await fetch(url, { redirect: 'error' })",
+          "safety": "manual"
+        },
+        {
+          "summary": "Check the destination against an allowlist of hosts before fetching it. Blocklists do not work here: DNS rebinding, redirects, and IPv6-mapped addresses all defeat them.",
+          "patch": "// lib/safe-fetch.ts\nconst ALLOWED_HOSTS = new Set(['api.partner.com', 'cdn.example.com'])\n\nexport function assertAllowedUrl(raw: string): URL {\n  const url = new URL(raw)\n  if (url.protocol !== 'https:') throw new Error('only https is allowed')\n  if (!ALLOWED_HOSTS.has(url.hostname)) throw new Error('host not allowed')\n  return url\n}",
+          "safety": "manual"
+        }
+      ],
+      "references": [
+        {
+          "kind": "owasp",
+          "id": "A10:2021",
+          "url": "https://owasp.org/Top10/A10_2021-Server-Side_Request_Forgery_%28SSRF%29/"
+        },
+        {
+          "kind": "cwe",
+          "id": "CWE-918",
+          "url": "https://cwe.mitre.org/data/definitions/918.html"
+        },
+        {
+          "kind": "docs",
+          "id": "RULES.md#ssrf",
+          "url": "https://github.com/suthat/owlwarden/blob/main/RULES.md#ssrf"
+        }
+      ]
+    },
+    {
+      "id": "ssrf",
+      "severity": "high",
+      "confidence": "likely",
+      "owasp": "A10:2021",
+      "cwe": 918,
+      "title": "Server fetches a URL the caller controls",
+      "why": "The destination of this request comes from the caller, so they choose which host the server connects to. That includes hosts they cannot reach themselves: the cloud metadata endpoint that hands out IAM credentials, internal services that skip authentication because they are 'not exposed', and anything bound to localhost.",
+      "location": {
+        "path": "app/api/proxy/route.ts",
+        "line": 32,
+        "col": 28
+      },
+      "snippet": {
+        "path": "app/api/proxy/route.ts",
+        "startLine": 30,
+        "lines": [
+          "  const gotUrl = url.searchParams.get('gotUrl')",
+          "  if (gotUrl) {",
+          "    const upstream = await got.get(gotUrl)",
+          "    return NextResponse.json(upstream.body)",
+          "  }"
+        ],
+        "highlight": {
+          "line": 32,
+          "startCol": 28,
+          "endCol": 43,
+          "label": "destination chosen by the caller"
+        }
+      },
+      "context": {
+        "framework": "next",
+        "route": "/api/proxy",
+        "evidence": "the URL argument is caller-controlled"
+      },
+      "remediation": [
+        {
+          "framework": "next",
+          "summary": "Validate the URL in the route handler before fetching, and disable redirect following.",
+          "patch": "const url = assertAllowedUrl(body.url)\nconst upstream = await fetch(url, { redirect: 'error' })",
+          "safety": "manual"
+        },
+        {
+          "summary": "Check the destination against an allowlist of hosts before fetching it. Blocklists do not work here: DNS rebinding, redirects, and IPv6-mapped addresses all defeat them.",
+          "patch": "// lib/safe-fetch.ts\nconst ALLOWED_HOSTS = new Set(['api.partner.com', 'cdn.example.com'])\n\nexport function assertAllowedUrl(raw: string): URL {\n  const url = new URL(raw)\n  if (url.protocol !== 'https:') throw new Error('only https is allowed')\n  if (!ALLOWED_HOSTS.has(url.hostname)) throw new Error('host not allowed')\n  return url\n}",
+          "safety": "manual"
+        }
+      ],
+      "references": [
+        {
+          "kind": "owasp",
+          "id": "A10:2021",
+          "url": "https://owasp.org/Top10/A10_2021-Server-Side_Request_Forgery_%28SSRF%29/"
+        },
+        {
+          "kind": "cwe",
+          "id": "CWE-918",
+          "url": "https://cwe.mitre.org/data/definitions/918.html"
+        },
+        {
+          "kind": "docs",
+          "id": "RULES.md#ssrf",
+          "url": "https://github.com/suthat/owlwarden/blob/main/RULES.md#ssrf"
+        }
+      ]
+    },
+    {
+      "id": "ssrf",
+      "severity": "high",
+      "confidence": "likely",
+      "owasp": "A10:2021",
+      "cwe": 918,
+      "title": "Server fetches a URL the caller controls",
+      "why": "The destination of this request comes from the caller, so they choose which host the server connects to. That includes hosts they cannot reach themselves: the cloud metadata endpoint that hands out IAM credentials, internal services that skip authentication because they are 'not exposed', and anything bound to localhost.",
+      "location": {
+        "path": "app/api/proxy/route.ts",
+        "line": 40,
+        "col": 7
+      },
+      "snippet": {
+        "path": "app/api/proxy/route.ts",
+        "startLine": 38,
+        "lines": [
+          "  if (nodeUrl) {",
+          "    await new Promise<void>((resolve, reject) => {",
+          "      https.get(nodeUrl, (res) => {",
+          "        res.resume()",
+          "        res.on('end', () => resolve())"
+        ],
+        "highlight": {
+          "line": 40,
+          "startCol": 7,
+          "endCol": 36,
           "label": "destination chosen by the caller"
         }
       },
@@ -362,7 +494,7 @@ expression: encoded
       "location": {
         "path": "app/lib/crypto.ts",
         "line": 8,
-        "col": 24
+        "col": 35
       },
       "snippet": {
         "path": "app/lib/crypto.ts",
@@ -376,16 +508,27 @@ expression: encoded
         ],
         "highlight": {
           "line": 8,
-          "startCol": 24,
-          "endCol": 41,
+          "startCol": 35,
+          "endCol": 40,
           "label": "fast hash protecting a credential"
         }
       },
       "context": {
         "framework": "next",
-        "evidence": "md5 used for `passwordhash`"
+        "evidence": "createHash('md5') used for `passwordhash`"
       },
       "remediation": [
+        {
+          "framework": "next",
+          "summary": "Replace the broken digest algorithm with sha256 (or prefer scrypt/argon2 for passwords).",
+          "patch": "'sha256'",
+          "safety": "safe"
+        },
+        {
+          "summary": "Replace md5/sha1 with a stronger digest when the hash protects a secret.",
+          "patch": "'sha256'",
+          "safety": "safe"
+        },
         {
           "framework": "next",
           "summary": "Use node:crypto in the route handler. Note that the edge runtime has no node:crypto — use globalThis.crypto.randomUUID() and Web Crypto there, or pin the route to nodejs.",
@@ -603,12 +746,12 @@ expression: encoded
       "why": "The whole redirect target comes from the request, so a link to this endpoint can send a visitor anywhere. The URL they click genuinely belongs to you, which is what makes the page they land on convincing — and on an OAuth callback the authorisation code goes with them.",
       "location": {
         "path": "app/api/proxy/route.ts",
-        "line": 30,
+        "line": 50,
         "col": 5
       },
       "snippet": {
         "path": "app/api/proxy/route.ts",
-        "startLine": 28,
+        "startLine": 48,
         "lines": [
           "  // open-redirect",
           "  if (next) {",
@@ -616,7 +759,7 @@ expression: encoded
           "  }"
         ],
         "highlight": {
-          "line": 30,
+          "line": 50,
           "startCol": 5,
           "endCol": 19,
           "label": "destination chosen by the caller"
@@ -668,12 +811,77 @@ expression: encoded
       "why": "The whole redirect target comes from the request, so a link to this endpoint can send a visitor anywhere. The URL they click genuinely belongs to you, which is what makes the page they land on convincing — and on an OAuth callback the authorisation code goes with them.",
       "location": {
         "path": "app/api/proxy/route.ts",
-        "line": 36,
+        "line": 56,
         "col": 5
       },
       "snippet": {
         "path": "app/api/proxy/route.ts",
-        "startLine": 34,
+        "startLine": 54,
+        "lines": [
+          "  const extraNext = url.searchParams.get('extraNext')",
+          "  if (extraNext) {",
+          "    redirect(extraNext)",
+          "  }"
+        ],
+        "highlight": {
+          "line": 56,
+          "startCol": 5,
+          "endCol": 24,
+          "label": "destination chosen by the caller"
+        }
+      },
+      "context": {
+        "framework": "next",
+        "route": "/api/proxy",
+        "evidence": "redirect target is caller-controlled"
+      },
+      "remediation": [
+        {
+          "framework": "next",
+          "summary": "Validate before calling redirect(); request.nextUrl.origin is the base.",
+          "patch": "import { redirect } from 'next/navigation'\n\nconst next = request.nextUrl.searchParams.get('next')\nredirect(safeRedirect(next, request.nextUrl.origin))",
+          "safety": "manual"
+        },
+        {
+          "summary": "Resolve the target against your own origin and refuse anything that lands elsewhere. Do not use a startsWith('/') check: '//evil.com' passes it and leaves the site.",
+          "patch": "// lib/safe-redirect.ts\nexport function safeRedirect(target: unknown, base: string, fallback = '/'): string {\n  if (typeof target !== 'string') return fallback\n  try {\n    const resolved = new URL(target, base)\n    // Same origin only. This rejects '//evil.com', 'https://evil.com',\n    // and 'javascript:' alike. A leading-slash test does not: the browser\n    // reads '//evil.com' as a URL to another host.\n    return resolved.origin === new URL(base).origin ? resolved.pathname + resolved.search : fallback\n  } catch {\n    return fallback\n  }\n}",
+          "safety": "manual"
+        }
+      ],
+      "references": [
+        {
+          "kind": "owasp",
+          "id": "A01:2021",
+          "url": "https://owasp.org/Top10/A01_2021-Broken_Access_Control/"
+        },
+        {
+          "kind": "cwe",
+          "id": "CWE-601",
+          "url": "https://cwe.mitre.org/data/definitions/601.html"
+        },
+        {
+          "kind": "docs",
+          "id": "RULES.md#open-redirect",
+          "url": "https://github.com/suthat/owlwarden/blob/main/RULES.md#open-redirect"
+        }
+      ]
+    },
+    {
+      "id": "open-redirect",
+      "severity": "medium",
+      "confidence": "likely",
+      "owasp": "A01:2021",
+      "cwe": 601,
+      "title": "Redirect target comes from the caller",
+      "why": "The whole redirect target comes from the request, so a link to this endpoint can send a visitor anywhere. The URL they click genuinely belongs to you, which is what makes the page they land on convincing — and on an OAuth callback the authorisation code goes with them.",
+      "location": {
+        "path": "app/api/proxy/route.ts",
+        "line": 62,
+        "col": 5
+      },
+      "snippet": {
+        "path": "app/api/proxy/route.ts",
+        "startLine": 60,
         "lines": [
           "  if (manualNext) {",
           "    const headers = new Headers()",
@@ -682,7 +890,7 @@ expression: encoded
           "  }"
         ],
         "highlight": {
-          "line": 36,
+          "line": 62,
           "startCol": 5,
           "endCol": 40,
           "label": "destination chosen by the caller"

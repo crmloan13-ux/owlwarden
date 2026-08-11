@@ -38,6 +38,7 @@
 pub mod build;
 pub mod ci_unpinned_action;
 pub mod cors;
+pub mod csrf_cross_origin_post;
 pub mod decorator;
 pub mod hardcoded_secret;
 pub mod insecure_cookie;
@@ -63,6 +64,9 @@ use owlwarden_static::rule::{FileRule, ProjectRule, RuleInfo};
 
 pub use ci_unpinned_action::CiUnpinnedAction;
 pub use cors::CorsPermissive;
+pub use csrf_cross_origin_post::{
+    CsrfCrossOriginPost, CsrfCrossOriginPostDetector, csrf_cross_origin_post_detector,
+};
 pub use hardcoded_secret::HardcodedSecret;
 pub use insecure_cookie::InsecureCookie;
 pub use known_vulnerable_dependency::{
@@ -196,6 +200,13 @@ pub fn advisory_rule_infos() -> Vec<Arc<dyn RuleInfo>> {
     vec![Arc::new(KnownVulnerableDependency)]
 }
 
+/// Active-network rules that are catalogue entries but run via
+/// [`csrf_cross_origin_post_detector`] when `--allow-active` is set.
+#[must_use]
+pub fn active_rule_infos() -> Vec<Arc<dyn RuleInfo>> {
+    vec![Arc::new(CsrfCrossOriginPost)]
+}
+
 /// Every rule, as the shape that only needs its metadata and remediation.
 ///
 /// The catalogue, `explain`, the coverage table, and the framework-coverage
@@ -211,6 +222,9 @@ pub fn all_rules() -> Vec<Arc<dyn RuleInfo>> {
         rules.push(rule);
     }
     for rule in advisory_rule_infos() {
+        rules.push(rule);
+    }
+    for rule in active_rule_infos() {
         rules.push(rule);
     }
     rules.sort_by(|left, right| left.meta().id.cmp(&right.meta().id));

@@ -23,6 +23,10 @@ pub struct ScanSettings {
     pub min_severity: Severity,
     /// Name of the preset in force, for the report header.
     pub preset: String,
+    /// Project-relative paths that changed since the last scan. When absent or
+    /// empty the static engine walks every file; when set only those paths are
+    /// re-parsed for file rules ([ADR 0023](../../../docs/adr/0023-incremental-watch.md)).
+    pub dirty_paths: Option<Vec<String>>,
 }
 
 impl Default for ScanSettings {
@@ -32,6 +36,7 @@ impl Default for ScanSettings {
             min_confidence: Confidence::Possible,
             min_severity: Severity::Info,
             preset: "quick".to_owned(),
+            dirty_paths: None,
         }
     }
 }

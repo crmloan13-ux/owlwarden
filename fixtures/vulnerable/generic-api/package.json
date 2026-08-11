@@ -1,0 +1,6 @@
+{
+  "name": "generic-api-vuln",
+  "private": true,
+  "version": "0.0.0",
+  "description": "No framework package — exercises the generic profile (outside the 12×12 matrix)."
+}

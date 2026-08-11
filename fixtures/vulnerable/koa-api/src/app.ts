@@ -1,5 +1,6 @@
 // Fixture: Koa. Middleware receives `ctx`; responses are often `ctx.body = …`
 // and cookies are `ctx.cookies.set(...)`.
+import https from 'node:https'
 import axios from 'axios'
 import Koa from 'koa'
 import Router from '@koa/router'
@@ -75,6 +76,30 @@ router.post('/import2', async (ctx) => {
   // ssrf: axios reaches a second caller-controlled host.
   const upstream = await axios.get(body.callerUrl as string)
   ctx.body = upstream.data
+})
+
+router.get('/go3', async (ctx) => {
+  // open-redirect: a third caller-chosen target.
+  ctx.redirect(ctx.query.extraNext as string)
+})
+
+router.post('/import3', async (ctx) => {
+  const body = ctx.request.body as { gotUrl?: string }
+  // ssrf: got reaches a third caller-controlled host.
+  const upstream = await got.get(body.gotUrl as string)
+  ctx.body = upstream.body
+})
+
+router.post('/import4', async (ctx) => {
+  const body = ctx.request.body as { nodeUrl?: string }
+  // ssrf: node https.get to a fourth caller-controlled host.
+  await new Promise<void>((resolve, reject) => {
+    https.get(body.nodeUrl as string, (up) => {
+      up.resume()
+      up.on('end', () => resolve())
+    }).on('error', reject)
+  })
+  ctx.body = { ok: true }
 })
 
 app.use(router.routes()).use(router.allowedMethods())

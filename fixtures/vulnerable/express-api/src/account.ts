@@ -1,4 +1,5 @@
 import { createHash, createCipheriv } from 'node:crypto'
+import https from 'node:https'
 import axios from 'axios'
 import express from 'express'
 
@@ -39,6 +40,29 @@ router.post('/import2', async (req, res) => {
   // ssrf: axios reaches a second caller-controlled host.
   const upstream = await axios.get(req.body.callerUrl)
   res.json(upstream.data)
+})
+
+
+router.get('/login3', (req, res) => {
+  // open-redirect: status-first form — still caller-controlled.
+  res.redirect(302, req.query.extraNext as string)
+})
+
+router.post('/import3', async (req, res) => {
+  // ssrf: got reaches a third caller-controlled host.
+  const upstream = await got.get(req.body.gotUrl)
+  res.json(upstream.body)
+})
+
+router.post('/import4', async (req, res) => {
+  // ssrf: node https.get to a fourth caller-controlled host.
+  await new Promise<void>((resolve, reject) => {
+    https.get(req.body.nodeUrl as string, (up) => {
+      up.resume()
+      up.on('end', () => resolve())
+    }).on('error', reject)
+  })
+  res.json({ ok: true })
 })
 
 // weak-crypto: ECB leaks structure — identical plaintext blocks produce

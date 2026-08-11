@@ -1,12 +1,14 @@
 # owlwarden
 
-Security scanner for Node web apps — built so coding agents and humans get the
-same answer: the line, a fix, and a confidence level. Rust engine, TypeScript
-CLI on npm. Nothing leaves your machine.
+Local-first security floor for Node web apps — built so coding agents and humans
+get the same answer: the line, a fix, and an honest confidence level. Rust
+engine, TypeScript CLI on npm. Nothing leaves your machine unless you opt in.
 
-**v0.3.0** — `--fix` (Safe only), `--osv` (Google OSV), `--allow-active`
-scaffold, twelve frameworks, WASM plugins (source-only), and `owlwarden mcp`.
-Site: [https://suthat.github.io/owlwarden/](https://suthat.github.io/owlwarden/).
+**v0.5.0** — fourteen rules, CI-ready SARIF/JUnit and a first-party GitHub
+Action, active CSRF canary (staging + `--allow-active`), offline OSV indexes,
+plugin artifact integrity, stackable `--format`, incremental `watch`, read-only
+MCP for agents. Site:
+[https://suthat.github.io/owlwarden/](https://suthat.github.io/owlwarden/).
 See [ROADMAP.md](ROADMAP.md).
 
 ```bash
@@ -38,7 +40,7 @@ output in CI.
 
 More: [docs/explanation/agent-integration.md](docs/explanation/agent-integration.md).
 
-Twelve rules, nine of the OWASP Top 10 categories. First-class fixes for
+Fourteen rules, nine of the OWASP Top 10 categories. First-class fixes for
 Next.js, Nuxt, NestJS, Express, Fastify, Hono, Koa, Hapi, Sails.js, Astro,
 Remix, and Gatsby. Gaps are listed by `owlwarden coverage`.
 
@@ -157,7 +159,7 @@ Flags win over the file. Config is never loaded from above the scan root.
 
 ## Safety
 
-- No network without `--target`. With `--target`, scope is deny-by-default.
+- No network without `--target` or `--osv`. With `--target`, scope is deny-by-default.
 - Reads stay inside the project root; outbound symlinks are refused;
   `node_modules` and `.gitignore` are respected; size caps apply.
 - No telemetry.
@@ -169,13 +171,14 @@ Details: [SECURITY.md](SECURITY.md).
 ## Limits (honest ones)
 
 - Not all of OWASP. `coverage` lists the gaps. A04 is out of reach on purpose.
-- Dynamic checks are passive and opt-in. No active (state-changing) probes yet.
+- Dynamic checks are passive by default. Active probes (`csrf-cross-origin-post`)
+  need `--target` and `--allow-active` — staging only, not in CI Action.
 - Other stacks get a generic scan; the twelve named frameworks get tailored
   fixes. The matrix is locked in CI.
 - Origin tracking is one hop, not a full taint engine
   ([ADR 0012](docs/adr/0012-request-origin-not-taint.md)).
-- Plugins are source-only WASM. MCP is read-only / static. Autofix (`--fix`)
-  is later.
+- Plugins are source-only WASM. No hosted plugin store. MCP is read-only /
+  static. `--fix` applies Safe highlight replacements only (never `Possible`).
 
 [ROADMAP.md](ROADMAP.md) has the order.
 

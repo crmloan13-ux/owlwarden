@@ -32,12 +32,21 @@ const MAX_TEXT_BYTES: usize = 4_096;
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct RawArtifact {
+    path: String,
+    sha256: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct RawManifest {
     schema_version: u64,
     id: String,
     version: String,
     #[serde(default)]
     capabilities: ManifestCapabilities,
+    #[serde(default)]
+    artifact: Option<RawArtifact>,
     rules: Vec<RawRule>,
 }
 
@@ -68,6 +77,15 @@ pub struct PluginRule {
     pub meta: DetectorMeta,
 }
 
+/// Declared WASM artifact path and expected SHA-256 digest (ADR 0021).
+#[derive(Debug, Clone)]
+pub struct PluginArtifact {
+    /// Path relative to the plugin directory, e.g. `"plugin.wasm"`.
+    pub path: String,
+    /// Lowercase hex SHA-256 of the artifact bytes.
+    pub sha256: String,
+}
+
 /// A parsed, validated `owlwarden.plugin.json`.
 #[derive(Debug, Clone)]
 pub struct PluginManifest {
@@ -78,6 +96,8 @@ pub struct PluginManifest {
     pub version: String,
     /// What the plugin asked for.
     pub capabilities: ManifestCapabilities,
+    /// Optional pinned artifact digest checked before load.
+    pub artifact: Option<PluginArtifact>,
     /// The rules it contributes. Never empty — [`Self::parse`] refuses a
     /// manifest that declares none.
     pub rules: Vec<PluginRule>,
@@ -131,10 +151,16 @@ impl PluginManifest {
             .map(|rule| build_rule(&raw.id, rule))
             .collect::<Result<Vec<_>, _>>()?;
 
+        let artifact = raw
+            .artifact
+            .map(|artifact| crate::integrity::parse_artifact(artifact.path, artifact.sha256))
+            .transpose()?;
+
         Ok(Self {
             id: raw.id,
             version,
             capabilities: raw.capabilities,
+            artifact,
             rules,
         })
     }
@@ -280,6 +306,18 @@ mod tests {
         assert!(matches!(
             PluginManifest::parse(&json, "p"),
             Err(PluginError::ConfidenceTooHigh { .. })
+        ));
+    }
+
+    #[test]
+    fn artifact_with_traversal_in_path_is_refused() {
+        let json = valid_manifest().replace(
+            "\"version\": \"0.1.0\",",
+            "\"version\": \"0.1.0\", \"artifact\": { \"path\": \"../evil.wasm\", \"sha256\": \"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef\" },",
+        );
+        assert!(matches!(
+            PluginManifest::parse(&json, "p"),
+            Err(PluginError::InvalidArtifact { .. })
         ));
     }
 

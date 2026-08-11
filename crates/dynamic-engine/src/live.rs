@@ -100,6 +100,8 @@ pub struct LiveScan {
     pub engine: Arc<DynamicEngine>,
     /// Concrete transport for the request audit log (`--allow-active`).
     pub http: Arc<ReqwestTransport>,
+    /// Validated probe URL (shared with active detectors).
+    pub probe: ProbeTarget,
 }
 
 /// Builds the network stack and dynamic engine from CLI/napi inputs.
@@ -138,7 +140,8 @@ pub fn prepare_live(
         allow_active,
     )?);
 
-    let engine = Arc::new(DynamicEngine::new(ProbeTarget::from_target(&target)));
+    let probe = ProbeTarget::from_target(&target);
+    let engine = Arc::new(DynamicEngine::new(probe.clone()));
 
     Ok(LiveScan {
         network: NetworkStack {
@@ -149,6 +152,7 @@ pub fn prepare_live(
         },
         engine,
         http,
+        probe,
     })
 }
 

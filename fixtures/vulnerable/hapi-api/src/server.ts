@@ -1,4 +1,5 @@
 // Fixture: Hapi. Toolkit is `h`; handlers receive `request`.
+import https from 'node:https'
 import axios from 'axios'
 import Hapi from '@hapi/hapi'
 import { Pool } from 'pg'
@@ -100,6 +101,43 @@ server.route({
     // ssrf: axios reaches a second caller-controlled host.
     const upstream = await axios.get(body.callerUrl as string)
     return h.response(upstream.data)
+  },
+})
+
+server.route({
+  method: 'GET',
+  path: '/go3',
+  handler: (request, h) => {
+    // open-redirect: a third caller-chosen target.
+    const extraNext = (request.query as { extraNext?: string }).extraNext as string
+    return h.redirect(extraNext)
+  },
+})
+
+server.route({
+  method: 'POST',
+  path: '/import3',
+  handler: async (request, h) => {
+    const body = request.payload as { gotUrl?: string }
+    // ssrf: got reaches a third caller-controlled host.
+    const upstream = await got.get(body.gotUrl as string)
+    return h.response(upstream.body)
+  },
+})
+
+server.route({
+  method: 'POST',
+  path: '/import4',
+  handler: async (request, h) => {
+    const body = request.payload as { nodeUrl?: string }
+    // ssrf: node https.get to a fourth caller-controlled host.
+    await new Promise<void>((resolve, reject) => {
+      https.get(body.nodeUrl as string, (up) => {
+        up.resume()
+        up.on('end', () => resolve())
+      }).on('error', reject)
+    })
+    return h.response({ ok: true })
   },
 })
 

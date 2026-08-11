@@ -10,6 +10,83 @@ are listed here under Changed.
 
 ## [Unreleased]
 
+## [0.5.0] — 2026-08-11
+
+Depth beyond CI: first active detector, offline OSV index, plugin integrity,
+stackable formats, incremental watch
+([ADR 0019](docs/adr/0019-first-party-active-detector.md)–[0023](docs/adr/0023-incremental-watch.md)).
+
+### Added
+
+- **`csrf-cross-origin-post`** — canary cross-origin POST behind `--allow-active`
+  (ADR 0019). Staging only.
+- **`owlwarden osv update`**, **`--osv-db`**, fail-closed **`--osv --offline`**
+  (ADR 0020). Index is lockfile-scoped; not bundled in npm.
+- **Plugin `artifact.sha256`**, optional ed25519 `.sig`, trust roots via
+  `OWLWARDEN_PLUGIN_TRUST` / `.owlwarden/plugin-trust.json`,
+  **`--require-signed-plugins`** (ADR 0021). Still not a hosted registry.
+- **Repeated `--format`** — one scan, N renders (ADR 0022).
+- **Incremental `watch`** — dirty-path re-parse + finding merge (ADR 0023).
+
+### Changed
+
+- Version **0.5.0**. Release-assurance (cosign/SBOM) moves to the next roadmap
+  slice.
+
+### Security
+
+- Offline OSV index ingest sanitises advisory ids, package names, versions, and
+  summaries before they enter findings (control/ANSI stripping, shared with live
+  OSV).
+- `owlwarden osv update` writes indexes via atomic `write_replacing` so a
+  partial write cannot leave CI with a truncated index file.
+
+### Fixed
+
+- Incremental `watch` refuses to hash files above the source size cap (2 MiB),
+  matching bounded read limits elsewhere — giant blobs no longer blow the
+  content-hash cache.
+
+## [0.4.0] — 2026-08-11
+
+CI-ready depth: pipelines teams already run, plus a deeper fixture corpus so
+those pipelines gate on findings worth trusting
+([ADR 0017](docs/adr/0017-ci-reporting-surface.md),
+[ADR 0018](docs/adr/0018-corpus-depth-bar.md)).
+
+### Added
+
+- **`--format sarif`** — SARIF 2.1.0 rendering of the existing `Report` (ADR
+  0017). For GitHub code scanning and similar consumers.
+- **`--format junit`** — JUnit XML, one failure per finding. Exit codes stay on
+  the CLI.
+- **GitHub Action** at [`action/`](action/) — composite over the published CLI;
+  preserves exit 0 / 1 / 2. See [docs/how-to/ci.md](docs/how-to/ci.md).
+- **Corpus depth** — dialect tempting on every clean twin; `ssrf` shapes now
+  include `got.get` and `https.get`/`http.get` (4); `open-redirect` adds an
+  extra/status-first shape (3); generic-profile fixtures outside the 144-cell
+  matrix.
+- **More Safe autofix** — `weak-crypto` HashedSecret (algorithm literal
+  `'md5'`/`'sha1'` → `'sha256'`, keeping `createHmac` keys and `crypto.`
+  receivers) and `insecure-cookie` options objects that only carry security
+  keys (or `{}`).
+- **`owlwarden plugin inspect <path>`** — print capabilities from
+  `owlwarden.plugin.json` without loading WASM (local preview, not a signed
+  registry).
+- Cold-scan performance baseline harness
+  ([docs/how-to/performance.md](docs/how-to/performance.md)).
+
+### Security
+
+- GitHub Action drops free-form `args` (shell injection + `--allow-*` bypass);
+  typed `osv` input replaces ad-hoc flags; path/out/version reject CR/LF/`..`;
+  `GITHUB_OUTPUT` uses a heredoc delimiter.
+- `plugin inspect` confines paths under cwd, requires `realpath` under the
+  working tree, and reads via `readFileBounded` (no symlink leaf).
+- Action smoke workflow pins upstream actions by full commit SHA.
+- SARIF endpoint URIs strip control characters; `plugin inspect` bounds JSON
+  nesting depth after parse.
+
 ### Fixed
 
 - MCP `scan_project` / `scan_file` send the flat NAPI request shape (nested
@@ -21,6 +98,8 @@ are listed here under Changed.
   detectors cannot bypass `ACTIVE_MIN_INTERVAL`.
 - OSV advisory summaries strip control / ANSI characters before they enter
   findings; package-lock line lookup is O(lines) not O(packages × lines).
+- `weak-crypto` Safe autofix no longer rewrites the whole `createHash` /
+  `createHmac` call (which truncated HMAC keys and stripped `crypto.`).
 
 ## [0.3.0] — 2026-08-10
 
@@ -280,7 +359,10 @@ does and does not reach.
 - Bounded file count, file size, total bytes, and parser recursion depth, so a
   hostile repository cannot exhaust memory or the stack.
 
-[Unreleased]: https://github.com/suthat/owlwarden/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/suthat/owlwarden/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/suthat/owlwarden/compare/v0.4.0...v0.5.0
+[0.4.0]: https://github.com/suthat/owlwarden/compare/v0.3.0...v0.4.0
+[0.3.0]: https://github.com/suthat/owlwarden/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/suthat/owlwarden/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/suthat/owlwarden/compare/v0.0.2...v0.1.0
 [0.0.2]: https://github.com/suthat/owlwarden/compare/v0.0.1...v0.0.2

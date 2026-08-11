@@ -4,7 +4,7 @@ expression: rendered
 ---
 
 ◉ᴥ◉ 7 files · owasp-top10 · 0.12s
-17 findings (8 high, 9 medium)
+20 findings (10 high, 10 medium)
 
 ────────────────────────────────────────────────────────────────────────
 HIGH  likely  SQL query built by string interpolation  A03:2021
@@ -33,14 +33,14 @@ HIGH  likely  SQL query built by string interpolation  A03:2021
 ────────────────────────────────────────────────────────────────────────
 HIGH  likely  Server fetches a URL the caller controls  A10:2021
 ────────────────────────────────────────────────────────────────────────
- app/api/proxy/route.ts:18:28  ( /api/proxy)
+ app/api/proxy/route.ts:19:28  ( /api/proxy)
 
-  16 │   // ssrf
-  17 │   if (target) {
-  18 │     const upstream = await fetch(target)
+  17 │   // ssrf
+  18 │   if (target) {
+  19 │     const upstream = await fetch(target)
      │                            ~~~~~~~~~~~~~ destination chosen by the caller
-  19 │     return NextResponse.json(await upstream.json())
-  20 │   }
+  20 │     return NextResponse.json(await upstream.json())
+  21 │   }
 
  ↳  fix (Next.js)  Validate the URL in the route handler before
                    fetching, and disable redirect following.
@@ -58,14 +58,64 @@ HIGH  likely  Server fetches a URL the caller controls  A10:2021
 ────────────────────────────────────────────────────────────────────────
 HIGH  likely  Server fetches a URL the caller controls  A10:2021
 ────────────────────────────────────────────────────────────────────────
- app/api/proxy/route.ts:24:28  ( /api/proxy)
+ app/api/proxy/route.ts:25:28  ( /api/proxy)
 
-  22 │   // ssrf: axios reaches a second caller-controlled host.
-  23 │   if (callerUrl) {
-  24 │     const upstream = await axios.get(callerUrl)
+  23 │   // ssrf: axios reaches a second caller-controlled host.
+  24 │   if (callerUrl) {
+  25 │     const upstream = await axios.get(callerUrl)
      │                            ~~~~~~~~~~~~~~~~~~~~ destination chosen by the caller
-  25 │     return NextResponse.json(upstream.data)
-  26 │   }
+  26 │     return NextResponse.json(upstream.data)
+  27 │   }
+
+ ↳  fix (Next.js)  Validate the URL in the route handler before
+                   fetching, and disable redirect following.
+                   const url = assertAllowedUrl(body.url)
+                   const upstream = await fetch(url, { redirect: 'error' })
+ ↳  why            The destination of this request comes from the
+                   caller, so they choose which host the server connects
+                   to. That includes hosts they cannot reach themselves:
+                   the cloud metadata endpoint that hands out IAM
+                   credentials, internal services that skip
+                   authentication because they are 'not exposed', and
+                   anything bound to localhost.
+ ⓘ  ref            OWASP A10:2021 · CWE-918 · RULES.md#ssrf
+
+────────────────────────────────────────────────────────────────────────
+HIGH  likely  Server fetches a URL the caller controls  A10:2021
+────────────────────────────────────────────────────────────────────────
+ app/api/proxy/route.ts:32:28  ( /api/proxy)
+
+  30 │   const gotUrl = url.searchParams.get('gotUrl')
+  31 │   if (gotUrl) {
+  32 │     const upstream = await got.get(gotUrl)
+     │                            ~~~~~~~~~~~~~~~ destination chosen by the caller
+  33 │     return NextResponse.json(upstream.body)
+  34 │   }
+
+ ↳  fix (Next.js)  Validate the URL in the route handler before
+                   fetching, and disable redirect following.
+                   const url = assertAllowedUrl(body.url)
+                   const upstream = await fetch(url, { redirect: 'error' })
+ ↳  why            The destination of this request comes from the
+                   caller, so they choose which host the server connects
+                   to. That includes hosts they cannot reach themselves:
+                   the cloud metadata endpoint that hands out IAM
+                   credentials, internal services that skip
+                   authentication because they are 'not exposed', and
+                   anything bound to localhost.
+ ⓘ  ref            OWASP A10:2021 · CWE-918 · RULES.md#ssrf
+
+────────────────────────────────────────────────────────────────────────
+HIGH  likely  Server fetches a URL the caller controls  A10:2021
+────────────────────────────────────────────────────────────────────────
+ app/api/proxy/route.ts:40:7  ( /api/proxy)
+
+  38 │   if (nodeUrl) {
+  39 │     await new Promise<void>((resolve, reject) => {
+  40 │       https.get(nodeUrl, (res) => {
+     │       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ destination chosen by the caller
+  41 │         res.resume()
+  42 │         res.on('end', () => resolve())
 
  ↳  fix (Next.js)  Validate the URL in the route handler before
                    fetching, and disable redirect following.
@@ -129,31 +179,18 @@ HIGH  likely  Credential hardcoded in source  A07:2021
 ────────────────────────────────────────────────────────────────────────
 HIGH  likely  Broken cryptographic primitive protecting a secret  A02:2021
 ────────────────────────────────────────────────────────────────────────
- app/lib/crypto.ts:8:24
+ app/lib/crypto.ts:8:35
 
    6 │ export function hashPassword(password: string): string {
    7 │   // weak-crypto: MD5 over a password.
    8 │   const passwordHash = createHash('md5').update(password).digest('hex')
-     │                        ~~~~~~~~~~~~~~~~~ fast hash protecting a credential
+     │                                   ~~~~~ fast hash protecting a credential
    9 │   return passwordHash
   10 │ }
 
- ↳  fix (Next.js)  Use node:crypto in the route handler. Note that the
-                   edge runtime has no node:crypto — use
-                   globalThis.crypto.randomUUID() and Web Crypto there,
-                   or pin the route to nodejs.
-                   import { randomBytes, randomUUID, scrypt } from 'node:crypto'
-                   
-                   // Tokens and session ids: unpredictable, not merely random-looking.
-                   const sessionId = randomUUID()
-                   const resetToken = randomBytes(32).toString('base64url')
-                   
-                   // Passwords: a slow hash with a per-password salt. bcrypt and argon2 are
-                   // equally correct; scrypt needs no dependency.
-                   const salt = randomBytes(16)
-                   const hash = await new Promise<Buffer>((resolve, reject) =>
-                     scrypt(password, salt, 64, (error, key) => (error ? reject(error) : resolve(key))),
-                   )
+ ↳  fix (Next.js)  Replace the broken digest algorithm with sha256 (or
+                   prefer scrypt/argon2 for passwords).
+                   'sha256'
  ↳  why            This hash is fast, and speed is the attacker's
                    advantage: a commodity GPU tries billions of
                    candidates a second, so a leaked table of these
@@ -237,13 +274,13 @@ MEDIUM  likely  GitHub Action is not pinned to a commit SHA  A08:2021
 ────────────────────────────────────────────────────────────────────────
 MEDIUM  likely  Redirect target comes from the caller  A01:2021
 ────────────────────────────────────────────────────────────────────────
- app/api/proxy/route.ts:30:5  ( /api/proxy)
+ app/api/proxy/route.ts:50:5  ( /api/proxy)
 
-  28 │   // open-redirect
-  29 │   if (next) {
-  30 │     redirect(next)
+  48 │   // open-redirect
+  49 │   if (next) {
+  50 │     redirect(next)
      │     ~~~~~~~~~~~~~~ destination chosen by the caller
-  31 │   }
+  51 │   }
 
  ↳  fix (Next.js)  Validate before calling redirect();
                    request.nextUrl.origin is the base.
@@ -262,14 +299,39 @@ MEDIUM  likely  Redirect target comes from the caller  A01:2021
 ────────────────────────────────────────────────────────────────────────
 MEDIUM  likely  Redirect target comes from the caller  A01:2021
 ────────────────────────────────────────────────────────────────────────
- app/api/proxy/route.ts:36:5  ( /api/proxy)
+ app/api/proxy/route.ts:56:5  ( /api/proxy)
 
-  34 │   if (manualNext) {
-  35 │     const headers = new Headers()
-  36 │     headers.set('Location', manualNext)
+  54 │   const extraNext = url.searchParams.get('extraNext')
+  55 │   if (extraNext) {
+  56 │     redirect(extraNext)
+     │     ~~~~~~~~~~~~~~~~~~~ destination chosen by the caller
+  57 │   }
+
+ ↳  fix (Next.js)  Validate before calling redirect();
+                   request.nextUrl.origin is the base.
+                   import { redirect } from 'next/navigation'
+                   
+                   const next = request.nextUrl.searchParams.get('next')
+                   redirect(safeRedirect(next, request.nextUrl.origin))
+ ↳  why            The whole redirect target comes from the request, so
+                   a link to this endpoint can send a visitor anywhere.
+                   The URL they click genuinely belongs to you, which is
+                   what makes the page they land on convincing — and on
+                   an OAuth callback the authorisation code goes with
+                   them.
+ ⓘ  ref            OWASP A01:2021 · CWE-601 · RULES.md#open-redirect
+
+────────────────────────────────────────────────────────────────────────
+MEDIUM  likely  Redirect target comes from the caller  A01:2021
+────────────────────────────────────────────────────────────────────────
+ app/api/proxy/route.ts:62:5  ( /api/proxy)
+
+  60 │   if (manualNext) {
+  61 │     const headers = new Headers()
+  62 │     headers.set('Location', manualNext)
      │     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ destination chosen by the caller
-  37 │     return new NextResponse(null, { status: 302, headers })
-  38 │   }
+  63 │     return new NextResponse(null, { status: 302, headers })
+  64 │   }
 
  ↳  fix (Next.js)  Validate before calling redirect();
                    request.nextUrl.origin is the base.

@@ -1,5 +1,6 @@
 // Fixture: a Hono service with the mistakes owlwarden should find.
 // Context is `c`; responses are `c.json` / `c.text`, cookies via setCookie.
+import https from 'node:https'
 import axios from 'axios'
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
@@ -75,6 +76,32 @@ app.post('/import2', async (c) => {
   // ssrf: axios reaches a second caller-controlled host.
   const upstream = await axios.get(body.callerUrl as string)
   return c.json(upstream.data)
+})
+
+
+app.get('/go3', (c) => {
+  // open-redirect: a third caller-chosen target.
+  const extraNext = c.req.query('extraNext') as string
+  return c.redirect(extraNext)
+})
+
+app.post('/import3', async (c) => {
+  const body = await c.req.json<{ gotUrl?: string }>()
+  // ssrf: got reaches a third caller-controlled host.
+  const upstream = await got.get(body.gotUrl as string)
+  return c.json(upstream.body)
+})
+
+app.post('/import4', async (c) => {
+  const body = await c.req.json<{ nodeUrl?: string }>()
+  // ssrf: node https.get to a fourth caller-controlled host.
+  await new Promise<void>((resolve, reject) => {
+    https.get(body.nodeUrl as string, (up) => {
+      up.resume()
+      up.on('end', () => resolve())
+    }).on('error', reject)
+  })
+  return c.json({ ok: true })
 })
 
 export default app

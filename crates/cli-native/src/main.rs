@@ -60,6 +60,7 @@ fn main() -> std::process::ExitCode {
         Command::Explain { rule, json } => run_explain(&rule, json),
         Command::Scan(args) => run_scan(&args),
         Command::Watch(args) => run_watch(&args),
+        Command::OsvUpdate { path, out } => run_osv_update(&path, out.as_deref()),
     };
 
     exit(code)
@@ -83,6 +84,17 @@ fn use_color(no_color: bool) -> bool {
 }
 
 fn run_scan(args: &ScanArgs) -> i32 {
+    run_scan_inner(args, None).0
+}
+
+/// Optional incremental inputs for watch re-scans.
+struct IncrementalHint {
+    dirty_paths: Vec<String>,
+    previous_report: Report,
+}
+
+/// Runs a scan and returns the exit code plus the report when the scan completed.
+fn run_scan_inner(args: &ScanArgs, incremental: Option<IncrementalHint>) -> (i32, Option<Report>) {
     let color = use_color(args.no_color);
     print_banner(&BannerOpts {
         color,
@@ -92,76 +104,22 @@ fn run_scan(args: &ScanArgs) -> i32 {
 
     let (file_rules, project_rules) = owlwarden_detectors::rules_for_preset(&args.preset);
     if file_rules.is_empty() && project_rules.is_empty() {
-        let known: Vec<&str> = owlwarden_detectors::PRESETS
-            .iter()
-            .map(|preset| preset.name)
-            .collect();
-        return fail(&format!(
-            "unknown preset {:?}; available presets are {}",
-            args.preset,
-            known.join(", ")
-        ));
+        return (fail(&unknown_preset_message(&args.preset)), None);
     }
 
-    let settings = ScanSettings {
-        allow_active: args.allow_active,
-        min_confidence: args.min_confidence,
-        min_severity: owlwarden_core::finding::Severity::Info,
-        preset: args.preset.clone(),
+    if let Err(code) = ci_scan_gates(args) {
+        return (code, None);
+    }
+    note_ci_suppressions(args);
+
+    let mut scan_request = match build_scan_request(args, incremental) {
+        Ok(request) => request,
+        Err(message) => return (fail(&message), None),
     };
-
-    if args.ci && args.baseline.is_some() && !args.allow_baseline {
-        return fail(
-            "--baseline under --ci requires --allow-baseline\n  \
-             omit --baseline on untrusted PRs, or pass --allow-baseline on a trusted tree",
-        );
-    }
-
-    if args.ci && !args.plugins.is_empty() && !args.allow_plugins {
-        return fail(
-            "--plugin under --ci requires --allow-plugins\n  \
-             omit --plugin on untrusted PRs, or pass --allow-plugins on a trusted tree",
-        );
-    }
-
-    let honor_suppressions = !args.ci || args.allow_suppressions;
-    // stderr even under `--ci --quiet` — stdout stays one JSON object.
-    if args.ci && !args.allow_suppressions {
-        let _ = writeln!(
-            std::io::stderr(),
-            "note: --ci ignores inline suppressions\n  \
-             pass --allow-suppressions on a trusted tree"
-        );
-    }
-
-    let baseline = match load_baseline(args.baseline.as_deref()) {
-        Ok(baseline) => baseline,
-        Err(message) => return fail(&message),
-    };
-
-    let mut scan_request = owlwarden_static::ScanRequest {
-        settings,
-        baseline,
-        write_baseline: args.write_baseline.as_ref().map(std::path::PathBuf::from),
-        honor_suppressions,
-        extra_detectors: Vec::new(),
-        network: None,
-        advisory: None,
-        correlate: None,
-    };
-
-    match load_requested_plugins(&args.plugins) {
-        Ok(detectors) => scan_request.extra_detectors.extend(detectors),
-        Err(message) => return fail(&message),
-    }
-
-    if let Err(message) = prepare_osv(args.osv, &mut scan_request) {
-        return fail(&message);
-    }
 
     let dynamic_engine = match prepare_dynamic_engine(args, &mut scan_request) {
         Ok(engine) => engine,
-        Err(message) => return fail(&message),
+        Err(message) => return (fail(&message), None),
     };
 
     let report = match owlwarden_dynamic::run_scan(
@@ -172,9 +130,75 @@ fn run_scan(args: &ScanArgs) -> i32 {
         dynamic_engine,
     ) {
         Ok(report) => report,
-        Err(error) => return fail(&error.to_string()),
+        Err(error) => return (fail(&error.to_string()), None),
     };
 
+    finish_scan_report(args, &report, color)
+}
+
+fn unknown_preset_message(preset: &str) -> String {
+    let known: Vec<&str> = owlwarden_detectors::PRESETS
+        .iter()
+        .map(|entry| entry.name)
+        .collect();
+    format!(
+        "unknown preset {preset:?}; available presets are {}",
+        known.join(", ")
+    )
+}
+
+fn note_ci_suppressions(args: &ScanArgs) {
+    // stderr even under `--ci --quiet` — stdout stays one JSON object.
+    if args.ci && !args.allow_suppressions {
+        let _ = writeln!(
+            std::io::stderr(),
+            "note: --ci ignores inline suppressions\n  \
+             pass --allow-suppressions on a trusted tree"
+        );
+    }
+}
+
+fn build_scan_request(
+    args: &ScanArgs,
+    incremental: Option<IncrementalHint>,
+) -> Result<owlwarden_static::ScanRequest, String> {
+    let baseline = load_baseline(args.baseline.as_deref())?;
+    let (dirty_paths, previous_report) = match incremental {
+        Some(hint) => (Some(hint.dirty_paths), Some(hint.previous_report)),
+        None => (None, None),
+    };
+    let mut scan_request = owlwarden_static::ScanRequest {
+        settings: ScanSettings {
+            allow_active: args.allow_active,
+            min_confidence: args.min_confidence,
+            min_severity: owlwarden_core::finding::Severity::Info,
+            preset: args.preset.clone(),
+            dirty_paths: None,
+        },
+        baseline,
+        write_baseline: args.write_baseline.as_ref().map(std::path::PathBuf::from),
+        honor_suppressions: !args.ci || args.allow_suppressions,
+        extra_detectors: Vec::new(),
+        network: None,
+        advisory: None,
+        correlate: None,
+        dirty_paths,
+        previous_report,
+    };
+    scan_request.extra_detectors.extend(load_requested_plugins(
+        &args.plugins,
+        args.require_signed_plugins,
+    )?);
+    prepare_osv(
+        args.osv,
+        args.osv_db.as_deref(),
+        args.offline,
+        &mut scan_request,
+    )?;
+    Ok(scan_request)
+}
+
+fn finish_scan_report(args: &ScanArgs, report: &Report, color: bool) -> (i32, Option<Report>) {
     if args.write_baseline.is_some() && !args.quiet {
         let _ = writeln!(
             std::io::stderr(),
@@ -182,20 +206,18 @@ fn run_scan(args: &ScanArgs) -> i32 {
             args.write_baseline.as_deref().unwrap_or("")
         );
     }
-
-    if let Err(error) = write_report(args, &report, color) {
-        return fail(&error);
+    if let Err(error) = write_report(args, report, color) {
+        return (fail(&error), None);
     }
-
     if args.report_suppressions {
-        write_suppressions(&report);
+        write_suppressions(report);
     }
-
-    if report.should_fail(args.fail_on, args.min_confidence) {
+    let exit = if report.should_fail(args.fail_on, args.min_confidence) {
         EXIT_FINDINGS
     } else {
         EXIT_CLEAN
-    }
+    };
+    (exit, Some(report.clone()))
 }
 
 /// Resolves `--target`/`--scope` into a dynamic engine, wiring it into
@@ -216,20 +238,29 @@ fn prepare_dynamic_engine(
     let engine = live.engine.clone();
     scan_request.network = Some(live.network);
     scan_request.extra_detectors.push(live.engine);
+    if args.allow_active {
+        scan_request
+            .extra_detectors
+            .push(owlwarden_detectors::csrf_cross_origin_post_detector(
+                live.probe.url.clone(),
+                live.probe.path.clone(),
+            ));
+    }
     scan_request.correlate = Some(owlwarden_dynamic::correlate);
     Ok(Some(engine))
 }
 
-/// Wires `--osv`: allowlisted OSV client + the advisory detector.
+/// Wires `--osv` / `--osv-db`: advisory client + the advisory detector.
 fn prepare_osv(
-    enabled: bool,
+    osv: bool,
+    osv_db: Option<&str>,
+    offline: bool,
     scan_request: &mut owlwarden_static::ScanRequest,
 ) -> Result<(), String> {
-    if !enabled {
+    let Some(client) = owlwarden_transport::prepare_advisory_client(osv, osv_db, offline)? else {
         return Ok(());
-    }
-    let client = owlwarden_transport::OsvHttpClient::new().map_err(|error| error.to_string())?;
-    scan_request.advisory = Some(std::sync::Arc::new(client));
+    };
+    scan_request.advisory = Some(client);
     scan_request
         .extra_detectors
         .push(owlwarden_detectors::osv_detector());
@@ -243,12 +274,91 @@ fn prepare_osv(
 /// the identical conversion, a symmetrical shape to mirror.
 fn load_requested_plugins(
     paths: &[String],
+    require_signed_plugins: bool,
 ) -> Result<Vec<std::sync::Arc<dyn owlwarden_core::detector::Detector>>, String> {
     if paths.is_empty() {
         return Ok(Vec::new());
     }
     let paths: Vec<std::path::PathBuf> = paths.iter().map(std::path::PathBuf::from).collect();
-    owlwarden_plugin_host::load_plugins(&paths).map_err(|error| error.to_string())
+    let options = owlwarden_plugin_host::LoadOptions {
+        require_signed_plugins,
+    };
+    owlwarden_plugin_host::load_plugins_with(&paths, &options).map_err(|error| error.to_string())
+}
+
+/// CI trust gates that must pass before a scan runs.
+fn ci_scan_gates(args: &ScanArgs) -> Result<(), i32> {
+    if args.ci && args.baseline.is_some() && !args.allow_baseline {
+        return Err(fail(
+            "--baseline under --ci requires --allow-baseline\n  \
+             omit --baseline on untrusted PRs, or pass --allow-baseline on a trusted tree",
+        ));
+    }
+
+    if args.ci && !args.plugins.is_empty() && !args.allow_plugins {
+        return Err(fail(
+            "--plugin under --ci requires --allow-plugins\n  \
+             omit --plugin on untrusted PRs, or pass --allow-plugins on a trusted tree",
+        ));
+    }
+
+    Ok(())
+}
+
+fn run_osv_update(project_root: &str, out: Option<&str>) -> i32 {
+    let default_out = std::path::Path::new(project_root).join(".owlwarden/osv-index.json");
+    let out_path = out.map_or(default_out, std::path::PathBuf::from);
+
+    let provider = match owlwarden_static::FsSourceProvider::new(project_root) {
+        Ok(provider) => provider,
+        Err(error) => return fail(&error.to_string()),
+    };
+    let packages = owlwarden_detectors::lockfile::collect_packages(&provider);
+    let mut seen = std::collections::HashSet::new();
+    let mut queries = Vec::new();
+    for package in packages {
+        let key = (
+            package.query.ecosystem.clone(),
+            package.query.name.clone(),
+            package.query.version.clone(),
+        );
+        if !seen.insert(key) {
+            continue;
+        }
+        queries.push(package.query);
+        if queries.len() >= owlwarden_core::limits::advisory::MAX_PACKAGES {
+            break;
+        }
+    }
+
+    let client = match owlwarden_transport::OsvHttpClient::new() {
+        Ok(client) => client,
+        Err(error) => return fail(&error.to_string()),
+    };
+    let index =
+        match owlwarden_dynamic::block_on(owlwarden_transport::fetch_index(&client, &queries)) {
+            Ok(Ok(index)) => index,
+            Ok(Err(error)) => return fail(&error.to_string()),
+            Err(error) => return fail(&error.to_string()),
+        };
+    let bytes = match owlwarden_transport::serialize_index(&index) {
+        Ok(bytes) => bytes,
+        Err(error) => return fail(&error.to_string()),
+    };
+
+    // Same nofollow write path as the npm CLI — do not follow a planted symlink
+    // at the destination (or a symlinked parent) into an attacker-chosen file.
+    if let Err(error) = owlwarden_static::safe_io::write_replacing(&out_path, &bytes) {
+        return fail(&format!("could not write {}: {error}", out_path.display()));
+    }
+
+    let _ = writeln!(
+        std::io::stderr(),
+        "wrote OSV index ({} packages queried) to {}",
+        queries.len(),
+        out_path.display()
+    );
+    EXIT_CLEAN
 }
 
 fn load_baseline(
@@ -333,13 +443,16 @@ fn run_watch(args: &ScanArgs) -> i32 {
         scope: Vec::new(),
         plugins: args.plugins.clone(),
         allow_plugins: args.allow_plugins,
+        require_signed_plugins: args.require_signed_plugins,
         allow_active: false,
         // Re-querying OSV on every save would hammer the API and the developer's
         // network; watch stays offline. Use a one-shot `scan --osv` instead.
         osv: false,
+        osv_db: None,
+        offline: false,
     };
 
-    let _ = run_scan(&watch_args);
+    let (_exit, mut previous_report) = run_scan_inner(&watch_args, None);
     // Write the baseline at most once — see the TS watch command.
     watch_args.write_baseline = None;
     let _ = writeln!(
@@ -348,28 +461,47 @@ fn run_watch(args: &ScanArgs) -> i32 {
         args.path
     );
 
-    let mut previous = tree_fingerprint(std::path::Path::new(&args.path));
+    let root = std::path::Path::new(&args.path);
+    let mut previous_snapshot = tree_snapshot(root);
     loop {
         std::thread::sleep(std::time::Duration::from_millis(500));
-        let current = tree_fingerprint(std::path::Path::new(&args.path));
-        if current != previous {
-            previous = current;
+        let current = tree_snapshot(root);
+        if current != previous_snapshot {
+            let dirty_paths = diff_snapshots(&previous_snapshot, &current);
+            previous_snapshot = current;
             let _ = writeln!(std::io::stderr(), "\n— re-scan —");
-            let _ = run_scan(&watch_args);
+            let hint = previous_report.as_ref().map(|previous| IncrementalHint {
+                dirty_paths,
+                previous_report: previous.clone(),
+            });
+            let (_exit, report) = run_scan_inner(&watch_args, hint);
+            if report.is_some() {
+                previous_report = report;
+            }
         }
     }
 }
 
-/// A cheap change detector: max mtime + file count under the project root.
-fn tree_fingerprint(root: &std::path::Path) -> (u64, u64) {
-    let mut count = 0u64;
-    let mut newest = 0u64;
-    walk_fingerprint(root, 0, &mut count, &mut newest);
-    (count, newest)
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+struct FileSnapshot {
+    mtime: u64,
+    size: u64,
 }
 
-fn walk_fingerprint(dir: &std::path::Path, depth: usize, count: &mut u64, newest: &mut u64) {
-    if depth > 8 || *count >= 5_000 {
+/// Relative path → mtime/size for incremental dirty detection.
+fn tree_snapshot(root: &std::path::Path) -> std::collections::HashMap<String, FileSnapshot> {
+    let mut snapshot = std::collections::HashMap::new();
+    walk_snapshot(root, root, 0, &mut snapshot);
+    snapshot
+}
+
+fn walk_snapshot(
+    root: &std::path::Path,
+    dir: &std::path::Path,
+    depth: usize,
+    snapshot: &mut std::collections::HashMap<String, FileSnapshot>,
+) {
+    if depth > 8 || snapshot.len() >= owlwarden_core::limits::incremental::MAX_DIRTY_PATHS * 4 {
         return;
     }
     let Ok(entries) = std::fs::read_dir(dir) else {
@@ -389,20 +521,55 @@ fn walk_fingerprint(dir: &std::path::Path, depth: usize, count: &mut u64, newest
             continue;
         };
         if file_type.is_dir() {
-            walk_fingerprint(&path, depth + 1, count, newest);
+            walk_snapshot(root, &path, depth + 1, snapshot);
             continue;
         }
         if !file_type.is_file() {
             continue;
         }
-        *count = count.saturating_add(1);
-        if let Ok(meta) = entry.metadata()
-            && let Ok(modified) = meta.modified()
-            && let Ok(duration) = modified.duration_since(std::time::UNIX_EPOCH)
-        {
-            *newest = (*newest).max(duration.as_secs());
+        let Ok(meta) = entry.metadata() else {
+            continue;
+        };
+        let mtime = meta
+            .modified()
+            .ok()
+            .and_then(|modified| modified.duration_since(std::time::UNIX_EPOCH).ok())
+            .map_or(0, |duration| duration.as_secs());
+        let rel = path
+            .strip_prefix(root)
+            .map(|relative| relative.to_string_lossy().replace('\\', "/"))
+            .unwrap_or_default();
+        if rel.is_empty() {
+            continue;
+        }
+        snapshot.insert(
+            rel,
+            FileSnapshot {
+                mtime,
+                size: meta.len(),
+            },
+        );
+    }
+}
+
+fn diff_snapshots(
+    previous: &std::collections::HashMap<String, FileSnapshot>,
+    current: &std::collections::HashMap<String, FileSnapshot>,
+) -> Vec<String> {
+    let mut dirty = Vec::new();
+    for (path, snap) in current {
+        match previous.get(path) {
+            Some(prev) if prev == snap => {}
+            _ => dirty.push(path.clone()),
         }
     }
+    for path in previous.keys() {
+        if !current.contains_key(path) {
+            dirty.push(path.clone());
+        }
+    }
+    dirty.truncate(owlwarden_core::limits::incremental::MAX_DIRTY_PATHS);
+    dirty
 }
 
 /// Renders the report to stdout or to `--out`.
@@ -417,6 +584,14 @@ fn write_report(args: &ScanArgs, report: &Report, color: bool) -> Result<(), Str
     let rendered = match args.format.as_str() {
         "pretty" => owlwarden_reporters::render_to_string(report, options),
         "json" => owlwarden_reporters::JsonReporter::to_string(report, args.out.is_some()),
+        "sarif" => {
+            if args.out.is_some() {
+                owlwarden_reporters::SarifReporter::to_string_pretty(report)
+            } else {
+                owlwarden_reporters::SarifReporter::to_string(report)
+            }
+        }
+        "junit" => owlwarden_reporters::JunitReporter::to_string(report),
         other => {
             return Err(format!(
                 "unknown format {other:?}; available: {}",

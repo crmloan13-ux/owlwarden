@@ -11,7 +11,9 @@ use std::path::PathBuf;
 
 use owlwarden_core::context::ScanSettings;
 use owlwarden_core::report::Report;
-use owlwarden_reporters::{JsonReporter, PrettyOptions, render_to_string};
+use owlwarden_reporters::{
+    JsonReporter, JunitReporter, PrettyOptions, SarifReporter, render_to_string,
+};
 
 /// Scans a fixture and freezes everything that varies between runs.
 ///
@@ -114,4 +116,38 @@ async fn json_output_is_a_single_line_by_default() {
     let report = stable_report("vulnerable/next-api").await;
     let encoded = JsonReporter::to_string(&report, false).unwrap();
     assert!(!encoded.contains('\n'), "compact JSON must be one line");
+}
+
+#[tokio::test]
+async fn sarif_output_is_version_2_1_0() {
+    let report = stable_report("vulnerable/next-api").await;
+    let encoded = SarifReporter::to_string_pretty(&report).unwrap();
+    let value: serde_json::Value = serde_json::from_str(&encoded).unwrap();
+    assert_eq!(value["version"], "2.1.0");
+    assert!(!value["runs"][0]["results"].as_array().unwrap().is_empty());
+    assert_eq!(value["runs"][0]["tool"]["driver"]["name"], "owlwarden");
+    insta::assert_snapshot!("sarif_next", encoded);
+}
+
+#[tokio::test]
+async fn junit_output_has_one_failure_per_finding() {
+    let report = stable_report("vulnerable/next-api").await;
+    let encoded = JunitReporter::to_string(&report).unwrap();
+    assert!(encoded.starts_with(r#"<?xml version="1.0" encoding="UTF-8"?>"#));
+    let failures = report.findings.len();
+    assert_eq!(
+        encoded.matches("<failure ").count(),
+        failures,
+        "each finding is one JUnit failure"
+    );
+    insta::assert_snapshot!("junit_next", encoded);
+}
+
+#[tokio::test]
+async fn junit_clean_scan_is_a_passing_suite() {
+    let report = stable_report("should-not-fire/next-api-clean").await;
+    let encoded = JunitReporter::to_string(&report).unwrap();
+    assert!(encoded.contains(r#"failures="0""#));
+    assert!(encoded.contains("no findings"));
+    assert!(!encoded.contains("<failure"));
 }

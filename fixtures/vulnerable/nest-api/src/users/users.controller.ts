@@ -5,6 +5,7 @@
 //   sql-injection — email interpolated into this.pool.query.
 //   insecure-cookie — res.cookie without protective attributes.
 //   ssrf / open-redirect — caller-controlled fetch/axios and redirect()/header.
+import https from 'node:https'
 import axios from 'axios'
 import {
   Body,
@@ -85,6 +86,31 @@ export class UsersController {
     // ssrf: axios reaches a second caller-controlled host.
     const upstream = await axios.get(body.callerUrl as string)
     return upstream.data
+  }
+
+  @Post('import3')
+  async importViaGot(@Body() body: { gotUrl?: string }) {
+    // ssrf: got reaches a third caller-controlled host.
+    const upstream = await got.get(body.gotUrl as string)
+    return upstream.body
+  }
+
+  @Post('import4')
+  async importViaHttps(@Body() body: { nodeUrl?: string }) {
+    // ssrf: node https.get to a fourth caller-controlled host.
+    await new Promise<void>((resolve, reject) => {
+      https.get(body.nodeUrl as string, (up) => {
+        up.resume()
+        up.on('end', () => resolve())
+      }).on('error', reject)
+    })
+    return { ok: true }
+  }
+
+  @Get('go3')
+  goStatus(@Query() query: { extraNext?: string }, @Res() res: Response) {
+    // open-redirect: status-first form — still caller-controlled.
+    res.redirect(302, query.extraNext as string)
   }
 
   private load(): string[] {

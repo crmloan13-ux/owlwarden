@@ -97,7 +97,18 @@ WASM detector scaffold for owlwarden.
 1. Edit \`owlwarden.plugin.json\` (rule ids must start with \`${name}-\`).
 2. Implement \`plugin.wat\` (or a Rust \`cdylib\` targeting \`wasm32-unknown-unknown\`).
 3. Assemble to \`plugin.wasm\` next to the manifest.
-4. Scan with \`owlwarden scan --plugin ./${name}\`.
+4. Optional: pin integrity in \`owlwarden.plugin.json\`:
+
+   \`\`\`json
+   "artifact": { "path": "plugin.wasm", "sha256": "<hex from sha256sum plugin.wasm>" }
+   \`\`\`
+
+5. Optional: sign the digest and add trust roots (ADR 0021):
+
+   - Write base64 ed25519 signature of the raw SHA-256 digest to \`plugin.wasm.sig\`
+   - Trust keys via \`OWLWARDEN_PLUGIN_TRUST\` or \`.owlwarden/plugin-trust.json\`
+
+6. Scan with \`owlwarden scan --plugin ./${name}\`.
 
 Guest ABI (v0.2):
 

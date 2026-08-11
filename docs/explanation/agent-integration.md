@@ -1,8 +1,9 @@
 # Serving AI agents as users
 
-**Status:** v0.3 surface is shipped. `--format json`, `explain`, `owlwarden mcp`,
-`init --agent-rules`, `--fix` (CLI only), and opt-in `--osv` work today.
-Editor post-edit hooks remain later. Each section below says what is live.
+**Status:** v0.4 surface is shipped. `--format json` / `sarif` / `junit`,
+`explain`, `owlwarden mcp`, `init --agent-rules`, `--fix` (CLI only), opt-in
+`--osv`, and `plugin inspect` work today. Editor post-edit hooks remain later.
+Each section below says what is live.
 
 If you are an agent working *on* this repository rather than using it, read
 [AGENTS.md](../../AGENTS.md).

@@ -1,5 +1,6 @@
 // Fixture: Fastify, whose reply object and route registration look nothing
 // like Express's. The same rules have to find the same bugs here.
+import https from 'node:https'
 import axios from 'axios'
 import Fastify from 'fastify'
 import cookie from '@fastify/cookie'
@@ -86,6 +87,31 @@ app.post('/import2', async (request, reply) => {
   const callerUrl = (request.body as { callerUrl?: string }).callerUrl as string
   const upstream = await axios.get(callerUrl)
   return reply.send(upstream.data)
+})
+
+app.get('/go3', async (request, reply) => {
+  // open-redirect: status-first form — still caller-controlled.
+  const extraNext = (request.query as { extraNext?: string }).extraNext as string
+  return reply.redirect(302, extraNext)
+})
+
+app.post('/import3', async (request, reply) => {
+  // ssrf: got reaches a third caller-controlled host.
+  const gotUrl = (request.body as { gotUrl?: string }).gotUrl as string
+  const upstream = await got.get(gotUrl)
+  return reply.send(upstream.body)
+})
+
+app.post('/import4', async (request, reply) => {
+  // ssrf: node https.get to a fourth caller-controlled host.
+  const nodeUrl = (request.body as { nodeUrl?: string }).nodeUrl as string
+  await new Promise<void>((resolve, reject) => {
+    https.get(nodeUrl, (up) => {
+      up.resume()
+      up.on('end', () => resolve())
+    }).on('error', reject)
+  })
+  return reply.send({ ok: true })
 })
 
 await app.listen({ port: 3000 })

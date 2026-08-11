@@ -156,6 +156,59 @@ pub enum PluginError {
         max: usize,
     },
 
+    /// Manifest `artifact` fields were invalid.
+    #[error("manifest artifact is invalid: {message}")]
+    InvalidArtifact {
+        /// Why it was rejected.
+        message: String,
+    },
+
+    /// Declared artifact SHA-256 did not match the module bytes.
+    #[error("plugin module {path} SHA-256 is {actual}, manifest declares {expected}")]
+    ArtifactDigestMismatch {
+        /// Module path.
+        path: String,
+        /// Digest from the manifest.
+        expected: String,
+        /// Digest computed from bytes on disk.
+        actual: String,
+    },
+
+    /// `--require-signed-plugins` was set but the module was not signature-verified.
+    #[error(
+        "plugin {id} at {path} is not signature-verified; \
+         add a trusted .sig or omit --require-signed-plugins"
+    )]
+    SignatureRequired {
+        /// Plugin id.
+        id: String,
+        /// Module path.
+        path: String,
+    },
+
+    /// A trust root string could not be parsed.
+    #[error("invalid plugin trust root: {detail}")]
+    InvalidTrustRoot {
+        /// Which entry failed.
+        detail: String,
+    },
+
+    /// A `.owlwarden/plugin-trust.json` file was malformed.
+    #[error("plugin trust file {path} is invalid: {message}")]
+    TrustFileInvalid {
+        /// Trust file path.
+        path: String,
+        /// Parser message.
+        message: String,
+    },
+
+    /// Too many trust roots were configured.
+    #[error("more than {max} plugin trust roots were configured")]
+    TooManyTrustKeys {
+        /// Configured cap.
+        max: usize,
+    },
+
     /// The compiled module exceeded
     /// [`owlwarden_core::limits::plugin::MAX_PLUGIN_BYTES`].
     #[error("plugin module {path} is {size} bytes, over the {max}-byte limit")]

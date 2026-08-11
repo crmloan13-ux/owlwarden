@@ -25,6 +25,13 @@ an archaeology exercise.
 | [0014](0014-passive-dynamic-and-correlation.md) | Passive dynamic engine and correlation | Accepted |
 | [0015](0015-plugin-host-wasmtime.md) | Plugin host on wasmtime, source-only in v0.2 | Accepted |
 | [0016](0016-osv-advisory-lookup.md) | Opt-in Google OSV advisory lookup | Accepted |
+| [0017](0017-ci-reporting-surface.md) | CI reporting: SARIF, JUnit, GitHub Action | Accepted |
+| [0018](0018-corpus-depth-bar.md) | Corpus depth bar and local plugin inspect | Accepted |
+| [0019](0019-first-party-active-detector.md) | First-party active detector: csrf-cross-origin-post | Accepted |
+| [0020](0020-offline-osv-cache.md) | Offline / cached OSV advisory index | Accepted |
+| [0021](0021-plugin-artifact-signing.md) | Plugin artifact integrity and local trust roots | Accepted |
+| [0022](0022-stackable-formats.md) | Stackable multi-format emit | Accepted |
+| [0023](0023-incremental-watch.md) | Incremental watch invalidation | Accepted |
 
 ## Writing one
 

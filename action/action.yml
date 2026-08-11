@@ -1,0 +1,177 @@
+name: owlwarden
+description: >
+  Run owlwarden in CI with the same exit codes as the CLI (0 clean, 1 findings,
+  2 error). Thin wrapper — it does not re-score findings (ADR 0017).
+author: owlwarden
+branding:
+  icon: shield
+  color: gray-dark
+
+inputs:
+  path:
+    description: Project path to scan (relative to the workspace). No newlines.
+    required: false
+    default: "."
+  version:
+    description: npm package version or dist-tag for `npx owlwarden@…` (semver or tag only).
+    required: false
+    default: "0.5.0"
+  fail-on:
+    description: Minimum severity that fails the job (`high` / `medium` / `low` / `info`).
+    required: false
+    default: "medium"
+  min-confidence:
+    description: Minimum confidence that fails the job (`confirmed` / `likely` / `possible`).
+    required: false
+    default: "likely"
+  format:
+    description: Report format (`json`, `sarif`, or `junit`).
+    required: false
+    default: "sarif"
+  out:
+    description: Path to write the report (relative to the workspace). No newlines.
+    required: false
+    default: "owlwarden-results.sarif"
+  baseline:
+    description: Optional baseline file. Requires allow-baseline=true on untrusted PRs.
+    required: false
+    default: ""
+  allow-baseline:
+    description: Permit --baseline under --ci (trusted trees only).
+    required: false
+    default: "false"
+  allow-suppressions:
+    description: Permit inline suppressions under --ci (trusted trees only).
+    required: false
+    default: "false"
+  allow-project-config:
+    description: Permit project preset/failOn/minConfidence under --ci.
+    required: false
+    default: "false"
+  osv:
+    description: Pass --osv (opt-in Google OSV lockfile lookup). Off by default.
+    required: false
+    default: "false"
+
+outputs:
+  report-path:
+    description: Absolute path of the written report.
+    value: ${{ steps.scan.outputs.report-path }}
+  exit-code:
+    description: owlwarden exit code (0 / 1 / 2).
+    value: ${{ steps.scan.outputs.exit-code }}
+
+runs:
+  using: composite
+  steps:
+    - name: Setup Node
+      uses: actions/setup-node@60edb5dd545a775178f52524783378180af0d1f8 # v4.0.2
+      with:
+        node-version: "20"
+
+    - name: Run owlwarden
+      id: scan
+      shell: bash
+      working-directory: ${{ github.workspace }}
+      env:
+        INPUT_PATH: ${{ inputs.path }}
+        INPUT_VERSION: ${{ inputs.version }}
+        INPUT_FAIL_ON: ${{ inputs.fail-on }}
+        INPUT_MIN_CONFIDENCE: ${{ inputs.min-confidence }}
+        INPUT_FORMAT: ${{ inputs.format }}
+        INPUT_OUT: ${{ inputs.out }}
+        INPUT_BASELINE: ${{ inputs.baseline }}
+        INPUT_ALLOW_BASELINE: ${{ inputs.allow-baseline }}
+        INPUT_ALLOW_SUPPRESSIONS: ${{ inputs.allow-suppressions }}
+        INPUT_ALLOW_PROJECT_CONFIG: ${{ inputs.allow-project-config }}
+        INPUT_OSV: ${{ inputs.osv }}
+      run: |
+        set -euo pipefail
+
+        # Reject control characters / newlines so values cannot break GITHUB_OUTPUT
+        # or smuggle flags. No generic `args` input — that was a mute-switch / RCE footgun.
+        reject_meta() {
+          local name="$1" value="$2"
+          if [[ "$value" == *$'\n'* || "$value" == *$'\r'* ]]; then
+            echo "error: ${name} must not contain CR/LF" >&2
+            exit 2
+          fi
+          if [[ "$value" == *$'\0'* ]]; then
+            echo "error: ${name} must not contain NUL" >&2
+            exit 2
+          fi
+        }
+
+        reject_meta path "${INPUT_PATH}"
+        reject_meta version "${INPUT_VERSION}"
+        reject_meta fail-on "${INPUT_FAIL_ON}"
+        reject_meta min-confidence "${INPUT_MIN_CONFIDENCE}"
+        reject_meta format "${INPUT_FORMAT}"
+        reject_meta out "${INPUT_OUT}"
+        reject_meta baseline "${INPUT_BASELINE}"
+
+        case "${INPUT_FAIL_ON}" in
+          high|medium|low|info) ;;
+          *) echo "error: fail-on must be high|medium|low|info" >&2; exit 2 ;;
+        esac
+        case "${INPUT_MIN_CONFIDENCE}" in
+          confirmed|likely|possible) ;;
+          *) echo "error: min-confidence must be confirmed|likely|possible" >&2; exit 2 ;;
+        esac
+        case "${INPUT_FORMAT}" in
+          json|sarif|junit) ;;
+          *) echo "error: format must be json|sarif|junit" >&2; exit 2 ;;
+        esac
+        # Semver, prerelease, or a simple npm dist-tag — never shell metacharacters.
+        if [[ ! "${INPUT_VERSION}" =~ ^[A-Za-z0-9][A-Za-z0-9._+-]*$ ]]; then
+          echo "error: version looks unsafe for npx owlwarden@…" >&2
+          exit 2
+        fi
+        if [[ "${INPUT_OUT}" == /* || "${INPUT_OUT}" == *..* ]]; then
+          echo "error: out must be a relative path without .." >&2
+          exit 2
+        fi
+        if [[ "${INPUT_PATH}" == *..* ]]; then
+          echo "error: path must not contain .." >&2
+          exit 2
+        fi
+
+        out_path="${INPUT_OUT}"
+        mkdir -p "$(dirname "$out_path")"
+        cmd=(npx --yes "owlwarden@${INPUT_VERSION}" scan --ci
+          --fail-on "${INPUT_FAIL_ON}"
+          --min-confidence "${INPUT_MIN_CONFIDENCE}"
+          --format "${INPUT_FORMAT}"
+          --out "${out_path}"
+          "${INPUT_PATH}")
+        if [[ "${INPUT_ALLOW_BASELINE}" == "true" && -n "${INPUT_BASELINE}" ]]; then
+          if [[ "${INPUT_BASELINE}" == /* || "${INPUT_BASELINE}" == *..* ]]; then
+            echo "error: baseline must be a relative path without .." >&2
+            exit 2
+          fi
+          cmd+=(--allow-baseline --baseline "${INPUT_BASELINE}")
+        fi
+        if [[ "${INPUT_ALLOW_SUPPRESSIONS}" == "true" ]]; then
+          cmd+=(--allow-suppressions)
+        fi
+        if [[ "${INPUT_ALLOW_PROJECT_CONFIG}" == "true" ]]; then
+          cmd+=(--allow-project-config)
+        fi
+        if [[ "${INPUT_OSV}" == "true" ]]; then
+          cmd+=(--osv)
+        fi
+
+        set +e
+        "${cmd[@]}"
+        code=$?
+        set -e
+
+        # Multiline-safe GITHUB_OUTPUT — never interpolate untrusted paths into a
+        # single echo key=value line (CR/LF would invent extra keys).
+        {
+          echo "report-path<<OWLWARDEN_EOF"
+          echo "${GITHUB_WORKSPACE}/${out_path}"
+          echo "OWLWARDEN_EOF"
+          echo "exit-code=${code}"
+        } >> "$GITHUB_OUTPUT"
+        exit "${code}"

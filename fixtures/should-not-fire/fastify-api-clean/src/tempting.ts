@@ -32,3 +32,38 @@ export function auditLogin(passwordLength: number) {
 export function reportFailure(err: Error) {
   console.error(err.stack)
 }
+
+
+// --- v0.4 dialect tempting depth (must stay silent) ---
+
+// Non-error `.stack` property in a response-shaped object (technology list).
+export function projectStackDeep(res: { json: (body: unknown) => unknown }, project: { stack: string[] }) {
+  return res.json({ stack: project.stack })
+}
+
+// Logger that looks like a sink but is not a response.
+const audit = {
+  error(message: string, detail?: unknown) {
+    console.error(message, detail)
+  },
+}
+
+export function reportFailureDeep(err: unknown) {
+  audit.error('handler failed', err instanceof Error ? err.stack : err)
+  // Stack captured locally and *not* returned to the client.
+  const trace = err instanceof Error ? err.stack : undefined
+  if (trace) {
+    console.debug(trace)
+  }
+  return { error: 'Bad Request' }
+}
+
+// Product copy / length metadata — not a secret.
+export function auditLoginDeep(passwordLength: number) {
+  console.info('password reset email queued')
+  console.info({ passwordLength })
+}
+
+// Header names in documentation comments are not missing-header findings.
+// Content-Security-Policy, Strict-Transport-Security, X-Frame-Options
+export const HEADER_DOCS = 'See security headers in the runbook.'

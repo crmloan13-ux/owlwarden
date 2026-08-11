@@ -1,6 +1,6 @@
 /**
  * Keeps the README published with the `owlwarden` npm package aligned with the
- * compiled v0.2 surface. The npm page is often the first and only document a
+ * compiled v0.5 surface. The npm page is often the first and only document a
  * prospective user reads, so missing safety limits are contract failures too.
  */
 import assert from "node:assert/strict";
@@ -16,6 +16,7 @@ const packageJson = JSON.parse(packageJsonText);
 const rules = [
   "ci-unpinned-action",
   "cors-permissive",
+  "csrf-cross-origin-post",
   "hardcoded-secret",
   "insecure-cookie",
   "known-vulnerable-dependency",
@@ -53,6 +54,8 @@ for (const heading of [
   "Configuration",
   "Adopting it in an existing codebase",
   "Optional runtime confirmation",
+  "Incremental watch",
+  "Source-only WASM plugins",
   "Safety model",
   "Honest limits",
 ]) {
@@ -70,9 +73,17 @@ assert.match(readme, /No telemetry/i);
 assert.match(readme, /static-only, read-only/i);
 assert.match(readme, /A04:2021.*Insecure Design/is);
 assert.match(readme, /`--fix` applies only/i);
-assert.match(readme, /`--osv` opts into/i);
+assert.match(readme, /`--osv`/i);
+assert.match(readme, /--osv-db/i);
+assert.match(readme, /--require-signed-plugins/i);
+assert.match(readme, /plugin inspect/i);
+assert.match(readme, /no hosted plugin store/i);
+assert.match(readme, /sarif/i);
+assert.match(readme, /junit/i);
+assert.match(readme, /Version 0\.5\.0/);
+assert.match(readme, /fourteen rules/i);
 assert.match(readme, /12 rules × 12 frameworks|12 × 12/i);
-assert.match(readme, /osv-demo/);
+assert.match(readme, /osv update/i);
 assert.match(readme, /https:\/\/suthat\.github\.io\/owlwarden\//);
 assert.match(readme, /Save tokens first/i);
 assert.match(readme, /frontier model/i);

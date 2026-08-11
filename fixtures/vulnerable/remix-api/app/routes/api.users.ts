@@ -1,4 +1,5 @@
 // Fixture: Remix loader/action. json() and redirect() come from @remix-run/node.
+import https from 'node:https'
 import axios from 'axios'
 import { createCookie, json, redirect } from '@remix-run/node'
 import type { ActionFunctionArgs, LoaderFunctionArgs } from '@remix-run/node'
@@ -59,9 +60,35 @@ export async function loader({ request }: LoaderFunctionArgs) {
     return json(upstream.data)
   }
 
+  const gotUrl = url.searchParams.get('gotUrl')
+  const nodeUrl = url.searchParams.get('nodeUrl')
+  const extraNext = url.searchParams.get('extraNext')
+
+  // ssrf: got reaches a third caller-controlled host.
+  if (gotUrl) {
+    const upstream = await got.get(gotUrl)
+    return json(upstream.body)
+  }
+
+  // ssrf: node https.get to a fourth caller-controlled host.
+  if (nodeUrl) {
+    await new Promise<void>((resolve, reject) => {
+      https.get(nodeUrl, (res) => {
+        res.resume()
+        res.on('end', () => resolve())
+      }).on('error', reject)
+    })
+    return json({ ok: true })
+  }
+
   // open-redirect
   if (next) {
     return redirect(next)
+  }
+
+  // open-redirect: a third caller-chosen target.
+  if (extraNext) {
+    return redirect(extraNext)
   }
 
   // open-redirect: a hand-rolled Location header instead of redirect().

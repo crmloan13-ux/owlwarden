@@ -8,4 +8,4 @@
 export { run, type Streams } from "./run.js";
 export { EXIT } from "./exit.js";
 export { loadNative, NativeLoadError, type NativeEngine } from "./native.js";
-export { parse, ArgError, type Cli, type ScanOptions } from "./args.js";
+export { parse, ArgError, type Cli, type ScanOptions, type ReportFormat } from "./args.js";

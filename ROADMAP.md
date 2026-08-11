@@ -132,19 +132,54 @@ Delivered:
 methods unreachable without the flag; scope-escape and OSV mock suites pass.
 Active detectors, offline OSV DB, and editor hooks remain later work.
 
-## v0.4 — Pipelines and reporting
+## v0.4 — CI-ready depth — **shipped**
 
-**Goal:** fits into the tooling teams already run.
+**Goal:** fit the pipelines teams already run, and make the findings those
+pipelines gate on deep enough to trust — not a thin matrix with a SARIF coat of
+paint.
 
-- SARIF reporter for GitHub code scanning, and a JUnit reporter.
-- A GitHub Action.
-- A documented exit-code contract.
-- A plugin registry that shows an extension's capabilities before install.
+Delivered:
 
-**Exit criteria:** a demonstration repository gates pull requests on owlwarden
-through the Action, with a baseline suppressing pre-existing findings.
+- **Pipelines** ([ADR 0017](docs/adr/0017-ci-reporting-surface.md)): `--format
+  sarif` (SARIF 2.1.0) and `--format junit`; composite GitHub Action under
+  `action/`; exit-code contract documented as canonical in
+  [docs/how-to/ci.md](docs/how-to/ci.md) (still 0 / 1 / 2).
+- **Corpus depth** ([ADR 0018](docs/adr/0018-corpus-depth-bar.md)): dialect
+  tempting on every clean twin; richer `ssrf` / `open-redirect` shape
+  contracts; generic-profile fixtures outside the square matrix.
+- **Capability deepen from 0.3:** more `Safe` autofix remediations; `owlwarden
+  plugin inspect` for capabilities-before-load (local preview, not a signed
+  store); cold-scan performance baseline harness.
 
-## v0.5 — Release assurance
+**Exit criteria, met for this slice:** Action smoke against a clean fixture
+exits 0; SARIF/JUnit snapshots green; square matrix still silent on clean /
+tempting; shape contracts expanded without per-framework expectation drift.
+
+## v0.5 — Depth beyond CI — **shipped**
+
+**Goal:** close the later-work gaps that 0.3/0.4 left named: active probes,
+air-gapped OSV, plugin integrity, multi-format emit, incremental watch.
+
+Delivered:
+
+- **Active detector** ([ADR 0019](docs/adr/0019-first-party-active-detector.md)):
+  `csrf-cross-origin-post` behind `--allow-active`.
+- **Offline OSV** ([ADR 0020](docs/adr/0020-offline-osv-cache.md)):
+  `owlwarden osv update`, `--osv-db`, fail-closed `--osv --offline`.
+- **Plugin integrity** ([ADR 0021](docs/adr/0021-plugin-artifact-signing.md)):
+  manifest `artifact.sha256`, optional ed25519 `.sig`, `--require-signed-plugins`
+  (local trust roots — not a hosted registry).
+- **Stackable formats** ([ADR 0022](docs/adr/0022-stackable-formats.md)):
+  repeated `--format` from one scan.
+- **Incremental watch** ([ADR 0023](docs/adr/0023-incremental-watch.md)):
+  dirty-path re-parse + finding merge (no <300 ms claim until measured).
+
+**Exit criteria, met for this slice:** active canary suite green; offline OSV
+fixture client green; digest/signature host tests green; multi-format CLI tests
+green; incremental merge unit tests green. Markdown reporter, hosted plugin
+store, and signed npm releases remain later.
+
+## v0.6 — Release assurance
 
 **Goal:** releases you can verify rather than trust.
 
@@ -173,7 +208,8 @@ exist; a changelog and an upgrade guide.
 Candidate directions, in no particular order: GraphQL and gRPC awareness;
 authenticated scan flows; frameworks outside the Node ecosystem, which needs a
 second language before the parsing layer can honestly be called generic; an LSP
-mode; a curated, signed plugin registry.
+mode; a hosted curated plugin registry (local digest/signature trust shipped
+in v0.5).
 
 Adding another Node framework is no longer a roadmap item, because it is no
 longer a change to the engine — it is a `FrameworkProfile`, and

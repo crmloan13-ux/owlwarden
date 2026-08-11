@@ -22,7 +22,13 @@ thiserror.workspace = true
 wasmtime.workspace = true
 anyhow.workspace = true
 
+# ADR 0021: SHA-256 digest of plugin.wasm before wasmtime compiles it.
+sha2 = "0.10"
+# ADR 0021: verify-only ed25519 detached signatures (.sig over raw digest).
+ed25519-dalek = { version = "2", default-features = false, features = ["std"] }
+
 [dev-dependencies]
 tempfile = "3"
 tokio = { version = "1", features = ["macros", "rt"] }
 wat.workspace = true
+ed25519-dalek = { version = "2", default-features = false, features = ["std"] }

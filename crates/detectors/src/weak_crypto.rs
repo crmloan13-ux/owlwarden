@@ -41,7 +41,7 @@ use owlwarden_static::rule::{FileRule, FindingSink, RuleInfo};
 use owlwarden_static::unit::FileUnit;
 use oxc_ast::ast::{Argument, CallExpression, Expression};
 use oxc_ast_visit::Visit;
-use oxc_span::Span;
+use oxc_span::{GetSpan, Span};
 
 use crate::build::finding_builder_with;
 
@@ -263,7 +263,10 @@ impl CryptoVisitor {
 
         match method {
             "createHash" | "createHmac" => {
-                let Some(algorithm) = first_string(call) else {
+                // Highlight *only* the algorithm literal. Autofix must not
+                // replace the whole call — that would drop createHmac's key
+                // argument and strip a `crypto.` receiver.
+                let Some((algorithm, algo_span)) = first_string_literal(call) else {
                     return;
                 };
                 let lowered = algorithm.to_ascii_lowercase();
@@ -276,9 +279,9 @@ impl CryptoVisitor {
                     return;
                 };
                 self.hits.push(Hit {
-                    span: call.span,
+                    span: algo_span,
                     weakness: Weakness::HashedSecret,
-                    detail: lowered,
+                    detail: format!("{method}('{lowered}')"),
                     context: Some(context),
                 });
             }
@@ -332,11 +335,14 @@ fn callee_name<'a>(call: &'a CallExpression<'a>) -> Option<&'a str> {
 
 /// The first argument, if it is a string literal.
 fn first_string(call: &CallExpression<'_>) -> Option<String> {
-    call.arguments
-        .first()
-        .and_then(Argument::as_expression)
-        .and_then(string_value)
-        .map(str::to_owned)
+    first_string_literal(call).map(|(value, _)| value.to_owned())
+}
+
+/// The first string-literal argument and its source span (including quotes).
+fn first_string_literal<'a>(call: &'a CallExpression<'a>) -> Option<(&'a str, Span)> {
+    let expression = call.arguments.first().and_then(Argument::as_expression)?;
+    let value = string_value(expression)?;
+    Some((value, expression.span()))
 }
 
 /// Whether a name marks its value as security-relevant.
@@ -400,13 +406,46 @@ fn build_finding(unit: &FileUnit<'_>, hit: &Hit) -> Finding {
         .build()
 }
 
-/// `GuessableToken` gets a Safe drop-in for `Math.random()`; other weaknesses
-/// keep the educational Manual table — their patches are not highlight-sized.
+/// `GuessableToken` and password-shaped broken hashes get Safe highlight
+/// replacements; broken ciphers stay Manual (mode changes are not drop-ins).
 fn fixes_for(weakness: Weakness, framework: &Framework) -> Vec<owlwarden_core::finding::Fix> {
     match weakness {
         Weakness::GuessableToken => safe_random_remediation().select(framework),
-        Weakness::HashedSecret | Weakness::BrokenCipher => remediation().select(framework),
+        Weakness::HashedSecret => {
+            let mut fixes = safe_hash_remediation().select(framework);
+            fixes.extend(remediation().select(framework));
+            fixes
+        }
+        Weakness::BrokenCipher => remediation().select(framework),
     }
+}
+
+/// Drop-in for the underlined algorithm literal only (`'md5'` → `'sha256'`).
+///
+/// Must never rewrite the surrounding call: `createHmac('md5', secret)` and
+/// `crypto.createHash('md5')` keep their key argument and receiver.
+fn safe_hash_remediation() -> Remediation {
+    const SUMMARY: &str =
+        "Replace the broken digest algorithm with sha256 (or prefer scrypt/argon2 for passwords).";
+    const PATCH: &str = "'sha256'";
+    let frameworks = [
+        Framework::NEXT,
+        Framework::NUXT,
+        Framework::NEST,
+        Framework::EXPRESS,
+        Framework::FASTIFY,
+        Framework::HONO,
+        Framework::KOA,
+        Framework::HAPI,
+        Framework::SAILS,
+        Framework::ASTRO,
+        Framework::REMIX,
+        Framework::GATSBY,
+    ];
+    Remediation::new("Replace md5/sha1 with a stronger digest when the hash protects a secret.")
+        .generic_patch(PATCH)
+        .generic_safety(owlwarden_core::finding::FixSafety::Safe)
+        .safe_each(&frameworks, SUMMARY, PATCH)
 }
 
 /// Drop-in for the underlined `Math.random()` call. Same numeric range, not
@@ -584,5 +623,18 @@ mod tests {
     fn sha256_is_not_on_the_broken_list() {
         assert!(!BROKEN_HASHES.contains(&"sha256"));
         assert!(!BROKEN_HASHES.contains(&"sha512"));
+    }
+
+    #[test]
+    fn safe_hash_patch_is_algorithm_literal_only() {
+        // A whole-call patch would truncate createHmac('md5', secret) and strip
+        // crypto.createHash('md5') — regressions that look "green" in fixtures
+        // that only exercise bare createHash('md5').
+        let remediation = safe_hash_remediation();
+        for fix in remediation.select(&Framework::EXPRESS) {
+            if fix.safety == owlwarden_core::finding::FixSafety::Safe {
+                assert_eq!(fix.patch.as_deref(), Some("'sha256'"));
+            }
+        }
     }
 }

@@ -2,20 +2,24 @@
 
 Security review for code still in motion.
 
-Owlwarden scans Node web applications and returns the vulnerable line, why it
-matters, a fix written for the framework it found, and a confidence level you
-can act on. The Rust engine runs locally behind an npm CLI. No telemetry, no
-account, and no source upload.
+Owlwarden is a local-first security floor for Node web apps and the coding
+agents that edit them. It scans your project and returns the vulnerable line,
+why it matters, a fix written for the framework it found, and a confidence level
+you can act on. The Rust engine runs behind an npm CLI. No telemetry, no account,
+and no source upload.
 
 ```bash
 npx owlwarden scan
 ```
 
-**Version 0.3.0** ships thirteen rules (including opt-in
-`known-vulnerable-dependency` via `--osv`), Safe `--fix`, an `--allow-active`
-scaffold, first-class remediation for twelve Node frameworks, a read-only MCP
-server, passive opt-in runtime confirmation, and sandboxed source-only WASM
-plugins.
+**Version 0.5.0** ships fourteen rules (including opt-in
+`known-vulnerable-dependency` via `--osv` / `--osv-db` and active
+`csrf-cross-origin-post` via `--target` + `--allow-active`), stackable
+`--format sarif` / `junit` / `pretty` / `json`, a first-party GitHub Action,
+offline OSV indexes, plugin artifact integrity with optional ed25519 signatures,
+incremental `watch`, Safe `--fix`, first-class remediation for twelve Node
+frameworks, a read-only MCP server, passive opt-in runtime confirmation, and
+sandboxed source-only WASM plugins. There is no hosted plugin store.
 
 [Website](https://suthat.github.io/owlwarden/) ·
 [Rule catalogue](https://github.com/suthat/owlwarden/blob/main/RULES.md) ·
@@ -40,13 +44,15 @@ thought.
   the fixture corpus must remain silent across every supported framework.
 - **Local is the default, not a privacy setting.** A normal scan reads the
   project and makes no network requests. Nothing leaves your machine. No
-  telemetry. Runtime probing only begins when you explicitly pass `--target`.
+  telemetry. Runtime probing only begins when you explicitly pass `--target`;
+  OSV lookups only when you pass `--osv` or `--osv-db`.
 - **People and tools receive the same truth.** The terminal reporter, JSON
   output, TypeScript SDK, and MCP tools all use one finding model. Cross-language
   golden tests keep the Rust output and zod schemas aligned.
 - **Fast enough for the edit loop.** The engine is Rust; the interface is npm.
   Prebuilt native packages mean users do not need a Rust compiler or a
-  postinstall binary fetch.
+  postinstall binary fetch. Incremental `watch` re-parses dirty files instead
+  of rescanning the whole tree on every save.
 
 Owlwarden is a repeatable security floor. Authentication, authorization,
 payments, personal data, and product design still deserve deeper human and
@@ -86,15 +92,16 @@ Agents do not receive a simplified second version with different claims.
 
 ## What it catches
 
-The catalogue has thirteen rules mapped across nine OWASP Top 10 (2021)
-categories. Zero-config stays offline; pass `--osv` for lockfile CVE lookup.
+The catalogue has fourteen rules mapped across nine OWASP Top 10 (2021)
+categories. Zero-config stays offline; pass `--osv` or `--osv-db` for lockfile
+CVE lookup; pass `--target` + `--allow-active` for the CSRF canary on staging.
 
 | Area | Rules |
 |---|---|
-| Request and data flow | `sql-injection`, `ssrf`, `open-redirect` |
+| Request and data flow | `sql-injection`, `ssrf`, `open-redirect`, `csrf-cross-origin-post` (needs `--target` + `--allow-active`) |
 | Secrets and cryptography | `hardcoded-secret`, `weak-crypto` |
 | Browser and response boundaries | `cors-permissive`, `insecure-cookie`, `security-headers-missing`, `stack-trace-leak` |
-| Supply chain and observability | `unpinned-dependency`, `known-vulnerable-dependency` (needs `--osv`), `ci-unpinned-action`, `sensitive-data-logged` |
+| Supply chain and observability | `unpinned-dependency`, `known-vulnerable-dependency` (needs `--osv` or `--osv-db`), `ci-unpinned-action`, `sensitive-data-logged` |
 
 ```bash
 owlwarden rules                 # the compiled rule catalogue
@@ -166,9 +173,9 @@ See the full
 Every offline catalogue rule carries specific remediation for every framework
 below. A release test fails if any cell in that **12 rules × 12 frameworks**
 fixture matrix is missing. The opt-in OSV rule
-(`known-vulnerable-dependency`) is outside that offline matrix — it has
-remediation for all twelve frameworks and is covered by
-`fixtures/vulnerable/osv-demo/` plus a clean twin.
+(`known-vulnerable-dependency`) and the active CSRF rule
+(`csrf-cross-origin-post`) are outside that offline matrix — they have
+remediation for all twelve frameworks and are covered by dedicated fixtures.
 
 | | | | |
 |---|---|---|---|
@@ -209,13 +216,15 @@ Add a repeatable local command:
 | Command | What it does |
 |---|---|
 | `owlwarden scan [PATH]` | Run the zero-config static scan |
-| `owlwarden watch [PATH]` | Re-scan when source changes; always static-only |
+| `owlwarden watch [PATH]` | Re-scan when source changes; incremental, static-only |
 | `owlwarden mcp [PATH]` | Start the read-only stdio MCP server |
 | `owlwarden rules` | Print the compiled rule catalogue |
 | `owlwarden coverage` | Show OWASP reach and explicit gaps |
 | `owlwarden explain <RULE_ID>` | Print a rule's rationale and fixes offline |
 | `owlwarden init --agent-rules` | Write agent guidance from the compiled catalogue |
 | `owlwarden plugin scaffold <NAME>` | Create a source-only WASM plugin stub and manifest |
+| `owlwarden plugin inspect <PATH>` | Print plugin capabilities and integrity without loading WASM |
+| `owlwarden osv update` | Build a lockfile-scoped OSV index for offline CI |
 
 Common scans:
 
@@ -223,6 +232,7 @@ Common scans:
 owlwarden scan ./apps/api
 owlwarden scan --preset owasp-top10
 owlwarden scan --format json
+owlwarden scan --format pretty --format sarif --out owlwarden-results
 owlwarden scan --fail-on medium --min-confidence likely
 owlwarden scan --out owlwarden-report.json
 ```
@@ -233,13 +243,26 @@ and `deep` enables every compiled rule, including noisier heuristics.
 ## CI without greenwashing
 
 ```bash
-npx owlwarden scan --ci --fail-on medium --min-confidence likely
+npx owlwarden scan --ci --fail-on medium --min-confidence likely --format sarif --out owlwarden-results.sarif
 ```
 
-`--ci` emits quiet JSON and also refuses controls that an untrusted pull request
-could plant in the scanned tree. Unless the workflow explicitly opts in, it
-ignores project gate settings, does not apply inline suppressions, refuses a
-baseline, and refuses plugins.
+Or use the first-party Action at `suthat/owlwarden/action` (JUnit via
+`--format junit`). Canonical exit codes:
+[docs/how-to/ci.md](https://github.com/suthat/owlwarden/blob/main/docs/how-to/ci.md).
+
+`--ci` emits quiet machine-readable output and also refuses controls that an
+untrusted pull request could plant in the scanned tree. Unless the workflow
+explicitly opts in, it ignores project gate settings, does not apply inline
+suppressions, refuses a baseline, and refuses plugins.
+
+**SARIF and JUnit** render the same `Report` as JSON — one finding model, no
+re-scoring in the Action. Repeat `--format` to emit several renderings from one
+scan (for example pretty on stderr and SARIF on disk).
+
+**Offline OSV in CI:** build an index on a trusted machine with
+`owlwarden osv update`, commit or cache it, then scan with
+`--osv-db .owlwarden/osv-index.json`. The Action exposes a typed `osv: true`
+input for live lookups; use a `run:` step with `--osv-db` for air-gapped CI.
 
 Severity and confidence remain separate in CI. A high-impact heuristic at
 `possible` confidence remains visible but does not fail CI on its own. A
@@ -304,8 +327,8 @@ listed with `--report-suppressions`. Details:
 ## Optional runtime confirmation
 
 Most scans stay static and offline. Pass `--osv` to query Google OSV for known
-CVEs in lockfile versions
-([OSV lookup](https://github.com/suthat/owlwarden/blob/main/docs/how-to/osv.md)).
+CVEs in lockfile versions, or `--osv-db` with a pre-built index for air-gapped
+CI ([OSV lookup](https://github.com/suthat/owlwarden/blob/main/docs/how-to/osv.md)).
 If a local or staging server is running, you can also compare source with a
 passive response:
 
@@ -313,27 +336,53 @@ passive response:
 npx owlwarden scan --target http://127.0.0.1:3000/
 ```
 
-The current runtime correlation covers `security-headers-missing`. Owlwarden
-sends a passive `HEAD` request, falling back to `GET`, and either confirms the
-missing headers, clears a false static gap, or keeps disagreement visible. It
-does not crawl the application.
+Passive correlation covers `security-headers-missing`. Owlwarden sends a
+passive `HEAD` request, falling back to `GET`, and either confirms the missing
+headers, clears a false static gap, or keeps disagreement visible. It does not
+crawl the application.
+
+**Active CSRF canary** (`csrf-cross-origin-post`) needs both `--target` and
+`--allow-active`. It sends one cross-origin `POST` to the exact target URL on
+staging you control — not for production, not exposed in MCP, and not in the
+GitHub Action. See
+[Probe a running app](https://github.com/suthat/owlwarden/blob/main/docs/how-to/dynamic.md).
 
 Scope is deny-by-default. With no `--scope`, the allowlist is exactly the target
 origin; every redirect is checked again. Target and scope come from the command
 line only, so a hostile repository cannot turn a CI scan into a request to an
 internal host.
 
-Read [Probe a running app](https://github.com/suthat/owlwarden/blob/main/docs/how-to/dynamic.md)
-before pointing a runner at a network target.
+## Incremental watch
+
+`owlwarden watch` debounces saves and re-scans changed files instead of the
+whole tree when the cache is warm. It stays static-only — no `--target`, no
+`--osv`, no active probes on every keystroke. Lockfile or `package.json`
+changes force a full rescan. First run is always full (cold cache).
+
+```bash
+owlwarden watch
+```
+
+Measured times vary by project size; we document performance, we do not
+guarantee a millisecond budget. See
+[performance.md](https://github.com/suthat/owlwarden/blob/main/docs/how-to/performance.md).
 
 ## Source-only WASM plugins
 
-Version 0.2.0 can load third-party source rules:
+Third-party rules load as source-only WASM:
 
 ```bash
 owlwarden plugin scaffold company-rules
+owlwarden plugin inspect ./company-rules
 owlwarden scan --plugin ./company-rules
 ```
+
+`plugin inspect` reads the manifest and reports declared capabilities, SHA-256
+digest status, and optional ed25519 signature verification — without
+instantiating WASM. Manifests may declare `artifact.sha256`; optional
+`<artifact>.sig` files verify against trust roots in `OWLWARDEN_PLUGIN_TRUST`
+or `.owlwarden/plugin-trust.json`. Pass `--require-signed-plugins` in CI when
+every plugin must be signature-verified. There is no hosted plugin store.
 
 Each invocation gets a fresh wasmtime store with fuel, memory, table, finding,
 and wall-clock limits. There is no WASI, filesystem, network, or clock. A
@@ -341,12 +390,13 @@ manifest that asks for network or active capabilities is refused rather than
 silently downgraded. Under `--ci`, plugins require `--allow-plugins`.
 
 Plugins are still code you chose to run. Review their source and provenance.
-The authoring walkthrough is in
+Walkthrough:
+[Plugins](https://github.com/suthat/owlwarden/blob/main/docs/how-to/plugins.md) ·
 [Extending Owlwarden](https://github.com/suthat/owlwarden/blob/main/docs/how-to/extend.md#plugins).
 
 ## Safety model
 
-- Static scans make no network requests and have No telemetry.
+- Static scans make no network requests and have no telemetry.
 - Reads stay inside the project root. Outbound symlinks are refused;
   `node_modules` and `.gitignore` are respected.
 - File sizes, file counts, findings, parser nesting, redirects, MCP lines, and
@@ -370,16 +420,15 @@ Read the complete threat model and vulnerability reporting policy in
   reach from source alone and needs product intent or a threat model.
 - Request-origin tracking is one hop and intra-procedural, not a full taint
   engine. A miss lowers confidence rather than hiding a finding.
-- Runtime correlation currently covers security headers only. Probes are
-  passive and opt-in; no active detector ships.
-- Plugins are source-only. MCP is static-only and read-only.
+- Passive runtime correlation covers security headers. Active probes cover CSRF
+  only, behind `--allow-active`, on staging you control.
+- Plugins are source-only. MCP is static-only and read-only. No hosted registry.
 - `--fix` applies only `Safe`, single-line highlight replacements (never on
   `Possible`), requires a clean git tree unless `--allow-dirty`, and re-scans
   afterwards. Most remediations stay `Manual` on purpose.
-- `--osv` opts into Google OSV lockfile lookups (name+version only). See
+- `--osv` opts into Google OSV lockfile lookups (name+version only). `--osv-db`
+  uses a committed index — freshness and trust are your CI boundary. See
   [docs/how-to/osv.md](https://github.com/suthat/owlwarden/blob/main/docs/how-to/osv.md).
-- `--allow-active` opens state-changing HTTP methods under `--target`; no
-  first-party detector uses them yet.
 - Unrecognised stacks receive generic checks, not tailored framework fixes.
 
 `owlwarden coverage` computes reach from the rules in the engine you actually

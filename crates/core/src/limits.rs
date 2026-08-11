@@ -74,6 +74,8 @@ pub mod advisory {
     pub const TIMEOUT: Duration = Duration::from_secs(20);
     /// Largest advisory response body buffered.
     pub const MAX_BODY_BYTES: u64 = 4 * 1024 * 1024;
+    /// Largest on-disk OSV index file read ([ADR 0020](../../../docs/adr/0020-offline-osv-cache.md)).
+    pub const MAX_INDEX_BYTES: u64 = 4 * 1024 * 1024;
     /// Findings emitted from advisory hits in one scan.
     pub const MAX_FINDINGS: usize = 500;
     /// Cap on an advisory summary string retained in a finding.
@@ -108,6 +110,12 @@ pub mod source {
     /// its own; past a few thousand levels it aborts the process. See
     /// [ADR 0008](../../../docs/adr/0008-bound-parser-recursion.md).
     pub const MAX_NESTING_DEPTH: u32 = 256;
+}
+
+/// Caps on incremental watch re-scans ([ADR 0023](../../../docs/adr/0023-incremental-watch.md)).
+pub mod incremental {
+    /// Dirty paths accepted in one incremental request.
+    pub const MAX_DIRTY_PATHS: usize = 1_000;
 }
 
 /// Caps applied to WASM plugins (`plugin-host`, v0.2).

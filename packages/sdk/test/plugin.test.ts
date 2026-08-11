@@ -23,6 +23,30 @@ describe("pluginManifestSchema", () => {
     expect(parsed.id).toBe("acme-extra");
   });
 
+  it("accepts optional artifact digest metadata", () => {
+    const parsed = pluginManifestSchema.parse({
+      schemaVersion: 1,
+      id: "acme-extra",
+      version: "0.1.0",
+      artifact: {
+        path: "plugin.wasm",
+        sha256: "a".repeat(64),
+      },
+      capabilities: { source: true, network: false, active: false },
+      rules: [
+        {
+          id: "acme-extra-no-eval",
+          title: "eval is forbidden",
+          severity: "high",
+          maxConfidence: "likely",
+          category: "injection",
+          description: "Direct eval of caller input.",
+        },
+      ],
+    });
+    expect(parsed.artifact?.path).toBe("plugin.wasm");
+  });
+
   it("rejects network or active capabilities in v0.2", () => {
     const result = pluginManifestSchema.safeParse({
       schemaVersion: 1,
