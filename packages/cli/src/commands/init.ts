@@ -113,12 +113,25 @@ async function writeGenerated(
 }
 
 async function mayReplace(path: string, marker: string, force: boolean): Promise<boolean> {
+  if (force) {
+    try {
+      const info = await lstat(path);
+      if (info.isSymbolicLink()) {
+        throw new Error(`refusing to write through a symlink: ${path}`);
+      }
+    } catch (error) {
+      const code =
+        error && typeof error === "object" && "code" in error
+          ? (error as { code?: string }).code
+          : undefined;
+      if (code === "ENOENT") return true;
+      throw error;
+    }
+    return true;
+  }
+
   let existing: string;
   try {
-    const info = await lstat(path);
-    if (info.isSymbolicLink()) {
-      throw new Error(`refusing to write through a symlink: ${path}`);
-    }
     existing = await readFileBounded(path, MCP_MAX_BYTES);
   } catch (error) {
     const code =
@@ -128,7 +141,7 @@ async function mayReplace(path: string, marker: string, force: boolean): Promise
     if (code === "ENOENT") return true;
     throw error;
   }
-  return force || existing.includes(marker);
+  return existing.includes(marker);
 }
 
 async function writeMcp(
