@@ -161,9 +161,13 @@ fn context_suffix(finding: &Finding) -> String {
         finding.context.method.as_deref(),
         finding.context.route.as_deref(),
     ) {
-        (Some(method), Some(route)) => bits.push(format!("route `{method} {route}`")),
-        (None, Some(route)) => bits.push(format!("route `{route}`")),
-        (Some(method), None) => bits.push(format!("method `{method}`")),
+        (Some(method), Some(route)) => bits.push(format!(
+            "route `{method} {route}`",
+            method = md_in_ticks(method),
+            route = md_in_ticks(route)
+        )),
+        (None, Some(route)) => bits.push(format!("route `{}`", md_in_ticks(route))),
+        (Some(method), None) => bits.push(format!("method `{}`", md_in_ticks(method))),
         (None, None) => {}
     }
     if let Some(framework) = finding.context.framework.as_ref() {
@@ -180,7 +184,7 @@ fn append_snippet(out: &mut String, finding: &Finding) {
     let Some(frame) = finding.snippet.as_ref() else {
         return;
     };
-    out.push_str("\n```\n");
+    let mut body = String::new();
     for (offset, line) in frame.lines.iter().take(8).enumerate() {
         let line_no = frame
             .start_line
@@ -191,14 +195,15 @@ fn append_snippet(out: &mut String, finding: &Finding) {
                 .label
                 .as_deref()
                 .map_or(String::from("   // ←"), |label| {
-                    format!("   // ← {}", strip_controls(label))
+                    format!("   // ← {}", flatten_prose(label))
                 })
         } else {
             String::new()
         };
-        let _ = writeln!(out, "{line_no:>4}  {}{marker}", strip_controls(line));
+        let _ = writeln!(body, "{line_no:>4}  {}{marker}", flatten_prose(line));
     }
-    out.push_str("```\n");
+    let fence = code_fence(&body);
+    let _ = writeln!(out, "\n{fence}\n{body}{fence}");
 }
 
 fn append_fix(out: &mut String, finding: &Finding) {
@@ -240,7 +245,7 @@ fn append_omissions(out: &mut String, report: &Report) {
     }
 }
 
-fn code_fence(content: &str) -> &'static str {
+fn code_fence(content: &str) -> String {
     let mut longest = 0usize;
     let mut run = 0usize;
     for ch in content.chars() {
@@ -251,17 +256,16 @@ fn code_fence(content: &str) -> &'static str {
             run = 0;
         }
     }
-    match longest {
-        0..=2 => "```",
-        3 => "````",
-        _ => "`````",
-    }
+    "`".repeat(longest.saturating_add(1).max(3))
 }
 
 /// Escapes Markdown/HTML metacharacters in prose copied from the target.
+///
+/// Newlines become spaces so a `why` / route / title cannot open a new heading
+/// in a PR comment. Control characters are dropped.
 fn md_escape(input: &str) -> String {
     let mut out = String::with_capacity(input.len());
-    for ch in strip_controls(input).chars() {
+    for ch in flatten_prose(input).chars() {
         match ch {
             '<' => out.push_str("&lt;"),
             '>' => out.push_str("&gt;"),
@@ -277,7 +281,16 @@ fn md_escape(input: &str) -> String {
 }
 
 fn md_in_ticks(input: &str) -> String {
-    strip_controls(input).replace('`', "'")
+    flatten_prose(input).replace('`', "'")
+}
+
+/// One line of untrusted text: no control chars, no raw newlines.
+fn flatten_prose(input: &str) -> String {
+    input
+        .chars()
+        .filter(|c| *c == '\t' || !c.is_control() || *c == '\n' || *c == '\r')
+        .map(|c| if c == '\n' || c == '\r' { ' ' } else { c })
+        .collect()
 }
 
 fn strip_controls(input: &str) -> String {
@@ -289,7 +302,12 @@ fn strip_controls(input: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{code_fence, md_escape};
+    #![allow(clippy::unwrap_used, clippy::expect_used)]
+    use super::{MdReporter, code_fence, md_escape};
+    use owlwarden_core::finding::{
+        CodeFrame, Finding, FindingContext, Highlight, Location, RuleId, Severity, SourceLocation,
+    };
+    use owlwarden_core::report::{Report, ReportSummary, SCHEMA_VERSION, ScanTarget, ToolInfo};
 
     #[test]
     fn md_escape_neutralises_html_and_emphasis() {
@@ -297,8 +315,94 @@ mod tests {
     }
 
     #[test]
+    fn md_escape_flattens_newlines_so_they_cannot_open_a_heading() {
+        let escaped = md_escape("ok\n\n## injected");
+        assert!(!escaped.contains('\n'));
+        assert!(escaped.contains("## injected"));
+    }
+
+    #[test]
     fn fence_lengthens_when_the_patch_contains_backticks() {
         assert_eq!(code_fence("ok"), "```");
         assert_eq!(code_fence("```js"), "````");
+    }
+
+    fn report_with(finding: Finding) -> Report {
+        Report {
+            schema_version: SCHEMA_VERSION.to_owned(),
+            tool: ToolInfo::default(),
+            scanned_at: "2026-01-01T00:00:00Z".to_owned(),
+            duration_ms: 1,
+            target: ScanTarget {
+                project: "apps/api".to_owned(),
+                ..ScanTarget::default()
+            },
+            summary: ReportSummary::of(std::slice::from_ref(&finding)),
+            findings: vec![finding],
+            suppressed_count: 0,
+            suppressions: Vec::new(),
+            baseline_hidden_count: 0,
+            truncated: false,
+            errors: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn route_newlines_cannot_open_a_heading() {
+        let finding = Finding::builder(RuleId::new_static("stack-trace-leak"), Severity::High, "t")
+            .why("because")
+            .location(Location::Source(SourceLocation {
+                path: "app.ts".to_owned(),
+                line: 1,
+                col: 1,
+            }))
+            .context(FindingContext {
+                route: Some("/x\n\n## pwned".to_owned()),
+                method: Some("GET".to_owned()),
+                ..FindingContext::default()
+            })
+            .build();
+        let encoded = MdReporter::to_string(&report_with(finding)).unwrap();
+        assert!(
+            !encoded.contains("\n## pwned"),
+            "route must not split the markdown document: {encoded}"
+        );
+    }
+
+    #[test]
+    fn snippet_backticks_cannot_close_the_fence() {
+        let finding = Finding::builder(RuleId::new_static("stack-trace-leak"), Severity::High, "t")
+            .why("because")
+            .snippet(CodeFrame {
+                path: "app.ts".to_owned(),
+                start_line: 1,
+                lines: vec!["```".to_owned(), "## pwned".to_owned()],
+                highlight: Highlight {
+                    line: 1,
+                    start_col: 1,
+                    end_col: 4,
+                    label: None,
+                },
+            })
+            .build();
+        let encoded = MdReporter::to_string(&report_with(finding)).unwrap();
+        assert!(
+            encoded.contains("````"),
+            "snippet with ``` must lengthen the fence: {encoded}"
+        );
+        let after_open = encoded.split_once("````\n").map(|(_, rest)| rest);
+        assert!(
+            after_open.is_some_and(|rest| rest.contains("## pwned") && rest.contains("````")),
+            "pwned line must stay inside the lengthened fence: {encoded}"
+        );
+    }
+
+    #[test]
+    fn why_newlines_cannot_open_a_heading() {
+        let finding = Finding::builder(RuleId::new_static("stack-trace-leak"), Severity::High, "t")
+            .why("real reason\n\n## Security review passed")
+            .build();
+        let encoded = MdReporter::to_string(&report_with(finding)).unwrap();
+        assert!(!encoded.contains("\n## Security review passed"));
     }
 }

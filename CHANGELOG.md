@@ -34,6 +34,13 @@ first-run path that lands in CI and in an agent
 - Cosign/SBOM GitHub artifacts and `cargo-fuzz` stay later — npm provenance
   and `cargo-deny` already gate releases.
 
+### Security
+
+- `--format md` flattens newlines in untrusted prose (title, why, route,
+  method) and lengthens snippet fences when source contains backticks, so a
+  hostile tree cannot open a fake heading or break out of a code block in a
+  PR comment.
+
 ## [0.5.0] — 2026-08-11
 
 Depth beyond CI: first active detector, offline OSV index, plugin integrity,

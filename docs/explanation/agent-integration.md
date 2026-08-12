@@ -190,6 +190,6 @@ Three constraints elsewhere in the codebase exist because of this design:
 - **Remediation must be complete offline and inline.** An agent has no browser.
 - **`confidence` must be honest**, or both autofix and agent trust collapse.
   This is why `DetectorMeta::max_confidence` is a declared field.
-- **Single-file scans must be fast** — under 300 ms — or they do not fit an edit
-  loop. That is where the performance budget in
-  [ARCHITECTURE.md](../../ARCHITECTURE.md) §12 comes from.
+- **Single-file scans must be fast enough for an edit loop.** Architecture
+  §12 targets 300 ms; 1.0 has incremental watch, not a measured CI claim.
+  See [docs/how-to/performance.md](../how-to/performance.md).
