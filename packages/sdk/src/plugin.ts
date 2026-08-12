@@ -13,7 +13,7 @@ import { severitySchema } from "./report.js";
 /**
  * Capability flags a plugin may declare.
  *
- * Defaults: `source` true (v0.2 is source-only), `network` / `active` false
+ * Defaults: `source` true (v1 is source-only), `network` / `active` false
  * (omitted = not granted). Declaring `network` or `active` fails validation.
  */
 export const pluginCapabilitiesSchema = z
@@ -79,12 +79,12 @@ export const pluginManifestSchema = z
   })
   .strict()
   .superRefine((manifest, ctx) => {
-    // v0.2 host is source-only. Catch over-declared capabilities at author time.
+    // v1 host is source-only. Catch over-declared capabilities at author time.
     if (manifest.capabilities.network || manifest.capabilities.active) {
       ctx.addIssue({
         code: "custom",
         message:
-          "v0.2 plugin-host is source-only; set capabilities.network and capabilities.active to false",
+          "plugin-host is source-only (API v1); set capabilities.network and capabilities.active to false",
         path: ["capabilities"],
       });
     }

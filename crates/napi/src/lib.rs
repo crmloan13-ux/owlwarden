@@ -549,6 +549,8 @@ pub fn render(report_json: String, options_json: String) -> napi::Result<String>
         .map_err(|error| napi::Error::from_reason(error.to_string())),
         "junit" => owlwarden_reporters::JunitReporter::to_string(&report)
             .map_err(|error| napi::Error::from_reason(error.to_string())),
+        "md" => owlwarden_reporters::MdReporter::to_string(&report)
+            .map_err(|error| napi::Error::from_reason(error.to_string())),
         other => Err(napi::Error::from_reason(format!(
             "unknown format {other:?}; available: {}",
             owlwarden_reporters::AVAILABLE_FORMATS.join(", ")

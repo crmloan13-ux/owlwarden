@@ -32,6 +32,7 @@ an archaeology exercise.
 | [0021](0021-plugin-artifact-signing.md) | Plugin artifact integrity and local trust roots | Accepted |
 | [0022](0022-stackable-formats.md) | Stackable multi-format emit | Accepted |
 | [0023](0023-incremental-watch.md) | Incremental watch invalidation | Accepted |
+| [0024](0024-plugin-api-v1.md) | Freeze plugin API v1 at 1.0 | Accepted |
 
 ## Writing one
 

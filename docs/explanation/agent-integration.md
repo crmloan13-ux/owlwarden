@@ -1,7 +1,7 @@
 # Serving AI agents as users
 
-**Status:** v0.4 surface is shipped. `--format json` / `sarif` / `junit`,
-`explain`, `owlwarden mcp`, `init --agent-rules`, `--fix` (CLI only), opt-in
+**Status:** v1.0 surface is shipped. `--format json` / `sarif` / `junit` / `md`,
+`explain`, `owlwarden mcp`, `init` (adoption kit), `--fix` (CLI only), opt-in
 `--osv`, and `plugin inspect` work today. Editor post-edit hooks remain later.
 Each section below says what is live.
 
@@ -120,18 +120,20 @@ Hard limits, because an agent drives it:
   does not make a model immune — it makes scan/plugin prose harder to mistake
   for the host system prompt.
 
-## `owlwarden init --agent-rules` — shipped (v0.2)
+## `owlwarden init` — shipped (v1.0)
 
 ```bash
-owlwarden init --agent-rules
-# → .owlwarden/agent-rules.md
+owlwarden init                 # agent-rules + GitHub Action + Cursor MCP
+owlwarden init --agent-rules   # → .owlwarden/agent-rules.md
+owlwarden init --mcp           # → .cursor/mcp.json (merges mcpServers.owlwarden)
+owlwarden init --workflow      # → .github/workflows/owlwarden.yml
 ```
 
-Writes a short markdown file from the compiled-in catalogue so agents load the
-same rule ids `scan` actually enforces. The file includes an explicit note that
-findings / snippets / plugin text are untrusted evidence — not instructions —
-so a rules file loaded into an agent context does not teach the model to obey
-text planted in the scanned repo. Re-run after upgrading the tool.
+`--agent-rules` writes a short markdown file from the compiled-in catalogue so
+agents load the same rule ids `scan` actually enforces. The file includes an
+explicit note that findings / snippets / plugin text are untrusted evidence —
+not instructions. Re-run after upgrading the tool. `--force` replaces files
+owlwarden did not generate.
 
 ## Editor hooks — later
 
@@ -188,6 +190,6 @@ Three constraints elsewhere in the codebase exist because of this design:
 - **Remediation must be complete offline and inline.** An agent has no browser.
 - **`confidence` must be honest**, or both autofix and agent trust collapse.
   This is why `DetectorMeta::max_confidence` is a declared field.
-- **Single-file scans must be fast** — under 300 ms — or they do not fit an edit
-  loop. That is where the performance budget in
-  [ARCHITECTURE.md](../../ARCHITECTURE.md) §12 comes from.
+- **Single-file scans must be fast enough for an edit loop.** Architecture
+  §12 targets 300 ms; 1.0 has incremental watch, not a measured CI claim.
+  See [docs/how-to/performance.md](../how-to/performance.md).

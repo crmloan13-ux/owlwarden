@@ -592,6 +592,7 @@ fn write_report(args: &ScanArgs, report: &Report, color: bool) -> Result<(), Str
             }
         }
         "junit" => owlwarden_reporters::JunitReporter::to_string(report),
+        "md" => owlwarden_reporters::MdReporter::to_string(report),
         other => {
             return Err(format!(
                 "unknown format {other:?}; available: {}",

@@ -309,6 +309,8 @@ function machineExtension(format: ReportFormat): string {
       return ".sarif";
     case "junit":
       return ".xml";
+    case "md":
+      return ".md";
     case "pretty":
       throw new Error("pretty is not a machine format");
   }

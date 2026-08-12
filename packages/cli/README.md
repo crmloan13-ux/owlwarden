@@ -12,10 +12,11 @@ and no source upload.
 npx owlwarden scan
 ```
 
-**Version 0.5.0** ships fourteen rules (including opt-in
+**Version 1.0.0** ships a frozen plugin API, fourteen rules (including opt-in
 `known-vulnerable-dependency` via `--osv` / `--osv-db` and active
 `csrf-cross-origin-post` via `--target` + `--allow-active`), stackable
-`--format sarif` / `junit` / `pretty` / `json`, a first-party GitHub Action,
+`--format sarif` / `junit` / `md` / `pretty` / `json`, a first-party GitHub
+Action, `owlwarden init` (agent-rules + CI workflow + Cursor MCP),
 offline OSV indexes, plugin artifact integrity with optional ed25519 signatures,
 incremental `watch`, Safe `--fix`, first-class remediation for twelve Node
 frameworks, a read-only MCP server, passive opt-in runtime confirmation, and
@@ -158,11 +159,12 @@ surface is **static-only, read-only**, and workspace-scoped: it cannot use
 untrusted evidence and common prompt-role markers are neutralised before scan
 or plugin prose reaches the model.
 
-Generate a short project-local rules file from the installed catalogue:
+Generate a short project-local rules file, a GitHub Action workflow, and a
+Cursor MCP entry from one command:
 
 ```bash
-owlwarden init --agent-rules
-# writes .owlwarden/agent-rules.md
+owlwarden init
+# --agent-rules, --workflow, --mcp select a subset
 ```
 
 See the full
@@ -221,7 +223,7 @@ Add a repeatable local command:
 | `owlwarden rules` | Print the compiled rule catalogue |
 | `owlwarden coverage` | Show OWASP reach and explicit gaps |
 | `owlwarden explain <RULE_ID>` | Print a rule's rationale and fixes offline |
-| `owlwarden init --agent-rules` | Write agent guidance from the compiled catalogue |
+| `owlwarden init` | Write agent-rules, GitHub Action workflow, and Cursor MCP config |
 | `owlwarden plugin scaffold <NAME>` | Create a source-only WASM plugin stub and manifest |
 | `owlwarden plugin inspect <PATH>` | Print plugin capabilities and integrity without loading WASM |
 | `owlwarden osv update` | Build a lockfile-scoped OSV index for offline CI |
@@ -232,6 +234,7 @@ Common scans:
 owlwarden scan ./apps/api
 owlwarden scan --preset owasp-top10
 owlwarden scan --format json
+owlwarden scan --format md --out owlwarden-report.md
 owlwarden scan --format pretty --format sarif --out owlwarden-results
 owlwarden scan --fail-on medium --min-confidence likely
 owlwarden scan --out owlwarden-report.json
@@ -255,9 +258,9 @@ untrusted pull request could plant in the scanned tree. Unless the workflow
 explicitly opts in, it ignores project gate settings, does not apply inline
 suppressions, refuses a baseline, and refuses plugins.
 
-**SARIF and JUnit** render the same `Report` as JSON — one finding model, no
-re-scoring in the Action. Repeat `--format` to emit several renderings from one
-scan (for example pretty on stderr and SARIF on disk).
+**SARIF, JUnit, and Markdown** render the same `Report` as JSON — one finding
+model, no re-scoring in the Action. Repeat `--format` to emit several
+renderings from one scan (for example pretty on stderr and SARIF on disk).
 
 **Offline OSV in CI:** build an index on a trusted machine with
 `owlwarden osv update`, commit or cache it, then scan with

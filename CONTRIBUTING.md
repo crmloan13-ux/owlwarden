@@ -41,7 +41,7 @@ crates/core           ports (traits), the finding model, the OWASP catalogue. No
 crates/static-engine  filesystem provider, oxc parsing, rule plumbing,
                       framework profiles, shared AST and request-origin helpers
 crates/detectors      the rules themselves
-crates/reporters      pretty + json output
+crates/reporters      pretty, json, sarif, junit, md output
 crates/napi           the Node bridge
 crates/cli-native     standalone binary, no Node required
 packages/sdk          report types + zod schemas

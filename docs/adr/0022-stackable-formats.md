@@ -11,7 +11,7 @@ engine twice wastes time and can disagree if the tree changes between runs.
 
 ## Decision
 
-**`--format` may be repeated.** Each value is one of `pretty|json|sarif|junit`.
+**`--format` may be repeated.** Each value is one of `pretty|json|sarif|junit|md`.
 Duplicates are ignored (first wins order). Config keeps a single `format` for
 backward compatibility; only the CLI stacks.
 
@@ -20,11 +20,12 @@ from that value.
 
 **Stdout / `--out` pairing:**
 
-- If exactly one machine format (`json`/`sarif`/`junit`) is requested and
+- If exactly one machine format (`json`/`sarif`/`junit`/`md`) is requested and
   `--out` is set, that format writes to `--out`.
 - If several machine formats are requested, `--out` is treated as a **prefix**
   (or directory): files are `\<prefix\>.json`, `\<prefix\>.sarif`,
-  `\<prefix\>.xml` (junit). A bare directory gets `report.*` inside it.
+  `\<prefix\>.xml` (junit), `\<prefix\>.md`. A bare directory gets `report.*`
+  inside it.
 - `pretty` always goes to the human stream (stdout when it is the only format,
   otherwise stderr) so machine stdout stays a single parseable document when
   only one machine format is used without `--out`.
@@ -34,5 +35,6 @@ from that value.
 ## Consequences
 
 - Action / docs examples can emit SARIF file + pretty CI log in one step.
-- Markdown reporter remains separate later work.
+- Markdown reporter shipped in 1.0 as `--format md` (PR comments). Extra
+  grouping flags stay later.
 - NAPI `render` stays single-format; the CLI loops.

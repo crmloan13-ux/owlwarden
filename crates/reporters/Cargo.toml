@@ -1,6 +1,6 @@
 [package]
 name = "owlwarden-reporters"
-description = "Built-in owlwarden reporters: pretty, JSON, SARIF 2.1.0, and JUnit XML."
+description = "Built-in owlwarden reporters: pretty, JSON, SARIF 2.1.0, JUnit XML, and Markdown."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

@@ -456,7 +456,7 @@ USAGE
 SCAN OPTIONS
   --preset <NAME>      Rule bundle to run. Default: {default_preset}
 {presets}
-  --format <FORMAT>    pretty (default), json, sarif, or junit
+  --format <FORMAT>    pretty (default), json, sarif, junit, or md
   --out <FILE>         Write the report to a file instead of stdout
   --baseline <FILE>    Report only findings new since this baseline
   --write-baseline <F> Write current findings to a baseline file
@@ -470,7 +470,7 @@ SCAN OPTIONS
   --scope <URL>        Allowlist entry (repeatable). Default: origin of --target
   --plugin <PATH>      Load a WASM detector (repeatable). Directory with
                        owlwarden.plugin.json + plugin.wasm, or a bare .wasm
-                       with a sidecar manifest. Sandboxed; source-only in v0.2
+                       with a sidecar manifest. Sandboxed; source-only
   --allow-plugins      Under --ci, permit --plugin (off by default)
   --require-signed-plugins  Refuse plugins without a verified .sig (ADR 0021)
   --allow-active       With --target, permit state-changing HTTP methods

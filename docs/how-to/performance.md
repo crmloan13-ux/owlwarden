@@ -18,6 +18,10 @@ This times a real fixture scan and prints duration. It is **not** a hard CI
 gate yet — numbers vary by host. Use it to catch order-of-magnitude
 regressions before claiming a faster release.
 
+Measured at 1.0 on a developer Mac: `fixtures/vulnerable/next-api` (7 files)
+was ~9 ms after warmup. That is **not** the 1k-file / 5 s budget; it only
+shows the small fixture is not in the wrong order of magnitude.
+
 ## Incremental watch (ADR 0023)
 
 `owlwarden watch` keeps a process-local content-hash cache and passes

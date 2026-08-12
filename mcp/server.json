@@ -1,0 +1,20 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-10-17/server.schema.json",
+  "name": "io.github.suthat/owlwarden",
+  "description": "Local-first security scanner for Node web apps. Read-only MCP: scan, explain rules, list the catalogue. No telemetry, no network unless the operator opts in on the CLI.",
+  "repository": {
+    "url": "https://github.com/suthat/owlwarden",
+    "source": "github"
+  },
+  "version": "1.0.0",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "owlwarden",
+      "version": "1.0.0",
+      "transport": {
+        "type": "stdio"
+      }
+    }
+  ]
+}

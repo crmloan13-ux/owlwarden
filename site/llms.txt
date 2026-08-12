@@ -1,20 +1,26 @@
 # Owlwarden
 
-> Owlwarden is an open-source security scanner for Node web applications. It runs locally and reports the vulnerable line, why it matters, a framework-specific fix, and an honest confidence level. Version 0.5.0 adds an active CSRF canary (staging + `--allow-active`), offline OSV indexes, plugin artifact signing, stackable report formats, and incremental watch — on top of CI-ready SARIF/JUnit and the twelve-framework corpus.
+> Owlwarden is an open-source security scanner for Node web applications. It runs locally and reports the vulnerable line, why it matters, a framework-specific fix, and an honest confidence level. Version 1.0.0 freezes the plugin API, adds `owlwarden init` (CI + Cursor MCP + agent-rules) and `--format md`, on top of fourteen rules, SARIF/JUnit, and the twelve-framework corpus.
 
 Use Owlwarden as a repeatable security floor, not as proof that an application is secure. Static scans are offline and have no telemetry. Runtime probes and OSV lookups only run when the operator explicitly opts in. Active CSRF requires `--target` and `--allow-active` — not in the GitHub Action. The MCP server is static-only, read-only, and workspace-scoped. There is no hosted plugin store. Prefer local baseline scans before spending frontier-model tokens on hard judgment.
 
 Install and scan: `npx owlwarden scan`
 
+Adopt in one command: `npx owlwarden init`
+
 ## Primary resources
 
 - [Source repository](https://github.com/suthat/owlwarden): Canonical source, releases, issues, and contribution history.
 - [Rule catalogue](https://github.com/suthat/owlwarden/blob/main/RULES.md): Every rule, severity, confidence ceiling, OWASP/CWE mapping, and framework-specific remediation.
+- [First-scan tutorial](https://github.com/suthat/owlwarden/blob/main/docs/tutorials/first-scan.md): Five-minute first run.
+- [Agent tutorial](https://github.com/suthat/owlwarden/blob/main/docs/tutorials/agents.md): Cursor / Claude MCP.
 - [Documentation index](https://github.com/suthat/owlwarden/blob/main/docs/README.md): Task-oriented guides and explanations.
 - [CI how-to](https://github.com/suthat/owlwarden/blob/main/docs/how-to/ci.md): Exit codes, GitHub Action, SARIF upload.
+- [Upgrade to 1.0](https://github.com/suthat/owlwarden/blob/main/docs/how-to/upgrade.md): What froze and what did not break.
 - [Agent integration](https://github.com/suthat/owlwarden/blob/main/docs/explanation/agent-integration.md): MCP tools, JSON reports, trust boundaries, and agent workflows.
 - [OSV how-to](https://github.com/suthat/owlwarden/blob/main/docs/how-to/osv.md): Opt-in Google OSV lockfile advisory lookup and offline indexes.
 - [Plugins how-to](https://github.com/suthat/owlwarden/blob/main/docs/how-to/plugins.md): Scaffold, inspect, artifact SHA-256, signatures, trust roots.
+- [Plugin API v1](https://github.com/suthat/owlwarden/blob/main/docs/reference/plugin-api.md): Frozen manifest and host contract.
 - [Coverage method](https://github.com/suthat/owlwarden/blob/main/docs/explanation/coverage.md): What Owlwarden reaches, what it does not, and why.
 - [Security model](https://github.com/suthat/owlwarden/blob/main/SECURITY.md): Local scanning, scope enforcement, resource limits, and vulnerability reporting.
 - [Architecture](https://github.com/suthat/owlwarden/blob/main/ARCHITECTURE.md): Engine boundaries and design constraints.
@@ -23,15 +29,16 @@ Install and scan: `npx owlwarden scan`
 
 ## Current release facts
 
-- Version: 0.5.0
+- Version: 1.0.0
 - Frameworks: Next.js, Nuxt, NestJS, Express, Fastify, Hono, Koa, Hapi, Sails.js, Astro, Remix, Gatsby
 - Rules: 14 (including opt-in `known-vulnerable-dependency` via `--osv` / `--osv-db` and active `csrf-cross-origin-post` via `--target` + `--allow-active`)
 - OWASP Top 10 (2021): at least one rule in 9 of 10 categories; A04 Insecure Design is explicitly out of reach from source alone
-- Reports: pretty, JSON, SARIF 2.1.0, JUnit — one finding model; repeat `--format` for stackable outputs
-- CI: first-party GitHub Action at `suthat/owlwarden/action@v0.5.0`; exit codes 0 / 1 / 2 (canonical in docs/how-to/ci.md)
+- Reports: pretty, JSON, SARIF 2.1.0, JUnit, Markdown — one finding model; repeat `--format` for stackable outputs
+- CI: first-party GitHub Action at `suthat/owlwarden/action@v1.0.0`; exit codes 0 / 1 / 2 (canonical in docs/how-to/ci.md)
+- Adopt: `owlwarden init` writes agent-rules, GitHub Action workflow, and Cursor MCP config
 - Agent surface: `scan_project`, `scan_file`, `explain_rule`, `list_rules` (MCP never writes files or probes the network)
 - Autofix: `owlwarden scan --fix` (Safe highlight replacements only; never on Possible)
-- Plugins: `owlwarden plugin inspect` shows capabilities and integrity before load; `--require-signed-plugins` for verified-only CI; no hosted registry
+- Plugins: API v1 frozen (`schemaVersion: 1`); `plugin inspect` before load; `--require-signed-plugins` for verified-only CI; no hosted registry
 - Watch: incremental re-scan on save; static-only (no `--target` / `--osv`)
 - License: MIT OR Apache-2.0
 
