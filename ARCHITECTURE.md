@@ -343,7 +343,7 @@ is never branded with the OWASP mark.
 | `watch` | shipped | Re-scan on change during development. Static only — refuses `--target`. |
 | `report` | planned | Re-render a saved JSON result in another format. |
 | `mcp` | shipped | Stdio MCP server (static, read-only). |
-| `init --agent-rules` | shipped | Writes `.owlwarden/agent-rules.md` from the catalogue. |
+| `init` | shipped | Adoption kit: agent-rules, GitHub Action workflow, Cursor MCP. |
 | `plugin scaffold` | shipped | Starter guest + `owlwarden.plugin.json`. |
 
 Exit codes are a contract: `0` clean, `1` findings at or above `--fail-on`, `2`
@@ -454,9 +454,11 @@ Any path that turns an attacker-controlled size into an allocation clamps first.
 | Peak memory, same project | < 300 MB |
 
 The 300 ms figure is not arbitrary: it is what fits inside an editor save and an
-agent's edit loop. v0.4 ships a cold-scan baseline harness
-(`cargo test -p owlwarden-detectors --test perf_baseline -- --ignored`); a hard
-CI regression gate over 20% and true incremental watch remain later. See
+agent's edit loop. A cold-scan baseline harness ships
+(`cargo test -p owlwarden-detectors --test perf_baseline -- --ignored`).
+Incremental watch shipped in 0.5 (ADR 0023). A hard CI regression gate (±20%)
+is still later — 1.0 does not claim the 300 ms number until it is measured on
+CI hardware. See
 [docs/how-to/performance.md](docs/how-to/performance.md).
 
 ### Platforms

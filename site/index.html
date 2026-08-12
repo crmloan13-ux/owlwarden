@@ -25,7 +25,7 @@
     <meta name="twitter:description" content="A local security scanner for Node web apps, built for humans and coding agents.">
     <meta name="twitter:image" content="https://suthat.github.io/owlwarden/og.jpg">
 
-    <link rel="stylesheet" href="./styles.css?v=0.5.0">
+    <link rel="stylesheet" href="./styles.css?v=1.0.0">
     <script defer src="./site.js"></script>
 
     <script type="application/ld+json">
@@ -47,7 +47,7 @@
             "url": "https://suthat.github.io/owlwarden/",
             "codeRepository": "https://github.com/suthat/owlwarden",
             "downloadUrl": "https://www.npmjs.com/package/owlwarden",
-            "softwareVersion": "0.5.0",
+            "softwareVersion": "1.0.0",
             "applicationCategory": "SecurityApplication",
             "applicationSubCategory": "Static application security testing",
             "operatingSystem": "macOS, Linux, Windows",
@@ -73,7 +73,8 @@
               "Offline OSV indexes and plugin artifact integrity",
               "Incremental watch and stackable report formats",
               "Sandboxed source-only WASM plugins",
-              "Human-readable, JSON, SARIF, and JUnit reports"
+              "Markdown reporter for pull-request comments",
+              "owlwarden init writes CI workflow, Cursor MCP, and agent rules"
             ],
             "sameAs": [
               "https://github.com/suthat/owlwarden",
@@ -93,6 +94,7 @@
         <span>Owlwarden</span>
       </a>
       <nav aria-label="Primary navigation">
+        <a href="#start">Start</a>
         <a href="#why">Why it works</a>
         <a href="#agents">For agents</a>
         <a href="https://github.com/suthat/owlwarden" target="_blank" rel="noopener noreferrer">GitHub <span aria-hidden="true">↗</span></a>
@@ -102,7 +104,7 @@
     <main id="main-content">
       <section class="hero" id="top" aria-labelledby="hero-title">
         <div class="hero-copy">
-          <p class="eyebrow"><span>Open source</span> · v0.5.0</p>
+          <p class="eyebrow"><span>Open source</span> · v1.0.0</p>
           <h1 id="hero-title">Security review for code still in motion.</h1>
           <p class="hero-deck">A local-first security floor for Node web apps and the agents that edit them — offline by default, honest about confidence, fix-in-finding. Gate PRs with SARIF when you are ready; the vulnerable line, why it matters, and a framework-specific fix stay in one answer.</p>
 
@@ -114,8 +116,8 @@
           </div>
 
           <div class="hero-actions">
-            <a class="button primary" href="https://github.com/suthat/owlwarden" target="_blank" rel="noopener noreferrer">View the source <span aria-hidden="true">↗</span></a>
-            <a class="button text-link" href="https://github.com/suthat/owlwarden/blob/main/docs/README.md" target="_blank" rel="noopener noreferrer">Read the documentation</a>
+            <a class="button primary" href="#start">Start in 30 seconds</a>
+            <a class="button text-link" href="https://github.com/suthat/owlwarden" target="_blank" rel="noopener noreferrer">View the source <span aria-hidden="true">↗</span></a>
           </div>
         </div>
 
@@ -137,8 +139,44 @@
 
       <section class="ledger" aria-label="Release facts">
         <div><strong>12</strong><span>frameworks, each with specific remediation</span></div>
-        <div><strong>SARIF</strong><span>and JUnit for the pipelines teams already run</span></div>
+        <div><strong>1.0</strong><span>stable plugin API, frozen schemaVersion 1</span></div>
         <div><strong>9 of 10</strong><span>OWASP Top 10 categories reached—and the gap is published</span></div>
+      </section>
+
+      <section class="recipes" id="start" aria-labelledby="start-title">
+        <div class="recipes-intro">
+          <p class="eyebrow">Three commands</p>
+          <h2 id="start-title">Scan. Wire the agent. Gate the PR.</h2>
+        </div>
+        <ol>
+          <li>
+            <p>See what it finds</p>
+            <div class="install" aria-label="Scan this folder">
+              <code><span aria-hidden="true">$</span> npx owlwarden scan</code>
+              <button type="button" data-copy="npx owlwarden scan" aria-label="Copy npx owlwarden scan to clipboard">
+                <span data-copy-label>Copy</span>
+              </button>
+            </div>
+          </li>
+          <li>
+            <p>Add it to Cursor</p>
+            <div class="install" aria-label="Write Cursor MCP config">
+              <code><span aria-hidden="true">$</span> npx owlwarden init --mcp</code>
+              <button type="button" data-copy="npx owlwarden init --mcp" aria-label="Copy npx owlwarden init --mcp to clipboard">
+                <span data-copy-label>Copy</span>
+              </button>
+            </div>
+          </li>
+          <li>
+            <p>Fail the next bad PR</p>
+            <div class="install" aria-label="Write GitHub Action workflow">
+              <code><span aria-hidden="true">$</span> npx owlwarden init --workflow</code>
+              <button type="button" data-copy="npx owlwarden init --workflow" aria-label="Copy npx owlwarden init --workflow to clipboard">
+                <span data-copy-label>Copy</span>
+              </button>
+            </div>
+          </li>
+        </ol>
       </section>
 
       <section class="finding-section" aria-labelledby="finding-title">
@@ -277,6 +315,10 @@
           <h2 id="answers-title">Before you put it in the loop.</h2>
         </div>
         <div class="question-list">
+          <details>
+            <summary>How do I add it to Cursor or CI?</summary>
+            <p><code>npx owlwarden init</code> writes agent rules, a GitHub Action workflow, and <code>.cursor/mcp.json</code>. Use <code>--mcp</code> or <code>--workflow</code> for one file. Existing files owlwarden did not generate are left alone unless you pass <code>--force</code>.</p>
+          </details>
           <details>
             <summary>What does Owlwarden scan?</summary>
             <p>TypeScript and JavaScript web applications, with first-class framework knowledge for Next.js, Nuxt, NestJS, Express, Fastify, Hono, Koa, Hapi, Sails.js, Astro, Remix, and Gatsby. Other Node projects receive a generic scan where a rule does not need framework context.</p>

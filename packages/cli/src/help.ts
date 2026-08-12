@@ -15,7 +15,7 @@ export function helpText(native: NativeEngine | undefined): string {
 USAGE
   owlwarden scan [PATH] [OPTIONS]
   owlwarden mcp [PATH]
-  owlwarden init --agent-rules [--out FILE]
+  owlwarden init [--agent-rules] [--workflow] [--mcp] [--force] [--out FILE]
   owlwarden watch [PATH] [OPTIONS]
   owlwarden rules [--json]
   owlwarden coverage [--json] [--no-color] [--ascii]
@@ -29,7 +29,8 @@ USAGE
   mcp — stdio MCP for coding agents (scan / explain / list rules; static, read-only).
         On a TTY it prints a how-to on stderr and then waits; silence means it
         is waiting for a host, not hung. Under a host, stderr gets a ready line.
-  init --agent-rules — writes .owlwarden/agent-rules.md from the catalogue.
+  init — writes the adoption kit (agent-rules, GitHub Action workflow, Cursor MCP).
+        Flags select a subset. Generated files are overwritten; others need --force.
   Prefer --format json for CI and agents. Repeat --format to emit several
   renderings from one scan (e.g. --format pretty --format sarif --out results).
   plugin scaffold writes a WASM guest stub + manifest.
@@ -42,7 +43,7 @@ USAGE
 SCAN OPTIONS
   --preset <NAME>       Rule bundle to run
 ${presetLines(native)}
-  --format <FORMAT>     Output format (repeatable): pretty, json, sarif, junit
+  --format <FORMAT>     Output format (repeatable): pretty, json, sarif, junit, md
   --out <FILE|DIR>      Write machine output to a file, or a prefix / directory
                         when several machine formats are requested
   --baseline <FILE>     Report only findings new since this baseline
@@ -59,7 +60,7 @@ ${presetLines(native)}
   --scope <URL>         Allowlist entry (repeatable). Default: origin of --target
   --plugin <PATH>       Load a WASM detector (repeatable). Directory with
                         owlwarden.plugin.json + plugin.wasm, or a bare .wasm
-                        with a sidecar manifest. Sandboxed; source-only in v0.2
+                        with a sidecar manifest. Sandboxed; source-only
   --allow-plugins       Under --ci, permit --plugin (off by default)
   --require-signed-plugins  Refuse plugins without a verified .sig (ADR 0021)
   --fix                 Apply Safe highlight replacements (never on Possible).
@@ -68,7 +69,7 @@ ${presetLines(native)}
   --dry-run             With --fix, show changes without writing
   --allow-dirty         With --fix, allow a dirty working tree
   --allow-active        With --target, permit state-changing HTTP methods.
-                        No first-party detector uses this yet
+                        Staging only. Enables csrf-cross-origin-post.
   --osv                 Opt into Google OSV lockfile advisory lookup
                         (sends name+version to api.osv.dev; never source)
   --osv-db <PATH>       Use a cached OSV index file (no network)

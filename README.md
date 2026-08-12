@@ -4,10 +4,9 @@ Local-first security floor for Node web apps — built so coding agents and huma
 get the same answer: the line, a fix, and an honest confidence level. Rust
 engine, TypeScript CLI on npm. Nothing leaves your machine unless you opt in.
 
-**v0.5.0** — fourteen rules, CI-ready SARIF/JUnit and a first-party GitHub
-Action, active CSRF canary (staging + `--allow-active`), offline OSV indexes,
-plugin artifact integrity, stackable `--format`, incremental `watch`, read-only
-MCP for agents. Site:
+**v1.0.0** — stable plugin API, fourteen rules, CI-ready SARIF/JUnit/Markdown
+and a first-party GitHub Action, `owlwarden init` adoption kit, read-only MCP
+for agents. Site:
 [https://suthat.github.io/owlwarden/](https://suthat.github.io/owlwarden/).
 See [ROADMAP.md](ROADMAP.md).
 
@@ -29,7 +28,7 @@ Wire it into an agent loop instead of pasting terminal output by hand:
 ```bash
 owlwarden mcp                  # tools: scan_project, scan_file, explain_rule, list_rules
 owlwarden scan --format json   # same report shape agents already parse
-owlwarden init --agent-rules   # writes .owlwarden/agent-rules.md from the catalogue
+owlwarden init                 # agent-rules + GitHub Action + Cursor MCP
 ```
 
 MCP is read-only and static-only — no live `--target`, no file writes, paths
@@ -118,7 +117,9 @@ node packages/cli/dist/bin.js scan /path/to/project
 ```bash
 owlwarden scan
 owlwarden mcp
+owlwarden init
 owlwarden init --agent-rules
+owlwarden scan --format md --out owlwarden-report.md
 owlwarden scan --format json
 owlwarden scan ./apps/api
 owlwarden scan --preset owasp-top10

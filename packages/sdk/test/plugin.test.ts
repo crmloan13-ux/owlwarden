@@ -47,7 +47,7 @@ describe("pluginManifestSchema", () => {
     expect(parsed.artifact?.path).toBe("plugin.wasm");
   });
 
-  it("rejects network or active capabilities in v0.2", () => {
+  it("rejects network or active capabilities in v1", () => {
     const result = pluginManifestSchema.safeParse({
       schemaVersion: 1,
       id: "acme-net",

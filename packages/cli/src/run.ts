@@ -77,9 +77,13 @@ export async function run(argv: string[], streams: Streams): Promise<number> {
     case "init":
       return runInit(
         mustLoad(native),
-        cli.out === undefined
-          ? { agentRules: cli.agentRules }
-          : { agentRules: cli.agentRules, out: cli.out },
+        {
+          agentRules: cli.agentRules,
+          workflow: cli.workflow,
+          mcp: cli.mcp,
+          force: cli.force,
+          ...(cli.out === undefined ? {} : { out: cli.out }),
+        },
         process.cwd(),
         stderr,
       );

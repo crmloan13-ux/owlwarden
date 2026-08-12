@@ -52,7 +52,9 @@ describe("parse", () => {
   });
 
   it("rejects an unknown format value", () => {
-    expect(() => parse(["scan", "--format", "yaml"])).toThrow(/pretty, json, sarif, junit/);
+    expect(() => parse(["scan", "--format", "yaml"])).toThrow(
+      /pretty, json, sarif, junit, md/,
+    );
   });
 
   it("accepts a path alongside flags", () => {
@@ -172,19 +174,39 @@ describe("parse", () => {
     expect(() => parse(["plugin", "inspect"])).toThrow(/requires a path/);
   });
 
-  it("parses mcp, init --agent-rules, and plugin scaffold", () => {
+  it("parses mcp, init, and plugin scaffold", () => {
     expect(parse(["mcp", "./apps/api"])).toEqual({
       command: "mcp",
       path: "./apps/api",
     });
+    expect(parse(["init"])).toEqual({
+      command: "init",
+      agentRules: true,
+      workflow: true,
+      mcp: true,
+      force: false,
+    });
     expect(parse(["init", "--agent-rules"])).toEqual({
       command: "init",
       agentRules: true,
+      workflow: false,
+      mcp: false,
+      force: false,
     });
     expect(parse(["init", "--agent-rules", "--out", "rules.md"])).toEqual({
       command: "init",
       agentRules: true,
+      workflow: false,
+      mcp: false,
+      force: false,
       out: "rules.md",
+    });
+    expect(parse(["init", "--workflow", "--mcp", "--force"])).toEqual({
+      command: "init",
+      agentRules: false,
+      workflow: true,
+      mcp: true,
+      force: true,
     });
     expect(parse(["plugin", "scaffold", "acme-rules"])).toEqual({
       command: "plugin-scaffold",
@@ -212,8 +234,7 @@ describe("parse", () => {
     expect(cli.options.requireSignedPlugins).toBe(true);
   });
 
-  it("requires --agent-rules for init and a name for plugin scaffold", () => {
-    expect(() => parse(["init"])).toThrow(/--agent-rules/);
+  it("requires a name for plugin scaffold", () => {
     expect(() => parse(["plugin", "scaffold"])).toThrow(/requires a name/);
     expect(() => parse(["plugin", "build"])).toThrow(/usage:/);
   });

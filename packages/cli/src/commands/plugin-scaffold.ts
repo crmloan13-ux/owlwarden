@@ -62,7 +62,7 @@ export async function runPluginScaffold(
         maxConfidence: "possible",
         category: "example",
         description:
-          "Replace this rule with a real check. The host is source-only in v0.2.",
+          "Replace this rule with a real check. The host is source-only (API v1).",
       },
     ],
   });

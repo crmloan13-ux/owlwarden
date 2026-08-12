@@ -26,7 +26,7 @@ export type Cli =
   | { command: "coverage"; json: boolean; color: boolean; unicode: boolean }
   | { command: "explain"; rule: string; json: boolean }
   | { command: "mcp"; path: string }
-  | { command: "init"; agentRules: boolean; out?: string }
+  | { command: "init"; agentRules: boolean; workflow: boolean; mcp: boolean; force: boolean; out?: string }
   | { command: "plugin-scaffold"; name: string }
   | { command: "plugin-inspect"; path: string }
   | { command: "osv-update"; path: string; out?: string }
@@ -34,7 +34,7 @@ export type Cli =
   | { command: "version" };
 
 /** A scan report rendering target. */
-export type ReportFormat = "pretty" | "json" | "sarif" | "junit";
+export type ReportFormat = "pretty" | "json" | "sarif" | "junit" | "md";
 
 /** Everything `scan` / `watch` needs, before config is merged in. */
 export interface ScanOptions {
@@ -92,7 +92,7 @@ export interface ScanOptions {
   /**
    * Paths to WASM plugin directories (or bare `.wasm` files with a sidecar
    * manifest) to load alongside the first-party detectors. Sandboxed
-   * (wasmtime), source-only in v0.2 — see `ARCHITECTURE.md` §6.
+   * (wasmtime), source-only — see `ARCHITECTURE.md` §6.
    */
   plugins: string[];
   /**
@@ -185,6 +185,9 @@ const OPTIONS = {
   quiet: { type: "boolean", short: "q", default: false },
   json: { type: "boolean", default: false },
   "agent-rules": { type: "boolean", default: false },
+  workflow: { type: "boolean", default: false },
+  mcp: { type: "boolean", default: false },
+  force: { type: "boolean", default: false },
   help: { type: "boolean", short: "h", default: false },
   version: { type: "boolean", short: "V", default: false },
 } as const satisfies NonNullable<ParseArgsConfig["options"]>;
@@ -251,12 +254,16 @@ export function parse(argv: string[]): Cli {
       return { command: "mcp", path: rest[0] ?? "." };
     }
     case "init": {
-      if (!values["agent-rules"]) {
-        throw new ArgError("init requires --agent-rules");
-      }
-      return values.out === undefined
-        ? { command: "init", agentRules: true }
-        : { command: "init", agentRules: true, out: values.out };
+      const selected = values["agent-rules"] || values.workflow || values.mcp;
+      const parsedInit: Extract<Cli, { command: "init" }> = {
+        command: "init",
+        agentRules: selected ? values["agent-rules"] : true,
+        workflow: selected ? values.workflow : true,
+        mcp: selected ? values.mcp : true,
+        force: values.force,
+      };
+      if (values.out !== undefined) parsedInit.out = values.out;
+      return parsedInit;
     }
     case "plugin": {
       const sub = rest[0];
@@ -303,7 +310,7 @@ function scanOptions(values: Values, positionals: string[]): ScanOptions {
   const formats = parseFormats(
     "--format",
     ci ? (values.format ?? "json") : values.format,
-    ["pretty", "json", "sarif", "junit"] as const,
+    ["pretty", "json", "sarif", "junit", "md"] as const,
   );
 
   const scope = values.scope ?? [];

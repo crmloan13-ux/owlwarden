@@ -61,7 +61,7 @@ problem is if it is real; confidence is how sure owlwarden is that it is real.
 Collapsing them into one number is how a scanner ends up shouting — see
 [docs/explanation/false-positives.md](docs/explanation/false-positives.md).
 
-**Shipped:** `pretty`, `json`, `sarif`, `junit`. **Planned:** `md`.
+**Shipped:** `pretty`, `json`, `sarif`, `junit`, `md`.
 
 **Stackable reporters** (ADR 0022): repeat `--format` to render several outputs
 from one scan. With one machine format, `--out` is the destination file; with
@@ -225,10 +225,10 @@ Canonical contract: [docs/how-to/ci.md](docs/how-to/ci.md) (ADR 0017).
 A `Possible`-confidence finding never produces exit 1 on its own. `truncated`
 always fails. `2` is deliberately distinct from `1`.
 
-## 4. Markdown reporter — `md` (planned)
+## 4. Markdown reporter — `md` (shipped in v1.0)
 
 For pasting into a pull request or an issue. Grouped by severity, each finding
-carrying the fix for the detected framework and its references.
+carrying the fix for the detected framework.
 
 ````markdown
 # owlwarden report — apps/api
@@ -239,19 +239,15 @@ _2 files · 0.31s · 1 high · 1 medium_
 ### Stack trace leaked in error response · A05:2021 · CWE-209
 **Where:** `app/api/users/route.ts:13` (route `GET /api/users`, Next.js)
 **Confidence:** likely
-
-```ts
-13    { error: err.stack },   // ← leaks internal stack trace to the client
-```
-
-**Fix (Next.js)** — return a generic message; log the error server-side.
-**Why it matters:** stack traces expose file paths, dependency versions, and
-internal call structure.
 ````
 
-Intended options: `--md-group-by {severity|category|file}` and `--md-collapse`,
-which wraps each finding in `<details>` so a long report stays readable in a PR
-comment.
+```bash
+owlwarden scan --format md --out owlwarden-report.md
+owlwarden scan --format pretty --format md --out owlwarden-report
+```
+
+`--md-group-by` / `--md-collapse` remain later. The default grouping is
+severity, which is what a PR comment needs.
 
 ## 4b. SARIF reporter — `sarif` (shipped in v0.4)
 
@@ -322,4 +318,4 @@ and [docs/how-to/suppressions.md](docs/how-to/suppressions.md).
 
 Still planned:
 
-- **Markdown reporter** — `--format md` for PR/issue paste.
+- **`report` command** — re-render a saved JSON result in another format.

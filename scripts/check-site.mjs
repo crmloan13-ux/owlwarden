@@ -37,6 +37,8 @@ assert.match(html, /<script type="application\/ld\+json">/);
 assert.match(html, /"@type":\s*"SoftwareApplication"/);
 assert.match(html, /"applicationCategory":\s*"SecurityApplication"/);
 assert.match(html, /npx owlwarden scan/);
+assert.match(html, /npx owlwarden init/);
+assert.match(html, /v1\.0\.0/);
 assert.match(html, /Next\.js/);
 assert.match(html, /Gatsby/);
 assert.match(html, /9 of 10/);

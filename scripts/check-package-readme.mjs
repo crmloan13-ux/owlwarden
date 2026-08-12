@@ -1,6 +1,6 @@
 /**
  * Keeps the README published with the `owlwarden` npm package aligned with the
- * compiled v0.5 surface. The npm page is often the first and only document a
+ * compiled v1.0 surface. The npm page is often the first and only document a
  * prospective user reads, so missing safety limits are contract failures too.
  */
 import assert from "node:assert/strict";
@@ -80,10 +80,12 @@ assert.match(readme, /plugin inspect/i);
 assert.match(readme, /no hosted plugin store/i);
 assert.match(readme, /sarif/i);
 assert.match(readme, /junit/i);
-assert.match(readme, /Version 0\.5\.0/);
+assert.match(readme, /Version 1\.0\.0/);
 assert.match(readme, /fourteen rules/i);
 assert.match(readme, /12 rules × 12 frameworks|12 × 12/i);
 assert.match(readme, /osv update/i);
+assert.match(readme, /owlwarden init/);
+assert.match(readme, /--format md|--format `md`|format md/i);
 assert.match(readme, /https:\/\/suthat\.github\.io\/owlwarden\//);
 assert.match(readme, /Save tokens first/i);
 assert.match(readme, /frontier model/i);

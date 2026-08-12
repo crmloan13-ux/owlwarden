@@ -255,6 +255,29 @@ describe("owlwarden scan", () => {
     }
   });
 
+  it("writes markdown for a PR comment", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "owlwarden-md-"));
+    const out = join(dir, "report.md");
+    try {
+      const { code } = await cli([
+        "scan",
+        fixture("vulnerable/next-api"),
+        "--format",
+        "md",
+        "--out",
+        out,
+        "--quiet",
+      ]);
+      expect(code).toBe(EXIT.FINDINGS);
+      const body = await readFile(out, "utf8");
+      expect(body).toMatch(/^# owlwarden report —/);
+      expect(body).toContain("## High");
+      expect(body).toContain("**Fix");
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
   it("finds known-vulnerable-dependency from an offline OSV index", async () => {
     const { code, out } = await cli([
       "scan",
@@ -982,6 +1005,78 @@ describe("owlwarden init / plugin scaffold", () => {
       expect(body).toContain("stack-trace-leak");
       expect(body).toContain("npx owlwarden scan --format json");
       expect(body).toMatch(/Prompt injection|untrusted/i);
+    } finally {
+      process.chdir(cwd);
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("writes the adoption kit when init has no flags", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "owlwarden-init-all-"));
+    const cwd = process.cwd();
+    try {
+      process.chdir(dir);
+      const { code, err } = await cli(["init"]);
+      expect(code).toBe(EXIT.CLEAN);
+      expect(err).toMatch(/agent-rules/);
+      expect(err).toMatch(/owlwarden\.yml/);
+      expect(err).toMatch(/mcp\.json/);
+      const workflow = await readFile(join(dir, ".github/workflows/owlwarden.yml"), "utf8");
+      expect(workflow).toContain("<!-- owlwarden:github-action -->");
+      expect(workflow).toContain("suthat/owlwarden/action@");
+      expect(workflow).not.toMatch(/allow-baseline|allow-suppressions|allow-project-config/);
+      const mcp = JSON.parse(await readFile(join(dir, ".cursor/mcp.json"), "utf8")) as {
+        mcpServers: { owlwarden: { command: string; args: string[] } };
+      };
+      expect(mcp.mcpServers.owlwarden.command).toBe("npx");
+      expect(mcp.mcpServers.owlwarden.args).toEqual(["-y", "owlwarden", "mcp"]);
+    } finally {
+      process.chdir(cwd);
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("merges owlwarden into an existing Cursor MCP file", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "owlwarden-init-mcp-"));
+    const cwd = process.cwd();
+    try {
+      process.chdir(dir);
+      await mkdir(join(dir, ".cursor"), { recursive: true });
+      await writeFile(
+        join(dir, ".cursor/mcp.json"),
+        JSON.stringify({ mcpServers: { other: { command: "echo" } } }),
+      );
+      const { code } = await cli(["init", "--mcp"]);
+      expect(code).toBe(EXIT.CLEAN);
+      const mcp = JSON.parse(await readFile(join(dir, ".cursor/mcp.json"), "utf8")) as {
+        mcpServers: Record<string, { command: string }>;
+      };
+      expect(mcp.mcpServers["other"]?.command).toBe("echo");
+      expect(mcp.mcpServers["owlwarden"]?.command).toBe("npx");
+    } finally {
+      process.chdir(cwd);
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("skips a user-owned workflow unless --force", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "owlwarden-init-skip-"));
+    const cwd = process.cwd();
+    try {
+      process.chdir(dir);
+      await mkdir(join(dir, ".github/workflows"), { recursive: true });
+      await writeFile(join(dir, ".github/workflows/owlwarden.yml"), "name: mine\n");
+      const { code, err } = await cli(["init", "--workflow"]);
+      expect(code).toBe(EXIT.CLEAN);
+      expect(err).toMatch(/skipped/);
+      expect(await readFile(join(dir, ".github/workflows/owlwarden.yml"), "utf8")).toBe(
+        "name: mine\n",
+      );
+      const forced = await cli(["init", "--workflow", "--force"]);
+      expect(forced.code).toBe(EXIT.CLEAN);
+      expect(await readFile(join(dir, ".github/workflows/owlwarden.yml"), "utf8")).toContain(
+        "owlwarden:github-action",
+      );
     } finally {
       process.chdir(cwd);
       await rm(dir, { recursive: true, force: true });

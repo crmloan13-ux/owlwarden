@@ -3,8 +3,8 @@
 What is built, what is next, and what each release has to be true for it to
 ship. Dates are absent on purpose — this is an ordering, not a schedule.
 
-SemVer. Before 1.0 the plugin API may change, with a migration note in each
-release. It freezes at 1.0 and changes only through the RFC process after that.
+SemVer. The plugin API is frozen at 1.0 and changes only through the RFC
+process after that.
 
 ---
 
@@ -179,29 +179,42 @@ fixture client green; digest/signature host tests green; multi-format CLI tests
 green; incremental merge unit tests green. Markdown reporter, hosted plugin
 store, and signed npm releases remain later.
 
-## v0.6 — Release assurance
+## v0.6 — Release assurance — **folded into 1.0 where it already existed**
 
 **Goal:** releases you can verify rather than trust.
 
-- Signed releases (cosign) and an SBOM per artifact.
-- `cargo-deny` and `cargo-audit` as blocking gates.
-- `cargo-fuzz` targets on the parsing and response-handling boundaries.
-- Reproducible builds where feasible.
+Already true before 1.0 (kept, not re-litigated):
 
-**Exit criteria:** the release pipeline produces signed artifacts with an
-attached SBOM, and supply-chain checks block CI rather than warn.
+- `cargo-deny` as a blocking CI job (advisories + licences).
+- npm publish with `--provenance`.
+- Committed lockfiles.
 
-## v1.0 — Stable
+**Not in 1.0** (still later): cosign-signed GitHub artifacts, an SBOM attached
+to a GitHub Release, `cargo-fuzz` on parser/response boundaries. Those do not
+unblock adoption; the plugin freeze and the first-run path do.
 
-**Goal:** stable, documented, plugin API frozen.
+## v1.0 — Stable — **this release**
 
-- Complete documentation across all four Diátaxis types.
-- Plugin API v1, with a deprecation policy.
-- A performance pass against the budgets in
-  [ARCHITECTURE.md](ARCHITECTURE.md) §12.
+**Goal:** stable, documented, plugin API frozen, and a first run that lands
+in CI and in an agent without a scavenger hunt.
 
-**Exit criteria:** every gate green; documentation complete; third-party plugins
-exist; a changelog and an upgrade guide.
+Delivered:
+
+- Plugin API v1 frozen (`schemaVersion: 1`). Breaking changes go through
+  [docs/rfc/](docs/rfc/README.md). See
+  [ADR 0024](docs/adr/0024-plugin-api-v1.md).
+- Diátaxis filled in: tutorials (first scan, agents), CLI and plugin-API
+  reference, upgrade guide, comparison, maintainer discoverability checklist.
+- `owlwarden init` writes the adoption kit: agent-rules, GitHub Action
+  workflow, Cursor MCP config.
+- `--format md` for PR comments (ADR 0022 extended).
+- MCP registry descriptor at [`mcp/server.json`](mcp/server.json).
+
+**Exit criteria, met for this slice:** documentation covers all four Diátaxis
+kinds; plugin API has a freeze + RFC path; `init` and `md` are tested;
+changelog and upgrade guide exist. Third-party plugins in the wild are a
+consequence of the freeze, not a file we can commit. Hard CI perf gates and
+cosign remain later — stated so 1.0.0 does not overclaim.
 
 ## Beyond 1.0
 
@@ -223,10 +236,10 @@ The [Diátaxis](https://diataxis.fr) model — four kinds of document, never mix
 
 | Kind | Location | Answers | Today |
 |---|---|---|---|
-| Tutorials | `docs/tutorials/` | I am new and want to learn by doing | the README walkthrough only |
-| How-to guides | `docs/how-to/` | I have a specific task | CI, extending the engine |
-| Reference | `docs/reference/` | I need the exact flag, field, or code | error codes; `RULES.md` |
-| Explanation | `docs/explanation/` | I want to understand why | coverage, false positives, agents |
+| Tutorials | `docs/tutorials/` | I am new and want to learn by doing | first scan; agent/MCP |
+| How-to guides | `docs/how-to/` | I have a specific task | CI, upgrade, plugins, discover |
+| Reference | `docs/reference/` | I need the exact flag, field, or code | CLI; plugin API v1; error codes; `RULES.md` |
+| Explanation | `docs/explanation/` | I want to understand why | coverage, false positives, agents, compared |
 
 Reference material is generated from source where possible — `RULES.md` already
 is, and a test fails if a rule ships without its entry — so it cannot drift from
@@ -238,9 +251,8 @@ Alongside those:
   sequentially, never deleted, only superseded. This is the durable record of
   why something is the way it is.
 - **CHANGELOG.md** — Keep a Changelog format. Every user-visible change.
-- **RFCs** (`docs/rfc/`) — not yet, and deliberately so: the plugin API is v0.2,
-  and an RFC process with nothing to decide is ceremony. The directory appears
-  with the first proposal that touches the public plugin API.
+- **RFCs** (`docs/rfc/`) — required for a breaking plugin-API change after 1.0.
+  See [docs/rfc/README.md](docs/rfc/README.md).
 
 Documentation is part of the definition of done. A feature is not finished until
 its reference entry exists and, if it is user-facing, a how-to note as well.

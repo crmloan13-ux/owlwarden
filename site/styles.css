@@ -427,6 +427,55 @@ h3 {
   line-height: 1.45;
 }
 
+.recipes {
+  padding-block: clamp(72px, 10vw, 120px);
+  border-bottom: 1px solid var(--ink);
+}
+
+.recipes-intro h2 {
+  margin: 0 0 36px;
+  max-width: 18ch;
+}
+
+.recipes ol {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: step;
+}
+
+.recipes li {
+  padding: 0 clamp(18px, 2vw, 28px);
+  counter-increment: step;
+}
+
+.recipes li + li {
+  border-left: 1px solid var(--ink);
+}
+
+.recipes li p {
+  margin: 0 0 14px;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.recipes li p::before {
+  content: counter(step, decimal-leading-zero) " / ";
+  color: var(--vermilion);
+}
+
+.recipes .install {
+  width: 100%;
+}
+
+.recipes .install code {
+  padding: 12px 14px;
+  font-size: 12px;
+}
+
 .manifesto {
   display: grid;
   grid-template-columns: 0.3fr 1.1fr 0.9fr;
@@ -1051,6 +1100,17 @@ footer p {
 
   .ledger {
     grid-template-columns: 1fr;
+  }
+
+  .recipes ol {
+    grid-template-columns: 1fr;
+  }
+
+  .recipes li + li {
+    border-left: 0;
+    border-top: 1px solid var(--ink);
+    padding-top: 22px;
+    margin-top: 22px;
   }
 
   .ledger div {

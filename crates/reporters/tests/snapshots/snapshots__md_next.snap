@@ -1,0 +1,429 @@
+---
+source: crates/reporters/tests/snapshots.rs
+expression: encoded
+---
+# owlwarden report — fixtures/vulnerable/next-api
+_7 files · 0.120s · 10 high · 10 medium_
+
+## High
+
+### SQL query built by string interpolation · A03:2021 · CWE-89
+**Where:** `app/api/login/route.ts:16:5` (route `/api/login`, next)
+**Confidence:** likely
+
+```
+  14    // sql-injection
+  15    const rows = await pool.query(
+  16      `SELECT id, role FROM users WHERE email = '${body.email}'`,   // ← query text is built at runtime
+  17    )
+```
+
+**Fix (next)** — Use a parameterised query, or Prisma's tagged $queryRaw which binds automatically.
+
+```
+// node-postgres
+await db.query('SELECT * FROM users WHERE id = $1', [id])
+
+// Prisma: the tagged form binds; $queryRawUnsafe does not
+await prisma.$queryRaw`SELECT * FROM users WHERE id = ${id}`
+```
+**Why it matters:** A value taken from the request is interpolated into SQL, so the caller controls part of the statement. That is enough to read other users' rows, bypass a WHERE clause, or drop a table.
+
+### Server fetches a URL the caller controls · A10:2021 · CWE-918
+**Where:** `app/api/proxy/route.ts:19:28` (route `/api/proxy`, next)
+**Confidence:** likely
+
+```
+  17    // ssrf
+  18    if (target) {
+  19      const upstream = await fetch(target)   // ← destination chosen by the caller
+  20      return NextResponse.json(await upstream.json())
+  21    }
+```
+
+**Fix (next)** — Validate the URL in the route handler before fetching, and disable redirect following.
+
+```
+const url = assertAllowedUrl(body.url)
+const upstream = await fetch(url, { redirect: 'error' })
+```
+**Why it matters:** The destination of this request comes from the caller, so they choose which host the server connects to. That includes hosts they cannot reach themselves: the cloud metadata endpoint that hands out IAM credentials, internal services that skip authentication because they are 'not exposed', and anything bound to localhost.
+
+### Server fetches a URL the caller controls · A10:2021 · CWE-918
+**Where:** `app/api/proxy/route.ts:25:28` (route `/api/proxy`, next)
+**Confidence:** likely
+
+```
+  23    // ssrf: axios reaches a second caller-controlled host.
+  24    if (callerUrl) {
+  25      const upstream = await axios.get(callerUrl)   // ← destination chosen by the caller
+  26      return NextResponse.json(upstream.data)
+  27    }
+```
+
+**Fix (next)** — Validate the URL in the route handler before fetching, and disable redirect following.
+
+```
+const url = assertAllowedUrl(body.url)
+const upstream = await fetch(url, { redirect: 'error' })
+```
+**Why it matters:** The destination of this request comes from the caller, so they choose which host the server connects to. That includes hosts they cannot reach themselves: the cloud metadata endpoint that hands out IAM credentials, internal services that skip authentication because they are 'not exposed', and anything bound to localhost.
+
+### Server fetches a URL the caller controls · A10:2021 · CWE-918
+**Where:** `app/api/proxy/route.ts:32:28` (route `/api/proxy`, next)
+**Confidence:** likely
+
+```
+  30    const gotUrl = url.searchParams.get('gotUrl')
+  31    if (gotUrl) {
+  32      const upstream = await got.get(gotUrl)   // ← destination chosen by the caller
+  33      return NextResponse.json(upstream.body)
+  34    }
+```
+
+**Fix (next)** — Validate the URL in the route handler before fetching, and disable redirect following.
+
+```
+const url = assertAllowedUrl(body.url)
+const upstream = await fetch(url, { redirect: 'error' })
+```
+**Why it matters:** The destination of this request comes from the caller, so they choose which host the server connects to. That includes hosts they cannot reach themselves: the cloud metadata endpoint that hands out IAM credentials, internal services that skip authentication because they are 'not exposed', and anything bound to localhost.
+
+### Server fetches a URL the caller controls · A10:2021 · CWE-918
+**Where:** `app/api/proxy/route.ts:40:7` (route `/api/proxy`, next)
+**Confidence:** likely
+
+```
+  38    if (nodeUrl) {
+  39      await new Promise<void>((resolve, reject) => {
+  40        https.get(nodeUrl, (res) => {   // ← destination chosen by the caller
+  41          res.resume()
+  42          res.on('end', () => resolve())
+```
+
+**Fix (next)** — Validate the URL in the route handler before fetching, and disable redirect following.
+
+```
+const url = assertAllowedUrl(body.url)
+const upstream = await fetch(url, { redirect: 'error' })
+```
+**Why it matters:** The destination of this request comes from the caller, so they choose which host the server connects to. That includes hosts they cannot reach themselves: the cloud metadata endpoint that hands out IAM credentials, internal services that skip authentication because they are 'not exposed', and anything bound to localhost.
+
+### Stack trace leaked in error response · A05:2021 · CWE-209
+**Where:** `app/api/users/route.ts:20:16` (route `GET /api/users`, next)
+**Confidence:** likely
+
+```
+  18    } catch (err) {
+  19      return NextResponse.json(
+  20        { error: err.stack },   // ← leaks internal stack trace to the client
+  21        { status: 500 }
+  22      )
+```
+
+**Fix (next)** — Return a generic message; log the error server-side.
+
+```
+console.error(err)
+return NextResponse.json(
+  { error: 'Internal Server Error' },
+  { status: 500 },
+)
+```
+**Why it matters:** Stack traces expose absolute file paths, dependency versions, and internal call structure — enough to fingerprint the stack and locate other weaknesses.
+
+### Credential hardcoded in source · A07:2021 · CWE-798
+**Where:** `app/lib/billing.ts:3:20` (next)
+**Confidence:** likely
+
+```
+   1  // FIXTURE: hardcoded-secret — Stripe live key prefix.
+   2  // Non-alphanumeric character keeps GitHub push protection from blocking the repo.
+   3  const STRIPE_KEY = 'sk_l***'   // ← credential written into source
+   4  
+   5  export async function charge(amountCents: number) {
+```
+
+**Fix (next)** — Read it from the environment on the server. A NEXT\_PUBLIC\_ prefix ships the value to the browser, so never use one for a secret.
+
+```
+const apiKey = process.env.API_KEY
+if (!apiKey) throw new Error('API_KEY is not set')
+```
+**Why it matters:** This literal carries the prefix of a Stripe live secret key, so it is a real credential rather than a placeholder. It is in the repository's history and in every clone; deleting the line does not revoke it.
+
+### Broken cryptographic primitive protecting a secret · A02:2021 · CWE-327
+**Where:** `app/lib/crypto.ts:8:35` (next)
+**Confidence:** likely
+
+```
+   6  export function hashPassword(password: string): string {
+   7    // weak-crypto: MD5 over a password.
+   8    const passwordHash = createHash('md5').update(password).digest('hex')   // ← fast hash protecting a credential
+   9    return passwordHash
+  10  }
+```
+
+**Fix (next)** — Replace the broken digest algorithm with sha256 (or prefer scrypt/argon2 for passwords).
+
+```
+'sha256'
+```
+**Why it matters:** This hash is fast, and speed is the attacker's advantage: a commodity GPU tries billions of candidates a second, so a leaked table of these hashes is a leaked table of the values behind them. Password hashing needs a deliberately slow algorithm with a per-value salt.
+
+### Broken cryptographic primitive protecting a secret · A02:2021 · CWE-327
+**Where:** `app/lib/crypto.ts:14:24` (next)
+**Confidence:** likely
+
+```
+  12  export function mintSessionToken(): string {
+  13    // weak-crypto: predictable session token.
+  14    const sessionToken = Math.random().toString(36).slice(2)   // ← predictable random source used for a secret
+  15    return sessionToken
+  16  }
+```
+
+**Fix (next)** — Use Web Crypto (or node:crypto) instead of Math.random() for tokens.
+
+```
+(globalThis.crypto.getRandomValues(new Uint32Array(1))[0] / 0x100000000)
+```
+**Why it matters:** Math.random() is a fast PRNG, not a cryptographic one; V8 documents it as unsuitable for security. An attacker who sees a few outputs can predict the rest, which for a session id or a reset token means minting valid ones.
+
+### Broken cryptographic primitive protecting a secret · A02:2021 · CWE-327
+**Where:** `app/lib/crypto.ts:20:18` (next)
+**Confidence:** likely
+
+```
+  18  export function sealCard(pan: string, key: Buffer): Buffer {
+  19    // weak-crypto: ECB leaks structure.
+  20    const cipher = createCipheriv('aes-256-ecb', key, null)   // ← broken cipher
+  21    return Buffer.concat([cipher.update(pan, 'utf8'), cipher.final()])
+  22  }
+```
+
+**Fix (next)** — Use node:crypto in the route handler. Note that the edge runtime has no node:crypto — use globalThis.crypto.randomUUID() and Web Crypto there, or pin the route to nodejs.
+
+```
+import { randomBytes, randomUUID, scrypt } from 'node:crypto'
+
+// Tokens and session ids: unpredictable, not merely random-looking.
+const sessionId = randomUUID()
+const resetToken = randomBytes(32).toString('base64url')
+
+// Passwords: a slow hash with a per-password salt. bcrypt and argon2 are
+// equally correct; scrypt needs no dependency.
+const salt = randomBytes(16)
+const hash = await new Promise<Buffer>((resolve, reject) =>
+  scrypt(password, salt, 64, (error, key) => (error ? reject(error) : resolve(key))),
+)
+```
+**Why it matters:** This cipher or mode is broken independently of the key. DES has a keyspace small enough to search, RC4 has biased output, and ECB encrypts identical plaintext blocks to identical ciphertext blocks — the structure of the data survives encryption.
+
+
+## Medium
+
+### GitHub Action is not pinned to a commit SHA · A08:2021 · CWE-829
+**Where:** `.github/workflows/ci.yml:8:1` (next)
+**Confidence:** likely
+
+**Fix (next)** — Pin the action to a full commit SHA (keep the tag in a comment for humans).
+
+```
+uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+```
+**Why it matters:** A moving tag can be retargeted to a different commit. Anyone who can push that tag — or who compromises the action's repository — runs code in your CI with access to repository secrets.
+
+### Redirect target comes from the caller · A01:2021 · CWE-601
+**Where:** `app/api/proxy/route.ts:50:5` (route `/api/proxy`, next)
+**Confidence:** likely
+
+```
+  48    // open-redirect
+  49    if (next) {
+  50      redirect(next)   // ← destination chosen by the caller
+  51    }
+```
+
+**Fix (next)** — Validate before calling redirect(); request.nextUrl.origin is the base.
+
+```
+import { redirect } from 'next/navigation'
+
+const next = request.nextUrl.searchParams.get('next')
+redirect(safeRedirect(next, request.nextUrl.origin))
+```
+**Why it matters:** The whole redirect target comes from the request, so a link to this endpoint can send a visitor anywhere. The URL they click genuinely belongs to you, which is what makes the page they land on convincing — and on an OAuth callback the authorisation code goes with them.
+
+### Redirect target comes from the caller · A01:2021 · CWE-601
+**Where:** `app/api/proxy/route.ts:56:5` (route `/api/proxy`, next)
+**Confidence:** likely
+
+```
+  54    const extraNext = url.searchParams.get('extraNext')
+  55    if (extraNext) {
+  56      redirect(extraNext)   // ← destination chosen by the caller
+  57    }
+```
+
+**Fix (next)** — Validate before calling redirect(); request.nextUrl.origin is the base.
+
+```
+import { redirect } from 'next/navigation'
+
+const next = request.nextUrl.searchParams.get('next')
+redirect(safeRedirect(next, request.nextUrl.origin))
+```
+**Why it matters:** The whole redirect target comes from the request, so a link to this endpoint can send a visitor anywhere. The URL they click genuinely belongs to you, which is what makes the page they land on convincing — and on an OAuth callback the authorisation code goes with them.
+
+### Redirect target comes from the caller · A01:2021 · CWE-601
+**Where:** `app/api/proxy/route.ts:62:5` (route `/api/proxy`, next)
+**Confidence:** likely
+
+```
+  60    if (manualNext) {
+  61      const headers = new Headers()
+  62      headers.set('Location', manualNext)   // ← destination chosen by the caller
+  63      return new NextResponse(null, { status: 302, headers })
+  64    }
+```
+
+**Fix (next)** — Validate before calling redirect(); request.nextUrl.origin is the base.
+
+```
+import { redirect } from 'next/navigation'
+
+const next = request.nextUrl.searchParams.get('next')
+redirect(safeRedirect(next, request.nextUrl.origin))
+```
+**Why it matters:** The whole redirect target comes from the request, so a link to this endpoint can send a visitor anywhere. The URL they click genuinely belongs to you, which is what makes the page they land on convincing — and on an OAuth callback the authorisation code goes with them.
+
+### Sensitive data written to a log · A09:2021 · CWE-532
+**Where:** `app/api/users/route.ts:11:18` (route `/api/users`, next)
+**Confidence:** likely
+
+```
+   9  export async function GET(request: Request) {
+  10    // sensitive-data-logged: the Authorization header lands in the log aggregator.
+  11    console.info({ authorization: request.headers.get('authorization') })   // ← sensitive value written to a log
+  12    // sensitive-data-logged: the caller's access token, logged the same way.
+  13    const accessToken = request.headers.get('x-access-token')
+```
+
+**Fix (next)** — Log that the attempt happened, not the credential.
+
+```
+console.info({ event: 'login_attempt', userId })
+// never: console.info({ password })
+```
+**Why it matters:** Logs are copied into aggregators, retained for months, and readable by anyone with access to the logging system. A credential that reaches a log has left the application's trust boundary.
+
+### Sensitive data written to a log · A09:2021 · CWE-532
+**Where:** `app/api/users/route.ts:14:18` (route `/api/users`, next)
+**Confidence:** likely
+
+```
+  12    // sensitive-data-logged: the caller's access token, logged the same way.
+  13    const accessToken = request.headers.get('x-access-token')
+  14    console.info({ accessToken })   // ← sensitive value written to a log
+  15    try {
+  16      const users = await listUsers()
+```
+
+**Fix (next)** — Log that the attempt happened, not the credential.
+
+```
+console.info({ event: 'login_attempt', userId })
+// never: console.info({ password })
+```
+**Why it matters:** Logs are copied into aggregators, retained for months, and readable by anyone with access to the logging system. A credential that reaches a log has left the application's trust boundary.
+
+### Cross-origin policy accepts any origin · A05:2021 · CWE-942
+**Where:** `app/lib/cors.ts:7:3` (next)
+**Confidence:** likely
+
+```
+   5  
+   6  export function applyOpenCors(response: NextResponse): NextResponse {
+   7    response.headers.set('Access-Control-Allow-Origin', '*')   // ← accepts requests from any origin
+   8    response.headers.set('Access-Control-Allow-Credentials', 'true')
+   9    return response
+```
+
+**Fix (next)** — Return an explicit origin from the route or middleware, not '\*'.
+
+```
+const allowed = new Set(['https://app.example.com'])
+const origin = request.headers.get('origin') ?? ''
+if (allowed.has(origin)) {
+  response.headers.set('Access-Control-Allow-Origin', origin)
+  response.headers.set('Vary', 'Origin')
+}
+```
+**Why it matters:** Any origin may call this API and read the response. That is a deliberate choice for a public endpoint and a mistake for anything behind a session — nothing in the source says which this is, so it is reported for you to decide.
+
+### Dependency version is unpinned · A06:2021 · CWE-1104
+**Where:** `package.json:11:1` (next)
+**Confidence:** likely
+
+**Fix (next)** — Pin the dependency in package.json and reinstall so the lockfile records it.
+
+```
+{
+  "dependencies": {
+    "next": "^14.2.0"
+  }
+}
+```
+**Why it matters:** An unpinned range lets the next install resolve a different major version, including one with a known vulnerability or a breaking API change, without anyone reviewing the bump.
+
+### Cookie set without its protective attributes · A05:2021 · CWE-614
+**Where:** `app/api/login/route.ts:20:3` (route `/api/login`, next)
+**Confidence:** possible
+
+```
+  18  
+  19    // insecure-cookie: Next's cookies().set with no attributes.
+  20    cookies().set('session', rows.rows[0]?.id ?? 'anon')   // ← cookie written without httpOnly/secure/sameSite
+  21  
+  22    return NextResponse.json({ ok: true })
+```
+
+**Fix (next)** — Pass the attributes to the cookie store.
+
+```
+cookies().set('session', token, {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === 'production',
+  sameSite: 'lax',
+  path: '/',
+})
+```
+**Why it matters:** This cookie is missing protections: httpOnly keeps the cookie out of reach of JavaScript, so a cross-site scripting bug cannot read the session; secure stops the cookie being sent over plain HTTP; sameSite stops the browser attaching the cookie to cross-site requests.
+
+### Security headers are not configured · A05:2021 · CWE-693
+**Where:** `package.json:1:1` (next)
+**Confidence:** possible
+
+**Fix (next)** — Add a headers() block to next.config.js.
+
+```
+// next.config.js
+module.exports = {
+  async headers() {
+    return [
+      {
+        source: '/:path*',
+        headers: [
+          { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains' },
+          { key: 'Content-Security-Policy', value: "default-src 'self'" },
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+          { key: 'X-Frame-Options', value: 'DENY' },
+          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+        ],
+      },
+    ]
+  },
+}
+```
+**Why it matters:** Without these headers the browser enforces nothing: strict-transport-security forces HTTPS for future requests; content-security-policy limits which scripts and origins the page may load; x-content-type-options stops browsers guessing a response's content type; x-frame-options blocks clickjacking via framing; referrer-policy stops URLs leaking to third parties.

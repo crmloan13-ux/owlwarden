@@ -15,7 +15,7 @@ inputs:
   version:
     description: npm package version or dist-tag for `npx owlwarden@…` (semver or tag only).
     required: false
-    default: "0.5.0"
+    default: "1.0.0"
   fail-on:
     description: Minimum severity that fails the job (`high` / `medium` / `low` / `info`).
     required: false
@@ -25,7 +25,7 @@ inputs:
     required: false
     default: "likely"
   format:
-    description: Report format (`json`, `sarif`, or `junit`).
+    description: Report format (`json`, `sarif`, `junit`, or `md`).
     required: false
     default: "sarif"
   out:
@@ -119,8 +119,8 @@ runs:
           *) echo "error: min-confidence must be confirmed|likely|possible" >&2; exit 2 ;;
         esac
         case "${INPUT_FORMAT}" in
-          json|sarif|junit) ;;
-          *) echo "error: format must be json|sarif|junit" >&2; exit 2 ;;
+          json|sarif|junit|md) ;;
+          *) echo "error: format must be json|sarif|junit|md" >&2; exit 2 ;;
         esac
         # Semver, prerelease, or a simple npm dist-tag — never shell metacharacters.
         if [[ ! "${INPUT_VERSION}" =~ ^[A-Za-z0-9][A-Za-z0-9._+-]*$ ]]; then

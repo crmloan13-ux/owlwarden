@@ -12,7 +12,7 @@ use std::path::PathBuf;
 use owlwarden_core::context::ScanSettings;
 use owlwarden_core::report::Report;
 use owlwarden_reporters::{
-    JsonReporter, JunitReporter, PrettyOptions, SarifReporter, render_to_string,
+    JsonReporter, JunitReporter, MdReporter, PrettyOptions, SarifReporter, render_to_string,
 };
 
 /// Scans a fixture and freezes everything that varies between runs.
@@ -141,6 +141,25 @@ async fn junit_output_has_one_failure_per_finding() {
         "each finding is one JUnit failure"
     );
     insta::assert_snapshot!("junit_next", encoded);
+}
+
+#[tokio::test]
+async fn md_output_groups_by_severity_and_carries_the_fix() {
+    let report = stable_report("vulnerable/next-api").await;
+    let encoded = MdReporter::to_string(&report).unwrap();
+    assert!(encoded.starts_with("# owlwarden report —"));
+    assert!(encoded.contains("## High"));
+    assert!(encoded.contains("**Fix"));
+    assert!(encoded.contains("stack-trace-leak") || encoded.contains("Stack trace"));
+    insta::assert_snapshot!("md_next", encoded);
+}
+
+#[tokio::test]
+async fn md_clean_scan_says_no_findings() {
+    let report = stable_report("should-not-fire/next-api-clean").await;
+    let encoded = MdReporter::to_string(&report).unwrap();
+    assert!(encoded.contains("No findings."));
+    assert!(encoded.contains("0 findings"));
 }
 
 #[tokio::test]
