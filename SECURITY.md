@@ -112,6 +112,15 @@ person asking. `crates/plugin-host/tests/trust_scope.rs` and
 `packages/cli/test/plugin-trust.test.ts` attack both implementations, and both
 verify a shared vector neither of them generates.
 
+**A hostile scan target talking to a terminal.** Fixed in 1.1. Anything owlwarden
+quotes out of the tree — a suppression reason, a path, a rule id from a plugin
+manifest — is rendered through `core::untrusted_text` before it reaches a
+terminal: escape sequences and control characters become `U+FFFD`, newlines
+become `\n`, bidirectional overrides and the Unicode Tags block are folded.
+`--report-suppressions` is the case that motivated it — a listing whose purpose
+is to show a reviewer what a repository silenced, printing a reason that could
+erase the line naming it.
+
 **A hostile scan target talking to an agent.** Findings and snippets are fed to
 coding agents via MCP / JSON. MCP wraps every tool result as untrusted DATA
 and neutralises common role markers; `init --agent-rules` tells agents not to

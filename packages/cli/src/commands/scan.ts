@@ -8,6 +8,7 @@ import { EXIT } from "../exit.js";
 import { applyFixes } from "../fix.js";
 import type { NativeEngine } from "../native.js";
 import { resolveScope } from "../git.js";
+import { sanitizeTerminalLine } from "../mcp/agent-safety.js";
 import { readFileBounded, writeReplacing } from "../safe-write.js";
 
 /** Must match `owlwarden_core::baseline::MAX_BASELINE_BYTES`. */
@@ -503,8 +504,15 @@ function writeSuppressions(report: Report, stdout: NodeJS.WritableStream): void 
       : record.stale
         ? "stale"
         : "active";
-    const reason = record.reason === "" ? "(no reason)" : record.reason;
-    stdout.write(`  ${record.path}:${record.line}  ${record.rule}  [${flags}]\n`);
+    // Every string on these two lines comes out of the scanned repository: the
+    // reason is a comment somebody wrote, and a path is a filename, which on
+    // every platform this runs on may contain an escape byte.
+    const reason =
+      record.reason === "" ? "(no reason)" : sanitizeTerminalLine(record.reason, 280);
+    stdout.write(
+      `  ${sanitizeTerminalLine(record.path, 200)}:${record.line}` +
+        `  ${sanitizeTerminalLine(record.rule, 80)}  [${flags}]\n`,
+    );
     stdout.write(`    ${reason}\n`);
   }
 }

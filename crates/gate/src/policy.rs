@@ -58,11 +58,11 @@ const MAX_PATH_CHARS: usize = 200;
 /// injection carried by the security control, into the one message the model is
 /// told to trust.
 ///
-/// The mechanics live in [`owlwarden_core::agent_text`], shared with
+/// The mechanics live in [`owlwarden_core::untrusted_text`], shared with
 /// `--format agent`, because two implementations of "make this safe for a
 /// model" is one more than can be kept correct.
 fn safe_for_reason(text: &str) -> String {
-    owlwarden_core::agent_text::one_line(text, MAX_PATH_CHARS)
+    owlwarden_core::untrusted_text::one_line(text, MAX_PATH_CHARS)
 }
 
 /// What the gate blocks on.

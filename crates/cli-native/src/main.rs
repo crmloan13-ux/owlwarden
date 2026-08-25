@@ -18,9 +18,20 @@ use std::io::{IsTerminal, Write};
 
 use owlwarden_core::context::ScanSettings;
 use owlwarden_core::report::Report;
+use owlwarden_core::untrusted_text;
 use owlwarden_reporters::{BannerOpts, PrettyOptions, print_banner};
 
 use cli::{Command, ScanArgs};
+
+/// Caps for the three repository-controlled strings in the suppression listing.
+///
+/// A path and a rule id both have their own length limits well under these, so
+/// in practice the caps only ever fire on a reason — which is capped at parse
+/// time too, and is capped again here because the report may have come from a
+/// file rather than from this process.
+const MAX_SUPPRESSION_PATH_CHARS: usize = 200;
+const MAX_SUPPRESSION_RULE_CHARS: usize = 80;
+const MAX_SUPPRESSION_REASON_CHARS: usize = 280;
 
 /// Exit code when the scan ran and found nothing to fail on.
 const EXIT_CLEAN: i32 = 0;
@@ -521,15 +532,24 @@ fn write_suppressions(report: &Report) {
         } else {
             "active"
         };
+        // Every string on these two lines comes out of the scanned repository:
+        // the reason is a comment somebody wrote, and a path is a filename,
+        // which on every platform this runs on may contain an escape byte.
+        // `--report-suppressions` exists so a reviewer can audit what a tree has
+        // silenced, and `\x1b[2K\x1b[1A\x1b[2K` in a reason erased the entry
+        // above it — deleting a line from the audit, from inside the audit.
         let reason = if record.reason.is_empty() {
-            "(no reason)"
+            "(no reason)".to_owned()
         } else {
-            record.reason.as_str()
+            untrusted_text::one_line(&record.reason, MAX_SUPPRESSION_REASON_CHARS)
         };
         let _ = writeln!(
             err,
             "  {}:{}  {}  [{}]",
-            record.path, record.line, record.rule, flags
+            untrusted_text::one_line(&record.path, MAX_SUPPRESSION_PATH_CHARS),
+            record.line,
+            untrusted_text::one_line(&record.rule, MAX_SUPPRESSION_RULE_CHARS),
+            flags
         );
         let _ = writeln!(err, "    {reason}");
     }

@@ -73,12 +73,32 @@ hostile?*
   `publishConfig.provenance` were rewritten for the registry's own ranking
   inputs. The site URL now lives in one file, `site.url`.
 - `owlwarden init` with no flags is unchanged; the host flags are additive.
+- `core::agent_text` is now `core::untrusted_text`. It was named for the reader
+  it was written for; the terminal turned out to be a fourth reader with the same
+  requirement, and a module named `agent_text` sanitising a human's terminal is a
+  name that lies to the next person.
 - The GitHub Action gained `preset` and `since` inputs. Without `preset` the
   agent surface was unreachable from CI at all; `since` was already in the
   README's snippet and had never existed.
 
 ### Fixed
 
+- **`--report-suppressions` printed repository text straight to the terminal.**
+  The reason on a suppression is a comment somebody wrote, and the listing exists
+  so a reviewer can audit what a tree has silenced. A reason containing
+  `\x1b[2K\x1b[1A\x1b[2K` clears its own line, moves up, and clears the entry
+  above it — deleting a line from the audit, from inside the audit. Bidi
+  overrides made a reason render as its opposite. Both output paths now render
+  the reason, the path, and the rule id as data.
+- **The two sanitisers had drifted, in both directions.**
+  `agent-safety.ts` stripped the Unicode Tags block (U+E0000–E007F, which mirrors
+  ASCII into zero-width code points, and is the channel current prompt-injection
+  work actually uses) and `core` did not, because they are category `Cf` and
+  `char::is_control` only covers `Cc`. Going the other way, `agent-safety.ts`
+  replaced `[INST]` with the label `"[INST]"` — the marker spelled exactly as it
+  arrived — so that substitution ran on every MCP payload and changed nothing.
+  `fixtures/untrusted-text-vectors.json` now owns the list and both sides are
+  tested against it.
 - **A plugin could supply the key that vouched for it.** Trust roots were read
   from the plugin's own directory and from that directory's parent — both
   inside the artifact being verified. Generate a key, sign the artifact, ship

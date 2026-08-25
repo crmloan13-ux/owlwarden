@@ -30,7 +30,6 @@
 #![allow(clippy::module_name_repetitions, clippy::must_use_candidate)]
 
 pub mod advisory;
-pub mod agent_text;
 pub mod baseline;
 pub mod budget;
 pub mod context;
@@ -49,6 +48,7 @@ pub mod suppression;
 pub mod surface;
 pub mod taxonomy;
 pub mod transport;
+pub mod untrusted_text;
 
 pub use advisory::{AdvisoryClient, AdvisoryError, AdvisoryHit, PackageQuery};
 pub use baseline::{

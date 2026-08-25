@@ -196,11 +196,11 @@ fn location(finding: &Finding) -> String {
 ///
 /// The format is line-oriented, so a field containing a newline would silently
 /// become two records — and a repository chooses its own filenames. The
-/// mechanics live in [`owlwarden_core::agent_text`], shared with the gate's
+/// mechanics live in [`owlwarden_core::untrusted_text`], shared with the gate's
 /// reason string: two implementations of "make this safe for a model" is one
 /// more than can be kept correct.
 fn clamp(text: &str) -> String {
-    owlwarden_core::agent_text::one_line(text, MAX_FIELD_CHARS)
+    owlwarden_core::untrusted_text::one_line(text, MAX_FIELD_CHARS)
 }
 
 /// Writes the agent format.

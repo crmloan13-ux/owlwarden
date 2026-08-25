@@ -27,8 +27,13 @@ const ROLE_MARKERS: ReadonlyArray<{ re: RegExp; label: string }> = [
   { re: /<\s*\|?\s*im_end\s*\|?\s*>/gi, label: "[im_end]" },
   { re: /<<\s*SYS\s*>>/gi, label: "[SYS]" },
   { re: /<<\s*\/\s*SYS\s*>>/gi, label: "[/SYS]" },
-  { re: /\[\s*INST\s*\]/gi, label: "[INST]" },
-  { re: /\[\s*\/\s*INST\s*\]/gi, label: "[/INST]" },
+  // The trailing dash is load-bearing. These two read `label: "[INST]"` and
+  // `label: "[/INST]"` until 1.1, which is the marker spelled exactly as it
+  // arrived: the regex matched, the replacement ran, and the output was byte
+  // for byte the input. A neutraliser that neutralises nothing, in the one
+  // entry where the marker is already bracketed and the mistake looks correct.
+  { re: /\[\s*INST\s*\]/gi, label: "[INST-]" },
+  { re: /\[\s*\/\s*INST\s*\]/gi, label: "[/INST-]" },
   { re: /<\s*\|?\s*system\s*\|?\s*>/gi, label: "[system]" },
   { re: /<\s*\|?\s*assistant\s*\|?\s*>/gi, label: "[assistant]" },
   { re: /<\s*\|?\s*user\s*\|?\s*>/gi, label: "[user]" },
@@ -86,6 +91,31 @@ export function sanitizeAgentText(input: string): string {
     .split(ENVELOPE_END)
     .join("[END_OWLWARDEN_DATA]");
 
+  return out;
+}
+
+/**
+ * Renders untrusted text as one line for a terminal.
+ *
+ * The same character rules as {@link sanitizeAgentText}, plus the newlines and
+ * tabs that function keeps — MCP payloads are JSON, where a newline is just a
+ * character, but a terminal listing is line records, where a newline is a
+ * forged row.
+ *
+ * `--report-suppressions` is why this exists. It prints a reason written by
+ * whoever wrote the repository, so a reviewer can audit what has been silenced,
+ * and it printed that reason verbatim: `\x1b[2K\x1b[1A\x1b[2K` clears its own
+ * line, moves up, and clears the entry above it — deleting a line from the
+ * audit, from inside the audit.
+ */
+export function sanitizeTerminalLine(input: string, maxChars: number): string {
+  let out = "";
+  let count = 0;
+  for (const ch of sanitizeAgentText(input)) {
+    if (count >= maxChars) return `${out}…`;
+    out += ch === "\n" ? "\\n" : ch === "\r" ? "\\r" : ch === "\t" ? "\\t" : ch;
+    count += 1;
+  }
   return out;
 }
 

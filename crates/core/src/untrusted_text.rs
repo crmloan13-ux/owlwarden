@@ -1,17 +1,18 @@
-//! Rendering untrusted text into something a model reads as data.
+//! Rendering text from the scanned repository as data rather than as output.
 //!
 //! # What this defends
 //!
-//! Three of owlwarden's outputs are read by a model rather than by a person:
-//! the gate's `reason`, `--format agent`, and the MCP tool payloads. Parts of
-//! all three come from the scanned repository — a file path is a name the
-//! repository chose, and a plugin's rule title is a string from a manifest in
-//! the tree.
+//! Several of owlwarden's outputs quote the tree they were pointed at — a file
+//! path is a name the repository chose, a suppression reason is a comment
+//! somebody wrote, a plugin's rule title is a string from a manifest in the
+//! tree. Four of those outputs go somewhere that *interprets* what it is given:
+//! the gate's `reason`, `--format agent`, the MCP tool payloads, and
+//! `--report-suppressions` on a terminal.
 //!
-//! An agent that treats that prose as instructions can be steered into
-//! suppressing findings, editing the wrong files, or reporting success it did
-//! not earn. Nothing here makes a model immune to that. What it does is remove
-//! the two cheap mechanical tricks:
+//! The first three are read by a model. An agent that treats quoted prose as
+//! instructions can be steered into suppressing findings, editing the wrong
+//! files, or reporting success it did not earn. Nothing here makes a model
+//! immune to that. What it does is remove the two cheap mechanical tricks:
 //!
 //! 1. **Structure smuggling.** Newlines and control characters that turn one
 //!    field into two lines, in a format where a line is a record.
@@ -19,6 +20,14 @@
 //!    hosts use to separate a system channel from a user one. Left intact in a
 //!    field, they invite a parser, or a model, to read what follows as a new
 //!    turn.
+//!
+//! The fourth is read by a terminal, which turns out to want the same thing for
+//! a different reason. `--report-suppressions` exists so a reviewer can audit
+//! what a repository has silenced, and it printed the author's reason verbatim.
+//! A reason containing `\x1b[2K\x1b[1A\x1b[2K` clears its own line, moves up,
+//! and clears the entry above it: the one line in the audit that names what was
+//! suppressed. The escaping this module already did for models is the same
+//! escaping a terminal needs, which is why it is one function and not two.
 //!
 //! # Why this exists twice
 //!
@@ -78,13 +87,7 @@ pub fn one_line(text: &str, max_chars: usize) -> String {
             '\n' => out.push_str("\\n"),
             '\r' => out.push_str("\\r"),
             '\t' => out.push_str("\\t"),
-            // Bidirectional overrides and isolates reorder the *rendering* of
-            // everything after them. A developer reading a gate reason in a
-            // terminal would read it backwards.
-            '\u{202A}'..='\u{202E}'
-            | '\u{2066}'..='\u{2069}'
-            | '\u{200B}'..='\u{200F}'
-            | '\u{FEFF}' => out.push('\u{FFFD}'),
+            other if is_invisible(other) => out.push('\u{FFFD}'),
             other if other.is_control() => out.push('\u{FFFD}'),
             other => out.push(other),
         }
@@ -93,6 +96,32 @@ pub fn one_line(text: &str, max_chars: usize) -> String {
         out.push('…');
     }
     out
+}
+
+/// Characters that occupy no width, and so can carry text a reader never sees.
+///
+/// Kept as one predicate because both output paths need the same answer and
+/// because the set is not obvious enough to inline twice:
+///
+/// - **Bidirectional overrides and isolates** reorder the *rendering* of
+///   everything after them. A developer reading a gate reason, or a suppression
+///   reason in a terminal, would read it backwards.
+/// - **Zero-width and joiner characters** hide a payload between visible ones.
+/// - **The Unicode Tags block** (U+E0000–U+E007F) is the sharp one. It mirrors
+///   ASCII into invisible code points, so an entire sentence of instructions can
+///   sit inside what renders as a filename, and it is the channel current
+///   prompt-injection work actually uses. `char::is_control` does not cover it:
+///   these are category `Cf`, not `Cc`, which is exactly how this side came to
+///   be missing them while `agent-safety.ts` stripped them.
+fn is_invisible(ch: char) -> bool {
+    matches!(ch,
+        '\u{200B}'..='\u{200F}'
+        | '\u{202A}'..='\u{202E}'
+        | '\u{2060}'..='\u{2064}'
+        | '\u{2066}'..='\u{2069}'
+        | '\u{FEFF}'
+        | '\u{E0000}'..='\u{E007F}'
+    )
 }
 
 /// Replaces role and channel delimiters with readable literals.
@@ -170,6 +199,29 @@ mod tests {
     #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
     use super::*;
+
+    /// A replacement that equals what it replaces is not a replacement.
+    ///
+    /// The general form of a real bug, found on the TypeScript side of this
+    /// pair: `[INST]` was matched by a regex and rewritten to the label
+    /// `"[INST]"`, which is the marker spelled exactly as it arrived. The
+    /// substitution ran on every payload and changed nothing, and it looked
+    /// correct in review because the marker is already bracketed. This side was
+    /// right by luck rather than by construction, so it is now asserted.
+    #[test]
+    fn no_marker_is_replaced_by_itself() {
+        for (marker, replacement) in super::ROLE_MARKERS {
+            assert_ne!(
+                marker.to_ascii_lowercase(),
+                replacement.to_ascii_lowercase(),
+                "{marker} is replaced by itself"
+            );
+            assert!(
+                !super::neutralise_role_markers(marker).contains(marker),
+                "{marker} survives its own neutralisation"
+            );
+        }
+    }
 
     #[test]
     fn a_newline_cannot_forge_a_record() {

@@ -114,6 +114,13 @@ jobs:
         if: runner.os == 'Linux'
         run: pnpm version:check
 
+      # The fixture is generated because it holds invisible characters and
+      # escape bytes: hand-editing a file whose contents cannot be seen is how
+      # a case silently loses its payload and starts passing against anything.
+      - name: the untrusted-text vectors are current
+        if: runner.os == 'Linux'
+        run: pnpm vectors:check
+
       # `engines: node >=20` in the published package is a promise to users,
       # and the build runs on a newer Node than that. Without this step the
       # promise is untested, and the first person to find out would be someone
