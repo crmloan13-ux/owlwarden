@@ -31,6 +31,19 @@
 //! is a reviewed change, and this comment plus the test below are the review
 //! record.
 //!
+//! # Why matching is case-insensitive
+//!
+//! macOS and Windows ship case-insensitive filesystems by default. A repository
+//! containing `.Claude/settings.json` is, to Claude Code running on a Mac,
+//! `.claude/settings.json` — it opens it and executes what is in it. A
+//! case-sensitive classifier would not have looked, which is a one-character
+//! evasion of the entire surface.
+//!
+//! Matching case-insensitively everywhere costs one thing: on Linux, a
+//! genuinely distinct `.Claude/` directory is scanned even though the host
+//! would not load it. That is the safe direction to be wrong in — a finding
+//! about a file nothing loads, rather than silence about one that does.
+//!
 //! # Why the patterns also match under a prefix
 //!
 //! A `.claude/settings.json` at the root is the live configuration. The same
@@ -389,7 +402,10 @@ pub struct Classification {
 #[must_use]
 pub fn classify(path: &RelPath) -> Option<Classification> {
     let full = path.as_str();
-    for (prefix_len, candidate) in suffixes(full) {
+    // Lowercased once, and matched against patterns that are already lowercase.
+    // See the module docs for why this is case-insensitive at all.
+    let lowered = full.to_ascii_lowercase();
+    for (prefix_len, candidate) in suffixes(&lowered) {
         for pattern in ALLOWLIST {
             if !pattern.shape.matches(candidate) {
                 continue;
@@ -397,7 +413,7 @@ pub fn classify(path: &RelPath) -> Option<Classification> {
             let runtime_scope = if prefix_len == 0 {
                 pattern.root_scope
             } else {
-                scope_for_prefix(full.get(..prefix_len).unwrap_or_default())
+                scope_for_prefix(lowered.get(..prefix_len).unwrap_or_default())
             };
             return Some(Classification {
                 host: pattern.host.clone(),
@@ -467,9 +483,14 @@ fn scope_for_prefix(prefix: &str) -> RuntimeScope {
 }
 
 impl Shape {
+    /// Matches one pattern against an **already lowercased** path.
+    ///
+    /// The lowercasing happens once in [`classify`] rather than per pattern;
+    /// the two uppercase entries in the allowlist (`CLAUDE.md`, `AGENTS.md`)
+    /// are lowered here so the comparison stays a plain `==`.
     fn matches(self, path: &str) -> bool {
         match self {
-            Self::Exact(expected) => path == expected,
+            Self::Exact(expected) => path.eq_ignore_ascii_case(expected),
             Self::Under(dir) => path
                 .strip_prefix(dir)
                 .is_some_and(|rest| rest.starts_with('/') && rest.len() > 1),
@@ -489,7 +510,11 @@ impl Shape {
                 let Some(rest) = path.strip_prefix(dir).and_then(|r| r.strip_prefix('/')) else {
                     return false;
                 };
-                rest.contains('/') && rest.rsplit('/').next() == Some(name)
+                rest.contains('/')
+                    && rest
+                        .rsplit('/')
+                        .next()
+                        .is_some_and(|last| last.eq_ignore_ascii_case(name))
             }
         }
     }
@@ -572,16 +597,61 @@ mod tests {
             "package.json",
             "README.md",
             ".github/workflows/ci.yml",
-            "src/claude.md",
-            "claude.md",
             ".claudeignore",
             ".vscode/launch.json",
+            ".cursor/notes.txt",
         ] {
             assert!(
                 classify_str(path).is_none(),
                 "{path} must not be scanned here"
             );
         }
+    }
+
+    #[test]
+    fn a_case_changed_directory_does_not_evade_the_surface() {
+        // On macOS and Windows `.Claude/settings.json` *is*
+        // `.claude/settings.json` — the host opens it and runs what is in it. A
+        // case-sensitive classifier would have been a one-character bypass of
+        // the whole surface.
+        for path in [
+            ".Claude/settings.json",
+            ".CLAUDE/Settings.json",
+            ".Cursor/hooks.json",
+            ".VSCode/tasks.json",
+            "claude.md",
+            "Agents.md",
+            ".DevContainer/devcontainer.json",
+        ] {
+            assert!(
+                classify_str(path).is_some(),
+                "{path} is the same file to a case-insensitive filesystem"
+            );
+        }
+        assert_eq!(
+            classify_str(".Claude/settings.json").map(|found| found.host),
+            Some(AgentHost::CLAUDE_CODE)
+        );
+    }
+
+    #[test]
+    fn a_nested_instruction_file_is_project_optional_rather_than_ignored() {
+        // Claude Code reads the `CLAUDE.md` of the directory it is working in.
+        // One in `packages/api/` is real configuration for whoever opens that
+        // package, and not what the host loads for the repository root — which
+        // is exactly what `project-optional` means.
+        assert_eq!(
+            classify_str("packages/api/CLAUDE.md").map(|found| found.runtime_scope),
+            Some(RuntimeScope::ProjectOptional)
+        );
+    }
+
+    #[test]
+    fn a_case_changed_template_prefix_is_still_a_template() {
+        assert_eq!(
+            classify_str("Examples/Starter/.Claude/settings.json").map(|c| c.runtime_scope),
+            Some(RuntimeScope::Template)
+        );
     }
 
     #[test]

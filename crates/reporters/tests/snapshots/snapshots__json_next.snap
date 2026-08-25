@@ -14,6 +14,7 @@ expression: encoded
     "project": "fixtures/vulnerable/next-api",
     "scope": [],
     "filesScanned": 7,
+    "configFilesScanned": 0,
     "routesProbed": 0,
     "preset": "owasp-top10"
   },

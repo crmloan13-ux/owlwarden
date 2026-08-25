@@ -41,7 +41,7 @@ use owlwarden_core::finding::{
     AgentHost, Confidence, Finding, FindingBuilder, FindingContext, Reference, Severity,
 };
 use owlwarden_core::remediation::Remediation;
-use owlwarden_static::agentws::jsonc::{JsonNode, Span};
+use owlwarden_static::agentws::jsonc::{JsonMember, JsonNode, Span};
 use owlwarden_static::agentws::paths::WorkspaceFileKind;
 use owlwarden_static::agentws::workspace::WorkspaceFile;
 
@@ -222,7 +222,28 @@ fn collect_hook_blocks<'a>(
     doc: &'a JsonNode,
     entries: &mut Vec<HookEntry<'a>>,
 ) {
-    let Some(hooks) = doc.get("hooks").and_then(JsonNode::as_object) else {
+    // `members`, not `get`. A config can declare `hooks` twice — an empty block
+    // first, a hostile one second — and a reviewer reading top-down sees the
+    // empty one while the host, whose parser is last-wins, loads the other.
+    // Reading only the first would have been a two-line bypass of this entire
+    // rule family; reading all of them costs nothing and cannot be wrong in
+    // that direction.
+    let blocks: Vec<&JsonMember> = doc
+        .members("hooks")
+        .filter(|member| member.value.as_object().is_some())
+        .collect();
+    for block in blocks {
+        collect_hook_events(file, &block.value, entries);
+    }
+}
+
+/// One `hooks` object's events.
+fn collect_hook_events<'a>(
+    file: &'a WorkspaceFile,
+    node: &'a JsonNode,
+    entries: &mut Vec<HookEntry<'a>>,
+) {
+    let Some(hooks) = node.as_object() else {
         return;
     };
     for event in hooks {

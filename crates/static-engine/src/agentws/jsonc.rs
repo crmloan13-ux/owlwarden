@@ -491,23 +491,53 @@ impl Parser<'_> {
                     }
                 }
                 _ => {
-                    // Walk whole UTF-8 characters: the source is `&str`, so the
-                    // bytes are valid, and stepping byte-wise would split a
-                    // multi-byte character across the output.
-                    let rest = self
-                        .bytes
-                        .get(self.pos..)
-                        .and_then(|slice| std::str::from_utf8(slice).ok())
-                        .ok_or_else(|| self.syntax("invalid UTF-8"))?;
-                    let ch = rest
-                        .chars()
-                        .next()
-                        .ok_or_else(|| self.syntax("unterminated string"))?;
+                    let ch = self.next_char()?;
                     out.push(ch);
-                    self.pos = self.pos.saturating_add(ch.len_utf8());
                 }
             }
         }
+    }
+
+    /// Decodes one whole UTF-8 character at `pos` and advances past it.
+    ///
+    /// # Why this is not `from_utf8(&bytes[pos..]).chars().next()`
+    ///
+    /// That is what this used to be, and it was quadratic: validating the whole
+    /// remaining input to read one character, once per character. A 2 MB string
+    /// in one `.claude/settings.json` — a file an attacker fully controls, on a
+    /// surface `vet` points at repositories nobody has read, and on the gate's
+    /// keystroke path — would have taken the scanner out of service. The size
+    /// cap does not help, because the cap is 2 MB and the work is the square of
+    /// the length.
+    ///
+    /// The leading byte states the sequence length, so only those bytes are
+    /// validated. The input came from a `&str`, so the sequence is well formed;
+    /// the fallback exists because this function must not be able to panic on a
+    /// truncated one either.
+    fn next_char(&mut self) -> Result<char, JsonParseError> {
+        let first = self
+            .peek()
+            .ok_or_else(|| self.syntax("unterminated string"))?;
+        let width = match first {
+            0x00..=0x7F => 1,
+            0xC2..=0xDF => 2,
+            0xE0..=0xEF => 3,
+            0xF0..=0xF4 => 4,
+            // A continuation byte or an invalid leader cannot start a
+            // character. The source is a `&str`, so reaching here means the
+            // parser lost its place — which is a bug, not an input, and is
+            // reported rather than skipped.
+            _ => return Err(self.syntax("invalid UTF-8 in string")),
+        };
+        let end = self.pos.saturating_add(width);
+        let ch = self
+            .bytes
+            .get(self.pos..end)
+            .and_then(|slice| std::str::from_utf8(slice).ok())
+            .and_then(|text| text.chars().next())
+            .ok_or_else(|| self.syntax("invalid UTF-8 in string"))?;
+        self.pos = end;
+        Ok(ch)
     }
 
     fn unicode_escape(&mut self) -> Result<char, JsonParseError> {
@@ -536,6 +566,12 @@ impl Parser<'_> {
             .get(self.pos..self.pos.saturating_add(4))
             .ok_or_else(|| self.syntax("truncated \\u escape"))?;
         let text = std::str::from_utf8(slice).map_err(|_| self.syntax("invalid \\u escape"))?;
+        // `from_str_radix` accepts a leading `+`, which is not a hex digit and
+        // would let a signed escape through as an ordinary character. Four hex
+        // digits, exactly.
+        if !text.chars().all(|ch| ch.is_ascii_hexdigit()) {
+            return Err(self.syntax("invalid unicode escape"));
+        }
         let value = u16::from_str_radix(text, 16).map_err(|_| self.syntax("invalid \\u escape"))?;
         self.pos = self.pos.saturating_add(4);
         Ok(value)
@@ -758,6 +794,42 @@ mod tests {
             doc.get("a").and_then(JsonNode::as_str),
             Some("line\nbreak A 😀")
         );
+    }
+
+    #[test]
+    fn a_long_string_is_linear_rather_than_quadratic() {
+        // The regression this guards: reading one character used to validate
+        // the whole remaining input, so a single long string in a file an
+        // attacker controls took the scanner out of service. Six hundred
+        // kilobytes here parses in milliseconds; the quadratic version did not
+        // finish.
+        let payload = format!("{{\"a\":\"{}\"}}", "\u{e9}".repeat(300_000));
+        let started = std::time::Instant::now();
+        let doc = parse(&payload).expect("a long string is still a string");
+        assert_eq!(
+            doc.get("a").and_then(JsonNode::as_str).map(str::len),
+            Some(600_000)
+        );
+        assert!(
+            started.elapsed() < std::time::Duration::from_secs(2),
+            "parsing took {:?}; the string scanner is quadratic again",
+            started.elapsed()
+        );
+    }
+
+    #[test]
+    fn a_signed_unicode_escape_is_refused() {
+        // `u16::from_str_radix` accepts a leading `+`, which would have let a
+        // signed escape through as an ordinary character — a way to write
+        // something a reviewer's renderer would not show the same way.
+        for broken in [
+            r#"{"a":"\u+041"}"#,
+            r#"{"a":"\u-041"}"#,
+            r#"{"a":"\u 041"}"#,
+        ] {
+            assert!(parse(broken).is_err(), "{broken} must be refused");
+        }
+        assert!(parse(r#"{"a":"\u0041"}"#).is_ok());
     }
 
     #[test]

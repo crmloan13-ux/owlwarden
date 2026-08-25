@@ -1,3 +1,5 @@
+import { join } from "node:path";
+
 import { readFileBounded, writeReplacing } from "../safe-write.js";
 
 /**
@@ -253,27 +255,62 @@ BIN="\${OWLWARDEN_BIN:-node_modules/.bin/owlwarden}"
 exec "$BIN" gate --host generic "$ROOT"
 `;
 
-/** Reads a JSON file, applies `merge`, and returns the rendered result. */
+/**
+ * Reads a JSON file, applies `merge`, and returns the rendered result.
+ *
+ * A file that is absent or does not parse starts from an empty object: a host
+ * config that will not parse is a finding, not a reason to be unable to add a
+ * hook. A file we *refused* to read is different, and rethrows — see
+ * {@link readExisting}.
+ */
 async function mergeJson(
   root: string,
   path: string,
   merge: (existing: Record<string, unknown>) => Record<string, unknown>,
 ): Promise<string> {
+  const text = await readExisting(join(root, path));
   let existing: Record<string, unknown> = {};
-  try {
-    const text = await readFileBounded(`${root}/${path}`, MAX_CONFIG_BYTES);
-    const parsed: unknown = JSON.parse(text);
-    if (parsed !== null && typeof parsed === "object" && !Array.isArray(parsed)) {
-      existing = parsed as Record<string, unknown>;
+  if (text !== undefined) {
+    try {
+      existing = asObject(JSON.parse(text));
+    } catch {
+      // Unparseable. Start clean rather than refusing to write a hook.
     }
-  } catch {
-    // Absent or unparseable: start from an empty object rather than refusing.
-    // A host config that does not parse is a finding, not a reason to be
-    // unable to add a hook.
   }
   return `${JSON.stringify(merge(existing), null, 2)}\n`;
 }
 
+/**
+ * Reads a file that may not exist, or `undefined` if it does not.
+ *
+ * Every other failure rethrows, and the one that matters is the symlink. A
+ * `.claude/settings.json` that is a symlink is refused by
+ * {@link readFileBounded}; swallowing that would make `init` treat the file as
+ * absent and replace it — quietly discarding a config, and doing so on exactly
+ * the shape someone planted deliberately.
+ */
+async function readExisting(path: string): Promise<string | undefined> {
+  try {
+    return await readFileBounded(path, MAX_CONFIG_BYTES);
+  } catch (error) {
+    const code =
+      error && typeof error === "object" && "code" in error
+        ? (error as { code?: string }).code
+        : undefined;
+    if (code === "ENOENT") return undefined;
+    throw error;
+  }
+}
+
+/**
+ * Narrows a parsed JSON value to a plain object.
+ *
+ * `JSON.parse` gives `__proto__` as an own property rather than setting the
+ * prototype, and every use below spreads into a fresh object literal, so
+ * nothing here can pollute `Object.prototype`. Stated because it is the first
+ * question to ask of any code that merges parsed JSON into an object, and the
+ * answer should not have to be re-derived.
+ */
 function asObject(value: unknown): Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value)
     ? (value as Record<string, unknown>)
@@ -287,12 +324,7 @@ export async function writeHostFile(
   force: boolean,
   stderr: NodeJS.WritableStream,
 ): Promise<number> {
-  let existing: string | undefined;
-  try {
-    existing = await readFileBounded(absolutePath, MAX_CONFIG_BYTES);
-  } catch {
-    existing = undefined;
-  }
+  const existing = await readExisting(absolutePath);
 
   if (existing !== undefined && existing === file.contents) {
     stderr.write(`unchanged ${file.path}\n`);

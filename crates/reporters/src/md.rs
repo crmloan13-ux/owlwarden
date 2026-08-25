@@ -304,12 +304,30 @@ fn md_in_ticks(input: &str) -> String {
     flatten_prose(input).replace('`', "'")
 }
 
-/// One line of untrusted text: no control chars, no raw newlines.
+/// One line of untrusted text: no control characters, no raw newlines, and
+/// nothing that reorders what follows it.
+///
+/// The bidirectional overrides are the addition worth explaining. They are not
+/// control characters — `char::is_control` is false for `U+202E` — and a
+/// Markdown report is rendered by GitHub, in a pull request, to a reviewer who
+/// is deciding whether to merge. A path or an evidence string carrying one
+/// would reorder the rest of the line in that renderer, so the reviewer reads
+/// something other than what the scanner found. The bytes are what matter and
+/// the rendering is what is read; where those disagree, review is not review —
+/// which is the same argument `agent-instructions-hidden-text` makes about the
+/// files it scans, applied to our own output.
 fn flatten_prose(input: &str) -> String {
     input
         .chars()
         .filter(|c| *c == '\t' || !c.is_control() || *c == '\n' || *c == '\r')
-        .map(|c| if c == '\n' || c == '\r' { ' ' } else { c })
+        .map(|c| match c {
+            '\n' | '\r' => ' ',
+            '\u{202A}'..='\u{202E}'
+            | '\u{2066}'..='\u{2069}'
+            | '\u{200B}'..='\u{200F}'
+            | '\u{FEFF}' => '\u{FFFD}',
+            other => other,
+        })
         .collect()
 }
 
@@ -323,11 +341,37 @@ fn strip_controls(input: &str) -> String {
 #[cfg(test)]
 mod tests {
     #![allow(clippy::unwrap_used, clippy::expect_used)]
-    use super::{MdReporter, code_fence, md_escape};
+    use super::{MdReporter, code_fence, flatten_prose, md_escape};
     use owlwarden_core::finding::{
         CodeFrame, Finding, FindingContext, Highlight, Location, RuleId, Severity, SourceLocation,
     };
     use owlwarden_core::report::{Report, ReportSummary, SCHEMA_VERSION, ScanTarget, ToolInfo};
+
+    #[test]
+    fn a_bidi_override_cannot_reorder_a_pull_request_comment() {
+        // Not a control character, so the existing filter let it through. A
+        // Markdown report is rendered by GitHub to a reviewer deciding whether
+        // to merge; an override in a path or an evidence string reorders the
+        // rest of the line in that renderer, and the reviewer reads something
+        // other than what the scanner found.
+        for hostile in [
+            "app/\u{202E}gnp.evil/route.ts",
+            "value \u{2066}isolated\u{2069}",
+            "zero\u{200B}width",
+            "\u{FEFF}leading mark",
+        ] {
+            let rendered = flatten_prose(hostile);
+            for forbidden in ['\u{202E}', '\u{2066}', '\u{2069}', '\u{200B}', '\u{FEFF}'] {
+                assert!(
+                    !rendered.contains(forbidden),
+                    "{hostile:?} rendered as {rendered:?}"
+                );
+            }
+        }
+        // Ordinary text in any script is untouched.
+        assert_eq!(flatten_prose("รันการทดสอบ"), "รันการทดสอบ");
+        assert_eq!(flatten_prose("héllo → 日本語"), "héllo → 日本語");
+    }
 
     #[test]
     fn md_escape_neutralises_html_and_emphasis() {

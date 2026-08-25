@@ -19,7 +19,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use globset::{Glob, GlobSet, GlobSetBuilder};
+use globset::{GlobSet, GlobSetBuilder};
 use owlwarden_core::limits;
 use owlwarden_core::source::{FileSelector, RelPath, SourceError, SourceFile, SourceProvider};
 
@@ -144,15 +144,34 @@ impl FsSourceProvider {
 /// Compiles glob patterns, mapping a bad pattern to a typed error instead of a
 /// panic. Patterns come from user config, so they are untrusted input.
 fn build_globs(patterns: &[String]) -> Result<Option<GlobSet>, SourceError> {
+    build_globs_with(patterns, false)
+}
+
+/// [`build_globs`], with an option to ignore case.
+///
+/// The agent-workspace surface compiles case-insensitively, because macOS and
+/// Windows do. A repository containing `.Claude/settings.json` is, to a host on
+/// a Mac, `.claude/settings.json` — it opens it and runs what is in it, and a
+/// case-sensitive walker would never have listed the file. Application source
+/// keeps the exact-case behaviour: nothing there depends on the filesystem's
+/// opinion, and matching `README.MD` as `readme.md` would be surprising.
+fn build_globs_with(
+    patterns: &[String],
+    case_insensitive: bool,
+) -> Result<Option<GlobSet>, SourceError> {
     if patterns.is_empty() {
         return Ok(None);
     }
     let mut builder = GlobSetBuilder::new();
     for pattern in patterns.iter().take(256) {
-        let glob = Glob::new(pattern).map_err(|error| SourceError::InvalidPattern {
-            pattern: pattern.clone(),
-            reason: error.to_string(),
-        })?;
+        let glob = globset::GlobBuilder::new(pattern)
+            .case_insensitive(case_insensitive)
+            .literal_separator(false)
+            .build()
+            .map_err(|error| SourceError::InvalidPattern {
+                pattern: pattern.clone(),
+                reason: error.to_string(),
+            })?;
         builder.add(glob);
     }
     builder
@@ -249,9 +268,19 @@ impl FsSourceProvider {
                 continue;
             }
             let size_bytes = entry.metadata().map(|meta| meta.len()).unwrap_or_default();
-            if size_bytes > self.max_file_bytes {
+            if size_bytes > self.max_file_bytes && honour_ignore_files {
                 continue;
             }
+            // On the agent-workspace surface an oversized file is *listed*
+            // anyway, and fails at `read` with a typed error the loader turns
+            // into a reported "could not read this".
+            //
+            // Skipping it here instead — which is right for application source,
+            // where one enormous generated file is noise — would mean a 5 MB
+            // `.claude/settings.json` was invisible: not scanned, not reported,
+            // and indistinguishable from a repository that has no agent
+            // configuration at all. Silence is the one answer this surface must
+            // never give by accident.
             files.push(SourceFile { path, size_bytes });
         }
 
@@ -277,7 +306,7 @@ impl SourceProvider for FsSourceProvider {
             expanded.push((*pattern).to_owned());
             expanded.push(format!("**/{pattern}"));
         }
-        let include = build_globs(&expanded)?;
+        let include = build_globs_with(&expanded, true)?;
         Ok(self.walk(include.as_ref(), None, false))
     }
 

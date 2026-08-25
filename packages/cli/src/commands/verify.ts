@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { cp, mkdtemp, readFile, rm } from "node:fs/promises";
+import { cp, lstat, mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -30,6 +30,32 @@ import { runScan, type ScanCapture } from "./scan.js";
 
 /** Largest patch accepted. A unified diff is text a human could read. */
 const MAX_PATCH_BYTES = 4 * 1024 * 1024;
+
+/**
+ * Most files one patch may touch.
+ *
+ * A fix for one finding edits one or two files. A patch touching two hundred is
+ * not a fix being verified; it is something else being smuggled through a
+ * command whose job is to say "yes, that is safe".
+ */
+const MAX_PATCH_FILES = 32;
+
+/**
+ * Path shapes a patch may never name.
+ *
+ * `verify` hands a diff to `git apply`, and `git apply` writes files. The
+ * threat is not hypothetical: the patch is the *agent's* output, and an agent
+ * optimising for a quiet scanner has an obvious interest in writing somewhere
+ * the scanner does not look. So the paths are checked here, before git sees
+ * them, and `--unsafe-paths` — the flag that turns git's own equivalent check
+ * off — is deliberately absent below.
+ */
+const FORBIDDEN_PATH_PATTERNS: readonly { readonly test: RegExp; readonly why: string }[] = [
+  { test: /^\/|^[A-Za-z]:[\\/]/, why: "an absolute path" },
+  { test: /(^|[\\/])\.\.([\\/]|$)/, why: "a `..` component" },
+  { test: /(^|[\\/])\.git([\\/]|$)/, why: "something under .git/" },
+  { test: /\0/, why: "a NUL byte" },
+];
 
 /** Runs the verification and returns the exit code. */
 export async function runVerify(
@@ -63,9 +89,19 @@ export async function runVerify(
     // `git` is not required: `cp -r` of the project into a scratch directory
     // keeps this working on a tree that is not a repository, which is the case
     // for a freshly generated project.
+    // `dereference: false` is the default and is what we want — but a symlink
+    // copied as a symlink still points at the original tree, and a patch
+    // written through it would reach the developer's real files. So symlinks
+    // are not copied at all. `verify` answers a question about a patch; it has
+    // no business following a link out of the scratch directory to do it.
     await cp(options.path, join(scratch, "project"), {
       recursive: true,
-      filter: (source) => !source.includes(`${"node_modules"}`) && !source.includes("/.git/"),
+      dereference: false,
+      filter: async (source) => {
+        if (source.includes("/node_modules") || source.includes("/.git/")) return false;
+        const info = await lstat(source);
+        return !info.isSymbolicLink();
+      },
     });
     const root = join(scratch, "project");
 
@@ -148,9 +184,64 @@ function severityRank(severity: string): number {
   return ["high", "medium", "low", "info"].indexOf(severity);
 }
 
-/** Applies a unified diff with `git apply`, in the scratch tree. */
+/**
+ * The files a unified diff claims to touch.
+ *
+ * Read from the `+++` and `---` headers rather than trusted from git's own
+ * report afterwards: the check has to happen *before* anything is written.
+ */
+export function patchTargets(patch: string): string[] {
+  const targets: string[] = [];
+  for (const line of patch.split("\n")) {
+    const match = /^(?:\+\+\+|---)\s+(?:[ab]\/)?(\S+)/.exec(line);
+    if (match === null) continue;
+    const path = match[1];
+    if (path === undefined || path === "/dev/null") continue;
+    if (!targets.includes(path)) targets.push(path);
+  }
+  return targets;
+}
+
+/**
+ * Whether every path in the patch stays inside the project.
+ *
+ * Returns the offending path and why, so the error names the thing rather than
+ * saying "refused".
+ */
+export function checkPatchPaths(patch: string): { ok: true } | { ok: false; message: string } {
+  const targets = patchTargets(patch);
+  if (targets.length === 0) {
+    return { ok: false, message: "the patch names no files; is it a unified diff?" };
+  }
+  if (targets.length > MAX_PATCH_FILES) {
+    return {
+      ok: false,
+      message: `the patch touches ${targets.length} files, over the ${MAX_PATCH_FILES}-file limit for a fix`,
+    };
+  }
+  for (const target of targets) {
+    for (const { test, why } of FORBIDDEN_PATH_PATTERNS) {
+      if (test.test(target)) {
+        return { ok: false, message: `refusing a patch that names ${why}: ${JSON.stringify(target)}` };
+      }
+    }
+  }
+  return { ok: true };
+}
+
+/**
+ * Applies a unified diff with `git apply`, in the scratch tree.
+ *
+ * Note what is **not** passed: `--unsafe-paths`. That flag exists to let a
+ * patch write outside the working tree, which is precisely the thing this
+ * command must never do. {@link checkPatchPaths} has already refused the shapes
+ * that would try, and git's own check is the second line.
+ */
 function applyPatch(root: string, patch: string): { ok: true } | { ok: false; message: string } {
-  const result = spawnSync("git", ["apply", "--unsafe-paths", "--directory", ".", "-p1", "-"], {
+  const checked = checkPatchPaths(patch);
+  if (!checked.ok) return checked;
+
+  const result = spawnSync("git", ["apply", "-p1", "--no-index", "-"], {
     cwd: root,
     input: patch,
     encoding: "utf8",
