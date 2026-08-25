@@ -1,442 +1,153 @@
 # owlwarden
 
-Security review for code still in motion.
+[![npm](https://img.shields.io/npm/v/owlwarden)](https://www.npmjs.com/package/owlwarden)
 
-Owlwarden is a local-first security floor for Node web apps and the coding
-agents that edit them. It scans your project and returns the vulnerable line,
-why it matters, a fix written for the framework it found, and a confidence level
-you can act on. The Rust engine runs behind an npm CLI. No telemetry, no account,
-and no source upload.
-
-```bash
-npx owlwarden scan
-```
-
-**Version 1.0.0** ships a frozen plugin API, fourteen rules (including opt-in
-`known-vulnerable-dependency` via `--osv` / `--osv-db` and active
-`csrf-cross-origin-post` via `--target` + `--allow-active`), stackable
-`--format sarif` / `junit` / `md` / `pretty` / `json`, a first-party GitHub
-Action, `owlwarden init` (agent-rules + CI workflow + Cursor MCP),
-offline OSV indexes, plugin artifact integrity with optional ed25519 signatures,
-incremental `watch`, Safe `--fix`, first-class remediation for twelve Node
-frameworks, a read-only MCP server, passive opt-in runtime confirmation, and
-sandboxed source-only WASM plugins. There is no hosted plugin store.
-
-[Website](https://suthat.github.io/owlwarden/) ·
-[Rule catalogue](https://github.com/suthat/owlwarden/blob/main/RULES.md) ·
-[Documentation](https://github.com/suthat/owlwarden/blob/main/docs/README.md) ·
-[Source](https://github.com/suthat/owlwarden)
-
-## Why Owlwarden
-
-Most security reports stop at a category name. Owlwarden is built to finish the
-thought.
-
-- **The fix is part of the finding.** Source findings include the location, a
-  focused code frame, the impact, references, and remediation written for the
-  detected framework. You should not need another browser tab to understand the
-  result.
-- **Confidence and severity are separate.** `high` describes the impact if a
-  finding is real. `confirmed`, `likely`, and `possible` describe how strong the
-  evidence is. Static analysis cannot claim `confirmed`; runtime evidence has
-  to agree with the source.
-- **False positives are treated as product failures.** Shared framework
-  profiles and request-origin analysis keep rules consistent. Clean twins in
-  the fixture corpus must remain silent across every supported framework.
-- **Local is the default, not a privacy setting.** A normal scan reads the
-  project and makes no network requests. Nothing leaves your machine. No
-  telemetry. Runtime probing only begins when you explicitly pass `--target`;
-  OSV lookups only when you pass `--osv` or `--osv-db`.
-- **People and tools receive the same truth.** The terminal reporter, JSON
-  output, TypeScript SDK, and MCP tools all use one finding model. Cross-language
-  golden tests keep the Rust output and zod schemas aligned.
-- **Fast enough for the edit loop.** The engine is Rust; the interface is npm.
-  Prebuilt native packages mean users do not need a Rust compiler or a
-  postinstall binary fetch. Incremental `watch` re-parses dirty files instead
-  of rescanning the whole tree on every save.
-
-Owlwarden is a repeatable security floor. Authentication, authorization,
-payments, personal data, and product design still deserve deeper human and
-AI-assisted review.
-
-## One finding, the whole answer
-
-```text
-◉ᴥ◉ 2 files · quick · 0.31s
-2 findings (1 high, 1 medium)
-
-────────────────────────────────────────────────────────────────────────
-HIGH  likely  Stack trace leaked in error response  A05:2021
-────────────────────────────────────────────────────────────────────────
- app/api/users/route.ts:13:16  (GET /api/users)
-
-  11 │   } catch (err) {
-  12 │     return NextResponse.json(
-  13 │       { error: err.stack },
-     │                ~~~~~~~~~ leaks internal stack trace to the client
-  14 │       { status: 500 }
-  15 │     )
-
- ↳  fix (Next.js)   Return a generic message; log the error server-side.
-                    console.error(err)
-                    return NextResponse.json(
-                      { error: 'Internal Server Error' },
-                      { status: 500 },
-                    )
- ↳  why             Stack traces expose absolute file paths, dependency
-                    versions, and internal call structure.
- ⓘ  ref             OWASP A05:2021 · CWE-209
-```
-
-The human report and `--format json` are two renderings of the same finding.
-Agents do not receive a simplified second version with different claims.
-
-## What it catches
-
-The catalogue has fourteen rules mapped across nine OWASP Top 10 (2021)
-categories. Zero-config stays offline; pass `--osv` or `--osv-db` for lockfile
-CVE lookup; pass `--target` + `--allow-active` for the CSRF canary on staging.
-
-| Area | Rules |
-|---|---|
-| Request and data flow | `sql-injection`, `ssrf`, `open-redirect`, `csrf-cross-origin-post` (needs `--target` + `--allow-active`) |
-| Secrets and cryptography | `hardcoded-secret`, `weak-crypto` |
-| Browser and response boundaries | `cors-permissive`, `insecure-cookie`, `security-headers-missing`, `stack-trace-leak` |
-| Supply chain and observability | `unpinned-dependency`, `known-vulnerable-dependency` (needs `--osv` or `--osv-db`), `ci-unpinned-action`, `sensitive-data-logged` |
+Security scanner for Node web apps and AI coding agents. Finds OWASP Top 10
+issues in Next.js, Nuxt, NestJS, Express, Fastify, Hono, Koa, Hapi, Sails.js,
+Astro, Remix, and Gatsby — and scans the agent configuration in your repository
+(`.claude/`, `.cursor/`, `.vscode/`, `CLAUDE.md`) that no dependency scanner
+reads. Runs entirely on your machine. No account, no telemetry, no network
+unless you ask.
 
 ```bash
-owlwarden rules                 # the compiled rule catalogue
-owlwarden explain ssrf          # rationale and every framework-specific fix
-owlwarden coverage              # covered categories and published gaps
+npx owlwarden scan          # your app
+npx owlwarden vet .         # your agent's config
 ```
-
-Rule IDs are permanent because they appear in suppressions, baselines, CI
-configuration, and agent rules files. The complete catalogue—including severity,
-confidence ceilings, OWASP/CWE mappings, and remediation—is published in
-[RULES.md](https://github.com/suthat/owlwarden/blob/main/RULES.md).
-
-## Coding agents and MCP
-
-**Save tokens first. Spend frontier models on the hard parts.** Baseline
-security checks should not consume model tokens on every edit. Run them
-locally, deterministically, and cheaply — then keep a frontier model for
-architecture, auth boundaries, payments, personal data, and the judgments a
-parser cannot make.
-
-```bash
-npx owlwarden mcp
-```
-
-Running that command in a normal terminal looks quiet on purpose: the process
-speaks MCP over stdio and waits for a host. On a TTY it prints a short how-to
-on stderr (ready line under a host). Silence means “waiting,” not “hung.”
-
-The stdio MCP server exposes four tools:
-
-| Tool | Purpose |
-|---|---|
-| `scan_project` | Scan the workspace and return typed JSON |
-| `scan_file` | Run the project scan and filter it to one edited file |
-| `explain_rule` | Return the full rationale and all framework fixes for a rule |
-| `list_rules` | Return the catalogue compiled into the installed engine |
-
-A typical MCP host entry looks like this:
-
-```json
-{
-  "mcpServers": {
-    "owlwarden": {
-      "command": "npx",
-      "args": ["owlwarden", "mcp", "."]
-    }
-  }
-}
-```
-
-Host configuration formats vary, but the command is ordinary stdio. The MCP
-surface is **static-only, read-only**, and workspace-scoped: it cannot use
-`--target`, trigger active probes, or write a fix. Tool results are wrapped as
-untrusted evidence and common prompt-role markers are neutralised before scan
-or plugin prose reaches the model.
-
-Generate a short project-local rules file, a GitHub Action workflow, and a
-Cursor MCP entry from one command:
-
-```bash
-owlwarden init
-# --agent-rules, --workflow, --mcp select a subset
-```
-
-See the full
-[agent integration guide](https://github.com/suthat/owlwarden/blob/main/docs/explanation/agent-integration.md).
-
-## Framework support
-
-Every offline catalogue rule carries specific remediation for every framework
-below. A release test fails if any cell in that **12 rules × 12 frameworks**
-fixture matrix is missing. The opt-in OSV rule
-(`known-vulnerable-dependency`) and the active CSRF rule
-(`csrf-cross-origin-post`) are outside that offline matrix — they have
-remediation for all twelve frameworks and are covered by dedicated fixtures.
-
-| | | | |
-|---|---|---|---|
-| Next.js | Nuxt | NestJS | Express |
-| Fastify | Hono | Koa | Hapi |
-| Sails.js | Astro | Remix | Gatsby |
-
-Owlwarden understands each framework's request origins, response sinks, cookie
-setters, CORS helpers, route registration, and configuration conventions.
-Unrecognised Node stacks still receive the generic rules that do not require
-framework context; they do not receive invented framework-specific advice.
 
 ## Install
 
 ```bash
-npm install --save-dev owlwarden
-npx owlwarden scan
+npm i -D owlwarden
 ```
 
-Node.js 20 or later is required. Prebuilt packages ship for:
+Node 20+. Prebuilt native addon for macOS, Linux, and Windows — no compiler
+needed. Published with npm provenance.
 
-- macOS: Intel and Apple Silicon
-- Linux: x64 and arm64 on glibc; x64 on musl/Alpine
-- Windows: x64 and arm64
+## Why
 
-Add a repeatable local command:
+Your agent writes the code, and it also reads configuration out of your working
+tree and executes it. `.claude/settings.json`, `.vscode/tasks.json`,
+`.cursor/hooks.json`, `.devcontainer/devcontainer.json`. Those files are not in
+your lockfile, so no software composition analysis tool reads them. They are not
+application source, so no SAST rule parses them. They are checked in, so review
+treats them like a `.prettierrc`.
 
-```json
-{
-  "scripts": {
-    "security-check": "owlwarden scan"
-  }
-}
-```
+That is the gap the August 2026 npm worm used for persistence: it wrote a
+session hook into `.claude/settings.json` and a task into `.vscode/tasks.json`,
+then committed them everywhere it could reach. Pulling the poisoned package
+versions did not remove the foothold, because nothing was looking at it.
 
-## Commands
+owlwarden covers both surfaces in one pass, with one exit code.
 
-| Command | What it does |
-|---|---|
-| `owlwarden scan [PATH]` | Run the zero-config static scan |
-| `owlwarden watch [PATH]` | Re-scan when source changes; incremental, static-only |
-| `owlwarden mcp [PATH]` | Start the read-only stdio MCP server |
-| `owlwarden rules` | Print the compiled rule catalogue |
-| `owlwarden coverage` | Show OWASP reach and explicit gaps |
-| `owlwarden explain <RULE_ID>` | Print a rule's rationale and fixes offline |
-| `owlwarden init` | Write agent-rules, GitHub Action workflow, and Cursor MCP config |
-| `owlwarden plugin scaffold <NAME>` | Create a source-only WASM plugin stub and manifest |
-| `owlwarden plugin inspect <PATH>` | Print plugin capabilities and integrity without loading WASM |
-| `owlwarden osv update` | Build a lockfile-scoped OSV index for offline CI |
+## What it finds
 
-Common scans:
+25 rules across nine of the ten OWASP Top 10 (2021) categories, plus an
+agent-surface family mapped to OWASP ASI 2026: SQL injection, SSRF, open
+redirect, hardcoded secrets, weak crypto, permissive CORS, insecure cookies,
+missing security headers, leaked stack traces, sensitive data in logs, unpinned
+dependencies and actions, known-vulnerable dependencies via OSV, install-time
+lifecycle scripts, auto-executing agent hooks, wildcard tool permissions,
+unpinned MCP servers, hidden text in instruction files, and more.
+
+Every rule carries a fix written for your framework — or, on the agent surface,
+for your host. A rule cannot ship without one: the build fails on an empty cell.
+
+`owlwarden coverage` prints what it does **not** look at, next to what it does.
+
+Full catalogue: https://github.com/suthat/owlwarden/blob/main/RULES.md
+
+## Usage
 
 ```bash
-owlwarden scan ./apps/api
-owlwarden scan --preset owasp-top10
-owlwarden scan --format json
-owlwarden scan --format md --out owlwarden-report.md
-owlwarden scan --format pretty --format sarif --out owlwarden-results
-owlwarden scan --fail-on medium --min-confidence likely
-owlwarden scan --out owlwarden-report.json
+owlwarden scan                      # zero-config
+owlwarden scan --since origin/main  # only what changed
+owlwarden scan --staged             # pre-commit
+owlwarden vet ./cloned-repo         # check a repo before you open it
+owlwarden gate --host claude-code   # agent hook entry point
+owlwarden verify --patch fix.diff   # did that fix actually fix it?
+owlwarden mcp                       # stdio MCP server
+owlwarden init --claude-code        # hooks, MCP entry, CI workflow
+owlwarden coverage
+owlwarden explain sql-injection
 ```
 
-Presets: `quick` is the high-signal default, `owasp-top10` selects mapped rules,
-and `deep` enables every compiled rule, including noisier heuristics.
+Output formats: `pretty`, `json`, `sarif`, `junit`, `md`, `agent`. Stackable in
+one run.
 
-## CI without greenwashing
+Exit codes: `0` clean · `1` findings at or above `--fail-on` · `2` could not run.
+
+## In the agent loop
+
+An MCP tool is called when the model decides to call it. A hook runs every time.
+owlwarden ships both and says which is which.
 
 ```bash
-npx owlwarden scan --ci --fail-on medium --min-confidence likely --format sarif --out owlwarden-results.sarif
+owlwarden init --claude-code   # hooks + MCP entry
+owlwarden init --cursor
+owlwarden init --generic       # a shell wrapper, for any host
 ```
 
-Or use the first-party Action at `suthat/owlwarden/action` (JUnit via
-`--format junit`). Canonical exit codes:
-[docs/how-to/ci.md](https://github.com/suthat/owlwarden/blob/main/docs/how-to/ci.md).
+`init` never writes a `SessionStart` hook. Repository config that runs when you
+open the folder is what `agent-hook-autoexec` reports at high severity, and a
+tool that ships that rule while generating the shape would have `owlwarden scan`
+reporting its own output.
 
-`--ci` emits quiet machine-readable output and also refuses controls that an
-untrusted pull request could plant in the scanned tree. Unless the workflow
-explicitly opts in, it ignores project gate settings, does not apply inline
-suppressions, refuses a baseline, and refuses plugins.
+`--format agent` puts the report on a token budget — rule id, line, patch,
+nothing else — so the deterministic checks stop costing frontier tokens.
 
-**SARIF, JUnit, and Markdown** render the same `Report` as JSON — one finding
-model, no re-scoring in the Action. Repeat `--format` to emit several
-renderings from one scan (for example pretty on stderr and SARIF on disk).
+Guide: https://github.com/suthat/owlwarden/blob/main/docs/explanation/agent-integration.md
 
-**Offline OSV in CI:** build an index on a trusted machine with
-`owlwarden osv update`, commit or cache it, then scan with
-`--osv-db .owlwarden/osv-index.json`. The Action exposes a typed `osv: true`
-input for live lookups; use a `run:` step with `--osv-db` for air-gapped CI.
+## In CI
 
-Severity and confidence remain separate in CI. A high-impact heuristic at
-`possible` confidence remains visible but does not fail CI on its own. A
-truncated report always fails; partial evidence is never presented as a clean
-scan.
-
-| Exit code | Meaning |
-|---|---|
-| `0` | Nothing at or above the configured gate |
-| `1` | Findings reached the gate, or the report was truncated |
-| `2` | The scan could not run |
-
-For a complete workflow, artifact handling, and guidance for external pull
-requests, see
-[Running Owlwarden in CI](https://github.com/suthat/owlwarden/blob/main/docs/how-to/ci.md).
-
-## Configuration
-
-Zero configuration is fine. When a project needs shared defaults, use JSON:
-
-```json
-{
-  "preset": "owasp-top10",
-  "failOn": "medium",
-  "minConfidence": "likely"
-}
+```yaml
+- uses: suthat/owlwarden@v1
+  with:
+    fail-on: medium
+    format: sarif
 ```
 
-Save it as `owlwarden.config.json`, or place the same object under an
-`owlwarden` key in `package.json`. Command-line flags win.
+Guide: https://github.com/suthat/owlwarden/blob/main/docs/how-to/ci.md
 
-JavaScript and TypeScript configs are supported, but loading executable project
-configuration requires `--allow-config-js`. Do not enable it when scanning an
-untrusted tree. `--target` and `--scope` are never loaded from project config.
+## Config
 
-## Adopting it in an existing codebase
-
-A security gate is useful when it stops new debt, even if old debt cannot be
-cleared in one pull request.
-
-Create a baseline once on a trusted tree:
-
-```bash
-owlwarden scan --write-baseline .owlwarden-baseline.json
-owlwarden scan --baseline .owlwarden-baseline.json
-```
-
-In CI, baseline use requires an explicit `--allow-baseline`; that prevents a
-hostile pull request from checking in its own green result.
-
-Suppress one line only when a human owns the reason:
+Optional.
 
 ```ts
-// owlwarden-disable-next-line stack-trace-leak -- gated by NODE_ENV === 'development'
-return NextResponse.json({ error: err.stack })
+import { defineConfig } from "@dointhai/owlwarden-config";
+
+export default defineConfig({
+  preset: "owasp-top10",
+  failOn: "medium",
+  minConfidence: "likely",
+});
 ```
 
-The reason is mandatory. Missing, stale, and active directives can all be
-listed with `--report-suppressions`. Details:
-[Suppressions and baselines](https://github.com/suthat/owlwarden/blob/main/docs/how-to/suppressions.md).
+Flags win over the file. Config is never loaded from above the scan root — and
+in `vet` and `gate`, the scanned project cannot loosen the posture at all, only
+tighten it.
 
-## Optional runtime confirmation
+## Limits
 
-Most scans stay static and offline. Pass `--osv` to query Google OSV for known
-CVEs in lockfile versions, or `--osv-db` with a pre-built index for air-gapped
-CI ([OSV lookup](https://github.com/suthat/owlwarden/blob/main/docs/how-to/osv.md)).
-If a local or staging server is running, you can also compare source with a
-passive response:
+Stated because a clean report you cannot calibrate is worse than no report.
 
-```bash
-npx owlwarden scan --target http://127.0.0.1:3000/
-```
+- Not all of OWASP. A04 (Insecure Design) is out of reach from source, on
+  purpose — no parser finds a design flaw.
+- Origin tracking is one hop, not a full taint engine. Injection-shaped rules
+  cap their confidence accordingly instead of guessing.
+- `confirmed` means confirmed: reachable only when a static finding is
+  corroborated against a running target. Nothing else in the tool uses the word.
+- Twelve frameworks get tailored fixes; everything else gets a generic scan.
+- Agent-config rules cap at `likely` and carry a `runtime_scope`, so a hook in a
+  tutorial is not reported like a hook in your settings.
+- Active probes require `--target` and `--allow-active`. Staging only.
 
-Passive correlation covers `security-headers-missing`. Owlwarden sends a
-passive `HEAD` request, falling back to `GET`, and either confirms the missing
-headers, clears a false static gap, or keeps disagreement visible. It does not
-crawl the application.
+## Links
 
-**Active CSRF canary** (`csrf-cross-origin-post`) needs both `--target` and
-`--allow-active`. It sends one cross-origin `POST` to the exact target URL on
-staging you control — not for production, not exposed in MCP, and not in the
-GitHub Action. See
-[Probe a running app](https://github.com/suthat/owlwarden/blob/main/docs/how-to/dynamic.md).
-
-Scope is deny-by-default. With no `--scope`, the allowlist is exactly the target
-origin; every redirect is checked again. Target and scope come from the command
-line only, so a hostile repository cannot turn a CI scan into a request to an
-internal host.
-
-## Incremental watch
-
-`owlwarden watch` debounces saves and re-scans changed files instead of the
-whole tree when the cache is warm. It stays static-only — no `--target`, no
-`--osv`, no active probes on every keystroke. Lockfile or `package.json`
-changes force a full rescan. First run is always full (cold cache).
-
-```bash
-owlwarden watch
-```
-
-Measured times vary by project size; we document performance, we do not
-guarantee a millisecond budget. See
-[performance.md](https://github.com/suthat/owlwarden/blob/main/docs/how-to/performance.md).
-
-## Source-only WASM plugins
-
-Third-party rules load as source-only WASM:
-
-```bash
-owlwarden plugin scaffold company-rules
-owlwarden plugin inspect ./company-rules
-owlwarden scan --plugin ./company-rules
-```
-
-`plugin inspect` reads the manifest and reports declared capabilities, SHA-256
-digest status, and optional ed25519 signature verification — without
-instantiating WASM. Manifests may declare `artifact.sha256`; optional
-`<artifact>.sig` files verify against trust roots in `OWLWARDEN_PLUGIN_TRUST`
-or `.owlwarden/plugin-trust.json`. Pass `--require-signed-plugins` in CI when
-every plugin must be signature-verified. There is no hosted plugin store.
-
-Each invocation gets a fresh wasmtime store with fuel, memory, table, finding,
-and wall-clock limits. There is no WASI, filesystem, network, or clock. A
-manifest that asks for network or active capabilities is refused rather than
-silently downgraded. Under `--ci`, plugins require `--allow-plugins`.
-
-Plugins are still code you chose to run. Review their source and provenance.
-Walkthrough:
-[Plugins](https://github.com/suthat/owlwarden/blob/main/docs/how-to/plugins.md) ·
-[Extending Owlwarden](https://github.com/suthat/owlwarden/blob/main/docs/how-to/extend.md#plugins).
-
-## Safety model
-
-- Static scans make no network requests and have no telemetry.
-- Reads stay inside the project root. Outbound symlinks are refused;
-  `node_modules` and `.gitignore` are respected.
-- File sizes, file counts, findings, parser nesting, redirects, MCP lines, and
-  plugin resources all have explicit caps.
-- Executable project config is opt-in. CI mute switches are off by default.
-- Hardcoded credentials are redacted in evidence and source snippets.
-- Native packages are prebuilt with npm provenance. Nothing downloads an
-  executable in a postinstall script.
-- Library crates use `#![forbid(unsafe_code)]`; wasmtime integration is isolated
-  in the plugin host.
-
-Read the complete threat model and vulnerability reporting policy in
-[SECURITY.md](https://github.com/suthat/owlwarden/blob/main/SECURITY.md).
-
-## Honest limits
-
-- Owlwarden does not prove an application is secure. It publishes both the
-  rules it has and the gaps it cannot reach.
-- Nine of ten OWASP Top 10 (2021) categories have at least one rule; that is not
-  a claim of complete category coverage. **A04:2021 Insecure Design** is out of
-  reach from source alone and needs product intent or a threat model.
-- Request-origin tracking is one hop and intra-procedural, not a full taint
-  engine. A miss lowers confidence rather than hiding a finding.
-- Passive runtime correlation covers security headers. Active probes cover CSRF
-  only, behind `--allow-active`, on staging you control.
-- Plugins are source-only. MCP is static-only and read-only. No hosted registry.
-- `--fix` applies only `Safe`, single-line highlight replacements (never on
-  `Possible`), requires a clean git tree unless `--allow-dirty`, and re-scans
-  afterwards. Most remediations stay `Manual` on purpose.
-- `--osv` opts into Google OSV lockfile lookups (name+version only). `--osv-db`
-  uses a committed index — freshness and trust are your CI boundary. See
-  [docs/how-to/osv.md](https://github.com/suthat/owlwarden/blob/main/docs/how-to/osv.md).
-- Unrecognised stacks receive generic checks, not tailored framework fixes.
-
-`owlwarden coverage` computes reach from the rules in the engine you actually
-installed. The rationale behind the published gaps is in
-[Coverage is a map, not a percentage](https://github.com/suthat/owlwarden/blob/main/docs/explanation/coverage.md).
+- Docs: https://suthat.github.io/owlwarden/
+- Repository: https://github.com/suthat/owlwarden
+- Rules: https://github.com/suthat/owlwarden/blob/main/RULES.md
+- Security policy: https://github.com/suthat/owlwarden/blob/main/SECURITY.md
+- Changelog: https://github.com/suthat/owlwarden/blob/main/CHANGELOG.md
 
 ## Licence
 

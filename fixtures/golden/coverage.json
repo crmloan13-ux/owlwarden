@@ -293,6 +293,8 @@
     ".claude-plugin/**",
     ".cursor/mcp.json",
     ".cursor/hooks.json",
+    ".cursor/hooks/**",
+    ".cursor/*.{js,mjs,cjs,ts,sh,py}",
     ".cursor/rules/**",
     ".cursorrules",
     ".vscode/tasks.json",

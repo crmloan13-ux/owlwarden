@@ -2,7 +2,7 @@
 
 # Rules
 
-25 rules in owlwarden 1.0.0:
+25 rules in owlwarden 1.1.0:
 15 that read application source, and 10 that read the
 agent and editor configuration in the working tree.
 
