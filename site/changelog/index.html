@@ -128,6 +128,10 @@
 </ul>
 <h3>Fixed</h3>
 <ul>
+  <li><strong>An unknown config key is refused rather than stripped.</strong> zod drops unknown keys by default, so <code>failon: &quot;high&quot;</code> parsed cleanly and the run used the default <code>info</code> — a config that reads as if it tightens the gate, does not, and prints nothing either way. Both objects in the schema are strict now, and a near miss names the key it was probably meant to be.</li>
+  <li><strong>A symlinked config is reported instead of ignored in silence.</strong> Not following it is right — a link is how a hostile tree points config resolution outside itself — but <code>owlwarden.config.json -&gt; ../shared/config.json</code> is an ordinary monorepo layout, and its author had no way to learn their <code>preset</code> never applied.</li>
+</ul>
+<ul>
   <li><strong>The GitHub Action refused every invocation it was ever given.</strong> A guard written as <code>[[ &quot;$value&quot; == <em>$&#39;\0&#39;</em> ]]</code> was meant to reject NUL bytes; bash cannot hold a NUL in a string, so <code>$&#39;\0&#39;</code> is the empty string and the pattern is <code>**</code>. Every input matched, and the Action exited 2 before running anything. It shipped in 1.0 and nothing caught it, because nothing executed the Action: the &quot;action smoke&quot; workflow re-implements its command line rather than calling it. The check is gone — a NUL cannot reach a shell variable through <code>execve</code> either — and the script now has 63 tests that run it with a stubbed CLI and assert on the argv it produces.</li>
   <li>The Action snippets in both READMEs and on the site pointed at <code>suthat/owlwarden@v1</code>, where there is no <code>action.yml</code>. A check now validates every documented snippet against the Action&#39;s real path and real inputs.</li>
 </ul>

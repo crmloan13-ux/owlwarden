@@ -59,6 +59,15 @@ export async function runScan(
     );
   }
 
+  // Said out loud because the alternative is a monorepo whose shared config
+  // never applied and whose author has no way to find out.
+  if ("skippedSymlink" in resolved && resolved.skippedSymlink !== undefined && !options.quiet) {
+    stderr.write(
+      `note: ignored ${resolved.skippedSymlink}: config is not read through a symlink\n` +
+        `  replace the link with a real file, or set the keys in package.json\n`,
+    );
+  }
+
   // Flags beat config; config beats defaults. Under `--ci`, project config must
   // not set the gate knobs (preset / fail-on / min-confidence) unless the
   // operator opted in — a hostile PR's owlwarden.config.json could otherwise

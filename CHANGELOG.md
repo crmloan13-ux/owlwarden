@@ -79,6 +79,17 @@ hostile?*
 
 ### Fixed
 
+- **An unknown config key is refused rather than stripped.** zod drops unknown
+  keys by default, so `failon: "high"` parsed cleanly and the run used the
+  default `info` — a config that reads as if it tightens the gate, does not,
+  and prints nothing either way. Both objects in the schema are strict now, and
+  a near miss names the key it was probably meant to be.
+- **A symlinked config is reported instead of ignored in silence.** Not
+  following it is right — a link is how a hostile tree points config resolution
+  outside itself — but `owlwarden.config.json -> ../shared/config.json` is an
+  ordinary monorepo layout, and its author had no way to learn their `preset`
+  never applied.
+
 - **The GitHub Action refused every invocation it was ever given.** A guard
   written as `[[ "$value" == *$'\0'* ]]` was meant to reject NUL bytes; bash
   cannot hold a NUL in a string, so `$'\0'` is the empty string and the pattern

@@ -261,7 +261,10 @@ export default defineConfig({
 ```
 
 Also `.mts` / `.mjs` / `.js` / `.json`, or an `owlwarden` key in
-`package.json`. Flags win over the file. Config is never loaded from above the
+`package.json`. Flags win over the file. **A key the schema does not know is an
+error, not a key that is ignored** — `failon` used to parse cleanly and leave
+the run on the default `info`, which reads as tightening the gate and does the
+opposite. Near misses are named. Config is never loaded from above the
 scan root — and in `vet` and `gate`, the scanned project cannot loosen the
 posture at all, only tighten it.
 

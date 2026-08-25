@@ -36,6 +36,10 @@
 &lt;/ul&gt;
 &lt;h3&gt;Fixed&lt;/h3&gt;
 &lt;ul&gt;
+  &lt;li&gt;&lt;strong&gt;An unknown config key is refused rather than stripped.&lt;/strong&gt; zod drops unknown keys by default, so &lt;code&gt;failon: &amp;quot;high&amp;quot;&lt;/code&gt; parsed cleanly and the run used the default &lt;code&gt;info&lt;/code&gt; — a config that reads as if it tightens the gate, does not, and prints nothing either way. Both objects in the schema are strict now, and a near miss names the key it was probably meant to be.&lt;/li&gt;
+  &lt;li&gt;&lt;strong&gt;A symlinked config is reported instead of ignored in silence.&lt;/strong&gt; Not following it is right — a link is how a hostile tree points config resolution outside itself — but &lt;code&gt;owlwarden.config.json -&amp;gt; ../shared/config.json&lt;/code&gt; is an ordinary monorepo layout, and its author had no way to learn their &lt;code&gt;preset&lt;/code&gt; never applied.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;ul&gt;
   &lt;li&gt;&lt;strong&gt;The GitHub Action refused every invocation it was ever given.&lt;/strong&gt; A guard written as &lt;code&gt;[[ &amp;quot;$value&amp;quot; == &lt;em&gt;$&amp;#39;\0&amp;#39;&lt;/em&gt; ]]&lt;/code&gt; was meant to reject NUL bytes; bash cannot hold a NUL in a string, so &lt;code&gt;$&amp;#39;\0&amp;#39;&lt;/code&gt; is the empty string and the pattern is &lt;code&gt;**&lt;/code&gt;. Every input matched, and the Action exited 2 before running anything. It shipped in 1.0 and nothing caught it, because nothing executed the Action: the &amp;quot;action smoke&amp;quot; workflow re-implements its command line rather than calling it. The check is gone — a NUL cannot reach a shell variable through &lt;code&gt;execve&lt;/code&gt; either — and the script now has 63 tests that run it with a stubbed CLI and assert on the argv it produces.&lt;/li&gt;
   &lt;li&gt;The Action snippets in both READMEs and on the site pointed at &lt;code&gt;suthat/owlwarden@v1&lt;/code&gt;, where there is no &lt;code&gt;action.yml&lt;/code&gt;. A check now validates every documented snippet against the Action&amp;#39;s real path and real inputs.&lt;/li&gt;
 &lt;/ul&gt;

@@ -167,6 +167,28 @@ stay under the working directory, and symlinked destinations are refused.
 `agent-hook-autoexec` and `agent-mcp-unpinned-remote` report; generating them
 would have `owlwarden scan` reporting its own output.
 
+## Config file
+
+`owlwarden.config.json` in the scan root, or an `owlwarden` key in
+`package.json`. With `--allow-config-js`, also `.ts` / `.mts` / `.mjs` / `.js`.
+
+| Key | Default | Notes |
+|---|---|---|
+| `preset` | `quick` | `quick`, `owasp-top10`, `deep`, `agent-surface` |
+| `failOn` | `info` | `high` / `medium` / `low` / `info` |
+| `minConfidence` | `possible` | `confirmed` / `likely` / `possible` |
+| `format` | `pretty` | `pretty`, `json`, `sarif`, `junit`, `md` |
+| `rules.<id>.enabled` | on | Turn one rule off |
+| `rules.<id>.severity` | the rule's | Report at a different severity |
+
+**Unknown keys are refused.** They used to be stripped, which meant `failon:
+"high"` parsed and the run used `info` — a config that reads as if it tightens
+and does not, with nothing printed anywhere. A near miss is named in the error.
+
+**Config is never read through a symlink**, and a symlink found where a config
+would be is reported rather than skipped in silence. Config is never read from
+above the scan root; `vet` does not read it at all.
+
 ## `mcp`
 
 Stdio JSON-RPC. Tools: `scan_project`, `scan_file`, `explain_rule`,
