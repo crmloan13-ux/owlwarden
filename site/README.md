@@ -1,25 +1,51 @@
-# Owlwarden website contract
+# site/
 
-The site is a single, static English-language landing page published at
-`https://suthat.github.io/owlwarden/`. It is deliberately dependency-free: the
-HTML is the content, CSS carries the visual system, and JavaScript is limited to
-copying the install command and progressively enhancing the header.
+Generated. Run `pnpm site:build`; do not edit anything in here by hand except
+`favicon.png` and `og.jpg`.
 
-The page must make these product truths easy for people, search engines, and
-answer engines to extract without executing JavaScript:
+The generator is `scripts/build-site.mjs`, and it reads three things:
 
-- Owlwarden scans Node web applications locally and has no telemetry.
-- A finding contains the source location, rationale, remediation, and an honest
-  confidence level.
-- Version 1.0.0 freezes the plugin API, adds `owlwarden init` and `--format md`,
-  fourteen rules, SARIF/JUnit/Markdown and a GitHub Action, Safe `--fix`,
-  first-class remediation for twelve named frameworks, coverage in nine OWASP
-  Top 10 (2021) categories, passive opt-in runtime probes, source-only
-  sandboxed WASM plugins, and a read-only MCP server. The agents section states
-  the token budget: local baseline first, frontier models for hard judgment.
-- Static analysis cannot prove every security property; A04 is explicitly out
-  of reach from source alone.
+- **`site.url`** at the repository root — the origin, and the only place it
+  exists. See [docs/how-to/custom-domain.md](../docs/how-to/custom-domain.md).
+- **the engine**, for the rule catalogue, the coverage tables, and every rule's
+  remediation. The same source that generates `RULES.md`.
+- **the fixtures**, which it scans to harvest a real vulnerable example for each
+  (rule, framework) and (rule, agent host) cell.
 
-The contract is checked by `pnpm site:check`. The check also enforces semantic
-HTML, crawl metadata, canonical URLs, structured data, local-only assets, and a
-small transfer budget.
+That last one is the reason a few hundred pages can exist without any of them
+being filler. Every snippet on the site is a finding the test suite already
+asserts on. If a rule stops firing, its pages lose their example and the build
+says so — rather than the site quietly describing behaviour the tool no longer
+has. A cell with no example from its own fixture is not published at all: thin
+pages at scale is the one way this tactic backfires.
+
+## Checks
+
+```bash
+pnpm site:build          # write site/
+pnpm site:check          # is it current, and is it correct?
+```
+
+`build-site.mjs --check` answers *is the committed site what the current rules
+would generate?* and needs the native addon. `check-site.mjs` answers *is the
+committed site correct?* — one `<h1>` per page, a self-referencing canonical, a
+description that will not be truncated, valid JSON-LD, no heading-level jumps,
+no dead links across the whole graph, and no external host anywhere. It needs
+nothing but Node, which is why the Pages workflow can run it.
+
+## What is deliberately absent
+
+No JavaScript ships. No font CDN, no analytics, no tag manager, no third-party
+anything — a tool whose entire argument is that it sends nothing anywhere cannot
+have a page that makes three external requests before the reader has read a
+sentence. `check-site.mjs` refuses any host outside a short allowlist, and any
+`<script>` that is not JSON-LD.
+
+## Per-page social images
+
+There is one `og.jpg` for the whole site. Per-page images rendering the actual
+finding would be better — it is the most recognisable artefact this project has
+— but producing them means rasterising 200 images at build time, which needs a
+headless browser or an image library. Neither is worth adding to a repository
+whose dependency posture is a feature. Faking it with an SVG would not work
+either: the platforms that matter do not render SVG in a social card.

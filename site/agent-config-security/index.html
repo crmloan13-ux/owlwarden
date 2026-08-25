@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<title>Agent config security — the files nothing scans — owlwarden</title>
+<meta name="description" content="Agent and editor configuration is executable, is read from the working tree, and is not in your lockfile. What lives there, and how to check your repo.">
+<link rel="canonical" href="https://suthat.github.io/owlwarden/agent-config-security/">
+<meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1">
+<meta name="theme-color" content="#fbfaf8">
+
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="owlwarden">
+<meta property="og:title" content="Your dependency scanner does not read .claude/settings.json">
+<meta property="og:description" content="Agent and editor configuration is executable, is read from the working tree, and is not in your lockfile. What lives there, and how to check your repo.">
+<meta property="og:url" content="https://suthat.github.io/owlwarden/agent-config-security/">
+<meta property="og:image" content="https://suthat.github.io/owlwarden/og.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="owlwarden — offline security scanner for Node web apps and AI coding agents">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Your dependency scanner does not read .claude/settings.json">
+<meta name="twitter:description" content="Agent and editor configuration is executable, is read from the working tree, and is not in your lockfile. What lives there, and how to check your repo.">
+<meta name="twitter:image" content="https://suthat.github.io/owlwarden/og.jpg">
+
+<link rel="icon" type="image/png" href="../favicon.png">
+<link rel="stylesheet" href="../styles.css?v=1.1.0">
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "BreadcrumbList",
+      "@id": "https://suthat.github.io/owlwarden/agent-config-security/#breadcrumbs",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "owlwarden",
+          "item": "https://suthat.github.io/owlwarden/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "Agent config security",
+          "item": "https://suthat.github.io/owlwarden/agent-config-security/"
+        }
+      ]
+    },
+    {
+      "@type": "TechArticle",
+      "headline": "Agent and editor configuration is a second attack surface",
+      "proficiencyLevel": "Beginner",
+      "about": [
+        {
+          "@type": "Thing",
+          "name": "CWE-829",
+          "url": "https://cwe.mitre.org/data/definitions/829.html"
+        },
+        {
+          "@type": "Thing",
+          "name": "OWASP ASI 2026",
+          "url": "https://genai.owasp.org/"
+        }
+      ]
+    }
+  ]
+}
+</script>
+</head>
+<body>
+<a class="skip-link" href="#main-content">Skip to content</a>
+
+<header class="site-header">
+  <a class="wordmark" href="../">
+    <span aria-hidden="true">◉ᴥ◉</span>
+    <span>owlwarden</span>
+  </a>
+  <nav aria-label="Primary">
+    <a href="../rules/">Rules</a>
+    <a href="../agent-config-security/">Agent config</a>
+    <a href="../vet/">vet</a>
+    <a href="../owasp/">Coverage</a>
+    <a href="https://github.com/suthat/owlwarden" rel="noopener">GitHub</a>
+  </nav>
+</header>
+
+<nav class="breadcrumbs" aria-label="Breadcrumb">
+  <ol>
+    <li><a href="../">owlwarden</a></li>
+    <li aria-current="page">Agent config security</li>
+  </ol>
+</nav>
+
+<main id="main-content">
+<h1>Your dependency scanner does not read .claude/settings.json</h1>
+
+<p class="lede">
+  The property that makes this class of file dangerous is simple and general:
+  <strong>agent and editor configuration is executable, is read from the working
+  tree, and is not read by any software composition analysis tool.</strong>
+</p>
+
+<p>
+  It is not a dependency, so no lockfile records it. It is not application
+  source, so no SAST rule parses it. It is checked in, so review passes over it
+  the way review passes over a <code>.prettierrc</code>.
+</p>
+
+<h2>What the August 2026 npm worm actually did</h2>
+<p>
+  The dependency half of that incident was within reach of ordinary tooling:
+  poisoned package versions, pulled within hours. The half that was not is the
+  persistence mechanism. The payload wrote itself into
+  <code>.claude/settings.json</code>, <code>.claude/setup.mjs</code>,
+  <code>.vscode/tasks.json</code>, and <code>.vscode/setup.mjs</code>, and used
+  stolen credentials to commit those files into every repository it could reach.
+</p>
+<p>
+  Removing the poisoned package version does not remove that foothold.
+  Regenerating the lockfile does not remove it. The next developer who opens the
+  folder in an editor, or starts an agent session in it, re-executes the
+  dropper.
+</p>
+
+<h2>What that looks like in a scan</h2><div class="transcript"><span class="sev-high">HIGH</span>  <span class="conf">likely</span>  <span class="dim">active</span>  Repository config executes a command when the workspace is opened  <span class="dim">ASI05</span>
+<span class="dim">.claude/settings.json:27:24</span>
+
+<span class="dim">25 │</span>           {
+<span class="dim">26 │</span>             &quot;type&quot;: &quot;command&quot;,
+<span class="dim">27 │</span>             &quot;command&quot;: &quot;node .claude/setup.mjs&quot;
+<span class="dim">   │ </span>                       <span class="mark">~~~~~~~~~~~~~~~~~~~~~~~~ runs when the workspace opens (SessionStart)</span>
+<span class="dim">28 │</span>           }
+<span class="dim">29 │</span>         ]</div>
+
+<h2>The 10 rules that read this surface</h2>
+<ul class="cards">
+  <li><a href="../rules/agent-config-env-redirect/">
+    <span class="name">agent-config-env-redirect</span>
+    <span class="blurb"><span class="chip chip-high">high</span> Repository config redirects the agent&#39;s API traffic</span>
+  </a></li>
+  <li><a href="../rules/agent-config-loader-script/">
+    <span class="name">agent-config-loader-script</span>
+    <span class="blurb"><span class="chip chip-high">high</span> Executable script inside an agent or editor config directory</span>
+  </a></li>
+  <li><a href="../rules/agent-config-secret-reachable/">
+    <span class="name">agent-config-secret-reachable</span>
+    <span class="blurb"><span class="chip chip-high">high</span> Repository config puts credentials in reach of a repository-controlled command</span>
+  </a></li>
+  <li><a href="../rules/agent-hook-autoexec/">
+    <span class="name">agent-hook-autoexec</span>
+    <span class="blurb"><span class="chip chip-high">high</span> Repository config executes a command when the workspace is opened</span>
+  </a></li>
+  <li><a href="../rules/agent-hook-untrusted-command/">
+    <span class="name">agent-hook-untrusted-command</span>
+    <span class="blurb"><span class="chip chip-high">high</span> Hook command reaches outside the project</span>
+  </a></li>
+  <li><a href="../rules/agent-instructions-directive/">
+    <span class="name">agent-instructions-directive</span>
+    <span class="blurb"><span class="chip chip-medium">medium</span> Instruction file tells the agent to bypass its own controls</span>
+  </a></li>
+  <li><a href="../rules/agent-instructions-hidden-text/">
+    <span class="name">agent-instructions-hidden-text</span>
+    <span class="blurb"><span class="chip chip-high">high</span> Instruction file contains text a human reader cannot see</span>
+  </a></li>
+  <li><a href="../rules/agent-marketplace-untrusted/">
+    <span class="name">agent-marketplace-untrusted</span>
+    <span class="blurb"><span class="chip chip-medium">medium</span> Repository config adds a third-party plugin or skill source</span>
+  </a></li>
+  <li><a href="../rules/agent-mcp-unpinned-remote/">
+    <span class="name">agent-mcp-unpinned-remote</span>
+    <span class="blurb"><span class="chip chip-medium">medium</span> MCP server declaration resolves code at run time</span>
+  </a></li>
+  <li><a href="../rules/agent-permission-wildcard/">
+    <span class="name">agent-permission-wildcard</span>
+    <span class="blurb"><span class="chip chip-medium">medium</span> Repository config pre-approves a broad tool permission</span>
+  </a></li>
+</ul>
+
+<h2>Which files are in scope</h2>
+<p>
+  A closed list, matched at the repository root and under any prefix. A path not
+  on it is not scanned — including agent configuration inside
+  <code>node_modules</code>, which is a real vector and a very large scan, and
+  is named as out of scope rather than left unsaid.
+</p>
+<pre class="code"><code class="language-text">.claude/settings.json          .cursor/mcp.json           .vscode/tasks.json
+.claude/settings.local.json    .cursor/hooks.json         .vscode/settings.json
+.claude/hooks/**               .cursor/hooks/**           .vscode/extensions.json
+.claude/agents/**              .cursor/rules/**           .vscode/*.{js,mjs,ts,sh,py}
+.claude/skills/**              .cursorrules               .devcontainer/devcontainer.json
+.claude/*.{js,mjs,ts,sh,py}    .gemini/**                 .github/copilot-instructions.md
+.claude-plugin/**              .codex/**                  .mcp.json  mcp.json
+CLAUDE.md                      AGENTS.md</code></pre>
+<p>
+  <code>.claude/settings.local.json</code> is conventionally gitignored. It is
+  also where a workspace-scoped hook configuration vulnerability lived, so this
+  surface deliberately overrides <code>.gitignore</code> — and only that.
+  Containment, symlink refusal, and the size caps all still hold.
+</p>
+
+<h2>Check your own repository</h2>
+<pre class="code"><code class="language-bash">npx owlwarden scan --preset agent-surface   # your own repo
+npx owlwarden vet ./cloned-repo             # someone else&#39;s</code></pre>
+<p>
+  <a href="../vet/"><code>vet</code> is the one to use on a repository you did
+  not write</a>: it treats the target's own suppressions as evidence rather than
+  as instruction. <a href="../asi/">The ASI coverage table</a> lists the agentic
+  categories this reaches and the ones it does not.
+</p>
+
+<h2>Keep reading</h2>
+<ul class="cards">
+  <li><a href="../rules/"><span class="name">All rules</span><span class="blurb">The pattern, the fix for your stack, the CWE.</span></a></li>
+  <li><a href="../agent-config-security/"><span class="name">Agent config security</span><span class="blurb">The files your agent executes and nothing scans.</span></a></li>
+  <li><a href="../vet/"><span class="name">owlwarden vet</span><span class="blurb">Check a repository before you open it.</span></a></li>
+  <li><a href="../owasp/"><span class="name">Coverage, gaps included</span><span class="blurb">What it checks, and what no parser can.</span></a></li>
+</ul>
+
+</main>
+
+<footer class="site-footer">
+  <p>
+    <strong>owlwarden 1.1.0</strong> — offline security scanner for Node web apps
+    and AI coding agents. No account, no telemetry, no network unless you ask.
+  </p>
+  <nav aria-label="Footer">
+    <a href="../rules/">All rules</a>
+    <a href="../owasp/">OWASP coverage</a>
+    <a href="../asi/">ASI coverage</a>
+    <a href="../offline/">Offline</a>
+    <a href="../ci/">CI</a>
+    <a href="../mcp/">MCP</a>
+    <a href="https://github.com/suthat/owlwarden/blob/main/RULES.md" rel="noopener">RULES.md</a>
+    <a href="https://www.npmjs.com/package/owlwarden" rel="noopener">npm</a>
+  </nav>
+  <p class="licence">MIT OR Apache-2.0. <code>npx owlwarden scan</code></p>
+</footer>
+</body>
+</html>

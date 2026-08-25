@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<title>Static analysis vs model-based code review — owlwarden</title>
+<meta name="description" content="A frontier model finds what no parser can, and answers differently each run. A deterministic floor answers the same way twice. Complements, not rivals.">
+<link rel="canonical" href="https://suthat.github.io/owlwarden/vs/claude-security/">
+<meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1">
+<meta name="theme-color" content="#fbfaf8">
+
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="owlwarden">
+<meta property="og:title" content="owlwarden vs a model reviewing your code">
+<meta property="og:description" content="A frontier model finds what no parser can, and answers differently each run. A deterministic floor answers the same way twice. Complements, not rivals.">
+<meta property="og:url" content="https://suthat.github.io/owlwarden/vs/claude-security/">
+<meta property="og:image" content="https://suthat.github.io/owlwarden/og.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="owlwarden — offline security scanner for Node web apps and AI coding agents">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="owlwarden vs a model reviewing your code">
+<meta name="twitter:description" content="A frontier model finds what no parser can, and answers differently each run. A deterministic floor answers the same way twice. Complements, not rivals.">
+<meta name="twitter:image" content="https://suthat.github.io/owlwarden/og.jpg">
+
+<link rel="icon" type="image/png" href="../../favicon.png">
+<link rel="stylesheet" href="../../styles.css?v=1.1.0">
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "BreadcrumbList",
+      "@id": "https://suthat.github.io/owlwarden/vs/claude-security/#breadcrumbs",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "owlwarden",
+          "item": "https://suthat.github.io/owlwarden/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "Compare",
+          "item": "https://suthat.github.io/owlwarden/vs/semgrep/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 3,
+          "name": "Model-based review",
+          "item": "https://suthat.github.io/owlwarden/vs/claude-security/"
+        }
+      ]
+    },
+    {
+      "@type": "TechArticle",
+      "headline": "owlwarden vs a model reviewing your code",
+      "proficiencyLevel": "Beginner"
+    }
+  ]
+}
+</script>
+</head>
+<body>
+<a class="skip-link" href="#main-content">Skip to content</a>
+
+<header class="site-header">
+  <a class="wordmark" href="../../">
+    <span aria-hidden="true">◉ᴥ◉</span>
+    <span>owlwarden</span>
+  </a>
+  <nav aria-label="Primary">
+    <a href="../../rules/">Rules</a>
+    <a href="../../agent-config-security/">Agent config</a>
+    <a href="../../vet/">vet</a>
+    <a href="../../owasp/">Coverage</a>
+    <a href="https://github.com/suthat/owlwarden" rel="noopener">GitHub</a>
+  </nav>
+</header>
+
+<nav class="breadcrumbs" aria-label="Breadcrumb">
+  <ol>
+    <li><a href="../../">owlwarden</a></li>
+    <li><a href="../../vs/semgrep/">Compare</a></li>
+    <li aria-current="page">Model-based review</li>
+  </ol>
+</nav>
+
+<main id="main-content">
+<h1>owlwarden vs a model reviewing your code</h1>
+
+<p class="lede">
+  The vendors' own model-based scanners say this about themselves: they are
+  non-deterministic, and they do not replace static analysis. This is the static
+  analysis they mean.
+</p>
+
+<h2>Where a model wins</h2>
+<ul>
+  <li><strong>Judgement.</strong> Authorisation logic, business rules, whether this particular endpoint should be public. No AST shape exists for any of it.</li>
+  <li><strong>Novelty.</strong> A bug nobody wrote a rule for.</li>
+  <li><strong>Context.</strong> It can read the ticket, the tests, and the migration in one pass.</li>
+</ul>
+
+<h2>Where a deterministic floor wins</h2>
+<ul>
+  <li><strong>It gives the same answer twice.</strong> A baseline, a suppression, and a CI gate all require that. A reviewer that changes its mind between runs cannot be a gate.</li>
+  <li><strong>It always runs.</strong> <a href="../../claude-code/">A hook fires on the host's event</a>; a model reviews when it is asked, and mid-refactor it often is not.</li>
+  <li><strong>It costs nothing per run.</strong> Re-asking <em>did we leak a stack?</em> on every edit is the most expensive way to answer a question a parser answers for free.</li>
+  <li><strong>It cannot be argued with.</strong> The gate runs outside the model, so nothing in the prompt changes the verdict.</li>
+</ul>
+
+<h2>The order that works</h2>
+<p>
+  Floor first, judgement on top. Run the deterministic checks locally so the
+  frontier model's budget goes to architecture, auth, payments, and personal
+  data — the things a parser cannot reach. <code>--format agent</code> puts the
+  report on a token budget so the floor is close to free.
+</p>
+<pre class="code"><code class="language-bash">owlwarden scan --format agent --budget 1500</code></pre>
+<h2>Other comparisons</h2>
+<ul class="cards">
+  <li><a href="../semgrep/"><span class="name">vs Semgrep</span><span class="blurb">Rule breadth against determinism and offline.</span></a></li>
+  <li><a href="../snyk/"><span class="name">vs Snyk</span><span class="blurb">Dependencies against the config nothing scans.</span></a></li>
+  <li><a href="../claude-security/"><span class="name">vs model-based review</span><span class="blurb">Judgement against a floor that always runs.</span></a></li>
+  <li><a href="../eslint-plugin-security/"><span class="name">vs eslint-plugin-security</span><span class="blurb">Lint heuristics against routed, framework-aware rules.</span></a></li>
+</ul>
+<p><a href="../../rules/">All rules</a> · <a href="../../owasp/">Coverage, gaps included</a> · <a href="../../offline/">Offline</a></p>
+</main>
+
+<footer class="site-footer">
+  <p>
+    <strong>owlwarden 1.1.0</strong> — offline security scanner for Node web apps
+    and AI coding agents. No account, no telemetry, no network unless you ask.
+  </p>
+  <nav aria-label="Footer">
+    <a href="../../rules/">All rules</a>
+    <a href="../../owasp/">OWASP coverage</a>
+    <a href="../../asi/">ASI coverage</a>
+    <a href="../../offline/">Offline</a>
+    <a href="../../ci/">CI</a>
+    <a href="../../mcp/">MCP</a>
+    <a href="https://github.com/suthat/owlwarden/blob/main/RULES.md" rel="noopener">RULES.md</a>
+    <a href="https://www.npmjs.com/package/owlwarden" rel="noopener">npm</a>
+  </nav>
+  <p class="licence">MIT OR Apache-2.0. <code>npx owlwarden scan</code></p>
+</footer>
+</body>
+</html>

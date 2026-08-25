@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<title>OWASP Top 10 coverage for Node — with the gaps — owlwarden</title>
+<meta name="description" content="owlwarden maps 15 rules onto the OWASP Top 10 (2021). This table lists every category, including the ones with no rule and the ones no source scanner can reach.">
+<link rel="canonical" href="https://suthat.github.io/owlwarden/owasp/">
+<meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1">
+<meta name="theme-color" content="#fbfaf8">
+
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="owlwarden">
+<meta property="og:title" content="OWASP Top 10 (2021) coverage: 9 of 10, gaps included">
+<meta property="og:description" content="owlwarden maps 15 rules onto the OWASP Top 10 (2021). This table lists every category, including the ones with no rule and the ones no source scanner can reach.">
+<meta property="og:url" content="https://suthat.github.io/owlwarden/owasp/">
+<meta property="og:image" content="https://suthat.github.io/owlwarden/og.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="owlwarden — offline security scanner for Node web apps and AI coding agents">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="OWASP Top 10 (2021) coverage: 9 of 10, gaps included">
+<meta name="twitter:description" content="owlwarden maps 15 rules onto the OWASP Top 10 (2021). This table lists every category, including the ones with no rule and the ones no source scanner can reach.">
+<meta name="twitter:image" content="https://suthat.github.io/owlwarden/og.jpg">
+
+<link rel="icon" type="image/png" href="../favicon.png">
+<link rel="stylesheet" href="../styles.css?v=1.1.0">
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "BreadcrumbList",
+      "@id": "https://suthat.github.io/owlwarden/owasp/#breadcrumbs",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "owlwarden",
+          "item": "https://suthat.github.io/owlwarden/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "OWASP coverage",
+          "item": "https://suthat.github.io/owlwarden/owasp/"
+        }
+      ]
+    },
+    {
+      "@type": "TechArticle",
+      "headline": "OWASP Top 10 (2021) coverage",
+      "proficiencyLevel": "Beginner"
+    }
+  ]
+}
+</script>
+</head>
+<body>
+<a class="skip-link" href="#main-content">Skip to content</a>
+
+<header class="site-header">
+  <a class="wordmark" href="../">
+    <span aria-hidden="true">◉ᴥ◉</span>
+    <span>owlwarden</span>
+  </a>
+  <nav aria-label="Primary">
+    <a href="../rules/">Rules</a>
+    <a href="../agent-config-security/">Agent config</a>
+    <a href="../vet/">vet</a>
+    <a href="../owasp/">Coverage</a>
+    <a href="https://github.com/suthat/owlwarden" rel="noopener">GitHub</a>
+  </nav>
+</header>
+
+<nav class="breadcrumbs" aria-label="Breadcrumb">
+  <ol>
+    <li><a href="../">owlwarden</a></li>
+    <li aria-current="page">OWASP coverage</li>
+  </ol>
+</nav>
+
+<main id="main-content">
+<h1>OWASP Top 10 (2021) coverage: 9 of 10, gaps included</h1>
+
+<p class="lede">
+  A coverage table with no holes in it is an advertisement. What a reader needs
+  is what the tool is <em>not</em> looking at, so a clean report is read
+  correctly.
+</p>
+
+<p>
+  <strong>Reach</strong> says whether source analysis can see the category at
+  all. A category with no rules and <code>poor</code> reach is a limit of the
+  method, not a backlog item — no parser finds a design flaw. Those need the
+  dynamic engine, or a human.
+</p>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Category</th><th>Reach</th><th>Rules</th></tr></thead>
+  <tbody>
+    <tr><td><strong>A01:2021</strong> Broken Access Control</td><td>partial</td><td><a href="../rules/csrf-cross-origin-post/"><code>csrf-cross-origin-post</code></a>, <a href="../rules/open-redirect/"><code>open-redirect</code></a></td></tr>
+    <tr><td><strong>A02:2021</strong> Cryptographic Failures</td><td>partial</td><td><a href="../rules/weak-crypto/"><code>weak-crypto</code></a></td></tr>
+    <tr><td><strong>A03:2021</strong> Injection</td><td>good</td><td><a href="../rules/sql-injection/"><code>sql-injection</code></a></td></tr>
+    <tr><td><strong>A04:2021</strong> Insecure Design</td><td>poor</td><td><em>not reachable from source</em></td></tr>
+    <tr><td><strong>A05:2021</strong> Security Misconfiguration</td><td>good</td><td><a href="../rules/cors-permissive/"><code>cors-permissive</code></a>, <a href="../rules/insecure-cookie/"><code>insecure-cookie</code></a>, <a href="../rules/security-headers-missing/"><code>security-headers-missing</code></a>, <a href="../rules/stack-trace-leak/"><code>stack-trace-leak</code></a></td></tr>
+    <tr><td><strong>A06:2021</strong> Vulnerable and Outdated Components</td><td>partial</td><td><a href="../rules/known-vulnerable-dependency/"><code>known-vulnerable-dependency</code></a>, <a href="../rules/unpinned-dependency/"><code>unpinned-dependency</code></a></td></tr>
+    <tr><td><strong>A07:2021</strong> Identification and Authentication Failures</td><td>partial</td><td><a href="../rules/hardcoded-secret/"><code>hardcoded-secret</code></a></td></tr>
+    <tr><td><strong>A08:2021</strong> Software and Data Integrity Failures</td><td>partial</td><td><a href="../rules/ci-unpinned-action/"><code>ci-unpinned-action</code></a>, <a href="../rules/install-lifecycle-script/"><code>install-lifecycle-script</code></a></td></tr>
+    <tr><td><strong>A09:2021</strong> Security Logging and Monitoring Failures</td><td>partial</td><td><a href="../rules/sensitive-data-logged/"><code>sensitive-data-logged</code></a></td></tr>
+    <tr><td><strong>A10:2021</strong> Server-Side Request Forgery (SSRF)</td><td>good</td><td><a href="../rules/ssrf/"><code>ssrf</code></a></td></tr>
+  </tbody>
+</table>
+</div>
+
+<h2>Why A04 is empty on purpose</h2>
+<p>
+  Insecure Design is correct code implementing the wrong idea: a missing rate
+  limit, a recovery flow that trusts an email address, a threat nobody
+  considered. There is no AST shape for it. Listing it as "0 rules" next to
+  categories we simply have not covered yet would invite you to wait for a
+  release that is never coming.
+</p>
+
+<h2>The other taxonomy</h2>
+<p>
+  Rules that read agent configuration map to
+  <a href="../asi/">OWASP ASI 2026</a> instead, and that
+  table is kept separate on purpose. Merging them would let an agent rule appear
+  to raise Top 10 coverage, and the <code>owasp-top10</code> preset would stop
+  meaning anything.
+</p>
+
+<pre class="code"><code class="language-bash">npx owlwarden coverage      # printed from the engine you have installed</code></pre>
+
+<h2>Keep reading</h2>
+<ul class="cards">
+  <li><a href="../rules/"><span class="name">All rules</span><span class="blurb">The pattern, the fix for your stack, the CWE.</span></a></li>
+  <li><a href="../agent-config-security/"><span class="name">Agent config security</span><span class="blurb">The files your agent executes and nothing scans.</span></a></li>
+  <li><a href="../vet/"><span class="name">owlwarden vet</span><span class="blurb">Check a repository before you open it.</span></a></li>
+  <li><a href="../owasp/"><span class="name">Coverage, gaps included</span><span class="blurb">What it checks, and what no parser can.</span></a></li>
+</ul>
+
+</main>
+
+<footer class="site-footer">
+  <p>
+    <strong>owlwarden 1.1.0</strong> — offline security scanner for Node web apps
+    and AI coding agents. No account, no telemetry, no network unless you ask.
+  </p>
+  <nav aria-label="Footer">
+    <a href="../rules/">All rules</a>
+    <a href="../owasp/">OWASP coverage</a>
+    <a href="../asi/">ASI coverage</a>
+    <a href="../offline/">Offline</a>
+    <a href="../ci/">CI</a>
+    <a href="../mcp/">MCP</a>
+    <a href="https://github.com/suthat/owlwarden/blob/main/RULES.md" rel="noopener">RULES.md</a>
+    <a href="https://www.npmjs.com/package/owlwarden" rel="noopener">npm</a>
+  </nav>
+  <p class="licence">MIT OR Apache-2.0. <code>npx owlwarden scan</code></p>
+</footer>
+</body>
+</html>

@@ -18,13 +18,14 @@
     "lint:fmt": "cargo fmt --all --check",
     "lint:js": "eslint packages scripts",
     "lint": "pnpm lint:fmt && pnpm lint:rust && pnpm typecheck && pnpm lint:js",
-    "check": "pnpm lint && pnpm test && pnpm site:check && pnpm docs:check",
+    "check": "pnpm lint && pnpm test && pnpm rules:check && pnpm site:check && pnpm docs:check",
     "docs:check": "node scripts/check-package-readme.mjs",
     "rules:generate": "node scripts/generate-rules-md.mjs",
     "rules:check": "node scripts/generate-rules-md.mjs --check",
     "clean": "tsc --build --clean packages/sdk packages/config packages/cli && cargo clean",
     "security-check": "node packages/cli/dist/bin.js scan packages",
-    "site:check": "node scripts/check-site.mjs"
+    "site:check": "node scripts/build-site.mjs --check && node scripts/check-site.mjs",
+    "site:build": "node scripts/build-site.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

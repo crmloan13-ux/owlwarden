@@ -1,4 +1,6 @@
+# owlwarden — https://github.com/suthat/owlwarden
 User-agent: *
-Allow: /owlwarden/
+Allow: /
+Disallow: /404.html
 
 Sitemap: https://suthat.github.io/owlwarden/sitemap.xml

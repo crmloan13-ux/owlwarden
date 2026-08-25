@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<title>Fix agent-config-loader-script in VS Code — owlwarden</title>
+<meta name="description" content="Executable script inside an agent or editor config directory in VS Code. The vulnerable pattern, the corrected code, and one command to check your own repository.">
+<link rel="canonical" href="https://suthat.github.io/owlwarden/rules/agent-config-loader-script/vscode/">
+<meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1">
+<meta name="theme-color" content="#fbfaf8">
+
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="owlwarden">
+<meta property="og:title" content="Fix executable script inside an agent or editor config directory in VS Code">
+<meta property="og:description" content="Executable script inside an agent or editor config directory in VS Code. The vulnerable pattern, the corrected code, and one command to check your own repository.">
+<meta property="og:url" content="https://suthat.github.io/owlwarden/rules/agent-config-loader-script/vscode/">
+<meta property="og:image" content="https://suthat.github.io/owlwarden/og.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="owlwarden — offline security scanner for Node web apps and AI coding agents">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Fix executable script inside an agent or editor config directory in VS Code">
+<meta name="twitter:description" content="Executable script inside an agent or editor config directory in VS Code. The vulnerable pattern, the corrected code, and one command to check your own repository.">
+<meta name="twitter:image" content="https://suthat.github.io/owlwarden/og.jpg">
+
+<link rel="icon" type="image/png" href="../../../favicon.png">
+<link rel="stylesheet" href="../../../styles.css?v=1.1.0">
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "BreadcrumbList",
+      "@id": "https://suthat.github.io/owlwarden/rules/agent-config-loader-script/vscode/#breadcrumbs",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "owlwarden",
+          "item": "https://suthat.github.io/owlwarden/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "Rules",
+          "item": "https://suthat.github.io/owlwarden/rules/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 3,
+          "name": "agent-config-loader-script",
+          "item": "https://suthat.github.io/owlwarden/rules/agent-config-loader-script/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 4,
+          "name": "VS Code",
+          "item": "https://suthat.github.io/owlwarden/rules/agent-config-loader-script/vscode/"
+        }
+      ]
+    },
+    {
+      "@type": "TechArticle",
+      "headline": "Fix executable script inside an agent or editor config directory in VS Code",
+      "description": "A `.js`, `.mjs`, `.cjs`, `.ts`, `.sh`, or `.py` file sits loose in a directory meant to hold configuration, or is referenced by a hook. Configuration directories are reviewed as configuration; a dropper placed in one is read as settings and executed as code.",
+      "proficiencyLevel": "Beginner",
+      "dependencies": "VS Code",
+      "isPartOf": {
+        "@type": "TechArticle",
+        "@id": "#rule"
+      },
+      "about": [
+        {
+          "@type": "Thing",
+          "name": "CWE-506",
+          "url": "https://cwe.mitre.org/data/definitions/506.html"
+        }
+      ]
+    },
+    {
+      "@type": "HowTo",
+      "name": "Fix executable script inside an agent or editor config directory in VS Code",
+      "totalTime": "PT2M",
+      "step": [
+        {
+          "@type": "HowToStep",
+          "name": "Find it",
+          "text": "Run npx owlwarden scan in your VS Code project."
+        },
+        {
+          "@type": "HowToStep",
+          "name": "Fix it",
+          "text": "Move it out of `.vscode/` — that directory is editor configuration and is skimmed as such. A task can invoke `scripts/setup.mjs` just as easily."
+        },
+        {
+          "@type": "HowToStep",
+          "name": "Confirm it",
+          "text": "Run npx owlwarden scan again; the agent-config-loader-script finding is gone."
+        }
+      ]
+    }
+  ]
+}
+</script>
+</head>
+<body>
+<a class="skip-link" href="#main-content">Skip to content</a>
+
+<header class="site-header">
+  <a class="wordmark" href="../../../">
+    <span aria-hidden="true">◉ᴥ◉</span>
+    <span>owlwarden</span>
+  </a>
+  <nav aria-label="Primary">
+    <a href="../../../rules/">Rules</a>
+    <a href="../../../agent-config-security/">Agent config</a>
+    <a href="../../../vet/">vet</a>
+    <a href="../../../owasp/">Coverage</a>
+    <a href="https://github.com/suthat/owlwarden" rel="noopener">GitHub</a>
+  </nav>
+</header>
+
+<nav class="breadcrumbs" aria-label="Breadcrumb">
+  <ol>
+    <li><a href="../../../">owlwarden</a></li>
+    <li><a href="../../../rules/">Rules</a></li>
+    <li><a href="../../../rules/agent-config-loader-script/">agent-config-loader-script</a></li>
+    <li aria-current="page">VS Code</li>
+  </ol>
+</nav>
+
+<main id="main-content">
+<h1>Fix executable script inside an agent or editor config directory in VS Code</h1>
+
+<p class="lede">A `.js`, `.mjs`, `.cjs`, `.ts`, `.sh`, or `.py` file sits loose in a directory meant to hold configuration, or is referenced by a hook. Configuration directories are reviewed as configuration; a dropper placed in one is read as settings and executed as code.</p>
+
+<p>
+  <span class="chip chip-high">high</span> <span class="chip chip-likely">likely</span>
+  <span class="chip chip-scope">VS Code</span>
+  <a href="https://cwe.mitre.org/data/definitions/506.html" rel="noopener">CWE-506</a>
+  
+   · <a href="../../../asi/">ASI ASI04</a>
+</p>
+
+<h2>The vulnerable pattern in VS Code</h2>
+<div class="transcript"><span class="sev-high">HIGH</span>  <span class="conf">likely</span>  <span class="dim">project-optional</span>  Executable script inside an agent or editor config directory  <span class="dim">ASI04</span>
+<span class="dim">.vscode/setup.mjs:1:1</span>
+
+<span class="dim">1 │</span> import &#39;node:child_process&#39;
+<span class="dim">  │ </span><span class="mark">~~~~~~~~~~~~~~~~~~~~~~~~~~~ executed by a hook in this repository</span></div>
+<p>
+  This is a real finding from the VS Code fixture in the owlwarden test
+  suite.
+  A hook in this repository runs `.vscode/setup.mjs`. The file is inside a configuration directory, so it is reviewed as configuration and executed as code.
+</p>
+
+<h2>The corrected configuration</h2>
+<p>Move it out of `.vscode/` — that directory is editor configuration and is skimmed as such. A task can invoke `scripts/setup.mjs` just as easily.</p>
+<pre class="code"><code class="language-json">git mv .vscode/setup.mjs scripts/setup.mjs
+// .vscode/tasks.json
+{ &quot;command&quot;: &quot;node&quot;, &quot;args&quot;: [&quot;scripts/setup.mjs&quot;] }</code></pre>
+
+<h3>If you are not using VS Code</h3>
+<p>Move the script out of the configuration directory into the repository&#39;s own scripts folder, and reference it by path. Configuration directories should hold configuration, so that a file appearing in one is itself a signal.</p>
+
+<h2>Check your own repository</h2>
+<pre class="code"><code class="language-bash">npx owlwarden scan
+npx owlwarden explain agent-config-loader-script</code></pre>
+<p>
+  Runs entirely on your machine — <a href="../../../offline/">no account, no
+  telemetry, no network unless you ask</a>. In CI, <a href="../../../ci/">SARIF
+  uploads to code scanning</a> and the exit code is the gate.
+</p>
+
+<h2>Other VS Code checks</h2>
+<ul class="cards">
+  <li><a href="../../agent-config-env-redirect/vscode/">
+    <span class="name">agent-config-env-redirect</span>
+    <span class="blurb"><span class="chip chip-high">high</span> Repository config redirects the agent&#39;s API traffic</span>
+  </a></li>
+  <li><a href="../../agent-config-secret-reachable/vscode/">
+    <span class="name">agent-config-secret-reachable</span>
+    <span class="blurb"><span class="chip chip-high">high</span> Repository config puts credentials in reach of a repository-controlled command</span>
+  </a></li>
+  <li><a href="../../agent-hook-autoexec/vscode/">
+    <span class="name">agent-hook-autoexec</span>
+    <span class="blurb"><span class="chip chip-high">high</span> Repository config executes a command when the workspace is opened</span>
+  </a></li>
+  <li><a href="../../agent-hook-untrusted-command/vscode/">
+    <span class="name">agent-hook-untrusted-command</span>
+    <span class="blurb"><span class="chip chip-high">high</span> Hook command reaches outside the project</span>
+  </a></li>
+  <li><a href="../../agent-mcp-unpinned-remote/vscode/">
+    <span class="name">agent-mcp-unpinned-remote</span>
+    <span class="blurb"><span class="chip chip-medium">medium</span> MCP server declaration resolves code at run time</span>
+  </a></li>
+  <li><a href="../../agent-permission-wildcard/vscode/">
+    <span class="name">agent-permission-wildcard</span>
+    <span class="blurb"><span class="chip chip-medium">medium</span> Repository config pre-approves a broad tool permission</span>
+  </a></li>
+</ul>
+
+<p>
+  <a href="../">agent-config-loader-script for every agent host</a> ·
+  <a href="../../">All rules</a> ·
+  <a href="../../../">owlwarden</a>
+</p>
+
+</main>
+
+<footer class="site-footer">
+  <p>
+    <strong>owlwarden 1.1.0</strong> — offline security scanner for Node web apps
+    and AI coding agents. No account, no telemetry, no network unless you ask.
+  </p>
+  <nav aria-label="Footer">
+    <a href="../../../rules/">All rules</a>
+    <a href="../../../owasp/">OWASP coverage</a>
+    <a href="../../../asi/">ASI coverage</a>
+    <a href="../../../offline/">Offline</a>
+    <a href="../../../ci/">CI</a>
+    <a href="../../../mcp/">MCP</a>
+    <a href="https://github.com/suthat/owlwarden/blob/main/RULES.md" rel="noopener">RULES.md</a>
+    <a href="https://www.npmjs.com/package/owlwarden" rel="noopener">npm</a>
+  </nav>
+  <p class="licence">MIT OR Apache-2.0. <code>npx owlwarden scan</code></p>
+</footer>
+</body>
+</html>

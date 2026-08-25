@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - "site/**"
+      - "site.url"
       - "scripts/check-site.mjs"
       - ".github/workflows/pages.yml"
   workflow_dispatch:

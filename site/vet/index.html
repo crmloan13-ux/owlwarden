@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<title>owlwarden vet — check a repo before you open it</title>
+<meta name="description" content="owlwarden vet scans a repository you did not write: agent rules only, offline, no plugins, and the target&#39;s own suppressions counted rather than honoured.">
+<link rel="canonical" href="https://suthat.github.io/owlwarden/vet/">
+<meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1">
+<meta name="theme-color" content="#fbfaf8">
+
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="owlwarden">
+<meta property="og:title" content="Check a repository before you open it in an agent">
+<meta property="og:description" content="owlwarden vet scans a repository you did not write: agent rules only, offline, no plugins, and the target&#39;s own suppressions counted rather than honoured.">
+<meta property="og:url" content="https://suthat.github.io/owlwarden/vet/">
+<meta property="og:image" content="https://suthat.github.io/owlwarden/og.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="owlwarden — offline security scanner for Node web apps and AI coding agents">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Check a repository before you open it in an agent">
+<meta name="twitter:description" content="owlwarden vet scans a repository you did not write: agent rules only, offline, no plugins, and the target&#39;s own suppressions counted rather than honoured.">
+<meta name="twitter:image" content="https://suthat.github.io/owlwarden/og.jpg">
+
+<link rel="icon" type="image/png" href="../favicon.png">
+<link rel="stylesheet" href="../styles.css?v=1.1.0">
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "BreadcrumbList",
+      "@id": "https://suthat.github.io/owlwarden/vet/#breadcrumbs",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "owlwarden",
+          "item": "https://suthat.github.io/owlwarden/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "vet",
+          "item": "https://suthat.github.io/owlwarden/vet/"
+        }
+      ]
+    },
+    {
+      "@type": "HowTo",
+      "name": "Check a cloned repository before opening it in an agent",
+      "totalTime": "PT1M",
+      "step": [
+        {
+          "@type": "HowToStep",
+          "name": "Clone without opening",
+          "text": "git clone <url> ./candidate"
+        },
+        {
+          "@type": "HowToStep",
+          "name": "Vet it",
+          "text": "npx owlwarden vet ./candidate"
+        },
+        {
+          "@type": "HowToStep",
+          "name": "Read the exit code",
+          "text": "0 means nothing at or above high; 1 means findings; 2 means the scan could not run."
+        }
+      ]
+    }
+  ]
+}
+</script>
+</head>
+<body>
+<a class="skip-link" href="#main-content">Skip to content</a>
+
+<header class="site-header">
+  <a class="wordmark" href="../">
+    <span aria-hidden="true">◉ᴥ◉</span>
+    <span>owlwarden</span>
+  </a>
+  <nav aria-label="Primary">
+    <a href="../rules/">Rules</a>
+    <a href="../agent-config-security/">Agent config</a>
+    <a href="../vet/">vet</a>
+    <a href="../owasp/">Coverage</a>
+    <a href="https://github.com/suthat/owlwarden" rel="noopener">GitHub</a>
+  </nav>
+</header>
+
+<nav class="breadcrumbs" aria-label="Breadcrumb">
+  <ol>
+    <li><a href="../">owlwarden</a></li>
+    <li aria-current="page">vet</li>
+  </ol>
+</nav>
+
+<main id="main-content">
+<h1>Check a repository before you open it in an agent</h1>
+
+<p class="lede">
+  Cloning a repository is safe. Opening it in an editor or an agent is not:
+  that is the moment the configuration in it starts being executed.
+</p>
+
+<pre class="code"><code class="language-bash">git clone https://github.com/someone/thing ./candidate
+npx owlwarden vet ./candidate</code></pre>
+
+<h2>What makes it different from <code>scan</code></h2>
+<p>
+  <code>scan</code> reads your config, honours your baseline, and applies your
+  inline suppressions. Every one of those mechanisms exists to make adoption
+  realistic on a legacy repository, and on your own repository that trade is
+  correct and deliberate.
+</p>
+<p>
+  On someone else's repository it is not a trade at all. In the hands of the
+  repository's author, each of them is a way to hide a finding. So <code>vet</code>
+  fixes the posture:
+</p>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Setting</th><th>Under <code>vet</code></th></tr></thead>
+  <tbody>
+    <tr><td>Preset</td><td><code>agent-surface</code> — the 10 rules that read configuration</td></tr>
+    <tr><td>Network</td><td>None. No OSV, no <code>--target</code>, no exceptions</td></tr>
+    <tr><td>Plugins</td><td>Not loaded, even signed ones, even with a trust root configured</td></tr>
+    <tr><td>The target's config</td><td>Not read at all — not "read and partly ignored"</td></tr>
+    <tr><td>The target's baseline</td><td>Not applied</td></tr>
+    <tr><td>Inline suppressions</td><td>Counted and reported, never honoured</td></tr>
+  </tbody>
+</table>
+</div>
+<p>
+  Passing <code>--plugin</code>, <code>--target</code>, <code>--baseline</code>,
+  or <code>--allow-suppressions</code> to <code>vet</code> is an error rather
+  than a no-op. A flag that appears to work and does not is worse than one that
+  is rejected.
+</p>
+
+<h2>The line worth reading</h2>
+<p>
+  A non-zero suppression count is printed on the summary line. "This repository
+  carries four inline suppressions, which vet counted and did not honour" is the
+  single most useful sentence <code>vet</code> can produce about a tree you have
+  not read.
+</p>
+
+<h2>Then what</h2>
+<p>
+  <code>vet</code> tells you what is in the configuration. It does not sandbox
+  anything: a repository hostile enough to matter should be opened in a
+  sandboxed runtime. <a href="../agent-config-security/">What the rules look
+  for</a> · <a href="../rules/">the full catalogue</a> ·
+  <a href="../offline/">why none of this needs a network</a>.
+</p>
+
+<h2>Keep reading</h2>
+<ul class="cards">
+  <li><a href="../rules/"><span class="name">All rules</span><span class="blurb">The pattern, the fix for your stack, the CWE.</span></a></li>
+  <li><a href="../agent-config-security/"><span class="name">Agent config security</span><span class="blurb">The files your agent executes and nothing scans.</span></a></li>
+  <li><a href="../vet/"><span class="name">owlwarden vet</span><span class="blurb">Check a repository before you open it.</span></a></li>
+  <li><a href="../owasp/"><span class="name">Coverage, gaps included</span><span class="blurb">What it checks, and what no parser can.</span></a></li>
+</ul>
+
+</main>
+
+<footer class="site-footer">
+  <p>
+    <strong>owlwarden 1.1.0</strong> — offline security scanner for Node web apps
+    and AI coding agents. No account, no telemetry, no network unless you ask.
+  </p>
+  <nav aria-label="Footer">
+    <a href="../rules/">All rules</a>
+    <a href="../owasp/">OWASP coverage</a>
+    <a href="../asi/">ASI coverage</a>
+    <a href="../offline/">Offline</a>
+    <a href="../ci/">CI</a>
+    <a href="../mcp/">MCP</a>
+    <a href="https://github.com/suthat/owlwarden/blob/main/RULES.md" rel="noopener">RULES.md</a>
+    <a href="https://www.npmjs.com/package/owlwarden" rel="noopener">npm</a>
+  </nav>
+  <p class="licence">MIT OR Apache-2.0. <code>npx owlwarden scan</code></p>
+</footer>
+</body>
+</html>

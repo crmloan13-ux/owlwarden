@@ -92,6 +92,19 @@ jobs:
         if: runner.os == 'Linux'
         run: pnpm rules:check
 
+      # The site is generated from the rule catalogue and from the fixtures, so
+      # a rule change that nobody rebuilt for leaves a few hundred pages
+      # describing behaviour the tool no longer has. Checked here rather than in
+      # the Pages workflow because regenerating needs the engine, and Pages
+      # deploys the committed directory without building Rust.
+      - name: the generated site is current
+        if: runner.os == 'Linux'
+        run: pnpm site:check
+
+      - name: the two READMEs meet their contracts
+        if: runner.os == 'Linux'
+        run: pnpm docs:check
+
       # `engines: node >=20` in the published package is a promise to users,
       # and the build runs on a newer Node than that. Without this step the
       # promise is untested, and the first person to find out would be someone

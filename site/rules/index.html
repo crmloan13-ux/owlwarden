@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<title>All 25 rules — owlwarden</title>
+<meta name="description" content="All 25 owlwarden rules with the vulnerable pattern, the corrected code for each of 171 framework and agent-host combinations, and a command to check your own repo.">
+<link rel="canonical" href="https://suthat.github.io/owlwarden/rules/">
+<meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1">
+<meta name="theme-color" content="#fbfaf8">
+
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="owlwarden">
+<meta property="og:title" content="Every rule owlwarden ships, and the fix for your stack">
+<meta property="og:description" content="All 25 owlwarden rules with the vulnerable pattern, the corrected code for each of 171 framework and agent-host combinations, and a command to check your own repo.">
+<meta property="og:url" content="https://suthat.github.io/owlwarden/rules/">
+<meta property="og:image" content="https://suthat.github.io/owlwarden/og.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="owlwarden — offline security scanner for Node web apps and AI coding agents">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Every rule owlwarden ships, and the fix for your stack">
+<meta name="twitter:description" content="All 25 owlwarden rules with the vulnerable pattern, the corrected code for each of 171 framework and agent-host combinations, and a command to check your own repo.">
+<meta name="twitter:image" content="https://suthat.github.io/owlwarden/og.jpg">
+
+<link rel="icon" type="image/png" href="../favicon.png">
+<link rel="stylesheet" href="../styles.css?v=1.1.0">
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "BreadcrumbList",
+      "@id": "https://suthat.github.io/owlwarden/rules/#breadcrumbs",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "owlwarden",
+          "item": "https://suthat.github.io/owlwarden/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "Rules",
+          "item": "https://suthat.github.io/owlwarden/rules/"
+        }
+      ]
+    },
+    {
+      "@type": "CollectionPage",
+      "name": "owlwarden rules",
+      "description": "25 security rules for Node web applications and AI coding agents."
+    }
+  ]
+}
+</script>
+</head>
+<body>
+<a class="skip-link" href="#main-content">Skip to content</a>
+
+<header class="site-header">
+  <a class="wordmark" href="../">
+    <span aria-hidden="true">◉ᴥ◉</span>
+    <span>owlwarden</span>
+  </a>
+  <nav aria-label="Primary">
+    <a href="../rules/">Rules</a>
+    <a href="../agent-config-security/">Agent config</a>
+    <a href="../vet/">vet</a>
+    <a href="../owasp/">Coverage</a>
+    <a href="https://github.com/suthat/owlwarden" rel="noopener">GitHub</a>
+  </nav>
+</header>
+
+<nav class="breadcrumbs" aria-label="Breadcrumb">
+  <ol>
+    <li><a href="../">owlwarden</a></li>
+    <li aria-current="page">Rules</li>
+  </ol>
+</nav>
+
+<main id="main-content">
+<h1>Every rule owlwarden ships, and the fix for your stack</h1>
+
+<p class="lede">
+  Every rule carries a fix written for your framework — or, on the agent surface,
+  for your host. A rule cannot ship without one: the build fails on an empty
+  cell. 171 of those cells have a verified example on this site, taken from
+  a fixture the test suite asserts on.
+</p>
+
+<pre class="code"><code class="language-bash">npx owlwarden scan          # your app
+npx owlwarden vet .         # your agent&#39;s config</code></pre>
+
+
+<h2>Application source</h2>
+<p>15 rules that read the code in your repository. <a href="../owasp/">9 of 10 OWASP Top 10 (2021) categories</a> have at least one rule, and the ones that do not are listed too.</p>
+<ul class="cards">
+  <li><a href="../rules/ci-unpinned-action/">
+    <span class="name">ci-unpinned-action</span>
+    <span class="blurb"><span class="chip chip-medium">medium</span> GitHub Action is not pinned to a commit SHA</span>
+  </a></li>
+  <li><a href="../rules/cors-permissive/">
+    <span class="name">cors-permissive</span>
+    <span class="blurb"><span class="chip chip-medium">medium</span> Cross-origin policy accepts any origin</span>
+  </a></li>
+  <li><a href="../rules/csrf-cross-origin-post/">
+    <span class="name">csrf-cross-origin-post</span>
+    <span class="blurb"><span class="chip chip-high">high</span> Endpoint accepted a cross-origin state-changing POST</span>
+  </a></li>
+  <li><a href="../rules/hardcoded-secret/">
+    <span class="name">hardcoded-secret</span>
+    <span class="blurb"><span class="chip chip-high">high</span> Credential hardcoded in source</span>
+  </a></li>
+  <li><a href="../rules/insecure-cookie/">
+    <span class="name">insecure-cookie</span>
+    <span class="blurb"><span class="chip chip-medium">medium</span> Cookie set without its protective attributes</span>
+  </a></li>
+  <li><a href="../rules/install-lifecycle-script/">
+    <span class="name">install-lifecycle-script</span>
+    <span class="blurb"><span class="chip chip-medium">medium</span> Package declares an install-time script</span>
+  </a></li>
+  <li><a href="../rules/known-vulnerable-dependency/">
+    <span class="name">known-vulnerable-dependency</span>
+    <span class="blurb"><span class="chip chip-high">high</span> Dependency has a known vulnerability</span>
+  </a></li>
+  <li><a href="../rules/open-redirect/">
+    <span class="name">open-redirect</span>
+    <span class="blurb"><span class="chip chip-medium">medium</span> Redirect target comes from the caller</span>
+  </a></li>
+  <li><a href="../rules/security-headers-missing/">
+    <span class="name">security-headers-missing</span>
+    <span class="blurb"><span class="chip chip-medium">medium</span> Security headers are not configured</span>
+  </a></li>
+  <li><a href="../rules/sensitive-data-logged/">
+    <span class="name">sensitive-data-logged</span>
+    <span class="blurb"><span class="chip chip-medium">medium</span> Sensitive data written to a log</span>
+  </a></li>
+  <li><a href="../rules/sql-injection/">
+    <span class="name">sql-injection</span>
+    <span class="blurb"><span class="chip chip-high">high</span> SQL query built by string interpolation</span>
+  </a></li>
+  <li><a href="../rules/ssrf/">
+    <span class="name">ssrf</span>
+    <span class="blurb"><span class="chip chip-high">high</span> Server fetches a URL the caller controls</span>
+  </a></li>
+  <li><a href="../rules/stack-trace-leak/">
+    <span class="name">stack-trace-leak</span>
+    <span class="blurb"><span class="chip chip-high">high</span> Stack trace leaked in error response</span>
+  </a></li>
+  <li><a href="../rules/unpinned-dependency/">
+    <span class="name">unpinned-dependency</span>
+    <span class="blurb"><span class="chip chip-medium">medium</span> Dependency version is unpinned</span>
+  </a></li>
+  <li><a href="../rules/weak-crypto/">
+    <span class="name">weak-crypto</span>
+    <span class="blurb"><span class="chip chip-high">high</span> Broken cryptographic primitive protecting a secret</span>
+  </a></li>
+</ul>
+
+
+<h2>Agent and editor configuration</h2>
+<p>10 rules that read the files your agent loads out of the working tree and executes — the ones no dependency scanner reads. See <a href="../agent-config-security/">what that surface is</a> and <a href="../asi/">the ASI 2026 coverage</a>.</p>
+<ul class="cards">
+  <li><a href="../rules/agent-config-env-redirect/">
+    <span class="name">agent-config-env-redirect</span>
+    <span class="blurb"><span class="chip chip-high">high</span> Repository config redirects the agent&#39;s API traffic</span>
+  </a></li>
+  <li><a href="../rules/agent-config-loader-script/">
+    <span class="name">agent-config-loader-script</span>
+    <span class="blurb"><span class="chip chip-high">high</span> Executable script inside an agent or editor config directory</span>
+  </a></li>
+  <li><a href="../rules/agent-config-secret-reachable/">
+    <span class="name">agent-config-secret-reachable</span>
+    <span class="blurb"><span class="chip chip-high">high</span> Repository config puts credentials in reach of a repository-controlled command</span>
+  </a></li>
+  <li><a href="../rules/agent-hook-autoexec/">
+    <span class="name">agent-hook-autoexec</span>
+    <span class="blurb"><span class="chip chip-high">high</span> Repository config executes a command when the workspace is opened</span>
+  </a></li>
+  <li><a href="../rules/agent-hook-untrusted-command/">
+    <span class="name">agent-hook-untrusted-command</span>
+    <span class="blurb"><span class="chip chip-high">high</span> Hook command reaches outside the project</span>
+  </a></li>
+  <li><a href="../rules/agent-instructions-directive/">
+    <span class="name">agent-instructions-directive</span>
+    <span class="blurb"><span class="chip chip-medium">medium</span> Instruction file tells the agent to bypass its own controls</span>
+  </a></li>
+  <li><a href="../rules/agent-instructions-hidden-text/">
+    <span class="name">agent-instructions-hidden-text</span>
+    <span class="blurb"><span class="chip chip-high">high</span> Instruction file contains text a human reader cannot see</span>
+  </a></li>
+  <li><a href="../rules/agent-marketplace-untrusted/">
+    <span class="name">agent-marketplace-untrusted</span>
+    <span class="blurb"><span class="chip chip-medium">medium</span> Repository config adds a third-party plugin or skill source</span>
+  </a></li>
+  <li><a href="../rules/agent-mcp-unpinned-remote/">
+    <span class="name">agent-mcp-unpinned-remote</span>
+    <span class="blurb"><span class="chip chip-medium">medium</span> MCP server declaration resolves code at run time</span>
+  </a></li>
+  <li><a href="../rules/agent-permission-wildcard/">
+    <span class="name">agent-permission-wildcard</span>
+    <span class="blurb"><span class="chip chip-medium">medium</span> Repository config pre-approves a broad tool permission</span>
+  </a></li>
+</ul>
+
+<h2>What a rule page tells you</h2>
+<p>
+  The pattern, why it is dangerous, the vulnerable code, the corrected code for
+  <em>your</em> framework, the CWE and OWASP mapping, and one line to check your
+  own repository. <a href="../offline/">All of it runs on your machine</a>.
+</p>
+
+</main>
+
+<footer class="site-footer">
+  <p>
+    <strong>owlwarden 1.1.0</strong> — offline security scanner for Node web apps
+    and AI coding agents. No account, no telemetry, no network unless you ask.
+  </p>
+  <nav aria-label="Footer">
+    <a href="../rules/">All rules</a>
+    <a href="../owasp/">OWASP coverage</a>
+    <a href="../asi/">ASI coverage</a>
+    <a href="../offline/">Offline</a>
+    <a href="../ci/">CI</a>
+    <a href="../mcp/">MCP</a>
+    <a href="https://github.com/suthat/owlwarden/blob/main/RULES.md" rel="noopener">RULES.md</a>
+    <a href="https://www.npmjs.com/package/owlwarden" rel="noopener">npm</a>
+  </nav>
+  <p class="licence">MIT OR Apache-2.0. <code>npx owlwarden scan</code></p>
+</footer>
+</body>
+</html>
