@@ -14,8 +14,12 @@ export function helpText(native: NativeEngine | undefined): string {
 
 USAGE
   owlwarden scan [PATH] [OPTIONS]
+  owlwarden vet [PATH]                 check a repo before you open it
+  owlwarden gate --host <HOST> [PATH]  hook entry point; event JSON on stdin
+  owlwarden verify --patch <FILE>      did this fix actually fix it?
   owlwarden mcp [PATH]
-  owlwarden init [--agent-rules] [--workflow] [--mcp] [--force] [--out FILE]
+  owlwarden init [--claude-code|--cursor|--generic] [--force]
+  owlwarden init [--agent-rules] [--workflow] [--mcp] [--out FILE]
   owlwarden watch [PATH] [OPTIONS]
   owlwarden rules [--json]
   owlwarden coverage [--json] [--no-color] [--ascii]
@@ -26,11 +30,30 @@ USAGE
 
   Local only. No telemetry. --target is opt-in (scoped; deny by default).
 
+  vet — scan a repository you did not write. Agent-surface rules only, offline,
+        no plugins, and the target's own config, baseline, and suppressions are
+        counted and reported rather than honoured. Every mechanism that makes
+        adoption realistic on your repository is, on someone else's, a way to
+        hide a finding.
+  gate — the deterministic control. Reads the host's event on stdin, scans what
+        it names, and returns a verdict the model cannot argue with, because the
+        prompt is not this process's input. A tool the model *may* call is not a
+        control that *always* runs.
+        --host claude-code | cursor | generic. \`generic\` is owlwarden's own
+        event and decision JSON and works with anything that runs a process.
+  verify — apply a patch to a scratch copy, re-scan, and exit 0 only if the
+        finding is gone AND nothing new appeared at or above the threshold.
+        A fix that trades a stack-trace-leak for an open-redirect fails.
   mcp — stdio MCP for coding agents (scan / explain / list rules; static, read-only).
         On a TTY it prints a how-to on stderr and then waits; silence means it
         is waiting for a host, not hung. Under a host, stderr gets a ready line.
-  init — writes the adoption kit (agent-rules, GitHub Action workflow, Cursor MCP).
-        Flags select a subset. Generated files are overwritten; others need --force.
+  init — with a host flag, wires the gate into that host's lifecycle events.
+        With no flags, writes the adoption kit (agent-rules, GitHub Action
+        workflow, Cursor MCP). Existing files are shown as a diff and left
+        alone unless --force.
+        No SessionStart hook is ever written: repository config that runs on
+        open is what \`agent-hook-autoexec\` reports, and shipping the rule while
+        writing the entry would be indefensible.
   Prefer --format json for CI and agents. Repeat --format to emit several
   renderings from one scan (e.g. --format pretty --format sarif --out results).
   plugin scaffold writes a WASM guest stub + manifest.
@@ -43,7 +66,13 @@ USAGE
 SCAN OPTIONS
   --preset <NAME>       Rule bundle to run
 ${presetLines(native)}
-  --format <FORMAT>     Output format (repeatable): pretty, json, sarif, junit, md
+  --format <FORMAT>     Output format (repeatable): pretty, json, sarif, junit,
+                        md, agent
+  --since <REF>         Scan only what changed since this git ref
+  --staged              Scan only what is staged
+  --paths <A,B>         Scan only these paths (repeatable, comma-separated)
+  --budget <N>          With --format agent, the token ceiling (default 1500)
+  --max-findings <N>    With --format agent, a hard cap applied before the budget
   --out <FILE|DIR>      Write machine output to a file, or a prefix / directory
                         when several machine formats are requested
   --baseline <FILE>     Report only findings new since this baseline

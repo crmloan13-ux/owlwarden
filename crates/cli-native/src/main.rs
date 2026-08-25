@@ -59,7 +59,14 @@ fn main() -> std::process::ExitCode {
             ascii,
         } => run_coverage(json, no_color, ascii),
         Command::Explain { rule, json } => run_explain(&rule, json),
-        Command::Scan(args) => run_scan(&args),
+        Command::Scan(args) | Command::Vet(args) => run_scan(&args),
+        Command::Gate {
+            host,
+            path,
+            fail_on,
+            min_confidence,
+            since,
+        } => run_gate(&host, &path, fail_on, min_confidence, since.as_deref()),
         Command::Watch(args) => run_watch(&args),
         Command::OsvUpdate { path, out } => run_osv_update(&path, out.as_deref()),
     };
@@ -86,6 +93,111 @@ fn use_color(no_color: bool) -> bool {
 
 fn run_scan(args: &ScanArgs) -> i32 {
     run_scan_inner(args, None).0
+}
+
+/// Runs one gate event: read the host's payload from stdin, scan what it names,
+/// decide, and write the host's own shape back.
+///
+/// Never returns the error code for a *gate* failure. A hook that fails hard
+/// shows the developer a stack trace mid-session and leaves the host with no
+/// verdict; the failure posture — `ask` before execution, `allow` after — is
+/// the answer, and it is chosen in `owlwarden_gate::decide` rather than here.
+fn run_gate(
+    host: &str,
+    path: &str,
+    fail_on: Option<owlwarden_core::finding::Severity>,
+    min_confidence: Option<owlwarden_core::finding::Confidence>,
+    since: Option<&str>,
+) -> i32 {
+    use std::io::Read as _;
+
+    let Some(adapter) = owlwarden_gate::adapter_for(host) else {
+        return fail(&format!(
+            "unknown --host {host:?}; available: {}",
+            owlwarden_gate::available_hosts().join(", ")
+        ));
+    };
+
+    let mut payload = String::new();
+    if let Err(error) = std::io::stdin()
+        .take(owlwarden_gate::event::MAX_EVENT_BYTES as u64)
+        .read_to_string(&mut payload)
+    {
+        return fail(&format!("could not read the event from stdin: {error}"));
+    }
+
+    let event = match adapter.parse(payload.trim()) {
+        Ok(event) => event,
+        Err(error) => {
+            // Not an allow. The host's own permission model is left to decide,
+            // and the developer sees why on stderr.
+            let decision = owlwarden_gate::GateDecision::new(
+                owlwarden_gate::Verdict::Defer,
+                format!("owlwarden gate: {error}"),
+            )
+            .degraded();
+            let fallback =
+                owlwarden_gate::GateEvent::new(host, owlwarden_gate::GateEventKind::FileEdited);
+            return emit_gate(&*adapter, &fallback, &decision);
+        }
+    };
+
+    // A turn boundary names nothing, so the scope is the diff. Any other event
+    // carries its own paths, and widening them here would undo the narrowing
+    // the host asked for.
+    let scoped_paths = since
+        .and_then(|reference| {
+            git::resolve_scope(path, Some(reference), false, &[])
+                .ok()
+                .flatten()
+        })
+        .map(|scope| scope.paths)
+        .unwrap_or_default();
+
+    let policy = owlwarden_gate::GatePolicy {
+        fail_on: fail_on.unwrap_or(owlwarden_core::finding::Severity::High),
+        min_confidence: min_confidence.unwrap_or(owlwarden_core::finding::Confidence::Likely),
+        // Off by default: the default should be the one that keeps people from
+        // removing the hook.
+        fail_closed: std::env::var("OWLWARDEN_GATE_FAIL").is_ok_and(|value| value == "closed"),
+    };
+
+    let decision =
+        match owlwarden_dynamic::block_on(owlwarden_gate::run(owlwarden_gate::GateRequest {
+            project_root: std::path::Path::new(path),
+            event: &event,
+            scoped_paths,
+            session_paths: git::session_paths(path),
+            policy,
+            // The native CLI does not read the project's owlwarden config for a
+            // gate at all, which is the strictest reading of the tighten-only
+            // rule: nothing in the tree can move the threshold in either
+            // direction.
+            project_posture: owlwarden_gate::ProjectPosture::default(),
+        })) {
+            Ok(decision) => decision,
+            Err(error) => owlwarden_gate::GateDecision::new(
+                owlwarden_gate::Verdict::Ask,
+                format!("owlwarden gate could not run: {error}"),
+            )
+            .degraded(),
+        };
+
+    emit_gate(&*adapter, &event, &decision)
+}
+
+/// Writes an encoded decision and returns the host's exit code.
+fn emit_gate(
+    adapter: &dyn owlwarden_gate::HostAdapter,
+    event: &owlwarden_gate::GateEvent,
+    decision: &owlwarden_gate::GateDecision,
+) -> i32 {
+    let encoded = adapter.encode(event, decision);
+    let _ = writeln!(std::io::stdout(), "{}", encoded.stdout);
+    if let Some(message) = &encoded.stderr {
+        let _ = writeln!(std::io::stderr(), "{message}");
+    }
+    encoded.exit_code
 }
 
 /// Optional incremental inputs for watch re-scans.
@@ -437,6 +549,9 @@ fn run_watch(args: &ScanArgs) -> i32 {
         since: None,
         staged: false,
         paths: Vec::new(),
+        budget: args.budget,
+        max_findings: args.max_findings,
+        vet: args.vet,
         path: args.path.clone(),
         preset: args.preset.clone(),
         format: args.format.clone(),
@@ -607,6 +722,15 @@ fn write_report(args: &ScanArgs, report: &Report, color: bool) -> Result<(), Str
         }
         "junit" => owlwarden_reporters::JunitReporter::to_string(report),
         "md" => owlwarden_reporters::MdReporter::to_string(report),
+        "agent" => Ok(owlwarden_reporters::agent::render(
+            report,
+            owlwarden_reporters::AgentOptions {
+                budget_tokens: args
+                    .budget
+                    .unwrap_or(owlwarden_reporters::DEFAULT_BUDGET_TOKENS),
+                max_findings: args.max_findings,
+            },
+        )),
         other => {
             return Err(format!(
                 "unknown format {other:?}; available: {}",

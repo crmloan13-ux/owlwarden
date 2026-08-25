@@ -103,6 +103,27 @@ pub fn resolve_scope(
     }))
 }
 
+/// The paths an agent has written so far, for the suppression policy.
+///
+/// Everything not committed: staged, unstaged, and untracked. A directive in
+/// one of these appeared while the agent was working, and the gate reports it
+/// rather than honouring it.
+///
+/// Returns an empty list rather than an error when git is unavailable — the
+/// gate still has a job outside a repository, and the honest degradation is to
+/// honour every suppression rather than to refuse to run.
+#[must_use]
+pub fn session_paths(root: &str) -> Vec<String> {
+    let Ok(status) = run_git(root, &["status", "--porcelain=v1", "--untracked-files=all"]) else {
+        return Vec::new();
+    };
+    normalise(status.lines().map(|line| {
+        let entry = line.get(3..).unwrap_or_default().trim();
+        // A rename is `old -> new`; the new path is the one on disk.
+        entry.rsplit(" -> ").next().unwrap_or(entry)
+    }))
+}
+
 /// Deduplicates, sorts, and caps a path list.
 fn normalise<'a>(paths: impl Iterator<Item = &'a str>) -> Vec<String> {
     let mut out: Vec<String> = paths
@@ -140,6 +161,12 @@ mod tests {
     #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
     use super::*;
+
+    #[test]
+    fn session_paths_outside_a_repository_are_empty_rather_than_an_error() {
+        let dir = tempfile::tempdir().unwrap();
+        assert!(session_paths(&dir.path().to_string_lossy()).is_empty());
+    }
 
     #[test]
     fn no_flags_means_no_scope() {

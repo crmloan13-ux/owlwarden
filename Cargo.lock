@@ -1321,6 +1321,7 @@ dependencies = [
  "owlwarden-core",
  "owlwarden-detectors",
  "owlwarden-dynamic",
+ "owlwarden-gate",
  "owlwarden-plugin-host",
  "owlwarden-reporters",
  "owlwarden-static",
@@ -1381,21 +1382,27 @@ version = "1.0.0"
 dependencies = [
  "insta",
  "owlwarden-core",
+ "owlwarden-detectors",
+ "owlwarden-static",
  "serde",
  "serde_json",
+ "tempfile",
  "thiserror",
+ "tokio",
 ]
 
 [[package]]
 name = "owlwarden-napi"
 version = "1.0.0"
 dependencies = [
+ "futures-executor",
  "napi",
  "napi-build",
  "napi-derive",
  "owlwarden-core",
  "owlwarden-detectors",
  "owlwarden-dynamic",
+ "owlwarden-gate",
  "owlwarden-plugin-host",
  "owlwarden-reporters",
  "owlwarden-static",

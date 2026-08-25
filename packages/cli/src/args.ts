@@ -22,11 +22,22 @@ interface CommonFlags {
 export type Cli =
   | { command: "scan"; options: ScanOptions }
   | { command: "watch"; options: ScanOptions }
+  | { command: "vet"; options: ScanOptions }
+  | { command: "gate"; options: GateCliOptions }
+  | { command: "verify"; options: VerifyCliOptions }
   | { command: "rules"; json: boolean }
   | { command: "coverage"; json: boolean; color: boolean; unicode: boolean }
   | { command: "explain"; rule: string; json: boolean }
   | { command: "mcp"; path: string }
-  | { command: "init"; agentRules: boolean; workflow: boolean; mcp: boolean; force: boolean; out?: string }
+  | {
+      command: "init";
+      hosts: ("claude-code" | "cursor" | "generic")[];
+      agentRules: boolean;
+      workflow: boolean;
+      mcp: boolean;
+      force: boolean;
+      out?: string;
+    }
   | { command: "plugin-scaffold"; name: string }
   | { command: "plugin-inspect"; path: string }
   | { command: "osv-update"; path: string; out?: string }
@@ -34,7 +45,33 @@ export type Cli =
   | { command: "version" };
 
 /** A scan report rendering target. */
-export type ReportFormat = "pretty" | "json" | "sarif" | "junit" | "md";
+export type ReportFormat = "pretty" | "json" | "sarif" | "junit" | "md" | "agent";
+
+/** Everything `owlwarden gate` needs. */
+export interface GateCliOptions {
+  /** Adapter id. */
+  host: string;
+  /** Project root. */
+  path: string;
+  failOn?: string;
+  minConfidence?: string;
+  /** At a turn boundary, scan what changed since this ref. */
+  since?: string;
+  /** Read the event from a file rather than stdin. */
+  eventFile?: string;
+}
+
+/** Everything `owlwarden verify` needs. */
+export interface VerifyCliOptions {
+  /** Project root. */
+  path: string;
+  /** The unified diff to apply. */
+  patch: string;
+  /** The rule the patch is supposed to resolve. */
+  rule?: string;
+  /** Severity at or above which a *new* finding fails the verification. */
+  failOn?: string;
+}
 
 /** Everything `scan` / `watch` needs, before config is merged in. */
 export interface ScanOptions {
@@ -138,6 +175,28 @@ export interface ScanOptions {
   unicode: boolean;
   quiet: boolean;
   hyperlinks: boolean;
+  /** Scan only what changed since this git ref. */
+  since?: string;
+  /** Scan only what is staged. */
+  staged: boolean;
+  /** Scan only these project-relative paths. */
+  paths: string[];
+  /** `--format agent`: token ceiling for the report. */
+  budget?: number;
+  /** `--format agent`: hard cap on findings, applied before the budget. */
+  maxFindings?: number;
+  /**
+   * True for `owlwarden vet`: the target is not yours.
+   *
+   * Every mechanism built to make adoption realistic on a legacy repository —
+   * config, baseline, inline suppressions, plugins — is, in the hands of the
+   * repository's author, a mechanism for hiding a finding. On your own
+   * repository that trade is correct and deliberate. On someone else's it is
+   * not a trade at all, so `vet` treats the target's suppression surface as
+   * evidence rather than as instruction
+   * ([ADR 0025](../../../docs/adr/0025-agent-surface-and-supply-chain.md) §7).
+   */
+  vet: boolean;
   /** Incremental watch: project-relative paths that changed since the last scan. */
   dirtyPaths?: string[];
   /** Incremental watch: previous report JSON for finding merge. */
@@ -178,6 +237,18 @@ const OPTIONS = {
   osv: { type: "boolean", default: false },
   "osv-db": { type: "string" },
   offline: { type: "boolean", default: false },
+  since: { type: "string" },
+  staged: { type: "boolean", default: false },
+  paths: { type: "string", multiple: true },
+  budget: { type: "string" },
+  "max-findings": { type: "string" },
+  host: { type: "string" },
+  event: { type: "string" },
+  patch: { type: "string" },
+  rule: { type: "string" },
+  "claude-code": { type: "boolean", default: false },
+  cursor: { type: "boolean", default: false },
+  generic: { type: "boolean", default: false },
   ci: { type: "boolean", default: false },
   "no-color": { type: "boolean", default: false },
   ascii: { type: "boolean", default: false },
@@ -231,6 +302,12 @@ export function parse(argv: string[]): Cli {
       return { command: "scan", options: scanOptions(values, rest) };
     case "watch":
       return { command: "watch", options: scanOptions(values, rest) };
+    case "vet":
+      return { command: "vet", options: vetOptions(values, rest) };
+    case "gate":
+      return { command: "gate", options: gateOptions(values, rest) };
+    case "verify":
+      return { command: "verify", options: verifyOptions(values, rest) };
     case "rules":
       return { command: "rules", json: values.json };
     case "coverage":
@@ -254,12 +331,22 @@ export function parse(argv: string[]): Cli {
       return { command: "mcp", path: rest[0] ?? "." };
     }
     case "init": {
-      const selected = values["agent-rules"] || values.workflow || values.mcp;
+      const hosts: ("claude-code" | "cursor" | "generic")[] = [];
+      if (values["claude-code"]) hosts.push("claude-code");
+      if (values.cursor) hosts.push("cursor");
+      if (values.generic) hosts.push("generic");
+
+      // A host flag selects the host wiring and nothing else. `init` with no
+      // flags keeps its old meaning — agent rules, workflow, Cursor MCP — so an
+      // existing script does not change behaviour under a new version.
+      const legacy = values["agent-rules"] || values.workflow || values.mcp;
+      const anything = legacy || hosts.length > 0;
       const parsedInit: Extract<Cli, { command: "init" }> = {
         command: "init",
-        agentRules: selected ? values["agent-rules"] : true,
-        workflow: selected ? values.workflow : true,
-        mcp: selected ? values.mcp : true,
+        hosts,
+        agentRules: anything ? values["agent-rules"] : true,
+        workflow: anything ? values.workflow : true,
+        mcp: anything ? values.mcp : true,
         force: values.force,
       };
       if (values.out !== undefined) parsedInit.out = values.out;
@@ -310,7 +397,7 @@ function scanOptions(values: Values, positionals: string[]): ScanOptions {
   const formats = parseFormats(
     "--format",
     ci ? (values.format ?? "json") : values.format,
-    ["pretty", "json", "sarif", "junit", "md"] as const,
+    ["pretty", "json", "sarif", "junit", "md", "agent"] as const,
   );
 
   const scope = values.scope ?? [];
@@ -341,7 +428,25 @@ function scanOptions(values: Values, positionals: string[]): ScanOptions {
     allowActive: values["allow-active"],
     osv: values.osv,
     offline: values.offline,
+    staged: values.staged,
+    paths: (values.paths ?? []).flatMap((entry) =>
+      entry.split(",").map((path) => path.trim()).filter((path) => path.length > 0),
+    ),
+    vet: false,
   };
+
+  const narrowings =
+    Number(values.since !== undefined) + Number(values.staged) + Number(options.paths.length > 0);
+  if (narrowings > 1) {
+    throw new ArgError(
+      "--since, --staged, and --paths each narrow the scan a different way; pass one",
+    );
+  }
+  if (values.since !== undefined) options.since = values.since;
+  if (values.budget !== undefined) options.budget = positiveInt("--budget", values.budget);
+  if (values["max-findings"] !== undefined) {
+    options.maxFindings = positiveInt("--max-findings", values["max-findings"]);
+  }
 
   if (options.offline && values["osv-db"] === undefined) {
     throw new ArgError("--offline requires --osv-db");
@@ -400,6 +505,143 @@ function scanOptions(values: Values, positionals: string[]): ScanOptions {
   }
 
   return options;
+}
+
+/**
+ * `vet` is `scan` with a fixed posture for the case where the target is not
+ * yours.
+ *
+ * The posture is not a set of defaults the user can drift away from — it is the
+ * command. Every knob that could hide a finding is nailed shut here rather than
+ * merely defaulted, because the whole value of `vet` is that its answer does
+ * not depend on what the scanned repository asked for.
+ */
+function vetOptions(values: Values, positionals: string[]): ScanOptions {
+  if (positionals.length > 1) {
+    throw new ArgError(`vet takes at most one path, got ${positionals.length}`);
+  }
+  for (const [flag, set] of [
+    ["--plugin", (values.plugin ?? []).length > 0],
+    ["--target", values.target !== undefined],
+    ["--osv", values.osv],
+    ["--baseline", values.baseline !== undefined],
+    ["--allow-suppressions", values["allow-suppressions"]],
+    ["--allow-project-config", values["allow-project-config"]],
+    ["--allow-config-js", values["allow-config-js"]],
+  ] as const) {
+    if (set) {
+      throw new ArgError(
+        `${flag} is not available with vet: the point of vet is that the target repository ` +
+          "cannot influence the result. Use `owlwarden scan` on a tree you trust.",
+      );
+    }
+  }
+
+  const formats = parseFormats("--format", values.format, [
+    "pretty",
+    "json",
+    "sarif",
+    "junit",
+    "md",
+    "agent",
+  ] as const);
+
+  const options: ScanOptions = {
+    path: positionals[0] ?? ".",
+    preset: "agent-surface",
+    failOn: "high",
+    minConfidence: "likely",
+    color: !values["no-color"] && useColorByDefault(),
+    unicode: !values.ascii,
+    quiet: values.quiet,
+    hyperlinks: values.hyperlinks,
+    reportSuppressions: true,
+    allowConfigJs: false,
+    ci: false,
+    allowProjectConfig: false,
+    allowSuppressions: false,
+    allowBaseline: false,
+    scope: [],
+    plugins: [],
+    allowPlugins: false,
+    requireSignedPlugins: false,
+    fix: false,
+    fixUnsafe: false,
+    dryRun: false,
+    allowDirty: false,
+    allowActive: false,
+    osv: false,
+    offline: true,
+    staged: false,
+    paths: [],
+    vet: true,
+  };
+  if (formats !== undefined) {
+    options.formats = formats;
+    const [first] = formats;
+    if (first !== undefined) options.format = first;
+  }
+  if (values.out !== undefined) options.out = values.out;
+  // `--fail-on` is the one knob left, because it is the operator's decision
+  // rather than the target's: someone vetting a repository may reasonably want
+  // to see medium findings fail too.
+  if (values["fail-on"] !== undefined) {
+    options.failOn = parseWith(severitySchema, "--fail-on", values["fail-on"], [
+      "high",
+      "medium",
+      "low",
+      "info",
+    ]);
+  }
+  return options;
+}
+
+function gateOptions(values: Values, positionals: string[]): GateCliOptions {
+  const host = values.host;
+  if (host === undefined) {
+    throw new ArgError(
+      "gate requires --host (claude-code, cursor, or generic). `generic` is owlwarden's own " +
+        "event and decision JSON and works with any host that can run a process.",
+    );
+  }
+  if (!["claude-code", "cursor", "generic"].includes(host)) {
+    throw new ArgError(
+      `unknown --host ${JSON.stringify(host)}; expected one of: claude-code, cursor, generic`,
+    );
+  }
+  if (positionals.length > 1) {
+    throw new ArgError(`gate takes at most one path, got ${positionals.length}`);
+  }
+
+  const options: GateCliOptions = { host, path: positionals[0] ?? "." };
+  if (values["fail-on"] !== undefined) options.failOn = values["fail-on"];
+  if (values["min-confidence"] !== undefined) options.minConfidence = values["min-confidence"];
+  if (values.since !== undefined) options.since = values.since;
+  if (values.event !== undefined) options.eventFile = values.event;
+  return options;
+}
+
+function verifyOptions(values: Values, positionals: string[]): VerifyCliOptions {
+  const patch = values.patch;
+  if (patch === undefined) {
+    throw new ArgError("verify requires --patch <file>, a unified diff to apply and re-scan");
+  }
+  if (positionals.length > 1) {
+    throw new ArgError(`verify takes at most one path, got ${positionals.length}`);
+  }
+  const options: VerifyCliOptions = { path: positionals[0] ?? ".", patch };
+  if (values.rule !== undefined) options.rule = values.rule;
+  if (values["fail-on"] !== undefined) options.failOn = values["fail-on"];
+  return options;
+}
+
+/** Parses a positive integer flag value. */
+function positiveInt(flag: string, raw: string): number {
+  const parsed = Number.parseInt(raw, 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    throw new ArgError(`invalid value ${JSON.stringify(raw)} for ${flag}; expected a positive integer`);
+  }
+  return parsed;
 }
 
 function parseWith<T>(

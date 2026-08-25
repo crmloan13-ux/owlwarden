@@ -17,6 +17,7 @@ import { ruleMetaListSchema, type RuleMeta } from "@dointhai/owlwarden-sdk";
 import type { NativeEngine } from "../native.js";
 import { EXIT } from "../exit.js";
 import { readFileBounded, writeReplacing } from "../safe-write.js";
+import { hostFiles, hostNextSteps, writeHostFile, type HostTarget } from "./init-hosts.js";
 
 const AGENT_MARKER = "<!-- owlwarden:agent-rules -->";
 const WORKFLOW_MARKER = "<!-- owlwarden:github-action -->";
@@ -26,6 +27,8 @@ const MCP_OUT = ".cursor/mcp.json";
 const MCP_MAX_BYTES = 64_000;
 
 export interface InitOptions {
+  /** Wire the gate into a host: hooks, MCP entry, rules file. */
+  hosts: HostTarget[];
   /** Write `.owlwarden/agent-rules.md`. */
   agentRules: boolean;
   /** Write `.github/workflows/owlwarden.yml`. */
@@ -53,6 +56,17 @@ export async function runInit(
   const version = native.engineVersion();
   let wrote = 0;
   try {
+    for (const target of options.hosts) {
+      for (const file of await hostFiles(target, cwd)) {
+        wrote += await writeHostFile(
+          resolveUnderRoot(cwd, file.path),
+          file,
+          options.force,
+          stderr,
+        );
+      }
+      stderr.write(`\n${hostNextSteps(target)}\n`);
+    }
     if (options.agentRules) {
       const rules = ruleMetaListSchema.parse(JSON.parse(native.listRules()));
       wrote += await writeGenerated(

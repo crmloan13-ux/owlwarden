@@ -47,6 +47,13 @@ pub struct ScanTarget {
     pub scope: Vec<String>,
     /// Source files actually parsed.
     pub files_scanned: u32,
+    /// Agent and editor configuration files read.
+    ///
+    /// Counted separately from `files_scanned` because they are read and not
+    /// parsed as source — and because a `vet` that reported "0 files" while
+    /// producing fourteen findings would be describing the wrong number.
+    #[serde(default)]
+    pub config_files_scanned: u32,
     /// Live routes probed. Zero until the dynamic engine lands.
     pub routes_probed: u32,
     /// Preset in force.

@@ -37,12 +37,16 @@
 //!   host decision JSON ◀── HostAdapter::encode ◀── decide(event, outcome, policy)
 //! ```
 //!
-//! # What this crate does not do
+//! # The I/O boundary
 //!
-//! No I/O. It does not read stdin, run a scan, or touch the filesystem — the
-//! CLI does all three and hands the results in. That is what makes the whole
-//! decision surface testable from a JSON string, which is what the golden
+//! The decision layer performs no I/O. It does not read stdin, run a scan, or
+//! touch the filesystem — the caller hands it a report. That is what makes the
+//! whole decision surface testable from a JSON string, which is what the golden
 //! fixtures in `tests/` are.
+//!
+//! [`runtime`] is the exception and is behind a feature of the same name: the
+//! eighty lines that read a tree and produce that report, shared between the
+//! npm CLI and the standalone binary so the two cannot answer differently.
 
 #![forbid(unsafe_code)]
 #![deny(
@@ -59,8 +63,12 @@ pub mod adapters;
 pub mod decision;
 pub mod event;
 pub mod policy;
+#[cfg(feature = "runtime")]
+pub mod runtime;
 
 pub use adapters::{Encoded, HostAdapter, adapter_for, available_hosts};
 pub use decision::{GateDecision, Verdict};
 pub use event::{GateError, GateEvent, GateEventKind};
-pub use policy::{GateOutcome, GatePolicy, PostureRejection, decide};
+pub use policy::{GateOutcome, GatePolicy, PostureRejection, ProjectPosture, decide};
+#[cfg(feature = "runtime")]
+pub use runtime::{GATE_PRESET, GateRequest, run};

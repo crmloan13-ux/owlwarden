@@ -12,6 +12,28 @@ use owlwarden_core::finding::{Confidence, Severity};
 pub enum Command {
     /// Scan a project.
     Scan(Box<ScanArgs>),
+    /// Scan a repository you did not write.
+    ///
+    /// The same engine with a fixed posture: agent-surface rules only, offline,
+    /// no plugins, and the target's own config, baseline, and suppressions
+    /// counted rather than honoured. Every mechanism that makes adoption
+    /// realistic on your own repository is, on someone else's, a way for its
+    /// author to hide a finding
+    /// ([ADR 0025](../../../docs/adr/0025-agent-surface-and-supply-chain.md) §7).
+    Vet(Box<ScanArgs>),
+    /// The hook entry point. Reads the host's event on stdin.
+    Gate {
+        /// Adapter id: `claude-code`, `cursor`, `generic`.
+        host: String,
+        /// Project root.
+        path: String,
+        /// Severity at or above which the gate denies.
+        fail_on: Option<Severity>,
+        /// Confidence at or above which a finding counts.
+        min_confidence: Option<Confidence>,
+        /// At a turn boundary, scan what changed since this ref.
+        since: Option<String>,
+    },
     /// Re-scan on change (static only).
     Watch(Box<ScanArgs>),
     /// List the rule catalogue.
@@ -113,6 +135,13 @@ pub struct ScanArgs {
     pub staged: bool,
     /// Scan only these project-relative paths.
     pub paths: Vec<String>,
+    /// `--format agent`: token ceiling.
+    pub budget: Option<usize>,
+    /// `--format agent`: hard cap on findings.
+    pub max_findings: Option<usize>,
+    /// True for `vet`: the target is not yours, so nothing in it may influence
+    /// the answer.
+    pub vet: bool,
 }
 
 impl Default for ScanArgs {
@@ -149,6 +178,9 @@ impl Default for ScanArgs {
             since: None,
             staged: false,
             paths: Vec::new(),
+            budget: None,
+            max_findings: None,
+            vet: false,
         }
     }
 }
@@ -196,6 +228,8 @@ pub fn parse(args: &[String]) -> Result<Command, ArgError> {
         "-h" | "--help" | "help" => Ok(Command::Help),
         "-V" | "--version" | "version" => Ok(Command::Version),
         "scan" => parse_scan(rest).map(|args| Command::Scan(Box::new(args))),
+        "vet" => parse_vet(rest).map(|args| Command::Vet(Box::new(args))),
+        "gate" => parse_gate(rest),
         "watch" => parse_scan(rest).map(|args| Command::Watch(Box::new(args))),
         "rules" => Ok(Command::Rules {
             json: rest.any(|arg| arg == "--json"),
@@ -305,6 +339,156 @@ struct RawScan {
     since: Option<String>,
     staged: bool,
     paths: Vec<String>,
+    budget: Option<usize>,
+    max_findings: Option<usize>,
+}
+
+/// The `&'static str` an [`ArgError`] carries for a scoping flag.
+fn scoping_flag_name(arg: &str) -> &'static str {
+    match arg {
+        "--since" => "--since",
+        "--paths" => "--paths",
+        "--budget" => "--budget",
+        _ => "--max-findings",
+    }
+}
+
+/// Applies one scoping or budget flag.
+///
+/// Split out of [`parse_scan`] to keep that function under the line cap, which
+/// is a real constraint here: a parser that grows past a screen is a parser
+/// where a missing arm stops being visible.
+fn apply_scoping_flag(raw: &mut RawScan, arg: &str, taken: Option<String>) -> Result<(), ArgError> {
+    match arg {
+        "--since" => raw.since = taken,
+        "--staged" => raw.staged = true,
+        "--paths" => {
+            // Comma-separated, because a hook passes one string and a shell
+            // user types one flag. Repeating `--paths` also works and the lists
+            // concatenate.
+            if let Some(entry) = taken {
+                raw.paths.extend(
+                    entry
+                        .split(',')
+                        .map(str::trim)
+                        .filter(|path| !path.is_empty())
+                        .map(str::to_owned),
+                );
+            }
+        }
+        "--budget" | "--max-findings" => {
+            let name = scoping_flag_name(arg);
+            let text = taken.unwrap_or_default();
+            let parsed: usize = text.parse().map_err(|_| ArgError::InvalidValue {
+                option: name,
+                value: text.clone(),
+                expected: "a positive integer",
+            })?;
+            if arg == "--budget" {
+                raw.budget = Some(parsed);
+            } else {
+                raw.max_findings = Some(parsed);
+            }
+        }
+        _ => {}
+    }
+    Ok(())
+}
+
+/// Parses the flags of `vet`.
+///
+/// The posture is the command, not a set of defaults. Every knob that could let
+/// the scanned repository influence the answer is refused with an error rather
+/// than silently ignored — a flag that appears to work and does not is worse
+/// than one that is rejected.
+fn parse_vet<'a>(args: impl Iterator<Item = &'a String>) -> Result<ScanArgs, ArgError> {
+    let mut parsed = parse_scan(args)?;
+
+    for (option, set) in [
+        ("--plugin", !parsed.plugins.is_empty()),
+        ("--target", parsed.target.is_some()),
+        ("--osv", parsed.osv),
+        ("--baseline", parsed.baseline.is_some()),
+        ("--allow-suppressions", parsed.allow_suppressions),
+    ] {
+        if set {
+            return Err(ArgError::InvalidValue {
+                option: "vet",
+                value: option.to_owned(),
+                expected: "vet takes none of these: the point is that the target cannot \
+                           influence the result. Use `scan` on a tree you trust",
+            });
+        }
+    }
+
+    parsed.vet = true;
+    "agent-surface".clone_into(&mut parsed.preset);
+    parsed.min_confidence = Confidence::Likely;
+    parsed.offline = true;
+    parsed.report_suppressions = true;
+    if parsed.fail_on == ScanArgs::default().fail_on {
+        parsed.fail_on = Severity::High;
+    }
+    Ok(parsed)
+}
+
+/// Parses the flags of `gate`.
+fn parse_gate<'a>(args: impl Iterator<Item = &'a String>) -> Result<Command, ArgError> {
+    let mut host: Option<String> = None;
+    let mut path: Option<String> = None;
+    let mut fail_on: Option<Severity> = None;
+    let mut min_confidence: Option<Confidence> = None;
+    let mut since: Option<String> = None;
+    let mut args = args.peekable();
+
+    while let Some(arg) = args.next() {
+        let mut value =
+            |option: &'static str| args.next().cloned().ok_or(ArgError::MissingValue(option));
+        match arg.as_str() {
+            "--host" => host = Some(value("--host")?),
+            "--since" => since = Some(value("--since")?),
+            "--fail-on" => {
+                let text = value("--fail-on")?;
+                fail_on = Some(Severity::from_str_opt(&text).ok_or(ArgError::InvalidValue {
+                    option: "--fail-on",
+                    value: text,
+                    expected: "high, medium, low, info",
+                })?);
+            }
+            "--min-confidence" => {
+                let text = value("--min-confidence")?;
+                min_confidence = Some(Confidence::from_str_opt(&text).ok_or(
+                    ArgError::InvalidValue {
+                        option: "--min-confidence",
+                        value: text,
+                        expected: "confirmed, likely, possible",
+                    },
+                )?);
+            }
+            other if other.starts_with('-') => {
+                return Err(ArgError::UnknownOption(other.to_owned()));
+            }
+            candidate if path.is_none() => path = Some(candidate.to_owned()),
+            extra => return Err(ArgError::UnknownOption(extra.to_owned())),
+        }
+    }
+
+    let host = host.ok_or(ArgError::MissingArgument("gate --host"))?;
+    if !owlwarden_gate::available_hosts().contains(&host.as_str()) {
+        return Err(ArgError::InvalidValue {
+            option: "--host",
+            value: host,
+            expected: "claude-code, cursor, generic",
+        });
+    }
+
+    Ok(Command::Gate {
+        host,
+        path: path.unwrap_or_else(|| ".".to_owned()),
+        fail_on,
+        min_confidence,
+        since,
+    })
 }
 
 /// Parses the flags of `scan`.
@@ -344,20 +528,13 @@ fn parse_scan<'a>(args: impl Iterator<Item = &'a String>) -> Result<ScanArgs, Ar
             "--osv" => raw.osv = true,
             "--osv-db" => raw.osv_db = Some(value("--osv-db")?),
             "--offline" => raw.offline = true,
-            "--since" => raw.since = Some(value("--since")?),
-            "--staged" => raw.staged = true,
-            "--paths" => {
-                // Comma-separated, because a hook passes one string and a shell
-                // user types one flag. Repeating `--paths` also works and the
-                // lists concatenate.
-                let entry = value("--paths")?;
-                raw.paths.extend(
-                    entry
-                        .split(',')
-                        .map(str::trim)
-                        .filter(|p| !p.is_empty())
-                        .map(str::to_owned),
-                );
+            "--since" | "--staged" | "--paths" | "--budget" | "--max-findings" => {
+                let taken = if arg == "--staged" {
+                    None
+                } else {
+                    Some(value(scoping_flag_name(arg))?)
+                };
+                apply_scoping_flag(&mut raw, arg, taken)?;
             }
             "--fail-on" => {
                 let text = value("--fail-on")?;
@@ -458,6 +635,9 @@ impl RawScan {
             since: self.since,
             staged: self.staged,
             paths: self.paths,
+            budget: self.budget,
+            max_findings: self.max_findings,
+            vet: false,
         }
     }
 }
@@ -481,6 +661,8 @@ pub fn help_text() -> String {
 
 USAGE
   owlwarden scan [PATH] [OPTIONS]
+  owlwarden vet [PATH]                 check a repo before you open it
+  owlwarden gate --host <HOST> [PATH]  hook entry point; event JSON on stdin
   owlwarden watch [PATH] [OPTIONS]
   owlwarden osv update [PATH] [--out FILE]
   owlwarden rules [--json]
@@ -493,10 +675,25 @@ USAGE
 
   watch re-scans on change. Static only — never opens a network path.
 
+  vet — the same engine with a fixed posture, for a repository you did not
+        write: agent-surface rules only, offline, no plugins, and the target's
+        config, baseline, and suppressions counted rather than honoured.
+  gate — reads the host's event on stdin and returns a verdict the model cannot
+        argue with, because the prompt is not this process's input.
+        --host claude-code | cursor | generic
+        Exit codes with --host generic: 0 allow, 1 deny, 2 ask.
+        Set OWLWARDEN_GATE_FAIL=closed to deny on a gate failure after an edit;
+        before a command it always asks, and that is not configurable.
+
 SCAN OPTIONS
   --preset <NAME>      Rule bundle to run. Default: {default_preset}
 {presets}
-  --format <FORMAT>    pretty (default), json, sarif, junit, or md
+  --format <FORMAT>    pretty (default), json, sarif, junit, md, or agent
+  --since <REF>        Scan only what changed since this git ref
+  --staged             Scan only what is staged
+  --paths <A,B>        Scan only these paths (repeatable, comma-separated)
+  --budget <N>         With --format agent, the token ceiling (default 1500)
+  --max-findings <N>   With --format agent, a cap applied before the budget
   --out <FILE>         Write the report to a file instead of stdout
   --baseline <FILE>    Report only findings new since this baseline
   --write-baseline <F> Write current findings to a baseline file

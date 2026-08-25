@@ -66,6 +66,59 @@ export const BUILTIN_FRAMEWORKS = [
   "generic",
 ] as const;
 
+/**
+ * An agent or editor host identifier, e.g. `"claude-code"`, `"cursor"`,
+ * `"generic"`.
+ *
+ * Open for the same reason {@link frameworkSchema} is: the set of tools that
+ * read project-local configuration and execute it grows every quarter, and a
+ * closed enum would reject a finding from a host this SDK version predates.
+ *
+ * {@link BUILTIN_AGENT_HOSTS} lists the ones that ship.
+ */
+export const agentHostSchema = z
+  .string()
+  .min(1)
+  .max(32)
+  .regex(/^[a-z][a-z0-9-]*$/, "an agent host id is lowercase, digits, and hyphens");
+
+/** The agent hosts that ship with the engine. Display and autocompletion only. */
+export const BUILTIN_AGENT_HOSTS = [
+  "claude-code",
+  "cursor",
+  "vscode",
+  "copilot",
+  "codex",
+  "gemini-cli",
+  "generic",
+] as const;
+
+/**
+ * What kind of artefact a rule reads.
+ *
+ * Decides which set of fixes the rule owes: twelve frameworks for `webApp`,
+ * seven agent hosts for `agentWorkspace`. Absent means `webApp` — a rule
+ * catalogue from an engine that predates the field describes web-app rules.
+ */
+export const surfaceSchema = z.enum(["webApp", "agentWorkspace"]);
+
+/**
+ * How much of the host's real configuration the file a finding sits in is.
+ *
+ * Orthogonal to severity and confidence. `template` and `documentation` cap the
+ * finding at `possible`, which — combined with the rule that `possible` never
+ * fails CI alone — is what makes a repository full of example configs safe to
+ * scan. It is **not** a suppression: the finding is still reported, because a
+ * repository that ships a risky template is telling its readers to do the risky
+ * thing.
+ */
+export const runtimeScopeSchema = z.enum([
+  "active",
+  "project-optional",
+  "template",
+  "documentation",
+]);
+
 /** Whether a fix can be applied automatically. */
 export const fixSafetySchema = z.enum(["safe", "unsafe", "manual"]);
 
@@ -107,6 +160,8 @@ export const codeFrameSchema = z.object({
 /** What the engine knew about the code around the finding. */
 export const findingContextSchema = z.object({
   framework: frameworkSchema.optional(),
+  /** Set on agent-surface findings instead of `framework`; never both. */
+  host: agentHostSchema.optional(),
   route: z.string().optional(),
   method: z.string().optional(),
   evidence: z.string().optional(),
@@ -115,6 +170,15 @@ export const findingContextSchema = z.object({
 /** One way to fix the finding. Later entries are more generic than earlier ones. */
 export const fixSchema = z.object({
   framework: frameworkSchema.optional(),
+  /**
+   * The agent host this advice is written for, on agent-surface rules.
+   *
+   * A second key rather than a reused `framework`: the two name different
+   * things, and a consumer seeing `"framework": "cursor"` would reasonably
+   * conclude the engine had lost track of which was which. Exactly one is set
+   * on any fix that is not the fallback.
+   */
+  host: agentHostSchema.optional(),
   summary: z.string(),
   patch: z.string().optional(),
   safety: fixSafetySchema,
@@ -122,7 +186,7 @@ export const fixSchema = z.object({
 
 /** A pointer to the wider literature: OWASP, CWE, or our own rule page. */
 export const referenceSchema = z.object({
-  kind: z.enum(["owasp", "cwe", "docs"]),
+  kind: z.enum(["owasp", "asi", "cwe", "docs"]),
   id: z.string(),
   url: z.string(),
 });
@@ -134,7 +198,11 @@ export const findingSchema = z.object({
   severity: severitySchema,
   confidence: confidenceSchema,
   owasp: z.string().optional(),
+  /** OWASP ASI (agentic) category, e.g. `"ASI05"`. Secondary to `cwe`. */
+  asi: z.string().optional(),
   cwe: z.number().int().optional(),
+  /** Present on agent-surface findings; absent where the question does not arise. */
+  runtimeScope: runtimeScopeSchema.optional(),
   title: z.string(),
   why: z.string(),
   location: locationSchema,
@@ -179,8 +247,18 @@ export const scanTargetSchema = z.object({
   project: z.string(),
   scope: z.array(z.string()),
   filesScanned: z.number().int().nonnegative(),
+  /** Agent and editor configuration files read. Counted separately. */
+  configFilesScanned: z.number().int().nonnegative().default(0),
   routesProbed: z.number().int().nonnegative(),
   preset: z.string(),
+  /**
+   * What the scan was narrowed to, when it was: `"since origin/main"`,
+   * `"staged"`, `"3 paths"`.
+   *
+   * Read it before treating a clean report as a clean repository. A diff-scoped
+   * scan answers a smaller question, and this field is the difference.
+   */
+  diffScope: z.string().optional(),
 });
 
 /** The whole result of one scan. */
@@ -214,7 +292,10 @@ export const ruleMetaSchema = z.object({
   severity: severitySchema,
   maxConfidence: confidenceSchema,
   owasp: z.string().optional(),
+  asi: z.string().optional(),
   cwe: z.number().int().optional(),
+  /** Absent means `webApp`, for a catalogue from an engine predating the field. */
+  surface: surfaceSchema.default("webApp"),
   category: z.string(),
   description: z.string(),
 });
@@ -270,9 +351,25 @@ export const frameworkCoverageSchema = z.object({
 export const coverageReportSchema = z.object({
   version: z.string(),
   owasp: z.array(categoryCoverageSchema),
+  /** The agentic taxonomy, kept as a separate table on purpose. */
+  asi: z.array(categoryCoverageSchema).default([]),
+  /** The ASI edition the `asi` table describes, e.g. `"2026"`. */
+  asiEdition: z.string().default(""),
   frameworks: z.array(frameworkCoverageSchema),
+  /** Agent hosts, scored the same way as frameworks. */
+  hosts: z.array(frameworkCoverageSchema).default([]),
+  /**
+   * The closed path allowlist the agent surface reads.
+   *
+   * Present so a consumer can answer "is my host's configuration even in
+   * scope?" without running the binary.
+   */
+  agentPaths: z.array(z.string()).default([]),
   ruleCount: z.number().int().nonnegative(),
+  webAppRuleCount: z.number().int().nonnegative().default(0),
+  agentWorkspaceRuleCount: z.number().int().nonnegative().default(0),
   categoriesCovered: z.number().int().nonnegative(),
+  asiCategoriesCovered: z.number().int().nonnegative().default(0),
 });
 
 // Collection schemas, so callers do not need zod as a direct dependency just to
@@ -283,6 +380,9 @@ export const presetInfoListSchema = z.array(presetInfoSchema);
 export type Severity = z.infer<typeof severitySchema>;
 export type Confidence = z.infer<typeof confidenceSchema>;
 export type Framework = z.infer<typeof frameworkSchema>;
+export type AgentHost = z.infer<typeof agentHostSchema>;
+export type Surface = z.infer<typeof surfaceSchema>;
+export type RuntimeScope = z.infer<typeof runtimeScopeSchema>;
 export type FixSafety = z.infer<typeof fixSafetySchema>;
 export type Location = z.infer<typeof locationSchema>;
 export type Highlight = z.infer<typeof highlightSchema>;

@@ -26,6 +26,8 @@ pub struct EngineStats {
     pub files_scanned: u32,
     /// Files a rule wanted but which could not be read or parsed.
     pub files_skipped: u32,
+    /// Agent and editor configuration files read.
+    pub config_files_scanned: u32,
     /// A sample of the skips, as `path: reason`.
     pub skip_examples: Vec<String>,
     /// True when a per-file or global findings cap dropped results.
@@ -107,6 +109,9 @@ impl StaticEngine {
             return;
         }
         let workspace = project.agent_workspace();
+        if let Ok(mut stats) = self.stats.lock() {
+            stats.config_files_scanned = u32::try_from(workspace.files().len()).unwrap_or(u32::MAX);
+        }
         for unreadable in workspace.unreadable() {
             self.remember_skip(&unreadable.path, &unreadable.reason);
         }

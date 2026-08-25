@@ -24,6 +24,7 @@ const SHARED_FINDING_IDS = [
   "cors-permissive",
   "hardcoded-secret",
   "insecure-cookie",
+  "install-lifecycle-script",
   "open-redirect",
   "open-redirect",
   "open-redirect",

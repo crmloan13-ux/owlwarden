@@ -181,6 +181,7 @@ describe("parse", () => {
     });
     expect(parse(["init"])).toEqual({
       command: "init",
+      hosts: [],
       agentRules: true,
       workflow: true,
       mcp: true,
@@ -188,6 +189,7 @@ describe("parse", () => {
     });
     expect(parse(["init", "--agent-rules"])).toEqual({
       command: "init",
+      hosts: [],
       agentRules: true,
       workflow: false,
       mcp: false,
@@ -195,6 +197,7 @@ describe("parse", () => {
     });
     expect(parse(["init", "--agent-rules", "--out", "rules.md"])).toEqual({
       command: "init",
+      hosts: [],
       agentRules: true,
       workflow: false,
       mcp: false,
@@ -203,6 +206,7 @@ describe("parse", () => {
     });
     expect(parse(["init", "--workflow", "--mcp", "--force"])).toEqual({
       command: "init",
+      hosts: [],
       agentRules: false,
       workflow: true,
       mcp: true,
@@ -211,6 +215,27 @@ describe("parse", () => {
     expect(parse(["plugin", "scaffold", "acme-rules"])).toEqual({
       command: "plugin-scaffold",
       name: "acme-rules",
+    });
+  });
+
+  it("a host flag selects the gate wiring and nothing else", () => {
+    // `init` with no flags keeps its old meaning, so an existing script does
+    // not change behaviour under a new version.
+    expect(parse(["init", "--claude-code"])).toEqual({
+      command: "init",
+      hosts: ["claude-code"],
+      agentRules: false,
+      workflow: false,
+      mcp: false,
+      force: false,
+    });
+    expect(parse(["init", "--cursor", "--generic", "--force"])).toEqual({
+      command: "init",
+      hosts: ["cursor", "generic"],
+      agentRules: false,
+      workflow: false,
+      mcp: false,
+      force: true,
     });
   });
 

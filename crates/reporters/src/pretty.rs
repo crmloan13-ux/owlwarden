@@ -21,6 +21,7 @@
 //!  ⓘ ref            A05:2021 · CWE-209 · RULES.md#stack-trace-leak
 //! ```
 
+use std::fmt::Write as _;
 use std::io::Write;
 
 use owlwarden_core::finding::{CodeFrame, Finding, ReferenceKind, Severity};
@@ -106,10 +107,24 @@ impl<'w> PrettyReporter<'w> {
         let summary = report.summary;
         let glyphs = self.glyphs();
 
+        // Two counts, because they answer different questions: how much source
+        // was parsed, and how much configuration was read. A `vet` reporting
+        // "0 files" over fourteen findings would be describing the wrong one.
+        let mut scanned = format!("{} files", report.target.files_scanned);
+        if report.target.config_files_scanned > 0 {
+            let _ = write!(scanned, " · {} config", report.target.config_files_scanned);
+        }
+        // A diff-scoped clean result must never render as a clean repository.
+        let scope = report
+            .target
+            .diff_scope
+            .as_ref()
+            .map(|scope| format!(" · {scope}"))
+            .unwrap_or_default();
+
         let header = format!(
-            "{} {} files · {} · {}.{:02}s",
+            "{} {scanned} · {}{scope} · {}.{:02}s",
             crate::banner::owl_mark(self.options.unicode),
-            report.target.files_scanned,
             report.target.preset,
             report.duration_ms / 1000,
             (report.duration_ms % 1000) / 10,
@@ -350,7 +365,14 @@ impl<'w> PrettyReporter<'w> {
     /// their labels one column apart in the same report.
     fn write_labelled(&mut self, marker: &str, label: &str, text: &str) -> std::io::Result<()> {
         let indent = 1 + MARKER_WIDTH + 1 + LABEL_WIDTH;
-        let head = format!("{marker:<MARKER_WIDTH$} {label:<LABEL_WIDTH$}");
+        // A label longer than the column — `fix (GitHub Copilot)` — still gets
+        // a separating space. Without it the label runs into the text and the
+        // reader sees `fix (Claude Code)Delete the entry`.
+        let head = if label.chars().count() >= LABEL_WIDTH {
+            format!("{marker:<MARKER_WIDTH$} {label} ")
+        } else {
+            format!("{marker:<MARKER_WIDTH$} {label:<LABEL_WIDTH$}")
+        };
         writeln!(
             self.writer,
             " {}{}",

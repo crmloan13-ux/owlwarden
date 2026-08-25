@@ -7,7 +7,9 @@ import { runOsvUpdate } from "./commands/osv-update.js";
 import { runPluginInspect } from "./commands/plugin-inspect.js";
 import { runPluginScaffold } from "./commands/plugin-scaffold.js";
 import { runRules } from "./commands/rules.js";
+import { runGate } from "./commands/gate.js";
 import { runScan } from "./commands/scan.js";
+import { runVerify } from "./commands/verify.js";
 import { runWatch } from "./commands/watch.js";
 import { EXIT } from "./exit.js";
 import { helpText } from "./help.js";
@@ -72,12 +74,23 @@ export async function run(argv: string[], streams: Streams): Promise<number> {
       return runScan(mustLoad(native), cli.options, stderr, stdout);
     case "watch":
       return runWatch(mustLoad(native), cli.options, stderr, stdout);
+    case "vet":
+      return runScan(mustLoad(native), cli.options, stderr, stdout);
+    case "gate":
+      return runGate(mustLoad(native), cli.options, {
+        stdin: process.stdin,
+        stdout,
+        stderr,
+      });
+    case "verify":
+      return runVerify(mustLoad(native), cli.options, stdout, stderr);
     case "mcp":
       return runMcp(mustLoad(native), cli.path);
     case "init":
       return runInit(
         mustLoad(native),
         {
+          hosts: cli.hosts,
           agentRules: cli.agentRules,
           workflow: cli.workflow,
           mcp: cli.mcp,
