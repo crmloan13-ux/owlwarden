@@ -22,7 +22,14 @@
 //! [`FrameworkSet`](owlwarden_static::FrameworkSet). Framework knowledge lives
 //! in `owlwarden_static::framework::profiles`; the only thing a rule declares
 //! per framework is remediation, and
-//! [`framework_coverage`] fails the build when a rule is missing one.
+//! [`remediation_gaps`] fails the build when a rule is missing one.
+//!
+//! # Adding an agent host
+//!
+//! The same shape, one surface over. A rule on
+//! [`Surface::AgentWorkspace`](owlwarden_core::surface::Surface) owes a fix per
+//! [`SUPPORTED_AGENT_HOSTS`] entry and no framework fixes at all, and the same
+//! matrix test fails the build when one is missing.
 
 #![forbid(unsafe_code)]
 #![deny(
@@ -35,12 +42,14 @@
 #![warn(clippy::pedantic)]
 #![allow(clippy::module_name_repetitions, clippy::must_use_candidate)]
 
+pub mod agent;
 pub mod build;
 pub mod ci_unpinned_action;
 pub mod cors;
 pub mod csrf_cross_origin_post;
 pub mod decorator;
 pub mod hardcoded_secret;
+pub mod install_lifecycle_script;
 pub mod insecure_cookie;
 pub mod known_vulnerable_dependency;
 pub mod lockfile;
@@ -57,11 +66,20 @@ use std::sync::Arc;
 
 use owlwarden_core::coverage::{CategoryEntry, CoverageReport, FrameworkEntry};
 use owlwarden_core::detector::DetectorMeta;
-use owlwarden_core::finding::{Confidence, Framework};
+use owlwarden_core::finding::Confidence;
 use owlwarden_core::owasp::{self, CategoryCoverage};
 use owlwarden_core::remediation::Remediation;
+use owlwarden_core::surface::{Profile, Surface};
+use owlwarden_core::taxonomy::{self, AsiCoverage};
 use owlwarden_static::rule::{FileRule, ProjectRule, RuleInfo};
 
+pub use agent::config::{
+    AgentConfigEnvRedirect, AgentConfigLoaderScript, AgentConfigSecretReachable,
+};
+pub use agent::hooks::{AgentHookAutoexec, AgentHookUntrustedCommand};
+pub use agent::instructions::{AgentInstructionsDirective, AgentInstructionsHiddenText};
+pub use agent::permissions::AgentPermissionWildcard;
+pub use agent::supply_chain::{AgentMarketplaceUntrusted, AgentMcpUnpinnedRemote};
 pub use ci_unpinned_action::CiUnpinnedAction;
 pub use cors::CorsPermissive;
 pub use csrf_cross_origin_post::{
@@ -69,6 +87,7 @@ pub use csrf_cross_origin_post::{
 };
 pub use hardcoded_secret::HardcodedSecret;
 pub use insecure_cookie::InsecureCookie;
+pub use install_lifecycle_script::InstallLifecycleScript;
 pub use known_vulnerable_dependency::{
     KnownVulnerableDependency, OsvAdvisoryDetector, osv_detector,
 };
@@ -81,26 +100,21 @@ pub use stack_trace_leak::StackTraceLeak;
 pub use unpinned_dependency::UnpinnedDependency;
 pub use weak_crypto::WeakCrypto;
 
-/// The frameworks every rule is expected to have remediation for.
+/// The frameworks every `WebApp` rule is expected to have remediation for.
 ///
-/// Checked by [`framework_coverage`], which the test suite fails on. Without
-/// it, adding Fastify would leave every existing rule quietly handing Fastify
-/// users generic advice — technically correct, useless in practice, and
-/// invisible until someone complained.
-pub const SUPPORTED_FRAMEWORKS: &[Framework] = &[
-    Framework::NEXT,
-    Framework::NUXT,
-    Framework::NEST,
-    Framework::EXPRESS,
-    Framework::FASTIFY,
-    Framework::HONO,
-    Framework::KOA,
-    Framework::HAPI,
-    Framework::SAILS,
-    Framework::ASTRO,
-    Framework::REMIX,
-    Framework::GATSBY,
-];
+/// Re-exported from `core` rather than declared again here. Two lists would be
+/// two lists to keep in step, and the one that drifts is always the one the
+/// matrix test does not read.
+///
+/// Checked by [`remediation_gaps`], which the test suite fails on. Without it,
+/// adding Fastify would leave every existing rule quietly handing Fastify users
+/// generic advice — technically correct, useless in practice, and invisible
+/// until someone complained.
+pub use owlwarden_core::surface::SUPPORTED_FRAMEWORKS;
+
+/// The agent hosts every `AgentWorkspace` rule is expected to have remediation
+/// for. The same invariant, one surface over.
+pub use owlwarden_core::surface::SUPPORTED_AGENT_HOSTS;
 
 /// A named bundle of rules.
 ///
@@ -156,6 +170,13 @@ pub const PRESETS: &[Preset] = &[
         description: "Every rule, including the noisier heuristics.",
         selects: |_| true,
     },
+    Preset {
+        name: "agent-surface",
+        description: "Agent and editor configuration only. What `vet` runs.",
+        // Defined by the rule's surface, not by a list of ids, so a rule added
+        // to the family is in the preset the moment it compiles.
+        selects: |meta| meta.surface == Surface::AgentWorkspace,
+    },
 ];
 
 /// The preset used when the user names none.
@@ -190,6 +211,17 @@ pub fn all_project_rules() -> Vec<Arc<dyn ProjectRule>> {
         Arc::new(SecurityHeadersMissing),
         Arc::new(UnpinnedDependency),
         Arc::new(CiUnpinnedAction),
+        Arc::new(AgentHookAutoexec),
+        Arc::new(AgentHookUntrustedCommand),
+        Arc::new(AgentConfigLoaderScript),
+        Arc::new(AgentConfigEnvRedirect),
+        Arc::new(AgentConfigSecretReachable),
+        Arc::new(AgentPermissionWildcard),
+        Arc::new(AgentMcpUnpinnedRemote),
+        Arc::new(AgentMarketplaceUntrusted),
+        Arc::new(AgentInstructionsHiddenText),
+        Arc::new(AgentInstructionsDirective),
+        Arc::new(InstallLifecycleScript),
     ]
 }
 
@@ -341,31 +373,54 @@ pub fn owasp_coverage() -> Vec<CategoryCoverage> {
     owasp::coverage(&all_rule_metas())
 }
 
-/// A rule that lacks remediation for a framework we claim to support.
+/// Which OWASP ASI (agentic) categories the shipped rules cover, and which they
+/// do not. Same contract as [`owasp_coverage`], one taxonomy over.
+#[must_use]
+pub fn asi_coverage() -> Vec<AsiCoverage> {
+    taxonomy::coverage(&all_rule_metas())
+}
+
+/// A rule that lacks remediation for a profile we claim to support.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MissingRemediation {
     /// The rule with the gap.
     pub rule: String,
-    /// The framework it has no specific advice for.
-    pub framework: Framework,
+    /// The surface the rule declared.
+    pub surface: Surface,
+    /// The profile it has no specific advice for — a framework on `WebApp`, an
+    /// agent host on `AgentWorkspace`.
+    pub profile: String,
 }
 
-/// Every (rule, framework) pair with no specific remediation.
+/// Every (rule, profile) pair with no specific remediation, across both
+/// surfaces.
 ///
 /// Empty is the only acceptable answer, and a test enforces that. The reason it
 /// is a function rather than only a test is that it is also worth printing:
-/// `owlwarden coverage` shows it, so a contributor adding a framework can see
-/// the work remaining rather than discovering it one CI failure at a time.
+/// `owlwarden coverage` shows it, so a contributor adding a framework or a host
+/// can see the work remaining rather than discovering it one CI failure at a
+/// time.
+///
+/// Note what this does *not* do: it never checks a rule against the other
+/// surface's profile set. A `WebApp` rule owes twelve framework fixes and no
+/// host fixes; an `AgentWorkspace` rule owes seven host fixes and no framework
+/// fixes. Writing the same paragraph twelve times to satisfy a list that does
+/// not apply is the padding
+/// [ADR 0018](../../docs/adr/0018-corpus-depth-bar.md) rejected, and
+/// [ADR 0025](../../docs/adr/0025-agent-surface-and-supply-chain.md) §1 is the
+/// decision to generalise the invariant instead of holing it.
 #[must_use]
-pub fn framework_coverage() -> Vec<MissingRemediation> {
+pub fn remediation_gaps() -> Vec<MissingRemediation> {
     let mut gaps = Vec::new();
     for rule in all_rules() {
+        let meta = rule.meta();
         let remediation: Remediation = rule.remediation();
-        for framework in SUPPORTED_FRAMEWORKS {
-            if !remediation.covers(framework) {
+        for profile in meta.surface.profiles() {
+            if !remediation.covers_profile(&profile) {
                 gaps.push(MissingRemediation {
-                    rule: rule.meta().id.to_string(),
-                    framework: framework.clone(),
+                    rule: meta.id.to_string(),
+                    surface: meta.surface,
+                    profile: profile.as_str().to_owned(),
                 });
             }
         }
@@ -382,44 +437,95 @@ pub fn framework_coverage() -> Vec<MissingRemediation> {
 pub fn coverage_report() -> CoverageReport {
     let metas = all_rule_metas();
     let table = owasp::coverage(&metas);
+    let asi_table = taxonomy::coverage(&metas);
 
-    let owasp_rows = table
-        .iter()
-        .map(|entry| CategoryEntry {
-            id: entry.category.id.to_owned(),
-            title: entry.category.title.to_owned(),
-            rules: entry
-                .rules
-                .iter()
-                .map(|id| id.as_str().to_owned())
-                .collect(),
-            reachability: entry.category.static_reachability.as_str().to_owned(),
-            summary: entry.category.summary.to_owned(),
-        })
-        .collect();
+    let owasp_rows = table.iter().map(owasp_row).collect();
+    let asi_rows = asi_table.iter().map(asi_row).collect();
 
-    let gaps = framework_coverage();
+    let gaps = remediation_gaps();
+    let web_app_rules = rules_on(Surface::WebApp);
+    let agent_rules = rules_on(Surface::AgentWorkspace);
+
     let frameworks = SUPPORTED_FRAMEWORKS
         .iter()
-        .map(|framework| {
-            let falling_back = gaps
-                .iter()
-                .filter(|gap| &gap.framework == framework)
-                .count();
-            FrameworkEntry {
-                id: framework.as_str().to_owned(),
-                rules_with_specific_fix: metas.len().saturating_sub(falling_back),
-                rules_falling_back: falling_back,
-            }
-        })
+        .map(|framework| profile_row(&Profile::Framework(framework.clone()), web_app_rules, &gaps))
+        .collect();
+    let hosts = SUPPORTED_AGENT_HOSTS
+        .iter()
+        .map(|host| profile_row(&Profile::Host(host.clone()), agent_rules, &gaps))
         .collect();
 
     CoverageReport {
         version: env!("CARGO_PKG_VERSION").to_owned(),
         categories_covered: owasp::covered_count(&table),
+        asi_categories_covered: taxonomy::covered_count(&asi_table),
+        asi_edition: taxonomy::ASI_EDITION.to_owned(),
         rule_count: metas.len(),
+        web_app_rule_count: web_app_rules,
+        agent_workspace_rule_count: agent_rules,
         owasp: owasp_rows,
+        asi: asi_rows,
         frameworks,
+        hosts,
+        agent_paths: owlwarden_static::agentws::paths::allowlist_globs()
+            .into_iter()
+            .map(str::to_owned)
+            .collect(),
+    }
+}
+
+/// How many shipped rules read a given surface.
+#[must_use]
+pub fn rules_on(surface: Surface) -> usize {
+    all_rule_metas()
+        .iter()
+        .filter(|meta| meta.surface == surface)
+        .count()
+}
+
+fn owasp_row(entry: &CategoryCoverage) -> CategoryEntry {
+    CategoryEntry {
+        id: entry.category.id.to_owned(),
+        title: entry.category.title.to_owned(),
+        rules: entry
+            .rules
+            .iter()
+            .map(|id| id.as_str().to_owned())
+            .collect(),
+        reachability: entry.category.static_reachability.as_str().to_owned(),
+        summary: entry.category.summary.to_owned(),
+    }
+}
+
+fn asi_row(entry: &AsiCoverage) -> CategoryEntry {
+    CategoryEntry {
+        id: entry.category.id.to_owned(),
+        title: entry.category.title.to_owned(),
+        rules: entry
+            .rules
+            .iter()
+            .map(|id| id.as_str().to_owned())
+            .collect(),
+        reachability: entry.category.static_reachability.as_str().to_owned(),
+        summary: entry.category.summary.to_owned(),
+    }
+}
+
+/// One row of a profile table: how many of that surface's rules speak this
+/// profile's dialect, and how many fall back.
+///
+/// The denominator is the rule count *for that surface*, not the whole
+/// catalogue: reporting that Cursor has "14 rules falling back" because
+/// `sql-injection` has no Cursor advice would be an invented gap.
+fn profile_row(profile: &Profile, surface_rule_count: usize, gaps: &[MissingRemediation]) -> FrameworkEntry {
+    let falling_back = gaps
+        .iter()
+        .filter(|gap| gap.profile == profile.as_str() && gap.surface == profile.surface())
+        .count();
+    FrameworkEntry {
+        id: profile.as_str().to_owned(),
+        rules_with_specific_fix: surface_rule_count.saturating_sub(falling_back),
+        rules_falling_back: falling_back,
     }
 }
 
@@ -428,13 +534,21 @@ mod tests {
     #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
     use super::*;
+    use owlwarden_core::finding::{AgentHost, Framework};
 
     #[test]
     fn the_coverage_report_counts_what_is_actually_compiled_in() {
         let report = coverage_report();
         assert_eq!(report.rule_count, all_rules().len());
         assert_eq!(report.owasp.len(), 10, "all ten categories, gaps included");
+        assert_eq!(report.asi.len(), 10, "all ten ASI categories, gaps included");
         assert_eq!(report.frameworks.len(), SUPPORTED_FRAMEWORKS.len());
+        assert_eq!(report.hosts.len(), SUPPORTED_AGENT_HOSTS.len());
+        assert_eq!(
+            report.web_app_rule_count + report.agent_workspace_rule_count,
+            report.rule_count,
+            "every rule belongs to exactly one surface"
+        );
 
         let counted: usize = report
             .owasp
@@ -443,11 +557,11 @@ mod tests {
             .count();
         assert_eq!(counted, report.categories_covered);
 
-        for framework in &report.frameworks {
+        for profile in report.frameworks.iter().chain(report.hosts.iter()) {
             assert_eq!(
-                framework.rules_falling_back, 0,
+                profile.rules_falling_back, 0,
                 "{} has rules with only generic advice",
-                framework.id
+                profile.id
             );
         }
     }
@@ -544,12 +658,123 @@ mod tests {
     }
 
     #[test]
-    fn every_rule_has_remediation_for_every_supported_framework() {
-        let gaps = framework_coverage();
+    fn every_rule_has_remediation_for_every_profile_of_its_own_surface() {
+        let gaps = remediation_gaps();
         assert!(
             gaps.is_empty(),
-            "rules missing framework-specific remediation: {gaps:?}"
+            "rules missing profile-specific remediation: {gaps:?}"
         );
+    }
+
+    #[test]
+    fn removing_one_remediation_cell_from_either_surface_is_caught() {
+        // The invariant is only worth having if it fails. This proves the
+        // matrix test is load-bearing on *both* profile sets rather than
+        // silently passing on the one that has no rules yet
+        // (ADR 0025 exit criterion 1).
+        struct Holed {
+            meta: DetectorMeta,
+            remediation: Remediation,
+        }
+        impl RuleInfo for Holed {
+            fn meta(&self) -> DetectorMeta {
+                self.meta.clone()
+            }
+            fn remediation(&self) -> Remediation {
+                self.remediation.clone()
+            }
+        }
+
+        let mut web = Remediation::new("generic");
+        for framework in SUPPORTED_FRAMEWORKS.iter().skip(1) {
+            web = web.manual(framework.clone(), "s", "p");
+        }
+        let mut agent = Remediation::new("generic");
+        for host in SUPPORTED_AGENT_HOSTS.iter().skip(1) {
+            agent = agent.host(host.clone(), "s", "p");
+        }
+
+        for (surface, remediation, missing) in [
+            (Surface::WebApp, web, SUPPORTED_FRAMEWORKS.first().map(Framework::as_str)),
+            (
+                Surface::AgentWorkspace,
+                agent,
+                SUPPORTED_AGENT_HOSTS.first().map(AgentHost::as_str),
+            ),
+        ] {
+            let rule = Holed {
+                meta: DetectorMeta {
+                    id: owlwarden_core::finding::RuleId::new_static("holed"),
+                    title: "t".into(),
+                    severity: owlwarden_core::finding::Severity::High,
+                    max_confidence: Confidence::Likely,
+                    owasp: None,
+                    asi: None,
+                    cwe: Some(1),
+                    surface,
+                    category: "c".into(),
+                    description: "d".into(),
+                },
+                remediation,
+            };
+            let gaps: Vec<String> = rule
+                .meta()
+                .surface
+                .profiles()
+                .into_iter()
+                .filter(|profile| !rule.remediation().covers_profile(profile))
+                .map(|profile| profile.as_str().to_owned())
+                .collect();
+            assert_eq!(
+                gaps.first().map(String::as_str),
+                missing,
+                "{surface} did not report its hole"
+            );
+        }
+    }
+
+    #[test]
+    fn a_rule_is_never_checked_against_the_other_surfaces_profiles() {
+        // Padding twelve identical framework strings onto an agent rule is what
+        // ADR 0025 refused to do; this asserts nothing asks for them.
+        for rule in all_rules() {
+            let meta = rule.meta();
+            let profiles = meta.surface.profiles();
+            match meta.surface {
+                Surface::WebApp => assert_eq!(profiles.len(), SUPPORTED_FRAMEWORKS.len()),
+                Surface::AgentWorkspace => {
+                    assert_eq!(profiles.len(), SUPPORTED_AGENT_HOSTS.len());
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn the_agent_surface_preset_is_exactly_the_agent_rules() {
+        let selected = preset_rule_ids("agent-surface");
+        let mut expected: Vec<String> = all_rule_metas()
+            .into_iter()
+            .filter(|meta| meta.surface == Surface::AgentWorkspace)
+            .map(|meta| meta.id.to_string())
+            .collect();
+        expected.sort();
+        assert_eq!(selected, expected);
+    }
+
+    #[test]
+    fn no_agent_surface_rule_claims_it_can_be_confirmed() {
+        // ADR 0025 §6: `Confirmed` means corroborated against a running target.
+        // There is no running target for a config file, and a second meaning for
+        // the word would break the property the whole project sells.
+        for meta in all_rule_metas() {
+            if meta.surface == Surface::AgentWorkspace {
+                assert!(
+                    meta.max_confidence < Confidence::Confirmed,
+                    "{} claims Confirmed on a surface that cannot reach it",
+                    meta.id
+                );
+            }
+        }
     }
 
     #[test]

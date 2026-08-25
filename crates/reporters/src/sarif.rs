@@ -118,8 +118,22 @@ fn finding_to_result(finding: &Finding) -> Value {
     if let Some(owasp) = finding.owasp.as_ref() {
         properties.insert("owasp".into(), json!(owasp.as_str()));
     }
+    if let Some(asi) = finding.asi.as_ref() {
+        properties.insert("asi".into(), json!(asi.as_str()));
+    }
     if let Some(cwe) = finding.cwe {
         properties.insert("cwe".into(), json!(format!("CWE-{cwe}")));
+    }
+    // `runtimeScope` rides in properties rather than modifying `level`,
+    // deliberately. A `template`-scoped finding is not a less severe problem —
+    // it is the same problem in a file nothing loads — and encoding that as a
+    // lower SARIF level would tell code scanning a different story than the
+    // terminal tells the developer.
+    if let Some(scope) = finding.runtime_scope {
+        properties.insert("runtimeScope".into(), json!(scope.as_str()));
+    }
+    if let Some(host) = finding.context.host.as_ref() {
+        properties.insert("agentHost".into(), json!(host.as_str()));
     }
 
     let mut result = Map::new();

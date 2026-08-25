@@ -19,6 +19,7 @@ use owlwarden_core::finding::{
 };
 use owlwarden_core::remediation::Remediation;
 use owlwarden_core::source::FileSelector;
+use owlwarden_core::surface::Surface;
 use owlwarden_static::project::Project;
 use owlwarden_static::rule::{FindingSink, ProjectRule, RuleInfo};
 
@@ -50,7 +51,9 @@ impl CiUnpinnedAction {
             severity: Severity::Medium,
             max_confidence: Confidence::Likely,
             owasp: Some(OwaspRef::new_static("A08:2021")),
+            asi: None,
             cwe: Some(829),
+            surface: Surface::WebApp,
             category: "ci".into(),
             description: "A workflow references a GitHub Action by a branch or version tag. Tags \
                           move; a compromised or hijacked tag runs attacker-controlled code in CI \
@@ -196,6 +199,7 @@ fn build_finding(framework: &Framework, hit: &Hit) -> Finding {
         }))
         .context(FindingContext {
             framework: Some(framework.clone()),
+            host: None,
             route: None,
             method: None,
             evidence: Some(format!("{}@{}", hit.action, hit.reference)),

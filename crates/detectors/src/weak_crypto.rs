@@ -36,6 +36,7 @@ use owlwarden_core::finding::{
 };
 use owlwarden_core::remediation::Remediation;
 use owlwarden_core::source::RelPath;
+use owlwarden_core::surface::Surface;
 use owlwarden_static::ast::{root_identifier, static_property, string_value};
 use owlwarden_static::rule::{FileRule, FindingSink, RuleInfo};
 use owlwarden_static::unit::FileUnit;
@@ -114,7 +115,9 @@ impl WeakCrypto {
             severity: Severity::High,
             max_confidence: Confidence::Likely,
             owasp: Some(OwaspRef::new_static("A02:2021")),
+            asi: None,
             cwe: Some(327),
+            surface: Surface::WebApp,
             category: "crypto".into(),
             description: "A hash, cipher, or random source that cannot carry the weight it has \
                           been given: MD5 or SHA-1 over a password, a DES or ECB cipher, or \

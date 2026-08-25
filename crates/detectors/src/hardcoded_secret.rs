@@ -36,6 +36,7 @@ use owlwarden_core::finding::{
 };
 use owlwarden_core::remediation::Remediation;
 use owlwarden_core::source::RelPath;
+use owlwarden_core::surface::Surface;
 use owlwarden_static::ast::property_name;
 use owlwarden_static::rule::{FileRule, FindingSink, RuleInfo};
 use owlwarden_static::unit::FileUnit;
@@ -185,7 +186,9 @@ impl HardcodedSecret {
             severity: Severity::High,
             max_confidence: Confidence::Likely,
             owasp: Some(OwaspRef::new_static("A07:2021")),
+            asi: None,
             cwe: Some(798),
+            surface: Surface::WebApp,
             category: "secrets".into(),
             description: "A credential appears as a literal in source. Anything committed is in \
                           the repository's history, in every clone, and in every build artefact, \

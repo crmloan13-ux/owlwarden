@@ -12,6 +12,7 @@ use std::collections::HashMap;
 use owlwarden_core::detector::DetectorMeta;
 use owlwarden_core::finding::{Confidence, OwaspRef, RuleId, Severity};
 use owlwarden_core::limits::plugin as limits;
+use owlwarden_core::surface::Surface;
 use serde::Deserialize;
 
 use crate::capability::ManifestCapabilities;
@@ -209,7 +210,9 @@ fn build_rule(plugin_id: &str, raw: RawRule) -> Result<PluginRule, PluginError> 
             severity: raw.severity,
             max_confidence: raw.max_confidence,
             owasp,
+            asi: None,
             cwe: raw.cwe,
+            surface: Surface::WebApp,
             category: Cow::Owned(category),
             description: Cow::Owned(description),
         },

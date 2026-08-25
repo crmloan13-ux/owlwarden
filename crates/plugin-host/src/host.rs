@@ -236,6 +236,7 @@ mod tests {
     use wasmtime::StoreLimitsBuilder;
 
     use super::*;
+    use owlwarden_core::surface::Surface;
 
     fn rules() -> Arc<HashMap<String, DetectorMeta>> {
         let mut map = HashMap::new();
@@ -247,7 +248,9 @@ mod tests {
                 severity: Severity::Medium,
                 max_confidence: Confidence::Likely,
                 owasp: None,
+                asi: None,
                 cwe: None,
+                surface: Surface::WebApp,
                 category: "demo".into(),
                 description: "demo".into(),
             },

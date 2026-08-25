@@ -149,6 +149,29 @@ pub trait SourceProvider: Send + Sync {
     /// [`SourceError`] if the file is missing, too large, outside the root, or
     /// not valid UTF-8.
     fn read(&self, file: &SourceFile) -> Result<Arc<str>, SourceError>;
+
+    /// Lists agent-workspace configuration files matching `patterns`,
+    /// **ignoring `.gitignore` and the built-in directory deny list**.
+    ///
+    /// This is the one deliberate hole in the walker's normal behaviour, and it
+    /// exists for one reason: `.claude/settings.local.json` is conventionally
+    /// gitignored and `.vscode/` and `.cursor/` are on the deny list, so the
+    /// ordinary walk is silent on exactly the files the agent-surface rules are
+    /// about ([ADR 0025](../../../docs/adr/0025-agent-surface-and-supply-chain.md) §3).
+    ///
+    /// Everything else still holds: results stay under the root, symlinks that
+    /// leave it are refused at read time, the size caps apply, and dependency
+    /// trees are still skipped.
+    ///
+    /// `patterns` is not a user-facing setting. The only caller passes the
+    /// closed list in `owlwarden_static::agentws::paths`, which is data in
+    /// source rather than a glob a repository can widen — pointing the scanner
+    /// at a file it has no parser for would produce "we found nothing", which
+    /// is the one answer this surface must never give by accident.
+    ///
+    /// # Errors
+    /// [`SourceError`] if the tree cannot be walked or a pattern is invalid.
+    fn agent_workspace_files(&self, patterns: &[&str]) -> Result<Vec<SourceFile>, SourceError>;
 }
 
 /// Failure reading project source.

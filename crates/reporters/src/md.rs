@@ -118,13 +118,26 @@ fn append_finding(out: &mut String, finding: &Finding) {
     if let Some(owasp) = finding.owasp.as_ref() {
         let _ = write!(meta, " · {}", md_escape(owasp.as_str()));
     }
+    if let Some(asi) = finding.asi.as_ref() {
+        let _ = write!(meta, " · {}", md_escape(asi.as_str()));
+    }
     if let Some(cwe) = finding.cwe {
         let _ = write!(meta, " · CWE-{cwe}");
     }
     let _ = writeln!(out, "### {title}{meta}");
+    let scope = finding.runtime_scope.map_or_else(String::new, |scope| {
+        // Stated on its own line rather than folded into the confidence: a
+        // reader skimming a PR comment needs "this is a template" to be a fact
+        // they can see, not something inferred from a lower confidence word.
+        format!(
+            "\n**Scope:** {} — {}",
+            md_escape(scope.as_str()),
+            md_escape(scope.explanation())
+        )
+    });
     let _ = writeln!(
         out,
-        "**Where:** {}{}\n**Confidence:** {}",
+        "**Where:** {}{}\n**Confidence:** {}{scope}",
         location_line(finding),
         context_suffix(finding),
         finding.confidence.as_str()
@@ -173,6 +186,9 @@ fn context_suffix(finding: &Finding) -> String {
     if let Some(framework) = finding.context.framework.as_ref() {
         bits.push(md_escape(framework.as_str()));
     }
+    if let Some(host) = finding.context.host.as_ref() {
+        bits.push(md_escape(host.as_str()));
+    }
     if bits.is_empty() {
         String::new()
     } else {
@@ -210,10 +226,14 @@ fn append_fix(out: &mut String, finding: &Finding) {
     let Some(fix) = finding.primary_fix() else {
         return;
     };
-    let stack = fix
-        .framework
-        .as_ref()
-        .map_or_else(|| "generic".to_owned(), |id| md_escape(id.as_str()));
+    let stack = fix.host.as_ref().map_or_else(
+        || {
+            fix.framework
+                .as_ref()
+                .map_or_else(|| "generic".to_owned(), |id| md_escape(id.as_str()))
+        },
+        |host| md_escape(host.as_str()),
+    );
     let summary = md_escape(&fix.summary);
     let _ = writeln!(out, "\n**Fix ({stack})** — {summary}");
     let Some(patch) = fix.patch.as_deref() else {

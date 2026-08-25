@@ -11,7 +11,8 @@ use std::borrow::Cow;
 use async_trait::async_trait;
 
 use crate::context::ScanContext;
-use crate::finding::{Confidence, Finding, OwaspRef, RuleId, Severity};
+use crate::finding::{AsiRef, Confidence, Finding, OwaspRef, RuleId, Severity};
+use crate::surface::Surface;
 
 /// Which engine a detector belongs to.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -120,9 +121,24 @@ pub struct DetectorMeta {
     /// OWASP Top 10 category, when one applies.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub owasp: Option<OwaspRef>,
+    /// OWASP ASI (Agentic Applications) category, when one applies.
+    ///
+    /// Secondary to `cwe` by design: CWE is stable, and this edition is new
+    /// enough that it will be renumbered. See [`crate::taxonomy`].
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub asi: Option<AsiRef>,
     /// CWE number, when one applies.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub cwe: Option<u32>,
+    /// What kind of artefact the rule reads, and therefore which profile set
+    /// its remediation table has to cover.
+    ///
+    /// `#[serde(default)]` is load-bearing: a plugin manifest written against
+    /// `schemaVersion: 1` predates this field, and must keep loading and keep
+    /// being checked against the twelve frameworks
+    /// ([ADR 0024](../../../docs/adr/0024-plugin-api-v1.md) §9).
+    #[serde(default)]
+    pub surface: Surface,
     /// Grouping used by presets and by the docs site, e.g. `error-handling`.
     pub category: Cow<'static, str>,
     /// Two or three sentences for `RULES.md` and `explain`. Written for

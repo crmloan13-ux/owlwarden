@@ -43,6 +43,7 @@ use owlwarden_core::finding::{
 };
 use owlwarden_core::remediation::Remediation;
 use owlwarden_core::source::RelPath;
+use owlwarden_core::surface::Surface;
 use owlwarden_static::ast::{root_identifier, static_property};
 use owlwarden_static::rule::{FileRule, FindingSink, RuleInfo};
 use owlwarden_static::taint::RequestOrigin;
@@ -99,7 +100,9 @@ impl Ssrf {
             severity: Severity::High,
             max_confidence: Confidence::Likely,
             owasp: Some(OwaspRef::new_static("A10:2021")),
+            asi: None,
             cwe: Some(918),
+            surface: Surface::WebApp,
             category: "ssrf".into(),
             description: "An outbound HTTP request is made to a URL that came from the caller. \
                           The server can reach hosts the caller cannot — cloud metadata \

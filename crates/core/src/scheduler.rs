@@ -208,6 +208,7 @@ mod tests {
     use async_trait::async_trait;
 
     use super::*;
+    use crate::surface::Surface;
     use crate::budget::Budget;
     use crate::context::ScanSettings;
     use crate::detector::{Capabilities, DetectorKind, DetectorMeta};
@@ -218,6 +219,13 @@ mod tests {
     struct NoSource(PathBuf);
 
     impl SourceProvider for NoSource {
+        fn agent_workspace_files(&self, _patterns: &[&str]) -> Result<Vec<SourceFile>, SourceError> {
+            // This double serves no agent workspace. Empty rather than
+            // `unimplemented!`: an agent rule under test here should find
+            // nothing, not abort the run.
+            Ok(Vec::new())
+        }
+
         fn root(&self) -> &Path {
             &self.0
         }
@@ -246,7 +254,9 @@ mod tests {
                 severity: Severity::High,
                 max_confidence: Confidence::Likely,
                 owasp: None,
+                asi: None,
                 cwe: None,
+                surface: Surface::WebApp,
                 category: "test".into(),
                 description: "stub detector".into(),
             }

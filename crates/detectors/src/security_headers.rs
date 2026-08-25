@@ -31,6 +31,7 @@ use owlwarden_core::finding::{
     Severity, SourceLocation,
 };
 use owlwarden_core::remediation::Remediation;
+use owlwarden_core::surface::Surface;
 use owlwarden_static::ast::property_name;
 use owlwarden_static::project::Project;
 use owlwarden_static::rule::{FindingSink, ProjectRule, RuleInfo};
@@ -95,7 +96,9 @@ impl SecurityHeadersMissing {
             severity: Severity::Medium,
             max_confidence: Confidence::Likely,
             owasp: Some(OwaspRef::new_static("A05:2021")),
+            asi: None,
             cwe: Some(693),
+            surface: Surface::WebApp,
             category: "headers".into(),
             description: "The application does not set the baseline security response headers. \
                           Without them a browser will not enforce HTTPS, will guess content \
@@ -377,6 +380,7 @@ fn build_finding(framework: &Framework, evidence: &HeaderEvidence, missing: &[&s
         .location(location)
         .context(FindingContext {
             framework: Some(framework.clone()),
+            host: None,
             route: None,
             method: None,
             evidence: Some(evidence_text),

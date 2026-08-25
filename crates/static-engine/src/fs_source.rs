@@ -164,32 +164,50 @@ fn build_globs(patterns: &[String]) -> Result<Option<GlobSet>, SourceError> {
         })
 }
 
-impl SourceProvider for FsSourceProvider {
-    fn root(&self) -> &Path {
-        &self.root
-    }
+/// Directories skipped even on the agent-workspace surface.
+///
+/// Much shorter than [`ALWAYS_EXCLUDED_DIRS`], because most of that list exists
+/// to keep editor and tool directories out of an application-source scan — and
+/// those directories are the entire point here. What stays excluded is
+/// dependency and VCS trees: an agent config inside `node_modules` is a real
+/// vector and a very large scan, named as out of scope in ADR 0025 rather than
+/// left unsaid.
+const WORKSPACE_EXCLUDED_DIRS: &[&str] = &["node_modules", ".git", ".svn", ".hg", "target"];
 
-    fn files(&self, selector: &FileSelector) -> Result<Vec<SourceFile>, SourceError> {
-        let include = build_globs(&selector.include)?;
-        let exclude = build_globs(&selector.exclude)?;
-
-        // `hidden(false)` plus our own filter: the ignore crate's `hidden(true)`
-        // skips every dot-directory, including `.github`, which is exactly where
-        // CI integrity checks have to look. We still refuse the usual IDE and
-        // VCS clutter via [`ALWAYS_EXCLUDED_DIRS`] and the allow-list below.
+impl FsSourceProvider {
+    /// Walks the tree, honouring `.gitignore` and the deny list, or not.
+    ///
+    /// One walker with a switch rather than two: the containment, depth, and
+    /// size guarantees are then written once, and a future change to them
+    /// cannot apply to one surface and miss the other.
+    fn walk(
+        &self,
+        include: Option<&GlobSet>,
+        exclude: Option<&GlobSet>,
+        honour_ignore_files: bool,
+    ) -> Vec<SourceFile> {
+        let excluded: &[&str] = if honour_ignore_files {
+            ALWAYS_EXCLUDED_DIRS
+        } else {
+            WORKSPACE_EXCLUDED_DIRS
+        };
         let walker = ignore::WalkBuilder::new(&self.root)
             .hidden(false)
-            .git_ignore(true)
+            .git_ignore(honour_ignore_files)
             .git_global(false)
             .parents(false)
             .follow_links(false)
             .max_depth(Some(limits::source::MAX_DEPTH))
-            .filter_entry(|entry| {
+            .filter_entry(move |entry| {
                 let Some(name) = entry.file_name().to_str() else {
                     return false;
                 };
-                if ALWAYS_EXCLUDED_DIRS.contains(&name) {
+                if excluded.contains(&name) {
                     return false;
+                }
+                if !honour_ignore_files {
+                    // The agent surface *is* the dot-directories.
+                    return true;
                 }
                 // Skip dotfiles and most dot-directories. `.github` is the
                 // exception: workflow files live there and are not themselves
@@ -220,12 +238,12 @@ impl SourceProvider for FsSourceProvider {
             let Ok(path) = RelPath::new(relative) else {
                 continue;
             };
-            if let Some(globs) = &include
+            if let Some(globs) = include
                 && !globs.is_match(path.as_str())
             {
                 continue;
             }
-            if let Some(globs) = &exclude
+            if let Some(globs) = exclude
                 && globs.is_match(path.as_str())
             {
                 continue;
@@ -240,7 +258,34 @@ impl SourceProvider for FsSourceProvider {
         // Deterministic order: two runs over the same tree must produce the
         // same report, and filesystem walk order is not stable across systems.
         files.sort_by(|left, right| left.path.cmp(&right.path));
-        Ok(files)
+        files
+    }
+}
+
+impl SourceProvider for FsSourceProvider {
+    fn root(&self) -> &Path {
+        &self.root
+    }
+
+    fn agent_workspace_files(&self, patterns: &[&str]) -> Result<Vec<SourceFile>, SourceError> {
+        // Each pattern is matched at the root and under any prefix. The prefix
+        // form is what finds a `examples/…/.claude/settings.json` so it can be
+        // reported as a template rather than missed entirely; the caller
+        // decides what a prefixed match means.
+        let mut expanded: Vec<String> = Vec::with_capacity(patterns.len().saturating_mul(2));
+        for pattern in patterns {
+            expanded.push((*pattern).to_owned());
+            expanded.push(format!("**/{pattern}"));
+        }
+        let include = build_globs(&expanded)?;
+        Ok(self.walk(include.as_ref(), None, false))
+    }
+
+    fn files(&self, selector: &FileSelector) -> Result<Vec<SourceFile>, SourceError> {
+        let include = build_globs(&selector.include)?;
+        let exclude = build_globs(&selector.exclude)?;
+
+        Ok(self.walk(include.as_ref(), exclude.as_ref(), true))
     }
 
     fn read(&self, file: &SourceFile) -> Result<Arc<str>, SourceError> {

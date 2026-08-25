@@ -28,6 +28,7 @@ use owlwarden_core::finding::{
 };
 use owlwarden_core::remediation::Remediation;
 use owlwarden_core::source::RelPath;
+use owlwarden_core::surface::Surface;
 use owlwarden_static::ast::{http_method_export, looks_like_error_binding, root_identifier};
 use owlwarden_static::framework::FrameworkSet;
 use owlwarden_static::http::{is_response_constructor, is_response_sink};
@@ -61,7 +62,9 @@ impl StackTraceLeak {
             // correlation with a live response promotes it to Confirmed.
             max_confidence: Confidence::Likely,
             owasp: Some(OwaspRef::new_static("A05:2021")),
+            asi: None,
             cwe: Some(209),
+            surface: Surface::WebApp,
             category: "error-handling".into(),
             description: "Returning an error's `.stack` to the client exposes absolute file \
                           paths, dependency versions, and internal call structure. Attackers \

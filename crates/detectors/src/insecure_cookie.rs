@@ -31,6 +31,7 @@ use owlwarden_core::finding::{
 };
 use owlwarden_core::remediation::Remediation;
 use owlwarden_core::source::RelPath;
+use owlwarden_core::surface::Surface;
 use owlwarden_static::ast::{
     argument_object, is_false_literal, is_true_literal, object_property, property_name,
     string_value,
@@ -65,7 +66,9 @@ impl InsecureCookie {
             severity: Severity::Medium,
             max_confidence: Confidence::Likely,
             owasp: Some(OwaspRef::new_static("A05:2021")),
+            asi: None,
             cwe: Some(614),
+            surface: Surface::WebApp,
             category: "cookies".into(),
             description: "A cookie is written without `httpOnly`, `secure`, or `sameSite`. \
                           Missing `httpOnly` turns any cross-site scripting bug into session \

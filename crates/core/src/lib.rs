@@ -45,6 +45,8 @@ pub mod scheduler;
 pub mod scope;
 pub mod source;
 pub mod suppression;
+pub mod surface;
+pub mod taxonomy;
 pub mod transport;
 
 pub use advisory::{AdvisoryClient, AdvisoryError, AdvisoryHit, PackageQuery};
@@ -55,8 +57,9 @@ pub use budget::Budget;
 pub use context::{ScanContext, ScanSettings};
 pub use detector::{Capabilities, Detector, DetectorError, DetectorKind, DetectorMeta};
 pub use finding::{
-    CodeFrame, Confidence, Finding, FindingContext, Fix, FixSafety, Framework, Highlight, Location,
-    OwaspRef, Reference, ReferenceKind, RuleId, Severity, SourceLocation,
+    AgentHost, AsiRef, CodeFrame, Confidence, Finding, FindingContext, Fix, FixSafety, Framework,
+    Highlight, Location, OwaspRef, Reference, ReferenceKind, RuleId, RuntimeScope, Severity,
+    SourceLocation,
 };
 pub use report::{Report, ReportSummary, ScanTarget, ToolInfo};
 pub use reporter::{ReportError, Reporter};
@@ -66,6 +69,7 @@ pub use scope::{
 };
 pub use source::{FileSelector, RelPath, SourceError, SourceFile, SourceProvider};
 pub use suppression::{Directive, SuppressionOutcome, SuppressionRecord};
+pub use surface::{Profile, SUPPORTED_AGENT_HOSTS, SUPPORTED_FRAMEWORKS, Surface};
 pub use transport::{BoundedRequest, BoundedResponse, HttpLimits, Transport, TransportError};
 
 /// The version of this engine, as reported in `Report.tool.version`.

@@ -6,12 +6,13 @@
 //! configuration file missing entirely?
 
 use std::collections::BTreeMap;
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 
 use owlwarden_core::finding::Framework;
 use owlwarden_core::source::{FileSelector, SourceError, SourceFile, SourceProvider};
 
 use crate::SUPPORTED_EXTENSIONS;
+use crate::agentws::AgentWorkspace;
 use crate::framework::{FrameworkRegistry, FrameworkSet};
 use crate::parse::{ParseFailure, with_parsed};
 use crate::unit::{FileUnit, UnitMeta};
@@ -79,6 +80,7 @@ pub struct Project<'a> {
     manifest: PackageManifest,
     frameworks: Arc<FrameworkSet>,
     files: Vec<SourceFile>,
+    workspace: OnceLock<AgentWorkspace>,
 }
 
 impl<'a> Project<'a> {
@@ -119,6 +121,7 @@ impl<'a> Project<'a> {
             manifest,
             frameworks,
             files,
+            workspace: OnceLock::new(),
         })
     }
 
@@ -150,6 +153,25 @@ impl<'a> Project<'a> {
     #[must_use]
     pub fn source(&self) -> &'a dyn SourceProvider {
         self.source
+    }
+
+    /// The agent and editor configuration in this repository.
+    ///
+    /// Loaded on first use and cached, for two reasons. A scan with no
+    /// agent-surface rule enabled — `--preset owasp-top10`, say — must not pay
+    /// for a second walk of the tree; and the eleven rules that do want it must
+    /// not pay for eleven.
+    ///
+    /// A tree that cannot be walked yields an empty workspace carrying one
+    /// [`UnreadableFile`](crate::agentws::UnreadableFile) that says so, rather
+    /// than an error. The distinction matters: "we could not look" is a finding
+    /// the reader can act on, and a failed scan of the whole project is not the
+    /// proportionate response to one unreadable directory.
+    #[must_use]
+    pub fn agent_workspace(&self) -> &AgentWorkspace {
+        self.workspace.get_or_init(|| {
+            AgentWorkspace::load(self.source).unwrap_or_else(AgentWorkspace::unwalkable)
+        })
     }
 
     /// Finds the first file whose project-relative path equals one of

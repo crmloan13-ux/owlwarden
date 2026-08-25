@@ -8,6 +8,7 @@ use owlwarden_core::context::ScanContext;
 use owlwarden_core::detector::{Capabilities, Detector, DetectorError, DetectorKind, DetectorMeta};
 use owlwarden_core::finding::{Confidence, Finding, RuleId, Severity};
 use owlwarden_core::limits;
+use owlwarden_core::surface::Surface;
 
 use crate::project::Project;
 use crate::rule::{FileRule, FindingSink, ProjectRule};
@@ -83,6 +84,35 @@ impl StaticEngine {
             .map(|rule| rule.meta())
             .chain(self.file_rules.iter().map(|rule| rule.meta()))
             .collect()
+    }
+
+    /// Surfaces agent-workspace files that could not be read or parsed.
+    ///
+    /// Only when a rule that reads that surface is actually enabled: a
+    /// `--preset owasp-top10` run has no business reporting on a malformed
+    /// `.cursor/hooks.json` it never intended to look at.
+    ///
+    /// These go through the skip channel rather than becoming findings of their
+    /// own, for two reasons. The rule count stays a count of *security rules*,
+    /// which is what a reader compares between tools. And "we could not read
+    /// this file" is a statement about the scan, not about the code — the same
+    /// category as an unparseable source file, reported the same way, so a
+    /// consumer already handling one handles both.
+    fn note_unreadable_agent_config(&self, project: &Project<'_>) {
+        if !self
+            .project_rules
+            .iter()
+            .any(|rule| rule.meta().surface == Surface::AgentWorkspace)
+        {
+            return;
+        }
+        let workspace = project.agent_workspace();
+        for unreadable in workspace.unreadable() {
+            self.remember_skip(&unreadable.path, &unreadable.reason);
+        }
+        if workspace.truncated() {
+            self.mark_truncated();
+        }
     }
 
     /// Runs the project-wide rules.
@@ -190,7 +220,9 @@ impl Detector for StaticEngine {
             // carries its own ceiling.
             max_confidence: Confidence::Likely,
             owasp: None,
+            asi: None,
             cwe: None,
+            surface: Surface::WebApp,
             category: "engine".into(),
             description: "Parses project source with oxc and runs the enabled static rules.".into(),
         }
@@ -223,6 +255,15 @@ impl Detector for StaticEngine {
 
         self.run_project_rules(&project, &mut findings);
         self.run_file_rules(&project, &mut findings, dirty_paths.as_ref());
+        self.note_unreadable_agent_config(&project);
+
+        // The scope ceiling is applied here rather than in each rule. Eleven
+        // rules that had to remember it is eleven chances to forget, and the
+        // failure mode — a fenced example in a tutorial reported like a live
+        // config — is the one that gets a rule family switched off.
+        for finding in &mut findings {
+            finding.apply_runtime_scope_ceiling();
+        }
 
         if findings.len() > limits::scan::MAX_FINDINGS {
             findings.truncate(limits::scan::MAX_FINDINGS);

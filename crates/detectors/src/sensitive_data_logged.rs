@@ -23,6 +23,7 @@ use owlwarden_core::finding::{
 };
 use owlwarden_core::remediation::Remediation;
 use owlwarden_core::source::RelPath;
+use owlwarden_core::surface::Surface;
 use owlwarden_static::ast::{property_name, static_property};
 use owlwarden_static::rule::{FileRule, FindingSink, RuleInfo};
 use owlwarden_static::taint::RequestOrigin;
@@ -74,7 +75,9 @@ impl SensitiveDataLogged {
             severity: Severity::Medium,
             max_confidence: Confidence::Likely,
             owasp: Some(OwaspRef::new_static("A09:2021")),
+            asi: None,
             cwe: Some(532),
+            surface: Surface::WebApp,
             category: "logging".into(),
             description: "A password, token, cookie, or similar value is passed to a log sink. \
                           Centralised logs are widely readable inside an organisation and often \

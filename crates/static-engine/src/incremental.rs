@@ -166,6 +166,7 @@ mod tests {
     use tempfile::TempDir;
 
     use super::*;
+    use owlwarden_core::surface::Surface;
     use crate::rule::RuleInfo;
 
     fn source_finding(rule: &'static str, path: &str) -> Finding {
@@ -204,7 +205,9 @@ mod tests {
                 severity: Severity::Info,
                 max_confidence: Confidence::Likely,
                 owasp: None,
+                asi: None,
                 cwe: None,
+                surface: Surface::WebApp,
                 category: "test".into(),
                 description: Cow::Borrowed(""),
             }

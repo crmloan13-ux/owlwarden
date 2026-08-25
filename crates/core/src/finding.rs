@@ -328,6 +328,211 @@ pub enum FrameworkIdError {
     },
 }
 
+/// The agent or editor host a fix is written for.
+///
+/// The `AgentWorkspace` counterpart to [`Framework`], and open for the same
+/// reason: the set of tools that read project-local configuration and execute
+/// it grows every quarter, and a closed enum here would make the rule family an
+/// advertisement for whichever four vendors we knew about when we wrote it.
+///
+/// A host is *not* a framework. `.claude/settings.json` has nothing to do with
+/// whether the application is Next.js or Koa, and the fix for a hostile hook is
+/// the same across all twelve web frameworks and different across every host —
+/// which is precisely why remediation completeness is asserted per
+/// [`Surface`](crate::surface::Surface) rather than against one hard-coded list
+/// ([ADR 0025](../../../docs/adr/0025-agent-surface-and-supply-chain.md) §1).
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct AgentHost(Cow<'static, str>);
+
+impl AgentHost {
+    /// Longest accepted host id. Same ceiling as a framework id, and for the
+    /// same reason: these end up in config files, CLI flags, and URLs.
+    pub const MAX_LEN: usize = 32;
+
+    /// Claude Code.
+    pub const CLAUDE_CODE: Self = Self::new_static("claude-code");
+    /// Cursor.
+    pub const CURSOR: Self = Self::new_static("cursor");
+    /// Visual Studio Code, including its task runner and dev containers.
+    pub const VSCODE: Self = Self::new_static("vscode");
+    /// GitHub Copilot, including `copilot-instructions.md`.
+    pub const COPILOT: Self = Self::new_static("copilot");
+    /// OpenAI Codex CLI.
+    pub const CODEX: Self = Self::new_static("codex");
+    /// Gemini CLI.
+    pub const GEMINI_CLI: Self = Self::new_static("gemini-cli");
+    /// Any host that reads project-local configuration. Never a placeholder:
+    /// this is the fix for a tool we have not heard of.
+    pub const GENERIC: Self = Self::new_static("generic");
+
+    /// Creates an id from a compile-time string (the built-in profiles).
+    #[must_use]
+    pub const fn new_static(id: &'static str) -> Self {
+        Self(Cow::Borrowed(id))
+    }
+
+    /// Creates an id from untrusted input (a plugin manifest, a `--host` flag).
+    ///
+    /// # Errors
+    /// [`AgentHostIdError`] if the id is empty, longer than [`Self::MAX_LEN`],
+    /// or contains anything outside `[a-z0-9-]`.
+    pub fn parse(id: &str) -> Result<Self, AgentHostIdError> {
+        if id.is_empty() {
+            return Err(AgentHostIdError::Empty);
+        }
+        if id.len() > Self::MAX_LEN {
+            return Err(AgentHostIdError::TooLong { len: id.len() });
+        }
+        if let Some(bad) = id
+            .chars()
+            .find(|c| !(c.is_ascii_lowercase() || c.is_ascii_digit() || *c == '-'))
+        {
+            return Err(AgentHostIdError::InvalidChar { ch: bad });
+        }
+        Ok(Self(Cow::Owned(id.to_owned())))
+    }
+
+    /// The lowercase wire name.
+    #[must_use]
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+
+    /// Whether this is the "any host" id.
+    #[must_use]
+    pub fn is_generic(&self) -> bool {
+        self.0 == "generic"
+    }
+
+    /// Human-facing label used in reporter output, e.g. `fix (Claude Code)`.
+    ///
+    /// An id we ship no display name for renders verbatim — the same rule as
+    /// [`Framework::label`], and for the same reason: a wrong pretty name is
+    /// worse than the id its author chose.
+    #[must_use]
+    pub fn label(&self) -> &str {
+        match self.as_str() {
+            "claude-code" => "Claude Code",
+            "cursor" => "Cursor",
+            "vscode" => "VS Code",
+            "copilot" => "GitHub Copilot",
+            "codex" => "Codex CLI",
+            "gemini-cli" => "Gemini CLI",
+            "generic" => "any host",
+            other => other,
+        }
+    }
+}
+
+impl fmt::Display for AgentHost {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.label())
+    }
+}
+
+/// Why an agent host id was rejected.
+#[derive(Debug, thiserror::Error, PartialEq, Eq)]
+pub enum AgentHostIdError {
+    /// The id was an empty string.
+    #[error("agent host id is empty")]
+    Empty,
+    /// The id exceeded [`AgentHost::MAX_LEN`].
+    #[error("agent host id is {len} bytes, maximum is {max}", max = AgentHost::MAX_LEN)]
+    TooLong {
+        /// Length of the offending id.
+        len: usize,
+    },
+    /// The id contained a character outside `[a-z0-9-]`.
+    #[error("agent host id contains {ch:?}; allowed characters are a-z, 0-9 and '-'")]
+    InvalidChar {
+        /// The first offending character.
+        ch: char,
+    },
+}
+
+/// How much of the host's real configuration a finding's file actually is.
+///
+/// Orthogonal to severity and to confidence, and the field that keeps this rule
+/// family from being noise. A `.claude/settings.json` under `examples/` is
+/// documentation; a fenced code block in a tutorial showing a hook is
+/// documentation. Reporting those at the weight of a live config is how a rule
+/// family gets switched off in week two
+/// ([ADR 0025](../../../docs/adr/0025-agent-surface-and-supply-chain.md) §5).
+///
+/// It is deliberately **not** a suppression: the finding is still reported,
+/// because a repository that ships a risky template is still telling its
+/// readers to do the risky thing. What changes is the confidence ceiling and
+/// the sentence the reader is shown.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum RuntimeScope {
+    /// Inside a fenced block in a Markdown file. Nothing loads it.
+    Documentation,
+    /// Under a template, example, or fixture path.
+    Template,
+    /// Loadable, but not on the host's default resolution path.
+    ProjectOptional,
+    /// In a path the host actually loads.
+    Active,
+}
+
+impl RuntimeScope {
+    /// Wire/CLI name (`"active"`, `"project-optional"`, ...).
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Documentation => "documentation",
+            Self::Template => "template",
+            Self::ProjectOptional => "project-optional",
+            Self::Active => "active",
+        }
+    }
+
+    /// The confidence this scope allows a finding to keep.
+    ///
+    /// `template` and `documentation` cap at `Possible`, which — combined with
+    /// the rule that `Possible` never fails CI on its own — is what makes a
+    /// repository full of example configs safe to scan.
+    #[must_use]
+    pub const fn confidence_ceiling(self) -> Confidence {
+        match self {
+            Self::Documentation | Self::Template => Confidence::Possible,
+            Self::ProjectOptional | Self::Active => Confidence::Likely,
+        }
+    }
+
+    /// One clause explaining what the reader is looking at, for the pretty and
+    /// Markdown reporters.
+    #[must_use]
+    pub const fn explanation(self) -> &'static str {
+        match self {
+            Self::Active => "this file is on the host's load path",
+            Self::ProjectOptional => "this file is loadable, but not the default resolution path",
+            Self::Template => "this file is under a template or fixture path, not a live config",
+            Self::Documentation => "this is a fenced example inside a Markdown file",
+        }
+    }
+
+    /// Parses a wire value.
+    #[must_use]
+    pub fn from_str_opt(s: &str) -> Option<Self> {
+        match s.to_ascii_lowercase().as_str() {
+            "active" => Some(Self::Active),
+            "project-optional" => Some(Self::ProjectOptional),
+            "template" => Some(Self::Template),
+            "documentation" => Some(Self::Documentation),
+            _ => None,
+        }
+    }
+}
+
+impl fmt::Display for RuntimeScope {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
 /// An OWASP Top 10 category reference, e.g. `A05:2021`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(transparent)]
@@ -348,6 +553,34 @@ impl OwaspRef {
 }
 
 impl fmt::Display for OwaspRef {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
+/// An OWASP ASI (Agentic Applications) category reference, e.g. `ASI05`.
+///
+/// Secondary to CWE on every rule that carries one. The edition is pinned in
+/// [`crate::taxonomy`] so a renumbering is a reviewed change rather than drift.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct AsiRef(pub Cow<'static, str>);
+
+impl AsiRef {
+    /// Builds a reference from a compile-time category id.
+    #[must_use]
+    pub const fn new_static(id: &'static str) -> Self {
+        Self(Cow::Borrowed(id))
+    }
+
+    /// The category id, e.g. `"ASI05"`.
+    #[must_use]
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl fmt::Display for AsiRef {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(&self.0)
     }
@@ -442,6 +675,10 @@ pub struct FindingContext {
     /// Framework detected for this project/file.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub framework: Option<Framework>,
+    /// Agent host this finding's configuration file belongs to, on
+    /// agent-surface findings.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub host: Option<AgentHost>,
     /// Route path, when the finding sits in a routed handler, e.g. `/api/users`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub route: Option<String>,
@@ -474,6 +711,15 @@ pub struct Fix {
     /// `None` means the advice is framework-independent.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub framework: Option<Framework>,
+    /// The agent host this advice is written for, on
+    /// [`Surface::AgentWorkspace`](crate::surface::Surface) rules.
+    ///
+    /// A second optional key rather than a reused `framework` field: the two
+    /// name different things, and a consumer that saw `"framework": "cursor"`
+    /// would reasonably conclude we had lost track of which was which. Exactly
+    /// one of the two is set on any fix that is not the fallback.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub host: Option<AgentHost>,
     /// One line: what to do.
     pub summary: String,
     /// Copy-paste-ready replacement code, if the fix is that concrete.
@@ -489,6 +735,8 @@ pub struct Fix {
 pub enum ReferenceKind {
     /// An OWASP Top 10 category page.
     Owasp,
+    /// An OWASP ASI (Agentic Applications) category.
+    Asi,
     /// A CWE entry.
     Cwe,
     /// Framework or vendor documentation.
@@ -518,6 +766,20 @@ impl Reference {
         let entry = crate::owasp::category(category.as_str())?;
         Some(Self {
             kind: ReferenceKind::Owasp,
+            id: entry.id.to_owned(),
+            url: entry.url(),
+        })
+    }
+
+    /// Builds the ASI reference for a category id such as `ASI05`.
+    ///
+    /// `None` for an unrecognised category, exactly like [`Self::owasp`]: a
+    /// broken link in a security report costs more than a missing one.
+    #[must_use]
+    pub fn asi(category: &AsiRef) -> Option<Self> {
+        let entry = crate::taxonomy::category(category.as_str())?;
+        Some(Self {
+            kind: ReferenceKind::Asi,
             id: entry.id.to_owned(),
             url: entry.url(),
         })
@@ -573,9 +835,17 @@ pub struct Finding {
     /// OWASP Top 10 category, when one applies.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub owasp: Option<OwaspRef>,
+    /// OWASP ASI (agentic) category, when one applies.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub asi: Option<AsiRef>,
     /// CWE number, when one applies.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cwe: Option<u32>,
+    /// How much of the host's real configuration this file is, on agent-surface
+    /// findings. Absent on application-source findings, where the question does
+    /// not arise.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub runtime_scope: Option<RuntimeScope>,
     /// One line, sentence case, no trailing period.
     pub title: String,
     /// Why this matters, in plain language. Shown as the `why` line.
@@ -608,7 +878,9 @@ impl Finding {
                 severity,
                 confidence: Confidence::Possible,
                 owasp: None,
+                asi: None,
                 cwe: None,
+                runtime_scope: None,
                 title: title.into(),
                 why: String::new(),
                 location: Location::Source(SourceLocation {
@@ -624,16 +896,43 @@ impl Finding {
         }
     }
 
-    /// The fix to show first: the one matching the detected framework, else the
-    /// framework-independent one, else whatever came first.
+    /// The fix to show first: the one matching this finding's profile, else the
+    /// profile-independent one, else whatever came first.
+    ///
+    /// The profile is the detected agent host on an agent-surface finding and
+    /// the detected framework everywhere else. A finding never carries both.
     #[must_use]
     pub fn primary_fix(&self) -> Option<&Fix> {
-        let detected = self.context.framework.as_ref();
+        let framework = self.context.framework.as_ref();
+        let host = self.context.host.as_ref();
         self.remediation
             .iter()
-            .find(|fix| detected.is_some() && fix.framework.as_ref() == detected)
-            .or_else(|| self.remediation.iter().find(|fix| fix.framework.is_none()))
+            .find(|fix| host.is_some() && fix.host.as_ref() == host)
+            .or_else(|| {
+                self.remediation
+                    .iter()
+                    .find(|fix| framework.is_some() && fix.framework.as_ref() == framework)
+            })
+            .or_else(|| {
+                self.remediation
+                    .iter()
+                    .find(|fix| fix.framework.is_none() && fix.host.is_none())
+            })
             .or_else(|| self.remediation.first())
+    }
+
+    /// Applies the ceiling this finding's [`RuntimeScope`] imposes.
+    ///
+    /// Called by the engine rather than by each rule: a rule that had to
+    /// remember to lower its own confidence is a rule that will one day forget,
+    /// and the failure mode is a tutorial reported like a live config.
+    pub fn apply_runtime_scope_ceiling(&mut self) {
+        if let Some(scope) = self.runtime_scope {
+            let ceiling = scope.confidence_ceiling();
+            if self.confidence > ceiling {
+                self.confidence = ceiling;
+            }
+        }
     }
 
     /// Report ordering: severity desc, confidence desc, then path/line/rule id
@@ -681,6 +980,24 @@ impl FindingBuilder {
             self.finding.references.push(reference);
         }
         self.finding.owasp = Some(category);
+        self
+    }
+
+    /// Sets the ASI category and, when the category is recognised, appends its
+    /// reference link.
+    #[must_use]
+    pub fn asi(mut self, category: AsiRef) -> Self {
+        if let Some(reference) = Reference::asi(&category) {
+            self.finding.references.push(reference);
+        }
+        self.finding.asi = Some(category);
+        self
+    }
+
+    /// Sets how much of the host's real configuration this file is.
+    #[must_use]
+    pub fn runtime_scope(mut self, scope: RuntimeScope) -> Self {
+        self.finding.runtime_scope = Some(scope);
         self
     }
 
@@ -813,12 +1130,14 @@ mod tests {
         })
         .fix(Fix {
             framework: Some(Framework::NEXT),
+            host: None,
             summary: "next.config.js headers()".into(),
             patch: None,
             safety: FixSafety::Manual,
         })
         .fix(Fix {
             framework: Some(Framework::NEST),
+            host: None,
             summary: "app.use(helmet())".into(),
             patch: None,
             safety: FixSafety::Manual,

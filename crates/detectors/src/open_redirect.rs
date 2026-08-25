@@ -34,6 +34,7 @@ use owlwarden_core::finding::{
 };
 use owlwarden_core::remediation::Remediation;
 use owlwarden_core::source::RelPath;
+use owlwarden_core::surface::Surface;
 use owlwarden_static::ast::{root_identifier, static_property};
 use owlwarden_static::rule::{FileRule, FindingSink, RuleInfo};
 use owlwarden_static::taint::RequestOrigin;
@@ -78,7 +79,9 @@ impl OpenRedirect {
             severity: Severity::Medium,
             max_confidence: Confidence::Likely,
             owasp: Some(OwaspRef::new_static("A01:2021")),
+            asi: None,
             cwe: Some(601),
+            surface: Surface::WebApp,
             category: "redirect".into(),
             description: "The destination of a redirect is taken from the request without being \
                           checked. An attacker can send a link that starts with your domain and \
