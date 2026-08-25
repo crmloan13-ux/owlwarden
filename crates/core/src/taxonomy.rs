@@ -288,7 +288,10 @@ mod tests {
             .iter()
             .find(|entry| entry.category.id == "ASI06")
             .expect("ASI06 is in the catalogue");
-        assert!(!memory.is_covered(), "an uncovered category is still listed");
+        assert!(
+            !memory.is_covered(),
+            "an uncovered category is still listed"
+        );
     }
 
     #[test]

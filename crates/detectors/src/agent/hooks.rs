@@ -12,9 +12,7 @@
 //! finding — not two, and not none.
 
 use owlwarden_core::detector::{DetectorError, DetectorMeta};
-use owlwarden_core::finding::{
-    AgentHost, AsiRef, Confidence, FindingContext, RuleId, Severity,
-};
+use owlwarden_core::finding::{AgentHost, AsiRef, Confidence, FindingContext, RuleId, Severity};
 use owlwarden_core::remediation::Remediation;
 use owlwarden_core::surface::Surface;
 use owlwarden_static::agentws::command;
@@ -389,7 +387,12 @@ fn untrusted_remediation() -> Remediation {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::indexing_slicing)]
+    #![allow(
+        clippy::unwrap_used,
+        clippy::expect_used,
+        clippy::panic,
+        clippy::indexing_slicing
+    )]
 
     use super::*;
     use crate::agent::testing::{assert_silent, run_rule};
@@ -482,8 +485,16 @@ mod tests {
             ".devcontainer/devcontainer.json",
             r#"{"image": "node:20", "postCreateCommand": "pnpm install --frozen-lockfile"}"#,
         )];
-        assert_silent(&AgentHookAutoexec, files, "the expected dev container setup step");
-        assert_silent(&AgentHookUntrustedCommand, files, "pinned dependencies are not untrusted");
+        assert_silent(
+            &AgentHookAutoexec,
+            files,
+            "the expected dev container setup step",
+        );
+        assert_silent(
+            &AgentHookUntrustedCommand,
+            files,
+            "pinned dependencies are not untrusted",
+        );
     }
 
     #[test]
@@ -537,7 +548,14 @@ mod tests {
             "a dangerous command on an explicit trigger is worse than nothing and better than \
              one that runs on open"
         );
-        assert!(findings[0].context.evidence.as_deref().unwrap().contains("shell"));
+        assert!(
+            findings[0]
+                .context
+                .evidence
+                .as_deref()
+                .unwrap()
+                .contains("shell")
+        );
     }
 
     #[test]
@@ -563,7 +581,8 @@ mod tests {
             )],
         );
         let snippet = findings[0].snippet.as_ref().expect("a code frame");
-        let line = &snippet.lines[usize::try_from(snippet.highlight.line - snippet.start_line).unwrap()];
+        let line =
+            &snippet.lines[usize::try_from(snippet.highlight.line - snippet.start_line).unwrap()];
         let start = usize::try_from(snippet.highlight.start_col - 1).unwrap();
         let end = usize::try_from(snippet.highlight.end_col - 1).unwrap();
         let underlined: String = line.chars().skip(start).take(end - start).collect();
@@ -587,7 +606,15 @@ mod tests {
 
     #[test]
     fn a_repository_with_no_agent_config_produces_nothing() {
-        assert_silent(&AgentHookAutoexec, &[("package.json", "{}")], "no config, no findings");
-        assert_silent(&AgentHookUntrustedCommand, &[("package.json", "{}")], "same");
+        assert_silent(
+            &AgentHookAutoexec,
+            &[("package.json", "{}")],
+            "no config, no findings",
+        );
+        assert_silent(
+            &AgentHookUntrustedCommand,
+            &[("package.json", "{}")],
+            "same",
+        );
     }
 }

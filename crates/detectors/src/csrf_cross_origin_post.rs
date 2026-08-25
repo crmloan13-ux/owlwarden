@@ -15,8 +15,8 @@ use owlwarden_core::finding::{
     Reference, RuleId, Severity,
 };
 use owlwarden_core::remediation::Remediation;
-use owlwarden_core::transport::{BoundedRequest, Method};
 use owlwarden_core::surface::Surface;
+use owlwarden_core::transport::{BoundedRequest, Method};
 use owlwarden_static::rule::RuleInfo;
 
 use crate::SUPPORTED_FRAMEWORKS;

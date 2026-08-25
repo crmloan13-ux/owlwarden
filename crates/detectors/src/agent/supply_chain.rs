@@ -7,9 +7,7 @@
 //! request.
 
 use owlwarden_core::detector::{DetectorError, DetectorMeta};
-use owlwarden_core::finding::{
-    AgentHost, AsiRef, Confidence, FindingContext, RuleId, Severity,
-};
+use owlwarden_core::finding::{AgentHost, AsiRef, Confidence, FindingContext, RuleId, Severity};
 use owlwarden_core::remediation::Remediation;
 use owlwarden_core::surface::Surface;
 use owlwarden_static::agentws::jsonc::{JsonMember, JsonNode};
@@ -209,24 +207,19 @@ fn server_problem(server: &JsonNode) -> Option<ServerProblem> {
 /// `pkg@1.2.3` yes; `pkg`, `pkg@latest`, `pkg@^1` no. Scoped names keep their
 /// leading `@`, which is why the search starts after the first character.
 fn is_pinned_specifier(specifier: &str) -> bool {
-    let Some((_, version)) = specifier
-        .get(1..)
-        .and_then(|rest| rest.split_once('@'))
-        .map(|(name, version)| (name, version))
-    else {
+    let Some((_, version)) = specifier.get(1..).and_then(|rest| rest.split_once('@')) else {
         return false;
     };
     !version.is_empty()
-        && version
-            .chars()
-            .next()
-            .is_some_and(|ch| ch.is_ascii_digit())
+        && version.chars().next().is_some_and(|ch| ch.is_ascii_digit())
         && !version.contains(['^', '~', '*', 'x'])
 }
 
 fn is_loopback(url: &str) -> bool {
     let lower = url.to_ascii_lowercase();
-    let after = lower.split_once("://").map_or(lower.as_str(), |(_, rest)| rest);
+    let after = lower
+        .split_once("://")
+        .map_or(lower.as_str(), |(_, rest)| rest);
     let host = after.split(['/', ':']).next().unwrap_or_default();
     matches!(host, "localhost" | "127.0.0.1" | "::1") || host.ends_with(".localhost")
 }
@@ -490,7 +483,12 @@ fn marketplace_remediation() -> Remediation {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::indexing_slicing)]
+    #![allow(
+        clippy::unwrap_used,
+        clippy::expect_used,
+        clippy::panic,
+        clippy::indexing_slicing
+    )]
 
     use super::*;
     use crate::agent::testing::{assert_silent, run_rule};
@@ -506,7 +504,14 @@ mod tests {
         );
         assert_eq!(findings.len(), 1);
         assert_eq!(findings[0].severity, Severity::Medium);
-        assert!(findings[0].context.evidence.as_deref().unwrap().contains("mcp-db"));
+        assert!(
+            findings[0]
+                .context
+                .evidence
+                .as_deref()
+                .unwrap()
+                .contains("mcp-db")
+        );
     }
 
     #[test]

@@ -83,9 +83,8 @@ pub struct ScanRequest {
     /// and `--baseline` can still filter the displayed report against an older
     /// file in the same run.
     pub write_baseline: Option<PathBuf>,
-    /// When false, inline suppressions are listed but do not hide findings.
-    /// CI on an untrusted tree sets this false unless the operator opted in.
-    pub honor_suppressions: bool,
+    /// What this run does with the inline suppressions it finds.
+    pub suppressions: owlwarden_core::suppression::SuppressionPolicy,
     /// Extra detectors to run alongside the static engine (e.g. dynamic).
     pub extra_detectors: Vec<Arc<dyn Detector>>,
     /// When set, detectors may use the network under this stack.
@@ -110,7 +109,7 @@ impl Default for ScanRequest {
             settings: ScanSettings::default(),
             baseline: None,
             write_baseline: None,
-            honor_suppressions: true,
+            suppressions: owlwarden_core::suppression::SuppressionPolicy::Honour,
             extra_detectors: Vec::new(),
             network: None,
             advisory: None,
@@ -144,7 +143,7 @@ pub async fn scan_project(
             settings,
             baseline: None,
             write_baseline: None,
-            honor_suppressions: true,
+            suppressions: owlwarden_core::suppression::SuppressionPolicy::Honour,
             extra_detectors: Vec::new(),
             network: None,
             advisory: None,
@@ -248,7 +247,7 @@ pub async fn scan_project_with(
 
     // Suppression re-reads files; do not double-charge the byte budget.
     provider.reset_bytes_read();
-    apply_suppressions_with(&mut report, &provider, request.honor_suppressions);
+    apply_suppressions_with(&mut report, &provider, &request.suppressions);
 
     if let Some(path) = &request.write_baseline {
         let file = BaselineFile::from_findings(&report.findings, owlwarden_core::ENGINE_VERSION);

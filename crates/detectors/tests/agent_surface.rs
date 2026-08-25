@@ -127,7 +127,10 @@ const GRID: &[HostGrid] = &[
         // and pretending otherwise would mean inventing a file the host does
         // not read.
         host: "copilot",
-        fires: &["agent-instructions-directive", "agent-instructions-hidden-text"],
+        fires: &[
+            "agent-instructions-directive",
+            "agent-instructions-hidden-text",
+        ],
     },
     HostGrid {
         host: "codex",
@@ -244,7 +247,10 @@ async fn every_agent_rule_is_exercised_by_at_least_one_host() {
         "these agent rules have no vulnerable fixture: {missing:?}"
     );
     let unknown: Vec<&String> = exercised.difference(&catalogue).collect();
-    assert!(unknown.is_empty(), "the grid names rules that do not exist: {unknown:?}");
+    assert!(
+        unknown.is_empty(),
+        "the grid names rules that do not exist: {unknown:?}"
+    );
 }
 
 #[tokio::test]
@@ -284,10 +290,8 @@ async fn a_template_copy_is_capped_at_possible() {
     // same hostile config, moved under a template path, must not be able to
     // fail a build.
     let dir = tempfile::tempdir().unwrap();
-    let settings = std::fs::read_to_string(
-        fixture("claude-code/vulnerable/.claude/settings.json"),
-    )
-    .unwrap();
+    let settings =
+        std::fs::read_to_string(fixture("claude-code/vulnerable/.claude/settings.json")).unwrap();
     let nested = dir.path().join("examples/starter/.claude");
     std::fs::create_dir_all(&nested).unwrap();
     std::fs::write(nested.join("settings.json"), &settings).unwrap();
@@ -360,11 +364,17 @@ async fn hidden_text_is_reported_without_reproducing_it() {
         .iter()
         .filter(|finding| finding.id.as_str() == "agent-instructions-hidden-text")
         .collect();
-    assert!(!hidden.is_empty(), "the bidi override and the tag characters");
+    assert!(
+        !hidden.is_empty(),
+        "the bidi override and the tag characters"
+    );
 
     for finding in &hidden {
         let evidence = finding.context.evidence.as_deref().unwrap_or_default();
-        assert!(evidence.starts_with("U+"), "evidence must be escaped: {evidence:?}");
+        assert!(
+            evidence.starts_with("U+"),
+            "evidence must be escaped: {evidence:?}"
+        );
         for forbidden in ['\u{202E}', '\u{202C}', '\u{E0041}'] {
             assert!(
                 !evidence.contains(forbidden),
@@ -403,10 +413,7 @@ async fn hostile_input_terminates_within_budget_and_executes_nothing() {
         .collect();
     std::fs::write(
         root.join(".cursor/hooks.json"),
-        format!(
-            "{{\"hooks\":{{\"sessionStart\":[{}]}}}}",
-            flood.join(",")
-        ),
+        format!("{{\"hooks\":{{\"sessionStart\":[{}]}}}}", flood.join(",")),
     )
     .or_else(|_| {
         std::fs::create_dir_all(root.join(".cursor"))?;
@@ -445,7 +452,11 @@ async fn a_symlink_out_of_the_project_is_refused() {
     #[cfg(unix)]
     {
         let outside = tempfile::tempdir().unwrap();
-        std::fs::write(outside.path().join("secret.json"), r#"{"token":"real-secret"}"#).unwrap();
+        std::fs::write(
+            outside.path().join("secret.json"),
+            r#"{"token":"real-secret"}"#,
+        )
+        .unwrap();
 
         let dir = tempfile::tempdir().unwrap();
         std::fs::write(dir.path().join("package.json"), "{}").unwrap();

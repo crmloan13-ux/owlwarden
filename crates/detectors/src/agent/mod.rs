@@ -42,8 +42,8 @@ use owlwarden_core::finding::{
 };
 use owlwarden_core::remediation::Remediation;
 use owlwarden_static::agentws::jsonc::{JsonNode, Span};
-use owlwarden_static::agentws::workspace::WorkspaceFile;
 use owlwarden_static::agentws::paths::WorkspaceFileKind;
+use owlwarden_static::agentws::workspace::WorkspaceFile;
 
 use crate::build::{finding_builder, finding_builder_with};
 
@@ -263,11 +263,7 @@ fn collect_hook_blocks<'a>(
 fn commands_under(node: &JsonNode) -> Vec<(String, Span)> {
     node.strings()
         .into_iter()
-        .filter(|hit| {
-            hit.path
-                .last()
-                .is_some_and(|key| is_command_key(key))
-        })
+        .filter(|hit| hit.path.last().is_some_and(|key| is_command_key(key)))
         .map(|hit| (hit.value.to_owned(), hit.span))
         .collect()
 }
@@ -392,7 +388,11 @@ pub fn host_table(generic: &str) -> Remediation {
 ///
 /// Returns `false` once the rule should stop building findings it will throw
 /// away.
-pub fn push(sink: &mut owlwarden_static::rule::FindingSink, emitted: &mut usize, finding: Finding) -> bool {
+pub fn push(
+    sink: &mut owlwarden_static::rule::FindingSink,
+    emitted: &mut usize,
+    finding: Finding,
+) -> bool {
     if *emitted >= MAX_FINDINGS_PER_RULE {
         return false;
     }
@@ -412,11 +412,11 @@ pub(crate) mod testing {
 
     use std::path::Path;
 
+    use owlwarden_core::finding::Finding;
     use owlwarden_static::agentws::AgentWorkspace;
     use owlwarden_static::fs_source::FsSourceProvider;
     use owlwarden_static::project::Project;
     use owlwarden_static::rule::{FindingSink, ProjectRule};
-    use owlwarden_core::finding::Finding;
 
     /// Writes a tree, scans it with one rule, and returns the findings.
     ///
@@ -472,7 +472,12 @@ pub(crate) mod testing {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::indexing_slicing)]
+    #![allow(
+        clippy::unwrap_used,
+        clippy::expect_used,
+        clippy::panic,
+        clippy::indexing_slicing
+    )]
 
     use super::*;
     use testing::workspace_of;
@@ -494,7 +499,10 @@ mod tests {
         assert!(session.automatic);
         assert_eq!(session.command.as_deref(), Some("node .claude/setup.mjs"));
         let post = hooks.iter().find(|h| h.trigger == "PostToolUse").unwrap();
-        assert!(!post.automatic, "an edit hook needs the developer to edit something first");
+        assert!(
+            !post.automatic,
+            "an edit hook needs the developer to edit something first"
+        );
     }
 
     #[test]
@@ -530,7 +538,11 @@ mod tests {
 }"#,
         )]);
         let hooks = collect_hooks(&workspace);
-        assert_eq!(hooks.len(), 5, "string, argv array, and named-object forms all count");
+        assert_eq!(
+            hooks.len(),
+            5,
+            "string, argv array, and named-object forms all count"
+        );
         assert!(hooks.iter().all(|hook| hook.automatic));
     }
 
@@ -542,7 +554,10 @@ mod tests {
         )]);
         let hooks = collect_hooks(&workspace);
         assert_eq!(hooks.len(), 1);
-        assert!(hooks[0].command.is_none(), "only command-shaped keys are commands");
+        assert!(
+            hooks[0].command.is_none(),
+            "only command-shaped keys are commands"
+        );
     }
 
     #[test]

@@ -8,7 +8,7 @@
 use owlwarden_core::baseline::{self, BaselineFile};
 use owlwarden_core::report::Report;
 use owlwarden_core::source::{FileSelector, SourceProvider};
-use owlwarden_core::suppression::{self, Directive};
+use owlwarden_core::suppression::{self, Directive, SuppressionPolicy};
 
 use crate::SUPPORTED_EXTENSIONS;
 
@@ -19,27 +19,45 @@ const EXTRA_SUPPRESSION_GLOBS: &[&str] = &[".github/workflows/*.yml", ".github/w
 
 /// Applies inline suppressions to a finished report.
 pub fn apply_suppressions(report: &mut Report, source: &dyn SourceProvider) {
-    apply_suppressions_with(report, source, true);
+    apply_suppressions_with(report, source, &SuppressionPolicy::Honour);
 }
 
-/// Applies or merely lists inline suppressions.
+/// Applies, partially applies, or merely lists inline suppressions.
 ///
-/// When `honor` is false (CI on an untrusted tree), directives still appear in
-/// `report.suppressions` so reviewers see them, but findings are not hidden —
-/// a PR cannot silence the gate with a comment alone.
-pub fn apply_suppressions_with(report: &mut Report, source: &dyn SourceProvider, honor: bool) {
+/// Under [`SuppressionPolicy::ReportOnly`] (CI on an untrusted tree, and `vet`)
+/// directives still appear in `report.suppressions` so reviewers see them, but
+/// findings are not hidden — a pull request cannot silence the gate with a
+/// comment alone.
+///
+/// Under [`SuppressionPolicy::HonourExcept`] the split is by file: a directive
+/// the team committed last month still works, and one that appeared in a file
+/// written during this session does not. Both are listed either way.
+pub fn apply_suppressions_with(
+    report: &mut Report,
+    source: &dyn SourceProvider,
+    policy: &SuppressionPolicy,
+) {
     let directives = collect_directives(source);
-    if honor {
-        let outcome = suppression::apply(std::mem::take(&mut report.findings), &directives);
+
+    // Every directive is matched, always — that is what fills
+    // `report.suppressions` with the stale and missing-reason flags a reviewer
+    // needs. What the policy decides is which of them are allowed to hide
+    // anything.
+    let honoured: Vec<Directive> = directives
+        .iter()
+        .filter(|directive| policy.honours(&directive.path))
+        .cloned()
+        .collect();
+
+    let listing = suppression::apply(report.findings.clone(), &directives);
+    report.suppressions = listing.records;
+
+    if policy.honours_anything() {
+        let outcome = suppression::apply(std::mem::take(&mut report.findings), &honoured);
         report.findings = outcome.findings;
         report.suppressed_count = outcome.suppressed_count;
-        report.suppressions = outcome.records;
     } else {
-        // Match against a clone so records reflect what would have been
-        // silenced, then keep every finding.
-        let outcome = suppression::apply(report.findings.clone(), &directives);
         report.suppressed_count = 0;
-        report.suppressions = outcome.records;
     }
     report.summary = owlwarden_core::report::ReportSummary::of(&report.findings);
 }
@@ -57,9 +75,9 @@ pub fn apply_trust_filters(
     report: &mut Report,
     source: &dyn SourceProvider,
     baseline: Option<&BaselineFile>,
-    honor_suppressions: bool,
+    policy: &SuppressionPolicy,
 ) {
-    apply_suppressions_with(report, source, honor_suppressions);
+    apply_suppressions_with(report, source, policy);
     if let Some(baseline) = baseline {
         apply_baseline(report, baseline);
     }
@@ -117,7 +135,10 @@ mod tests {
     }
 
     impl SourceProvider for MemorySource {
-        fn agent_workspace_files(&self, _patterns: &[&str]) -> Result<Vec<SourceFile>, SourceError> {
+        fn agent_workspace_files(
+            &self,
+            _patterns: &[&str],
+        ) -> Result<Vec<SourceFile>, SourceError> {
             // This double serves no agent workspace. Empty rather than
             // `unimplemented!`: an agent rule under test here should find
             // nothing, not abort the run.
@@ -215,13 +236,61 @@ mod tests {
                 .build(),
         ]);
 
-        apply_suppressions_with(&mut report, &source, false);
+        apply_suppressions_with(&mut report, &source, &SuppressionPolicy::ReportOnly);
         assert_eq!(report.findings.len(), 1, "findings must stay visible");
         assert_eq!(report.suppressed_count, 0);
         assert_eq!(report.suppressions.len(), 1);
         assert!(
             !report.suppressions[0].stale,
             "record should show the directive would match if honoured"
+        );
+    }
+
+    #[test]
+    fn a_session_written_file_loses_its_suppression_and_the_rest_keep_theirs() {
+        // The gate's posture. `agreed.ts` carries a directive the team
+        // committed; `just-written.ts` carries one that appeared during this
+        // session. Only the first hides anything, and both are listed.
+        let directive = "// owlwarden-disable-next-line stack-trace-leak -- reason\nerr.stack\n";
+        let source = MemorySource {
+            root: PathBuf::from("/tmp"),
+            files: vec![
+                ("agreed.ts".to_owned(), directive.to_owned()),
+                ("just-written.ts".to_owned(), directive.to_owned()),
+            ],
+        };
+        let at = |path: &str| {
+            Finding::builder(RuleId::new_static("stack-trace-leak"), Severity::High, "t")
+                .confidence(Confidence::Likely)
+                .location(Location::Source(SourceLocation {
+                    path: path.to_owned(),
+                    line: 2,
+                    col: 1,
+                }))
+                .build()
+        };
+        let mut report = report_with(vec![at("agreed.ts"), at("just-written.ts")]);
+
+        apply_suppressions_with(
+            &mut report,
+            &source,
+            &SuppressionPolicy::HonourExcept(vec!["just-written.ts".to_owned()]),
+        );
+
+        assert_eq!(report.findings.len(), 1, "the session-written one survives");
+        assert_eq!(
+            report
+                .findings
+                .first()
+                .and_then(|finding| finding.location.as_source())
+                .map(|location| location.path.as_str()),
+            Some("just-written.ts")
+        );
+        assert_eq!(report.suppressed_count, 1);
+        assert_eq!(
+            report.suppressions.len(),
+            2,
+            "both directives are listed, so the developer sees what was refused"
         );
     }
 }

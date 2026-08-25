@@ -7,9 +7,7 @@
 //! the repository controls.
 
 use owlwarden_core::detector::{DetectorError, DetectorMeta};
-use owlwarden_core::finding::{
-    AgentHost, AsiRef, Confidence, FindingContext, RuleId, Severity,
-};
+use owlwarden_core::finding::{AgentHost, AsiRef, Confidence, FindingContext, RuleId, Severity};
 use owlwarden_core::remediation::Remediation;
 use owlwarden_core::surface::Surface;
 use owlwarden_static::agentws::jsonc::JsonNode;
@@ -34,7 +32,7 @@ pub const SECRET_ID: &str = "agent-config-secret-reachable";
 ///
 /// # The shape, not the names
 ///
-/// `.claude/setup.mjs` and `.vscode/setup.mjs` are the ChainDrop artefacts by
+/// `.claude/setup.mjs` and `.vscode/setup.mjs` are the `ChainDrop` artefacts by
 /// name. The rule matches the *shape* — an executable file sitting loose in a
 /// directory that is supposed to hold configuration — and the names go in the
 /// fixtures. Matching the incident would be dated on arrival; the campaign
@@ -306,8 +304,8 @@ impl ProjectRule for AgentConfigEnvRedirect {
                 let Some(key) = hit.path.last() else { continue };
                 let normalised = key.to_ascii_uppercase();
                 let is_redirect = REDIRECT_VARIABLES.contains(&normalised.as_str());
-                let is_proxy = PROXY_VARIABLES.contains(&normalised.as_str())
-                    && !is_loopback_url(hit.value);
+                let is_proxy =
+                    PROXY_VARIABLES.contains(&normalised.as_str()) && !is_loopback_url(hit.value);
                 if !is_redirect && !is_proxy {
                     continue;
                 }
@@ -344,7 +342,9 @@ impl ProjectRule for AgentConfigEnvRedirect {
 
 fn is_loopback_url(value: &str) -> bool {
     let lower = value.to_ascii_lowercase();
-    let after_scheme = lower.split_once("://").map_or(lower.as_str(), |(_, rest)| rest);
+    let after_scheme = lower
+        .split_once("://")
+        .map_or(lower.as_str(), |(_, rest)| rest);
     let host = after_scheme.split(['/', ':']).next().unwrap_or_default();
     matches!(host, "localhost" | "127.0.0.1" | "::1" | "0.0.0.0") || host.ends_with(".localhost")
 }
@@ -422,10 +422,16 @@ const CREDENTIAL_NAMES: &[&str] = &[
 ];
 
 /// Suffixes that make a variable name credential-shaped.
-const CREDENTIAL_SUFFIXES: &[&str] = &["_TOKEN", "_SECRET", "_API_KEY", "_PASSWORD", "_CREDENTIALS"];
+const CREDENTIAL_SUFFIXES: &[&str] =
+    &["_TOKEN", "_SECRET", "_API_KEY", "_PASSWORD", "_CREDENTIALS"];
 
 /// Keys that hand the whole process environment to a subprocess.
-const INHERIT_KEYS: &[&str] = &["inheritenv", "passenvironment", "inheritenvironment", "useshellenv"];
+const INHERIT_KEYS: &[&str] = &[
+    "inheritenv",
+    "passenvironment",
+    "inheritenvironment",
+    "useshellenv",
+];
 
 /// Repository config puts credentials in reach of a repository-controlled
 /// command.
@@ -486,7 +492,8 @@ impl ProjectRule for AgentConfigSecretReachable {
             for hit in doc.strings() {
                 let key = hit.path.last().copied().unwrap_or_default();
                 let in_command = is_command_key(key);
-                let in_env = hit.within("env") || hit.within("containerEnv") || hit.within("remoteEnv");
+                let in_env =
+                    hit.within("env") || hit.within("containerEnv") || hit.within("remoteEnv");
 
                 let referenced = referenced_credential(hit.value);
                 let named = is_credential_name(key) && in_env;
@@ -679,12 +686,20 @@ fn secret_remediation() -> Remediation {
 fn scope_of(
     findings: &[owlwarden_core::finding::Finding],
 ) -> Vec<Option<owlwarden_core::finding::RuntimeScope>> {
-    findings.iter().map(|finding| finding.runtime_scope).collect()
+    findings
+        .iter()
+        .map(|finding| finding.runtime_scope)
+        .collect()
 }
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::indexing_slicing)]
+    #![allow(
+        clippy::unwrap_used,
+        clippy::expect_used,
+        clippy::panic,
+        clippy::indexing_slicing
+    )]
 
     use super::*;
     use crate::agent::testing::{assert_silent, run_rule};
@@ -767,7 +782,14 @@ mod tests {
         assert_eq!(findings.len(), 1);
         assert_eq!(findings[0].severity, Severity::High);
         assert_eq!(findings[0].asi.as_ref().map(AsiRef::as_str), Some("ASI03"));
-        assert!(findings[0].context.evidence.as_deref().unwrap().contains("gateway.evil.example"));
+        assert!(
+            findings[0]
+                .context
+                .evidence
+                .as_deref()
+                .unwrap()
+                .contains("gateway.evil.example")
+        );
     }
 
     #[test]

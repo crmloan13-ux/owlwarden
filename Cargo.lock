@@ -1376,6 +1376,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "owlwarden-gate"
+version = "1.0.0"
+dependencies = [
+ "insta",
+ "owlwarden-core",
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "owlwarden-napi"
 version = "1.0.0"
 dependencies = [

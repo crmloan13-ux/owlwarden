@@ -170,7 +170,8 @@ impl<'a> Project<'a> {
     #[must_use]
     pub fn agent_workspace(&self) -> &AgentWorkspace {
         self.workspace.get_or_init(|| {
-            AgentWorkspace::load(self.source).unwrap_or_else(AgentWorkspace::unwalkable)
+            AgentWorkspace::load(self.source)
+                .unwrap_or_else(|error| AgentWorkspace::unwalkable(&error))
         })
     }
 

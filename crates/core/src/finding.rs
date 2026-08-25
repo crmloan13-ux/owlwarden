@@ -358,7 +358,7 @@ impl AgentHost {
     pub const VSCODE: Self = Self::new_static("vscode");
     /// GitHub Copilot, including `copilot-instructions.md`.
     pub const COPILOT: Self = Self::new_static("copilot");
-    /// OpenAI Codex CLI.
+    /// `OpenAI` Codex CLI.
     pub const CODEX: Self = Self::new_static("codex");
     /// Gemini CLI.
     pub const GEMINI_CLI: Self = Self::new_static("gemini-cli");

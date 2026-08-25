@@ -54,8 +54,8 @@ mod tests {
     #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
     use super::*;
-    use owlwarden_core::surface::Surface;
     use owlwarden_core::finding::{Confidence, OwaspRef, RuleId};
+    use owlwarden_core::surface::Surface;
 
     fn meta() -> DetectorMeta {
         DetectorMeta {

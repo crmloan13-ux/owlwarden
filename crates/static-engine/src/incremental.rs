@@ -166,8 +166,8 @@ mod tests {
     use tempfile::TempDir;
 
     use super::*;
-    use owlwarden_core::surface::Surface;
     use crate::rule::RuleInfo;
+    use owlwarden_core::surface::Surface;
 
     fn source_finding(rule: &'static str, path: &str) -> Finding {
         Finding::builder(RuleId::new_static(rule), Severity::Low, "test")

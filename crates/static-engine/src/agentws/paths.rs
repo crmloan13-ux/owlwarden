@@ -26,7 +26,7 @@
 //! It is two entries longer than the list in ADR 0025 §3. `.cursor/hooks/**`
 //! and `.cursor/*.{js,mjs,cjs,ts,sh,py}` are the Cursor equivalents of the
 //! `.claude/` entries the ADR does list, and leaving them out would have made
-//! `agent-config-loader-script` structurally blind to the ChainDrop shape one
+//! `agent-config-loader-script` structurally blind to the `ChainDrop` shape one
 //! host over — which is the shape the rule exists for. Extending a closed list
 //! is a reviewed change, and this comment plus the test below are the review
 //! record.
@@ -413,7 +413,9 @@ pub fn classify(path: &RelPath) -> Option<Classification> {
 /// `.gemini/**` and `.codex/**` are whole directories holding both settings and
 /// instructions. The pattern cannot say which, so the extension does.
 fn refine_kind(kind: WorkspaceFileKind, path: &str) -> WorkspaceFileKind {
-    let extension = path.rsplit_once('.').map(|(_, ext)| ext.to_ascii_lowercase());
+    let extension = path
+        .rsplit_once('.')
+        .map(|(_, ext)| ext.to_ascii_lowercase());
     match extension.as_deref() {
         Some("md" | "markdown" | "txt") if kind.is_json() => WorkspaceFileKind::Instructions,
         Some("js" | "mjs" | "cjs" | "ts" | "sh" | "py") if kind.is_json() => {
@@ -575,7 +577,10 @@ mod tests {
             ".claudeignore",
             ".vscode/launch.json",
         ] {
-            assert!(classify_str(path).is_none(), "{path} must not be scanned here");
+            assert!(
+                classify_str(path).is_none(),
+                "{path} must not be scanned here"
+            );
         }
     }
 

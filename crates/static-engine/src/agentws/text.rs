@@ -153,7 +153,11 @@ pub fn scan_hidden(text: &str) -> Vec<HiddenRun> {
 fn finish(run: (HiddenKind, usize, usize, String, usize)) -> HiddenRun {
     let (kind, start, end, mut escaped, count) = run;
     if count > MAX_ESCAPED_CHARS {
-        let _ = write!(escaped, " … {} more", count.saturating_sub(MAX_ESCAPED_CHARS));
+        let _ = write!(
+            escaped,
+            " … {} more",
+            count.saturating_sub(MAX_ESCAPED_CHARS)
+        );
     }
     HiddenRun {
         kind,
@@ -331,7 +335,12 @@ pub fn is_disguised(text: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::indexing_slicing)]
+    #![allow(
+        clippy::unwrap_used,
+        clippy::expect_used,
+        clippy::panic,
+        clippy::indexing_slicing
+    )]
 
     use super::*;
 
@@ -346,7 +355,10 @@ mod tests {
             !runs[0].escaped.contains('\u{202E}'),
             "the report must not reproduce the attack inside itself"
         );
-        assert_eq!(&text[runs[0].span.0 as usize..runs[0].span.1 as usize], "\u{202E}");
+        assert_eq!(
+            &text[runs[0].span.0 as usize..runs[0].span.1 as usize],
+            "\u{202E}"
+        );
     }
 
     #[test]
@@ -355,7 +367,10 @@ mod tests {
         let runs = scan_hidden(&text);
         assert_eq!(runs.len(), 1);
         assert_eq!(runs[0].count, 200);
-        assert!(runs[0].escaped.contains("more"), "the count is stated, not the payload");
+        assert!(
+            runs[0].escaped.contains("more"),
+            "the count is stated, not the payload"
+        );
         assert!(runs[0].escaped.chars().count() < 400);
     }
 

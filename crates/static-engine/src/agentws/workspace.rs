@@ -159,7 +159,9 @@ impl AgentWorkspace {
             workspace.ingest(source, &file, class, &mut bytes);
         }
 
-        workspace.files.sort_by(|left, right| left.path.cmp(&right.path));
+        workspace
+            .files
+            .sort_by(|left, right| left.path.cmp(&right.path));
         Ok(workspace)
     }
 
@@ -228,7 +230,7 @@ impl AgentWorkspace {
     /// indistinguishable from "this repository has no agent configuration",
     /// which is the one wrong answer.
     #[must_use]
-    pub fn unwalkable(error: SourceError) -> Self {
+    pub fn unwalkable(error: &SourceError) -> Self {
         Self {
             files: Vec::new(),
             unreadable: vec![UnreadableFile {
@@ -297,7 +299,8 @@ fn parse_reason(error: &JsonParseError) -> String {
 
 /// Byte spans of fenced code blocks in a Markdown document.
 ///
-/// Deliberately simple — matching ``` and ~~~ fences at a line start, with the
+/// Deliberately simple — matching a triple-backtick or triple-tilde fence at a
+/// line start, with the
 /// closing fence at least as long as the opening one. It is not a Markdown
 /// parser and does not need to be: the question is "would a reader see this as
 /// an example?", and everything this misses is reported at *higher* weight, not
@@ -342,7 +345,12 @@ fn fenced_spans(text: &str) -> Vec<(u32, u32)> {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::indexing_slicing)]
+    #![allow(
+        clippy::unwrap_used,
+        clippy::expect_used,
+        clippy::panic,
+        clippy::indexing_slicing
+    )]
 
     use super::*;
     use crate::fs_source::FsSourceProvider;
@@ -368,7 +376,11 @@ mod tests {
     fn a_gitignored_settings_file_is_still_read() {
         // The whole reason this surface has its own walker.
         let (_dir, workspace) = workspace_of(|root| {
-            write(root, ".gitignore", ".claude/settings.local.json\n.vscode/\n");
+            write(
+                root,
+                ".gitignore",
+                ".claude/settings.local.json\n.vscode/\n",
+            );
             write(root, ".claude/settings.local.json", r#"{"hooks":{}}"#);
             write(root, ".vscode/tasks.json", r#"{"version":"2.0.0"}"#);
         });
@@ -421,7 +433,9 @@ mod tests {
         assert!(workspace.unreadable().is_empty());
         let file = workspace.find(".vscode/tasks.json").unwrap();
         assert_eq!(
-            file.doc().and_then(|doc| doc.get("version")).and_then(jsonc::JsonNode::as_str),
+            file.doc()
+                .and_then(|doc| doc.get("version"))
+                .and_then(jsonc::JsonNode::as_str),
             Some("2.0.0")
         );
     }
@@ -433,7 +447,9 @@ mod tests {
             write(root, "examples/basic/.claude/settings.json", "{}");
         });
         assert_eq!(
-            workspace.find(".claude/settings.json").map(|f| f.runtime_scope),
+            workspace
+                .find(".claude/settings.json")
+                .map(|f| f.runtime_scope),
             Some(RuntimeScope::Active)
         );
         assert_eq!(

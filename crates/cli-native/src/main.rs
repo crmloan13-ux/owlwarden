@@ -180,7 +180,11 @@ fn build_scan_request(
         },
         baseline,
         write_baseline: args.write_baseline.as_ref().map(std::path::PathBuf::from),
-        honor_suppressions: !args.ci || args.allow_suppressions,
+        suppressions: if !args.ci || args.allow_suppressions {
+            owlwarden_core::suppression::SuppressionPolicy::Honour
+        } else {
+            owlwarden_core::suppression::SuppressionPolicy::ReportOnly
+        },
         extra_detectors: Vec::new(),
         network: None,
         advisory: None,

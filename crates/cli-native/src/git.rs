@@ -48,7 +48,8 @@ pub fn resolve_scope(
     staged: bool,
     paths: &[String],
 ) -> Result<Option<DiffScope>, String> {
-    let requested = usize::from(since.is_some()) + usize::from(staged) + usize::from(!paths.is_empty());
+    let requested =
+        usize::from(since.is_some()) + usize::from(staged) + usize::from(!paths.is_empty());
     if requested == 0 {
         return Ok(None);
     }
@@ -69,7 +70,10 @@ pub fn resolve_scope(
     }
 
     if staged {
-        let output = run_git(root, &["diff", "--cached", "--name-only", "--diff-filter=ACMRT"])?;
+        let output = run_git(
+            root,
+            &["diff", "--cached", "--name-only", "--diff-filter=ACMRT"],
+        )?;
         return Ok(Some(DiffScope {
             paths: normalise(output.lines()),
             label: "staged".to_owned(),
@@ -81,7 +85,13 @@ pub fn resolve_scope(
     // cannot be scanned, and including it would make the file count wrong.
     let output = run_git(
         root,
-        &["diff", "--name-only", "--diff-filter=ACMRT", reference, "--"],
+        &[
+            "diff",
+            "--name-only",
+            "--diff-filter=ACMRT",
+            reference,
+            "--",
+        ],
     )?;
     // Untracked files are part of "what changed" to every human who asks, and
     // are exactly what an agent just wrote.
@@ -114,15 +124,13 @@ fn run_git(root: &str, args: &[&str]) -> Result<String, String> {
         .arg(root)
         .args(args)
         .output()
-        .map_err(|error| format!("could not run git: {error}. --since and --staged need git on PATH."))?;
+        .map_err(|error| {
+            format!("could not run git: {error}. --since and --staged need git on PATH.")
+        })?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(format!(
-            "git {} failed: {}",
-            args.join(" "),
-            stderr.trim()
-        ));
+        return Err(format!("git {} failed: {}", args.join(" "), stderr.trim()));
     }
     Ok(String::from_utf8_lossy(&output.stdout).into_owned())
 }
@@ -187,7 +195,9 @@ mod tests {
         std::fs::write(dir.path().join("a.ts"), "export const a = 1\n").unwrap();
         run_git(&root, &["add", "a.ts"]).unwrap();
 
-        let staged = resolve_scope(&root, None, true, &[]).unwrap().expect("a scope");
+        let staged = resolve_scope(&root, None, true, &[])
+            .unwrap()
+            .expect("a scope");
         assert_eq!(staged.paths, ["a.ts"]);
         assert_eq!(staged.label, "staged");
 

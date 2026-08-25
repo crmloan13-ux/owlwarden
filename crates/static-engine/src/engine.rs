@@ -270,19 +270,19 @@ impl Detector for StaticEngine {
         // Two independent narrowings, and they compose. `dirty_paths` is watch
         // mode re-parsing what changed since the last run; `scoped_paths` is
         // the user asking for a smaller question to be answered.
-        let file_filter: Option<HashSet<String>> = match (ctx.settings().dirty_paths.as_ref(), scoped_paths)
-        {
-            (Some(dirty), Some(scope)) if !dirty.is_empty() => Some(
-                dirty
-                    .iter()
-                    .filter(|path| scope.contains(*path))
-                    .cloned()
-                    .collect(),
-            ),
-            (Some(dirty), None) if !dirty.is_empty() => Some(dirty.iter().cloned().collect()),
-            (_, Some(scope)) => Some(scope.iter().cloned().collect()),
-            _ => None,
-        };
+        let file_filter: Option<HashSet<String>> =
+            match (ctx.settings().dirty_paths.as_ref(), scoped_paths) {
+                (Some(dirty), Some(scope)) if !dirty.is_empty() => Some(
+                    dirty
+                        .iter()
+                        .filter(|path| scope.contains(*path))
+                        .cloned()
+                        .collect(),
+                ),
+                (Some(dirty), None) if !dirty.is_empty() => Some(dirty.iter().cloned().collect()),
+                (_, Some(scope)) => Some(scope.iter().cloned().collect()),
+                _ => None,
+            };
 
         self.run_project_rules(&project, &mut findings, scoped_paths);
         self.run_file_rules(&project, &mut findings, file_filter.as_ref());

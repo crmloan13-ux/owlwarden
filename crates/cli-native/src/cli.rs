@@ -351,8 +351,13 @@ fn parse_scan<'a>(args: impl Iterator<Item = &'a String>) -> Result<ScanArgs, Ar
                 // user types one flag. Repeating `--paths` also works and the
                 // lists concatenate.
                 let entry = value("--paths")?;
-                raw.paths
-                    .extend(entry.split(',').map(str::trim).filter(|p| !p.is_empty()).map(str::to_owned));
+                raw.paths.extend(
+                    entry
+                        .split(',')
+                        .map(str::trim)
+                        .filter(|p| !p.is_empty())
+                        .map(str::to_owned),
+                );
             }
             "--fail-on" => {
                 let text = value("--fail-on")?;

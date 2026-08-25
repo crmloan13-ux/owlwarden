@@ -268,7 +268,10 @@ mod tests {
     }
 
     impl SourceProvider for FixtureSource {
-        fn agent_workspace_files(&self, _patterns: &[&str]) -> Result<Vec<SourceFile>, SourceError> {
+        fn agent_workspace_files(
+            &self,
+            _patterns: &[&str],
+        ) -> Result<Vec<SourceFile>, SourceError> {
             // This double serves no agent workspace. Empty rather than
             // `unimplemented!`: an agent rule under test here should find
             // nothing, not abort the run.

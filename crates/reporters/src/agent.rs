@@ -21,6 +21,7 @@
 //! agent, which will read the absence as an all-clear and say so to the
 //! developer.
 
+use std::fmt::Write as _;
 use std::io::Write;
 
 use owlwarden_core::finding::{Finding, Location};
@@ -108,19 +109,21 @@ pub fn render(report: &Report, options: AgentOptions) -> String {
 
     let dropped = report.findings.len().saturating_sub(printed);
     if dropped > 0 {
-        out.push_str(&format!(
-            "... {dropped} more finding{} (run: owlwarden scan --format json)\n",
-            if dropped == 1 { "" } else { "s" }
-        ));
+        let plural = if dropped == 1 { "" } else { "s" };
+        let _ = writeln!(
+            out,
+            "... {dropped} more finding{plural} (run: owlwarden scan --format json)"
+        );
     }
     if report.truncated {
         out.push_str("! report truncated by the engine cap; this is not a clean result\n");
     }
     if report.suppressed_count > 0 {
-        out.push_str(&format!(
-            "! {} finding(s) hidden by inline suppressions\n",
+        let _ = writeln!(
+            out,
+            "! {} finding(s) hidden by inline suppressions",
             report.suppressed_count
-        ));
+        );
     }
     out
 }
@@ -148,22 +151,23 @@ fn finding_block(finding: &Finding) -> String {
         .runtime_scope
         .map(|scope| format!(" {}", scope.as_str()))
         .unwrap_or_default();
-    block.push_str(&format!(
-        "{} {}{} {} {}\n",
+    let _ = writeln!(
+        block,
+        "{} {}{} {} {}",
         finding.severity.as_str(),
         finding.confidence.as_str(),
         scope,
         finding.id.as_str(),
         location(finding)
-    ));
+    );
 
     if let Some(fix) = finding.primary_fix() {
-        block.push_str(&format!("  fix: {}\n", clamp(&fix.summary)));
+        let _ = writeln!(block, "  fix: {}", clamp(&fix.summary));
         if let Some(patch) = &fix.patch {
             // Indented, one line per patch line, so an agent can lift it out
             // without a fence parser.
             for line in patch.lines().take(12) {
-                block.push_str(&format!("  | {}\n", clamp(line)));
+                let _ = writeln!(block, "  | {}", clamp(line));
             }
         }
     }
@@ -230,7 +234,12 @@ impl Reporter for AgentReporter<'_> {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::indexing_slicing)]
+    #![allow(
+        clippy::unwrap_used,
+        clippy::expect_used,
+        clippy::panic,
+        clippy::indexing_slicing
+    )]
 
     use super::*;
     use owlwarden_core::finding::{
@@ -304,7 +313,10 @@ mod tests {
         // The most expensive field in the report, and the one an agent has no
         // use for: it has already been told to care.
         let text = render(
-            &report_of(vec![finding("stack-trace-leak", "BECAUSE-OF-THIS-LONG-REASON")]),
+            &report_of(vec![finding(
+                "stack-trace-leak",
+                "BECAUSE-OF-THIS-LONG-REASON",
+            )]),
             AgentOptions::default(),
         );
         assert!(!text.contains("BECAUSE-OF-THIS-LONG-REASON"));
@@ -315,9 +327,7 @@ mod tests {
 
     #[test]
     fn nothing_is_dropped_silently() {
-        let findings: Vec<Finding> = (0..9)
-            .map(|_| finding("stack-trace-leak", "why"))
-            .collect();
+        let findings: Vec<Finding> = (0..9).map(|_| finding("stack-trace-leak", "why")).collect();
         let text = render(
             &report_of(findings),
             AgentOptions {
@@ -381,6 +391,9 @@ mod tests {
             .lines()
             .filter(|line| line.starts_with("high likely fake-rule"))
             .count();
-        assert_eq!(forged_records, 0, "a newline in a field must not start a record");
+        assert_eq!(
+            forged_records, 0,
+            "a newline in a field must not start a record"
+        );
     }
 }

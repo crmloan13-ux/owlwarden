@@ -16,9 +16,7 @@
 //! applies: state the confidence the method actually earns.
 
 use owlwarden_core::detector::{DetectorError, DetectorMeta};
-use owlwarden_core::finding::{
-    AgentHost, AsiRef, Confidence, FindingContext, RuleId, Severity,
-};
+use owlwarden_core::finding::{AgentHost, AsiRef, Confidence, FindingContext, RuleId, Severity};
 use owlwarden_core::remediation::Remediation;
 use owlwarden_core::surface::Surface;
 use owlwarden_static::agentws::text::{self, HiddenKind};
@@ -218,20 +216,53 @@ fn hidden_remediation() -> Remediation {
 /// previous instructions" is an attempt to reach past the person who wrote the
 /// file.
 const DIRECTIVES: &[(&str, &str)] = &[
-    ("ignore all previous instructions", "override the instructions above it"),
-    ("ignore previous instructions", "override the instructions above it"),
-    ("ignore all prior instructions", "override the instructions above it"),
-    ("disregard all previous instructions", "override the instructions above it"),
-    ("disregard previous instructions", "override the instructions above it"),
+    (
+        "ignore all previous instructions",
+        "override the instructions above it",
+    ),
+    (
+        "ignore previous instructions",
+        "override the instructions above it",
+    ),
+    (
+        "ignore all prior instructions",
+        "override the instructions above it",
+    ),
+    (
+        "disregard all previous instructions",
+        "override the instructions above it",
+    ),
+    (
+        "disregard previous instructions",
+        "override the instructions above it",
+    ),
     ("disregard the above", "override the instructions above it"),
-    ("ignore your system prompt", "override the instructions above it"),
-    ("ignore the system prompt", "override the instructions above it"),
-    ("do not follow the instructions above", "override the instructions above it"),
+    (
+        "ignore your system prompt",
+        "override the instructions above it",
+    ),
+    (
+        "ignore the system prompt",
+        "override the instructions above it",
+    ),
+    (
+        "do not follow the instructions above",
+        "override the instructions above it",
+    ),
     ("without asking the user", "act without the approval step"),
-    ("without asking for permission", "act without the approval step"),
+    (
+        "without asking for permission",
+        "act without the approval step",
+    ),
     ("do not ask for permission", "act without the approval step"),
-    ("do not ask for confirmation", "act without the approval step"),
-    ("skip the permission prompt", "act without the approval step"),
+    (
+        "do not ask for confirmation",
+        "act without the approval step",
+    ),
+    (
+        "skip the permission prompt",
+        "act without the approval step",
+    ),
     ("skip confirmation", "act without the approval step"),
     ("bypass the approval", "act without the approval step"),
     ("auto-approve all", "act without the approval step"),
@@ -317,11 +348,8 @@ impl ProjectRule for AgentInstructionsDirective {
                 }
                 seen.push(intent);
 
-                let span = text::original_span(
-                    &map,
-                    (index, index.saturating_add(phrase.len())),
-                    (0, 0),
-                );
+                let span =
+                    text::original_span(&map, (index, index.saturating_add(phrase.len())), (0, 0));
                 let disguised = text::is_disguised(
                     file.text
                         .get(span.0 as usize..span.1 as usize)
@@ -420,7 +448,12 @@ fn directive_remediation() -> Remediation {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::indexing_slicing)]
+    #![allow(
+        clippy::unwrap_used,
+        clippy::expect_used,
+        clippy::panic,
+        clippy::indexing_slicing
+    )]
 
     use super::*;
     use crate::agent::testing::{assert_silent, run_rule};
@@ -430,7 +463,10 @@ mod tests {
     fn a_bidi_override_in_claude_md_fires_and_is_never_echoed() {
         let findings = run_rule(
             &AgentInstructionsHiddenText,
-            &[("CLAUDE.md", "# Rules\n\nBe careful \u{202E}drawrof\u{202C}.\n")],
+            &[(
+                "CLAUDE.md",
+                "# Rules\n\nBe careful \u{202E}drawrof\u{202C}.\n",
+            )],
         );
         assert_eq!(findings.len(), 2, "the override and its terminator");
         assert_eq!(findings[0].severity, Severity::High);

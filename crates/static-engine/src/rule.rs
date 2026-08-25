@@ -231,11 +231,8 @@ mod tests {
 
     #[test]
     fn declared_paths_match_the_three_documented_shapes() {
-        let inputs = RuleInputs::Paths(&[
-            "package.json",
-            ".github/workflows/**",
-            "**/pnpm-lock.yaml",
-        ]);
+        let inputs =
+            RuleInputs::Paths(&["package.json", ".github/workflows/**", "**/pnpm-lock.yaml"]);
 
         assert!(inputs.touched_by(&["package.json".to_owned()]));
         assert!(inputs.touched_by(&[".github/workflows/ci.yml".to_owned()]));

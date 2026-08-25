@@ -49,8 +49,8 @@ pub mod cors;
 pub mod csrf_cross_origin_post;
 pub mod decorator;
 pub mod hardcoded_secret;
-pub mod install_lifecycle_script;
 pub mod insecure_cookie;
+pub mod install_lifecycle_script;
 pub mod known_vulnerable_dependency;
 pub mod lockfile;
 pub mod open_redirect;
@@ -517,7 +517,11 @@ fn asi_row(entry: &AsiCoverage) -> CategoryEntry {
 /// The denominator is the rule count *for that surface*, not the whole
 /// catalogue: reporting that Cursor has "14 rules falling back" because
 /// `sql-injection` has no Cursor advice would be an invented gap.
-fn profile_row(profile: &Profile, surface_rule_count: usize, gaps: &[MissingRemediation]) -> FrameworkEntry {
+fn profile_row(
+    profile: &Profile,
+    surface_rule_count: usize,
+    gaps: &[MissingRemediation],
+) -> FrameworkEntry {
     let falling_back = gaps
         .iter()
         .filter(|gap| gap.profile == profile.as_str() && gap.surface == profile.surface())
@@ -541,7 +545,11 @@ mod tests {
         let report = coverage_report();
         assert_eq!(report.rule_count, all_rules().len());
         assert_eq!(report.owasp.len(), 10, "all ten categories, gaps included");
-        assert_eq!(report.asi.len(), 10, "all ten ASI categories, gaps included");
+        assert_eq!(
+            report.asi.len(),
+            10,
+            "all ten ASI categories, gaps included"
+        );
         assert_eq!(report.frameworks.len(), SUPPORTED_FRAMEWORKS.len());
         assert_eq!(report.hosts.len(), SUPPORTED_AGENT_HOSTS.len());
         assert_eq!(
@@ -695,7 +703,11 @@ mod tests {
         }
 
         for (surface, remediation, missing) in [
-            (Surface::WebApp, web, SUPPORTED_FRAMEWORKS.first().map(Framework::as_str)),
+            (
+                Surface::WebApp,
+                web,
+                SUPPORTED_FRAMEWORKS.first().map(Framework::as_str),
+            ),
             (
                 Surface::AgentWorkspace,
                 agent,

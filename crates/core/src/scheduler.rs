@@ -208,18 +208,21 @@ mod tests {
     use async_trait::async_trait;
 
     use super::*;
-    use crate::surface::Surface;
     use crate::budget::Budget;
     use crate::context::ScanSettings;
     use crate::detector::{Capabilities, DetectorKind, DetectorMeta};
     use crate::finding::{Confidence, RuleId, Severity};
     use crate::scope::DenyAllScope;
     use crate::source::{FileSelector, SourceError, SourceFile, SourceProvider};
+    use crate::surface::Surface;
 
     struct NoSource(PathBuf);
 
     impl SourceProvider for NoSource {
-        fn agent_workspace_files(&self, _patterns: &[&str]) -> Result<Vec<SourceFile>, SourceError> {
+        fn agent_workspace_files(
+            &self,
+            _patterns: &[&str],
+        ) -> Result<Vec<SourceFile>, SourceError> {
             // This double serves no agent workspace. Empty rather than
             // `unimplemented!`: an agent rule under test here should find
             // nothing, not abort the run.

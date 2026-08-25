@@ -76,7 +76,9 @@ pub const SUPPORTED_AGENT_HOSTS: &[AgentHost] = &[
 /// plugin manifest written against `schemaVersion: 1` — which predates this
 /// type — keeps loading and keeps being checked against the twelve frameworks
 /// ([ADR 0024](../../../docs/adr/0024-plugin-api-v1.md) §9).
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[derive(
+    Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize,
+)]
 #[serde(rename_all = "camelCase")]
 pub enum Surface {
     /// Application source. Profiles: [`SUPPORTED_FRAMEWORKS`].
@@ -261,7 +263,10 @@ mod tests {
             let json = serde_json::to_string(&surface).expect("serializing cannot fail");
             assert_eq!(json, format!("\"{}\"", surface.as_str()));
         }
-        assert_eq!(Surface::from_str_opt("agent-workspace"), Some(Surface::AgentWorkspace));
+        assert_eq!(
+            Surface::from_str_opt("agent-workspace"),
+            Some(Surface::AgentWorkspace)
+        );
         assert_eq!(Surface::from_str_opt("agent surface"), None);
     }
 

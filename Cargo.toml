@@ -4,6 +4,7 @@ members = [
     "crates/core",
     "crates/static-engine",
     "crates/detectors",
+    "crates/gate",
     "crates/transport",
     "crates/dynamic-engine",
     "crates/reporters",
@@ -27,6 +28,7 @@ categories = ["development-tools", "web-programming"]
 owlwarden-core = { path = "crates/core", version = "1.0.0" }
 owlwarden-static = { path = "crates/static-engine", version = "1.0.0" }
 owlwarden-detectors = { path = "crates/detectors", version = "1.0.0" }
+owlwarden-gate = { path = "crates/gate", version = "1.0.0" }
 owlwarden-transport = { path = "crates/transport", version = "1.0.0" }
 owlwarden-dynamic = { path = "crates/dynamic-engine", version = "1.0.0" }
 owlwarden-reporters = { path = "crates/reporters", version = "1.0.0" }

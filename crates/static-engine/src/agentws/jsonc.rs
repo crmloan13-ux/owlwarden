@@ -326,7 +326,7 @@ struct Parser<'a> {
     nodes: usize,
 }
 
-impl<'a> Parser<'a> {
+impl Parser<'_> {
     fn peek(&self) -> Option<u8> {
         self.bytes.get(self.pos).copied()
     }
@@ -463,7 +463,9 @@ impl<'a> Parser<'a> {
         self.pos = self.pos.saturating_add(1); // opening quote
         let mut out = String::new();
         loop {
-            let byte = self.peek().ok_or_else(|| self.syntax("unterminated string"))?;
+            let byte = self
+                .peek()
+                .ok_or_else(|| self.syntax("unterminated string"))?;
             match byte {
                 b'"' => {
                     self.pos = self.pos.saturating_add(1);
@@ -497,7 +499,10 @@ impl<'a> Parser<'a> {
                         .get(self.pos..)
                         .and_then(|slice| std::str::from_utf8(slice).ok())
                         .ok_or_else(|| self.syntax("invalid UTF-8"))?;
-                    let ch = rest.chars().next().ok_or_else(|| self.syntax("unterminated string"))?;
+                    let ch = rest
+                        .chars()
+                        .next()
+                        .ok_or_else(|| self.syntax("unterminated string"))?;
                     out.push(ch);
                     self.pos = self.pos.saturating_add(ch.len_utf8());
                 }
@@ -514,9 +519,8 @@ impl<'a> Parser<'a> {
                 self.pos = self.pos.saturating_add(2);
                 let low = self.hex4()?;
                 if (0xDC00..0xE000).contains(&low) {
-                    let combined = 0x1_0000
-                        + ((u32::from(high) - 0xD800) << 10)
-                        + (u32::from(low) - 0xDC00);
+                    let combined =
+                        0x1_0000 + ((u32::from(high) - 0xD800) << 10) + (u32::from(low) - 0xDC00);
                     return Ok(char::from_u32(combined).unwrap_or('\u{FFFD}'));
                 }
                 self.pos = mark;
@@ -627,7 +631,12 @@ impl fmt::Display for JsonValue {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::indexing_slicing)]
+    #![allow(
+        clippy::unwrap_used,
+        clippy::expect_used,
+        clippy::panic,
+        clippy::indexing_slicing
+    )]
 
     use super::*;
 
@@ -675,7 +684,12 @@ mod tests {
         let doc = parse(r#"{"allow": [], "allow": ["Bash"]}"#).unwrap();
         let all: Vec<&JsonMember> = doc.members("allow").collect();
         assert_eq!(all.len(), 2, "both occurrences survive");
-        assert_eq!(doc.get("allow").and_then(JsonNode::as_array).map(<[_]>::len), Some(0));
+        assert_eq!(
+            doc.get("allow")
+                .and_then(JsonNode::as_array)
+                .map(<[_]>::len),
+            Some(0)
+        );
         let strings = doc.strings();
         assert_eq!(strings.len(), 1);
         assert_eq!(strings[0].value, "Bash");
@@ -740,7 +754,10 @@ mod tests {
     #[test]
     fn escapes_and_surrogate_pairs_resolve() {
         let doc = parse(r#"{"a": "line\nbreak A 😀"}"#).unwrap();
-        assert_eq!(doc.get("a").and_then(JsonNode::as_str), Some("line\nbreak A 😀"));
+        assert_eq!(
+            doc.get("a").and_then(JsonNode::as_str),
+            Some("line\nbreak A 😀")
+        );
     }
 
     #[test]
@@ -752,13 +769,19 @@ mod tests {
     #[test]
     fn multibyte_characters_survive_the_scanner() {
         let doc = parse(r#"{"a": "héllo → 日本語"}"#).unwrap();
-        assert_eq!(doc.get("a").and_then(JsonNode::as_str), Some("héllo → 日本語"));
+        assert_eq!(
+            doc.get("a").and_then(JsonNode::as_str),
+            Some("héllo → 日本語")
+        );
     }
 
     #[test]
     fn arrays_and_objects_are_distinguishable_from_scalars() {
         let doc = parse(r#"{"a": [], "b": {}, "c": 1, "d": true, "e": null}"#).unwrap();
-        assert_eq!(doc.get("a").and_then(JsonNode::as_array).map(<[_]>::len), Some(0));
+        assert_eq!(
+            doc.get("a").and_then(JsonNode::as_array).map(<[_]>::len),
+            Some(0)
+        );
         assert!(doc.get("c").unwrap().as_array().is_none());
         assert_eq!(doc.get("d").and_then(JsonNode::as_bool), Some(true));
         assert_eq!(doc.get("e").unwrap().value, JsonValue::Null);

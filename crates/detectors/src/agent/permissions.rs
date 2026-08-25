@@ -20,9 +20,7 @@
 //! "this looks scoped and is not" is the part a reviewer gets wrong.
 
 use owlwarden_core::detector::{DetectorError, DetectorMeta};
-use owlwarden_core::finding::{
-    AgentHost, AsiRef, Confidence, FindingContext, RuleId, Severity,
-};
+use owlwarden_core::finding::{AgentHost, AsiRef, Confidence, FindingContext, RuleId, Severity};
 use owlwarden_core::remediation::Remediation;
 use owlwarden_core::surface::Surface;
 use owlwarden_static::agentws::jsonc::JsonNode;
@@ -337,7 +335,12 @@ fn remediation() -> Remediation {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::indexing_slicing)]
+    #![allow(
+        clippy::unwrap_used,
+        clippy::expect_used,
+        clippy::panic,
+        clippy::indexing_slicing
+    )]
 
     use super::*;
     use crate::agent::testing::{assert_silent, run_rule};
@@ -346,7 +349,10 @@ mod tests {
     fn an_unbounded_bash_grant_fires() {
         let findings = run_rule(
             &AgentPermissionWildcard,
-            &[(".claude/settings.json", r#"{"permissions":{"allow":["Bash"]}}"#)],
+            &[(
+                ".claude/settings.json",
+                r#"{"permissions":{"allow":["Bash"]}}"#,
+            )],
         );
         assert_eq!(findings.len(), 1);
         assert_eq!(findings[0].severity, Severity::Medium);

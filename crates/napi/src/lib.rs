@@ -102,6 +102,14 @@ struct ScanRequest {
     /// Human-readable description of the scope, for the report header.
     #[serde(default)]
     diff_scope: Option<String>,
+    /// Project-relative paths written during the current agent session.
+    ///
+    /// Inline suppressions in these files are listed and **not honoured**: a
+    /// directive written thirty seconds ago by the thing being gated is not a
+    /// decision the team made
+    /// ([ADR 0026](../../docs/adr/0026-deterministic-agent-gate.md) §3).
+    #[serde(default)]
+    session_paths: Vec<String>,
     /// Previous report JSON for incremental merge in watch mode.
     #[serde(default)]
     previous_report_json: Option<String>,
@@ -443,7 +451,20 @@ fn build_scan_request(
             .write_baseline
             .as_ref()
             .map(std::path::PathBuf::from),
-        honor_suppressions: request.honor_suppressions,
+        suppressions: if request.honor_suppressions {
+            if request.session_paths.is_empty() {
+                owlwarden_core::suppression::SuppressionPolicy::Honour
+            } else {
+                // The gate's posture: a directive committed last month still
+                // works; one that appeared in a file written during this
+                // session does not.
+                owlwarden_core::suppression::SuppressionPolicy::HonourExcept(
+                    request.session_paths.clone(),
+                )
+            }
+        } else {
+            owlwarden_core::suppression::SuppressionPolicy::ReportOnly
+        },
         extra_detectors: Vec::new(),
         network: None,
         advisory: None,
