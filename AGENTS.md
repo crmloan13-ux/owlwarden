@@ -88,21 +88,34 @@ The full walkthrough, including adding a framework instead of a rule, is
 
 In order:
 
-1. **`DetectorMeta`.** A permanent id, a severity, and an honest
-   `max_confidence`. A static rule cannot reach `Confirmed` — only correlation
-   with a live probe can. Overclaiming here is visible in review, which is the
-   point of the field.
+1. **`DetectorMeta`.** A permanent id, a severity, an honest `max_confidence`,
+   and a `surface`. A static rule cannot reach `Confirmed` — only correlation
+   with a live probe can, and nothing on `Surface::AgentWorkspace` can reach it
+   at all. Overclaiming here is visible in review, which is the point of the
+   field.
 2. **`Remediation`.** A declarative table, not a `match` on the framework.
-   Every framework in `SUPPORTED_FRAMEWORKS` needs a fix that compiles, because
-   someone will paste it, and a test fails if one is missing. It has to be
-   complete inline; the reader may have no browser.
-3. **Fixtures.** One under `fixtures/vulnerable/` that must fire, and at least
-   one under `fixtures/should-not-fire/` that must not — ideally the tempting
-   case a naive implementation would flag. Register both in the matrix in
-   `crates/detectors/tests/fixtures.rs`, which pins the expected count of each
-   finding, not merely its presence.
-4. **The rule.** Then run it against the whole corpus and regenerate the
-   catalogue: `node scripts/generate-rules-md.mjs`.
+   Every profile of the rule's **own surface** needs a fix that compiles —
+   twelve frameworks for `WebApp`, seven agent hosts for `AgentWorkspace` — and
+   a test fails if one is missing. Neither list is ever checked against the
+   other's rules. It has to be complete inline; the reader may have no browser.
+3. **Fixtures.** One that must fire and one that must not. For a `WebApp` rule
+   that is `fixtures/vulnerable/` and `fixtures/should-not-fire/`, registered in
+   the matrix in `crates/detectors/tests/fixtures.rs`, which pins the expected
+   *count* of each finding rather than merely its presence.
+
+   For an `AgentWorkspace` rule it is three, not two, and the third is the one
+   that matters: a **tempting** fixture under `fixtures/agent/<host>/tempting/`
+   — a legitimate configuration sharing surface features with the vulnerable
+   one, whose silence is the assertion. A `PostToolUse` hook running
+   `pnpm exec prettier`. A dev container whose `postCreateCommand` is
+   `pnpm install`. If one of those ever fires, this rule family is finished.
+4. **An evasion attempt.** `crates/detectors/tests/evasion.rs` has one test per
+   technique per rule, and a meta-test that fails when an agent rule is added
+   without one. Ask the attacker's question, not the reviewer's: *what is the
+   smallest edit that makes this stop firing without making it safe?*
+5. **The rule.** Then run it against the whole corpus and regenerate the
+   catalogue and the site: `node scripts/generate-rules-md.mjs` and
+   `pnpm site:build`.
 
 ### Use the shared infrastructure, do not re-invent it
 
@@ -127,11 +140,35 @@ another.
 - **Finding construction.** `crates/detectors/src/build.rs` seeds a builder from
   the rule's own metadata, so a finding cannot disagree with the catalogue about
   its own severity or OWASP mapping.
+- **Agent-surface plumbing.** `crates/detectors/src/agent/mod.rs` has one hook
+  model that every host's schema flows into, and `agent_finding` applies the
+  `runtime_scope` confidence ceiling. Eleven rules each remembering to apply it
+  is eleven chances to forget, and the failure mode is a fenced example in a
+  tutorial reported like a live config. Never read a host's JSON shape directly
+  in a rule; extend `collect_hooks` instead, the way a new framework spelling
+  extends a `FrameworkProfile`.
+- **Judging a command string.** `owlwarden_static::agentws::command` is the one
+  place that decides whether a shell command does something a formatter would
+  not, and every signal it carries documents the benign command it must not fire
+  on. A second implementation in a rule would give two rules different opinions
+  about the same string.
 
 Rule ids are permanent. They appear in suppressions, in other people's CI
 configuration, and in agent rules files. Renaming one is a breaking change, goes
 through a deprecation cycle, and is recorded in
 [CHANGELOG.md](CHANGELOG.md).
+
+## Never generate a shape you report
+
+`owlwarden init` writes configuration. Two rules would fire on plausible
+versions of that output, and neither does: no `SessionStart` hook is ever
+written, and the MCP entry is `node_modules/.bin/owlwarden` rather than
+`npx -y owlwarden`. A test asserts everything `init` writes passes
+`owlwarden vet` clean.
+
+If you add something that generates configuration, generate configuration this
+tool would pass. A scanner that reports a shape and then emits it has downgraded
+its own rules to advice.
 
 ## If you add a rule, say what it does not reach
 

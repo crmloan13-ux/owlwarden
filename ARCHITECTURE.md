@@ -47,6 +47,32 @@ Static analysis is passive by definition, so the static engine carries no
 scanning risk. That is why it ships first. See
 [ADR 0001](docs/adr/0001-dual-engine.md).
 
+### Two surfaces, not two engines
+
+Orthogonal to the engine split, and easy to confuse with it: a **rule** declares
+which kind of artefact it reads.
+
+| Surface | Reads | Profile set | Can reach `Confirmed` |
+|---|---|---|---|
+| `WebApp` | application source and its manifests | 12 `FrameworkProfile`s | yes, via correlation |
+| `AgentWorkspace` | agent and editor configuration in the working tree | 7 `AgentHostProfile`s | **no** |
+
+Both run inside the static engine. What the surface decides is which profile set
+the rule's remediation table must cover, and the matrix test asserts
+completeness *per surface* rather than against one hard-coded list.
+
+That generalisation is the whole content of
+[ADR 0025](docs/adr/0025-agent-surface-and-supply-chain.md), and it exists to
+save an invariant rather than to add a feature: every rule ships remediation for
+every environment it claims to serve, and the build fails otherwise.
+`.claude/settings.json` has nothing to do with whether the application is
+Next.js or Koa, so writing the same paragraph twelve times would have satisfied
+the test and made `RULES.md` dishonest.
+
+`AgentWorkspace` cannot reach `Confirmed` because `Confirmed` means corroborated
+against a *running* target, and a configuration file has none. Inventing a
+second meaning for the word would break the one property this project sells.
+
 ## 3. Layered architecture
 
 The core depends only on abstractions; concrete implementations are injected.
@@ -73,11 +99,12 @@ This keeps the core pure, testable, and free of I/O.
 | Crate | Responsibility |
 |---|---|
 | `core` | Ports (traits), the finding model, the scheduler, resource limits. No I/O. |
-| `static-engine` | Sandboxed filesystem provider, oxc parsing, rule plumbing, framework profiles, shared AST and request-origin analysis. |
+| `static-engine` | Sandboxed filesystem provider, oxc parsing, rule plumbing, framework profiles, shared AST and request-origin analysis, and the agent-workspace surface (`agentws`): the closed path allowlist, a bounded JSONC parser with spans, command-string analysis, and hidden-text detection. |
 | `detectors` | The rules themselves, with their remediation content. |
 | `transport` | `ReqwestTransport`: scope-enforced, streaming-capped HTTP. |
 | `dynamic-engine` | Passive probes and correlation that raises matching findings to `Confirmed`. |
-| `reporters` | `pretty` and `json` output, and the banner. |
+| `reporters` | `pretty`, `json`, `sarif`, `junit`, `md`, and `agent` output, plus the coverage table and the banner. |
+| `gate` | The deterministic agent gate (ADR 0026): one `GateDecision`, thin per-host adapters, and the tighten-only policy. The decision layer performs no I/O; the `runtime` feature adds the orchestration a CLI needs. |
 | `plugin-host` | Sandboxed WASM plugin host (wasmtime). Ships partial in v0.2: source-only. See §6. |
 | `napi` | The Node bridge. `scan` is async and runs the engine on a worker thread so a live probe cannot block the event loop. |
 | `cli-native` | Standalone binary — the same engine without Node. |

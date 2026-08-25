@@ -37,6 +37,7 @@ import { llms, robots, sitemap } from "./site/feeds.mjs";
 import { staticPages } from "./site/pages.mjs";
 import { rulePages } from "./site/rules.mjs";
 import { harvestSamples } from "./site/samples.mjs";
+import { favicon } from "./site/icon.mjs";
 import { stylesheet } from "./site/styles.mjs";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
@@ -82,6 +83,7 @@ for (const { path, page } of pages) {
 }
 
 files.set("styles.css", stylesheet());
+files.set("favicon.svg", favicon());
 files.set("robots.txt", robots(site));
 files.set(
   "sitemap.xml",
@@ -151,7 +153,7 @@ if (check) {
  * we do not is what makes the orphan check possible.
  */
 async function listGenerated(directory) {
-  const keep = new Set(["favicon.png", "og.jpg", "README.md", "CNAME", ".nojekyll"]);
+  const keep = new Set(["favicon.png", "og.png", "og.svg", "README.md", "CNAME", ".nojekyll"]);
   const out = [];
 
   async function walk(current) {

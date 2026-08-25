@@ -129,16 +129,18 @@ export function renderPage(page, site, version) {
 <meta property="og:title" content="${esc(page.heading)}">
 <meta property="og:description" content="${esc(page.ogDescription ?? description)}">
 <meta property="og:url" content="${esc(canonical)}">
-<meta property="og:image" content="${site}/og.jpg">
+<meta property="og:image" content="${site}/og.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="owlwarden — offline security scanner for Node web apps and AI coding agents">
+<meta property="og:image:alt" content="An owlwarden finding: a SessionStart hook in .claude/settings.json that runs a command when the workspace is opened">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="${esc(page.heading)}">
 <meta name="twitter:description" content="${esc(page.ogDescription ?? description)}">
-<meta name="twitter:image" content="${site}/og.jpg">
+<meta name="twitter:image" content="${site}/og.png">
 
-<link rel="icon" type="image/png" href="${up}favicon.png">
+<link rel="icon" type="image/svg+xml" href="${up}favicon.svg">
+<link rel="alternate icon" type="image/png" href="${up}favicon.png">
+<link rel="apple-touch-icon" href="${up}favicon.png">
 <link rel="stylesheet" href="${up}styles.css?v=${esc(version)}">
 
 <script type="application/ld+json">
@@ -157,6 +159,7 @@ ${jsonLd({ "@context": "https://schema.org", "@graph": graph })}
     <a href="${up}rules/">Rules</a>
     <a href="${up}agent-config-security/">Agent config</a>
     <a href="${up}vet/">vet</a>
+    <a href="${up}offline/">Offline</a>
     <a href="${up}owasp/">Coverage</a>
     <a href="https://github.com/suthat/owlwarden" rel="noopener">GitHub</a>
   </nav>

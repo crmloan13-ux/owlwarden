@@ -25,7 +25,8 @@
     "clean": "tsc --build --clean packages/sdk packages/config packages/cli && cargo clean",
     "security-check": "node packages/cli/dist/bin.js scan packages",
     "site:check": "node scripts/build-site.mjs --check && node scripts/check-site.mjs",
-    "site:build": "node scripts/build-site.mjs"
+    "site:build": "node scripts/build-site.mjs",
+    "og:build": "node scripts/build-og.mjs --raster"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

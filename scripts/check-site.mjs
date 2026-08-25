@@ -188,6 +188,15 @@ for (const page of pages) {
   }
 }
 
+// A missing social image is a silent failure: the card renders blank and
+// nobody finds out until a link is shared.
+for (const asset of ["og.png", "og.svg", "favicon.svg", "favicon.png"]) {
+  assert(present.has(asset), `site/${asset} is missing`);
+}
+for (const page of pages) {
+  if (!page.html.includes("/og.png")) fail(page.path, "og:image does not point at og.png");
+}
+
 const styles = await readFile(join(siteDir, "styles.css"), "utf8");
 assert(!/@import|url\(https?:/.test(styles), "the stylesheet must not fetch anything");
 assert(styles.includes("prefers-reduced-motion"), "the one animation must respect the preference");

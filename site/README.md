@@ -1,7 +1,7 @@
 # site/
 
-Generated. Run `pnpm site:build`; do not edit anything in here by hand except
-`favicon.png` and `og.jpg`.
+Generated. Run `pnpm site:build`; the only file in here that is not generated is
+`favicon.png`, which is the illustrated mark used as the Apple touch icon.
 
 The generator is `scripts/build-site.mjs`, and it reads three things:
 
@@ -41,11 +41,37 @@ have a page that makes three external requests before the reader has read a
 sentence. `check-site.mjs` refuses any host outside a short allowlist, and any
 `<script>` that is not JSON-LD.
 
-## Per-page social images
+## The icons
 
-There is one `og.jpg` for the whole site. Per-page images rendering the actual
-finding would be better — it is the most recognisable artefact this project has
-— but producing them means rasterising 200 images at build time, which needs a
-headless browser or an image library. Neither is worth adding to a repository
-whose dependency posture is a feature. Faking it with an SVG would not work
-either: the platforms that matter do not render SVG in a social card.
+`favicon.svg` is generated and is drawn for the size it is actually seen at.
+The illustrated owl it replaced is a good drawing and is unreadable in a browser
+tab: at 16 pixels the tufts, the eye rings, and the registration marks collapse
+into a smudge. Four shapes, maximum contrast, and the three features that make a
+silhouette read as an owl — two large adjacent eyes, ear tufts attached to a
+head, and a beak between them. It keeps the severity red the reporter uses for
+`high`, so the tab, the page, and the terminal are one object.
+
+`favicon.png` stays as the `apple-touch-icon`, where 192×192 is the size it is
+actually rendered at and the illustration's detail earns its place.
+
+## The social card
+
+`og.svg` is generated; `og.png` is rasterised from it and committed.
+
+```bash
+pnpm og:build     # writes og.svg, and og.png on macOS
+```
+
+Social platforms do not render SVG in a card, so the `og:image` has to be a
+raster — and producing one needs a headless browser or an image library, neither
+of which belongs in this dependency tree. So the vector source sits next to the
+raster and anyone can regenerate the PNG with any tool. `build-og.mjs --raster`
+uses Quick Look and `sips`, which ship with macOS.
+
+The card shows a **finding**, not a wordmark on a gradient: the
+`.claude/settings.json` hook that runs when anyone opens the folder. It is the
+one image that says the whole argument, and nobody else in this category can
+put it on a card, because nobody else reads that file.
+
+Per-page cards would be better still and would mean rasterising two hundred
+images at build time. That is the trade this repository does not make.
