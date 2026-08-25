@@ -189,7 +189,63 @@ assert(
   `the GitHub README's docs link must use site.url (${siteUrl})`,
 );
 
+// --- 5. Every documented Action input exists ------------------------------
+//
+// This section exists because both READMEs shipped a snippet using `since:`,
+// which the Action did not have, pointed at `suthat/owlwarden@v1`, where there
+// is no `action.yml`. Neither is a typo a reader can recover from: the first
+// input GitHub does not recognise fails the workflow, and the wrong path fails
+// before the job starts. Copy-pasteable is the whole point of those snippets,
+// so what they contain is checked against the Action itself.
+
+const actionYaml = await readFile(new URL("action/action.yml", root), "utf8");
+
+const inputsBlock = actionYaml.slice(
+  actionYaml.indexOf("\ninputs:\n"),
+  actionYaml.indexOf("\noutputs:\n"),
+);
+const actionInputs = new Set(
+  [...inputsBlock.matchAll(/^ {2}([a-z][a-z0-9-]*):$/gm)].map((match) => match[1]),
+);
+assert(actionInputs.size >= 8, `parsed only ${actionInputs.size} Action inputs; the block moved`);
+
+const DOCUMENTS = [
+  ["README.md", githubReadme],
+  ["packages/cli/README.md", readme],
+  ["docs/how-to/ci.md", await readFile(new URL("docs/how-to/ci.md", root), "utf8")],
+  ["scripts/site/pages.mjs", await readFile(new URL("scripts/site/pages.mjs", root), "utf8")],
+];
+
+let snippetsChecked = 0;
+for (const [name, text] of DOCUMENTS) {
+  for (const match of text.matchAll(/uses: ([\w.-]+\/[\w./-]+)@[\w.-]+\n((?:.*\n)*?)(?=\n|```)/g)) {
+    const [, action, body] = match;
+    if (!action.startsWith("suthat/owlwarden")) continue;
+    snippetsChecked += 1;
+
+    assert.equal(
+      action,
+      "suthat/owlwarden/action",
+      `${name} references ${action}; the Action lives in action/, not at the repository root`,
+    );
+
+    // `with:` keys are one indent deeper than `with:` itself, whatever the
+    // snippet's base indent is — the READMEs and ci.md do not agree on it.
+    const withIndex = body.indexOf("with:");
+    if (withIndex === -1) continue;
+    const indent = " ".repeat(body.slice(0, withIndex).match(/[^\n]*$/)[0].length + 2);
+    for (const key of body.matchAll(new RegExp(`^${indent}([a-z][a-z0-9-]*):`, "gm"))) {
+      assert(
+        actionInputs.has(key[1]),
+        `${name} passes \`${key[1]}\` to the Action, which has no such input`,
+      );
+    }
+  }
+}
+assert(snippetsChecked >= 3, `found only ${snippetsChecked} Action snippets; expected one per document`);
+
 console.log(
   `README contracts passed (npm: ${size} bytes, ${keywords.length} keywords; ` +
-    `GitHub: ${githubReadme.length} bytes, ${relativeLinks.length} repository links)`,
+    `GitHub: ${githubReadme.length} bytes, ${relativeLinks.length} repository links; ` +
+    `${snippetsChecked} Action snippets against ${actionInputs.size} inputs)`,
 );

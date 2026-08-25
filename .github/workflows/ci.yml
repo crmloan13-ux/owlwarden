@@ -105,6 +105,15 @@ jobs:
         if: runner.os == 'Linux'
         run: pnpm docs:check
 
+      # Also a release gate, and that is where a wrong number is unrecoverable.
+      # It runs here too because the two files most likely to go stale — the
+      # Action's default `version` input and the MCP descriptor — fail silently
+      # rather than loudly, so the release gate would be the first thing to
+      # notice, on the day when noticing is most expensive.
+      - name: every published version agrees
+        if: runner.os == 'Linux'
+        run: pnpm version:check
+
       # `engines: node >=20` in the published package is a promise to users,
       # and the build runs on a newer Node than that. Without this step the
       # promise is untested, and the first person to find out would be someone

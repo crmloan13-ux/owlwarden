@@ -73,6 +73,24 @@ hostile?*
   `publishConfig.provenance` were rewritten for the registry's own ranking
   inputs. The site URL now lives in one file, `site.url`.
 - `owlwarden init` with no flags is unchanged; the host flags are additive.
+- The GitHub Action gained `preset` and `since` inputs. Without `preset` the
+  agent surface was unreachable from CI at all; `since` was already in the
+  README's snippet and had never existed.
+
+### Fixed
+
+- **The GitHub Action refused every invocation it was ever given.** A guard
+  written as `[[ "$value" == *$'\0'* ]]` was meant to reject NUL bytes; bash
+  cannot hold a NUL in a string, so `$'\0'` is the empty string and the pattern
+  is `**`. Every input matched, and the Action exited 2 before running anything.
+  It shipped in 1.0 and nothing caught it, because nothing executed the Action:
+  the "action smoke" workflow re-implements its command line rather than calling
+  it. The check is gone — a NUL cannot reach a shell variable through `execve`
+  either — and the script now has 63 tests that run it with a stubbed CLI and
+  assert on the argv it produces.
+- The Action snippets in both READMEs and on the site pointed at
+  `suthat/owlwarden@v1`, where there is no `action.yml`. A check now validates
+  every documented snippet against the Action's real path and real inputs.
 
 ### Security
 
@@ -86,6 +104,12 @@ hostile?*
   output. Patch paths are validated before git sees them (no absolute paths, no
   `..`, nothing under `.git/`, no NUL bytes, a file-count cap), and symlinks are
   excluded from the scratch copy rather than followed.
+- **A flag-shaped Action input is no longer a flag.** `path` was interpolated
+  as a bare positional, and the CLI's parser resolves a flag-shaped positional
+  as an option: a workflow wiring `path:` to a `workflow_dispatch` input or a
+  matrix entry read out of the tree could turn a scan step into
+  `--target=http://169.254.169.254` or `--plugin=./evil.wasm`. The path is now
+  passed after `--`, and no input may begin with `-`.
 - **The JSONC string scanner is no longer quadratic.** Reading one character
   validated the whole remaining input, so a single 1.5 MB string in a
   `.claude/settings.json` — inside the size cap, in a file an attacker controls,

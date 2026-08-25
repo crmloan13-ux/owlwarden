@@ -103,8 +103,9 @@ jobs:
     steps:
       # Pin full commit SHAs — `ci-unpinned-action` flags moving tags like @v4.
       - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
-      - uses: suthat/owlwarden/action@v1.0.0
+      - uses: suthat/owlwarden/action@v1.1.0
         with:
+          preset: quick        # or agent-surface, to scan the agent workspace
           fail-on: medium
           min-confidence: likely
           format: sarif
@@ -120,6 +121,17 @@ jobs:
 The Action has **no `args` input** on purpose — unquoted extras were a shell
 injection and mute-switch footgun. Need another flag? Call the CLI in a `run:`
 step with an argv array, or extend the Action with a typed input.
+
+Every input is validated against an allowlist or a pattern, and **no input may
+begin with `-`**. The `path` input is passed after a `--` separator, so a value
+that looks like a flag is still a path. This matters when a workflow wires an
+input to something a contributor can influence — a `workflow_dispatch` input, a
+matrix entry read out of the repository — where `path: --target=http://…` would
+otherwise turn a scan step into an outbound request from the runner.
+
+To scan both surfaces, run the Action twice with different `preset` and `out`
+values. One job with `preset: agent-surface` is the CI half of what
+`owlwarden gate` does during a session.
 
 Without the Action, the equivalent CLI:
 
