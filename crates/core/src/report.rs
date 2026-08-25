@@ -51,6 +51,14 @@ pub struct ScanTarget {
     pub routes_probed: u32,
     /// Preset in force.
     pub preset: String,
+    /// What the scan was narrowed to, when it was: `"since origin/main"`,
+    /// `"staged"`, `"3 paths"`.
+    ///
+    /// Present in every format, because a diff-scoped clean result must never
+    /// render as a clean repository. The pretty reporter puts it in the summary
+    /// line for exactly that reason.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub diff_scope: Option<String>,
 }
 
 /// Finding counts by severity. Present even when zero so consumers can render a

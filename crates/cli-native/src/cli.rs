@@ -107,6 +107,12 @@ pub struct ScanArgs {
     pub osv_db: Option<String>,
     /// `--offline` with `--osv` requires `--osv-db`.
     pub offline: bool,
+    /// Scan only what changed since this git ref.
+    pub since: Option<String>,
+    /// Scan only what is staged.
+    pub staged: bool,
+    /// Scan only these project-relative paths.
+    pub paths: Vec<String>,
 }
 
 impl Default for ScanArgs {
@@ -140,6 +146,9 @@ impl Default for ScanArgs {
             osv: false,
             osv_db: None,
             offline: false,
+            since: None,
+            staged: false,
+            paths: Vec::new(),
         }
     }
 }
@@ -293,6 +302,9 @@ struct RawScan {
     osv: bool,
     osv_db: Option<String>,
     offline: bool,
+    since: Option<String>,
+    staged: bool,
+    paths: Vec<String>,
 }
 
 /// Parses the flags of `scan`.
@@ -332,6 +344,16 @@ fn parse_scan<'a>(args: impl Iterator<Item = &'a String>) -> Result<ScanArgs, Ar
             "--osv" => raw.osv = true,
             "--osv-db" => raw.osv_db = Some(value("--osv-db")?),
             "--offline" => raw.offline = true,
+            "--since" => raw.since = Some(value("--since")?),
+            "--staged" => raw.staged = true,
+            "--paths" => {
+                // Comma-separated, because a hook passes one string and a shell
+                // user types one flag. Repeating `--paths` also works and the
+                // lists concatenate.
+                let entry = value("--paths")?;
+                raw.paths
+                    .extend(entry.split(',').map(str::trim).filter(|p| !p.is_empty()).map(str::to_owned));
+            }
             "--fail-on" => {
                 let text = value("--fail-on")?;
                 let level = Severity::from_str_opt(&text).ok_or(ArgError::InvalidValue {
@@ -370,6 +392,16 @@ fn parse_scan<'a>(args: impl Iterator<Item = &'a String>) -> Result<ScanArgs, Ar
             option: "--allow-active",
             value: "true".to_owned(),
             expected: "use with --target",
+        });
+    }
+    let narrowings = usize::from(raw.since.is_some())
+        + usize::from(raw.staged)
+        + usize::from(!raw.paths.is_empty());
+    if narrowings > 1 {
+        return Err(ArgError::InvalidValue {
+            option: "--since / --staged / --paths",
+            value: "more than one".to_owned(),
+            expected: "exactly one narrowing flag",
         });
     }
     if raw.osv && raw.offline && raw.osv_db.is_none() {
@@ -418,6 +450,9 @@ impl RawScan {
             osv: self.osv,
             osv_db: self.osv_db,
             offline: self.offline,
+            since: self.since,
+            staged: self.staged,
+            paths: self.paths,
         }
     }
 }

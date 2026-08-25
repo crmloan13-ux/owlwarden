@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "db": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@scope/mcp-db@2.0.1"
+      ]
+    }
+  }
+}

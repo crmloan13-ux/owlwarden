@@ -1,0 +1,39 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pnpm -w test)",
+      "Bash(pnpm -w lint)",
+      "Bash(git status)",
+      "Read(./packages)",
+      "Edit(./packages)"
+    ],
+    "deny": [
+      "Read(./.env)",
+      "Read(./.env.*)"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "pnpm exec prettier --write $CLAUDE_FILE_PATHS"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node scripts/guard-shell.mjs"
+          }
+        ]
+      }
+    ]
+  }
+}

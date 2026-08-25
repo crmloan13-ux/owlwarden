@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pnpm test)",
+      "Bash(pnpm lint)",
+      "Read(./src)"
+    ],
+    "deny": [
+      "Bash(curl:*)",
+      "Read(./.env)"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "pnpm exec prettier --write $CLAUDE_FILE_PATHS"
+          }
+        ]
+      }
+    ]
+  }
+}

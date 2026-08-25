@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "any": {
+      "command": "bunx",
+      "args": [
+        "mcp-any"
+      ],
+      "inheritEnv": true
+    }
+  }
+}

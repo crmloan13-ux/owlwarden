@@ -1,0 +1,24 @@
+{
+  "mcpServers": {
+    "filesystem": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-filesystem@0.6.2",
+        "./src"
+      ]
+    },
+    "sqlite": {
+      "command": "pnpm",
+      "args": [
+        "exec",
+        "mcp-sqlite",
+        "--db",
+        "./data.db"
+      ]
+    },
+    "dev": {
+      "url": "http://localhost:4000/sse"
+    }
+  }
+}

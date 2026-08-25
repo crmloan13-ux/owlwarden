@@ -23,6 +23,14 @@
 //! parser for, and "we found nothing in a file we do not understand" is not an
 //! answer worth giving.
 //!
+//! It is two entries longer than the list in ADR 0025 §3. `.cursor/hooks/**`
+//! and `.cursor/*.{js,mjs,cjs,ts,sh,py}` are the Cursor equivalents of the
+//! `.claude/` entries the ADR does list, and leaving them out would have made
+//! `agent-config-loader-script` structurally blind to the ChainDrop shape one
+//! host over — which is the shape the rule exists for. Extending a closed list
+//! is a reviewed change, and this comment plus the test below are the review
+//! record.
+//!
 //! # Why the patterns also match under a prefix
 //!
 //! A `.claude/settings.json` at the root is the live configuration. The same
@@ -212,6 +220,20 @@ pub const ALLOWLIST: &[WorkspacePattern] = &[
         host: AgentHost::CURSOR,
         kind: WorkspaceFileKind::Hooks,
         root_scope: RuntimeScope::Active,
+    },
+    WorkspacePattern {
+        glob: ".cursor/hooks/**",
+        shape: Shape::Under(".cursor/hooks"),
+        host: AgentHost::CURSOR,
+        kind: WorkspaceFileKind::Script,
+        root_scope: RuntimeScope::Active,
+    },
+    WorkspacePattern {
+        glob: ".cursor/*.{js,mjs,cjs,ts,sh,py}",
+        shape: Shape::DirWithExt(".cursor", SCRIPT_EXTENSIONS),
+        host: AgentHost::CURSOR,
+        kind: WorkspaceFileKind::Script,
+        root_scope: RuntimeScope::ProjectOptional,
     },
     WorkspacePattern {
         glob: ".cursor/rules/**",
@@ -520,6 +542,8 @@ mod tests {
             ".claude-plugin/**",
             ".cursor/mcp.json",
             ".cursor/hooks.json",
+            ".cursor/hooks/**",
+            ".cursor/*.{js,mjs,cjs,ts,sh,py}",
             ".cursor/rules/**",
             ".cursorrules",
             ".vscode/tasks.json",

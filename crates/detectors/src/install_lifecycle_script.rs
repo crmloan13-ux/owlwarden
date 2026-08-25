@@ -34,7 +34,7 @@ use owlwarden_core::remediation::Remediation;
 use owlwarden_core::source::FileSelector;
 use owlwarden_core::surface::Surface;
 use owlwarden_static::agentws::command;
-use owlwarden_static::agentws::jsonc::{self, JsonNode};
+use owlwarden_static::agentws::jsonc;
 use owlwarden_static::line_index::LineIndex;
 use owlwarden_static::project::Project;
 use owlwarden_static::rule::{FindingSink, ProjectRule, RuleInfo};

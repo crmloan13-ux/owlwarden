@@ -94,6 +94,14 @@ struct ScanRequest {
     /// Project-relative paths that changed since the last scan (watch mode).
     #[serde(default)]
     dirty_paths: Vec<String>,
+    /// Restricts the scan to these project-relative paths (`--since`,
+    /// `--staged`, `--paths`). The CLI resolves a git ref into this list; the
+    /// engine never runs a subprocess.
+    #[serde(default)]
+    scoped_paths: Vec<String>,
+    /// Human-readable description of the scope, for the report header.
+    #[serde(default)]
+    diff_scope: Option<String>,
     /// Previous report JSON for incremental merge in watch mode.
     #[serde(default)]
     previous_report_json: Option<String>,
@@ -316,6 +324,11 @@ fn settings_from_request(request: &ScanRequest) -> ScanSettings {
             .unwrap_or(Severity::Info),
         preset: request.preset.clone(),
         dirty_paths: None,
+        scoped_paths: if request.scoped_paths.is_empty() {
+            None
+        } else {
+            Some(request.scoped_paths.clone())
+        },
     }
 }
 
@@ -440,6 +453,7 @@ fn build_scan_request(
         } else {
             Some(request.dirty_paths.clone())
         },
+        diff_scope: request.diff_scope.clone(),
         previous_report,
     })
 }

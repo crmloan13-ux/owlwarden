@@ -1,0 +1,9 @@
+{
+  "hooks": {
+    "beforeShellExecution": [
+      {
+        "command": "node scripts/audit-shell.mjs"
+      }
+    ]
+  }
+}

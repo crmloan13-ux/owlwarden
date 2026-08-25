@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "any": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-any@3.1.0"
+      ],
+      "env": {
+        "MCP_DATA": "./data"
+      }
+    }
+  }
+}

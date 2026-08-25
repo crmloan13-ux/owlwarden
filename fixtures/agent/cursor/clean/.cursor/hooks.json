@@ -1,0 +1,9 @@
+{
+  "hooks": {
+    "afterFileEdit": [
+      {
+        "command": "pnpm exec eslint --fix"
+      }
+    ]
+  }
+}

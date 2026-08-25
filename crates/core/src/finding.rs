@@ -983,11 +983,20 @@ impl FindingBuilder {
         self
     }
 
-    /// Sets the ASI category and, when the category is recognised, appends its
-    /// reference link.
+    /// Sets the ASI category and, when the category is recognised **and no
+    /// OWASP category is already set**, appends its reference link.
+    ///
+    /// The conditional is the reference budget, not an accident. A finding
+    /// carries at most three curated links, because a reader has to be able to
+    /// tell which one to open; `install-lifecycle-script` maps to both
+    /// taxonomies, and with CWE and the rule page that is four. The one to drop
+    /// is the secondary mapping, and the `asi` field still records it for the
+    /// coverage table — so the taxonomy is not lost, only the fourth link is.
     #[must_use]
     pub fn asi(mut self, category: AsiRef) -> Self {
-        if let Some(reference) = Reference::asi(&category) {
+        if self.finding.owasp.is_none()
+            && let Some(reference) = Reference::asi(&category)
+        {
             self.finding.references.push(reference);
         }
         self.finding.asi = Some(category);

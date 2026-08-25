@@ -8,7 +8,7 @@
 
 use owlwarden_core::detector::{DetectorError, DetectorMeta};
 use owlwarden_core::finding::{
-    AgentHost, AsiRef, Confidence, FindingContext, RuleId, RuntimeScope, Severity,
+    AgentHost, AsiRef, Confidence, FindingContext, RuleId, Severity,
 };
 use owlwarden_core::remediation::Remediation;
 use owlwarden_core::surface::Surface;
@@ -676,7 +676,9 @@ fn secret_remediation() -> Remediation {
 
 /// Scope helper used by tests to assert the ceiling is applied consistently.
 #[cfg(test)]
-fn scope_of(findings: &[owlwarden_core::finding::Finding]) -> Vec<Option<RuntimeScope>> {
+fn scope_of(
+    findings: &[owlwarden_core::finding::Finding],
+) -> Vec<Option<owlwarden_core::finding::RuntimeScope>> {
     findings.iter().map(|finding| finding.runtime_scope).collect()
 }
 
@@ -686,6 +688,7 @@ mod tests {
 
     use super::*;
     use crate::agent::testing::{assert_silent, run_rule};
+    use owlwarden_core::finding::RuntimeScope;
 
     #[test]
     fn a_loose_script_in_a_config_directory_fires() {

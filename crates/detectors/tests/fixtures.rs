@@ -143,6 +143,7 @@ const SHARED_FIRES: &[(&str, usize)] = &[
     ("unpinned-dependency", 1),
     ("ci-unpinned-action", 1),
     ("sensitive-data-logged", 2), // password + accessToken
+    ("install-lifecycle-script", 1),
 ];
 
 /// Source shapes each multi-fire count stands for.
@@ -301,6 +302,14 @@ async fn the_matrix_covers_every_supported_framework() {
 fn every_catalogue_rule_is_exercised_on_every_framework() {
     // Opt-in rules stay out of this matrix: advisory needs `--osv`, active
     // needs `--allow-active` + a live target. Both have dedicated tests.
+    //
+    // Agent-surface rules stay out for a different and more important reason:
+    // this grid asks "does every rule work on every *framework*?", and that
+    // question does not apply to a rule reading `.claude/settings.json`. They
+    // have their own grid — every rule against every agent host, with a
+    // vulnerable, a clean twin, and a tempting fixture — in `agent_surface.rs`.
+    // Forcing them in here would mean pasting a hook into twelve Next.js
+    // fixtures to satisfy a matrix that is not about them.
     let opt_in: std::collections::HashSet<_> = owlwarden_detectors::advisory_rule_infos()
         .into_iter()
         .chain(owlwarden_detectors::active_rule_infos())
@@ -308,6 +317,7 @@ fn every_catalogue_rule_is_exercised_on_every_framework() {
         .collect();
     let catalogue: Vec<_> = owlwarden_detectors::all_rule_metas()
         .into_iter()
+        .filter(|meta| meta.surface == owlwarden_core::surface::Surface::WebApp)
         .map(|meta| meta.id.to_string())
         .filter(|id| !opt_in.contains(id))
         .collect();
@@ -335,13 +345,14 @@ fn every_catalogue_rule_is_exercised_on_every_framework() {
             );
         }
     }
-    // 12 offline rules × 12 frameworks = 144 cells. If this number moves,
-    // update the table in fixtures/should-not-fire/README.md in the same PR.
+    // 13 offline webApp rules × 12 frameworks = 156 cells. If this number
+    // moves, update the table in fixtures/should-not-fire/README.md in the same
+    // PR. The agent surface has its own grid and its own arithmetic.
     assert_eq!(
         SHARED_FIRES.len() * MATRIX.len(),
         owlwarden_detectors::SUPPORTED_FRAMEWORKS.len() * catalogue.len()
     );
-    assert_eq!(SHARED_FIRES.len() * MATRIX.len(), 144);
+    assert_eq!(SHARED_FIRES.len() * MATRIX.len(), 156);
 }
 
 #[test]

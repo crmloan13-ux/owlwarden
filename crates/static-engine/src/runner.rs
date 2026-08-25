@@ -96,6 +96,10 @@ pub struct ScanRequest {
     pub correlate: Option<fn(Vec<Finding>) -> Vec<Finding>>,
     /// Project-relative paths that changed since the last scan. Empty/absent → full scan.
     pub dirty_paths: Option<Vec<String>>,
+    /// Human-readable description of a diff scope (`"since origin/main"`),
+    /// copied into the report so no format can render a narrowed scan as a
+    /// clean repository.
+    pub diff_scope: Option<String>,
     /// Previous report for incremental merge in watch mode.
     pub previous_report: Option<Report>,
 }
@@ -112,6 +116,7 @@ impl Default for ScanRequest {
             advisory: None,
             correlate: None,
             dirty_paths: None,
+            diff_scope: None,
             previous_report: None,
         }
     }
@@ -145,6 +150,7 @@ pub async fn scan_project(
             advisory: None,
             correlate: None,
             dirty_paths: None,
+            diff_scope: None,
             previous_report: None,
         },
     )
@@ -201,6 +207,7 @@ pub async fn scan_project_with(
         files_scanned: 0,
         routes_probed: 0,
         preset: settings.preset.clone(),
+        diff_scope: request.diff_scope.clone(),
     };
 
     let mut detectors: Vec<Arc<dyn Detector>> =

@@ -12,6 +12,7 @@
 #![warn(clippy::pedantic)]
 
 mod cli;
+mod git;
 
 use std::io::{IsTerminal, Write};
 
@@ -167,6 +168,7 @@ fn build_scan_request(
         Some(hint) => (Some(hint.dirty_paths), Some(hint.previous_report)),
         None => (None, None),
     };
+    let scope = git::resolve_scope(&args.path, args.since.as_deref(), args.staged, &args.paths)?;
     let mut scan_request = owlwarden_static::ScanRequest {
         settings: ScanSettings {
             allow_active: args.allow_active,
@@ -174,6 +176,7 @@ fn build_scan_request(
             min_severity: owlwarden_core::finding::Severity::Info,
             preset: args.preset.clone(),
             dirty_paths: None,
+            scoped_paths: scope.as_ref().map(|scope| scope.paths.clone()),
         },
         baseline,
         write_baseline: args.write_baseline.as_ref().map(std::path::PathBuf::from),
@@ -183,6 +186,7 @@ fn build_scan_request(
         advisory: None,
         correlate: None,
         dirty_paths,
+        diff_scope: scope.map(|scope| scope.label),
         previous_report,
     };
     scan_request.extra_detectors.extend(load_requested_plugins(
@@ -423,6 +427,12 @@ fn run_watch(args: &ScanArgs) -> i32 {
     }
 
     let mut watch_args = ScanArgs {
+        // Watch owns its own incrementality (ADR 0023); a diff scope on top
+        // would narrow every re-scan to the first diff and quietly stop
+        // reporting anything else.
+        since: None,
+        staged: false,
+        paths: Vec::new(),
         path: args.path.clone(),
         preset: args.preset.clone(),
         format: args.format.clone(),

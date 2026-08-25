@@ -229,7 +229,10 @@ fn collect_hook_blocks<'a>(
         let normalised = event.key.to_ascii_lowercase().replace(['-', '_'], "");
         let automatic = CLAUDE_AUTOMATIC_EVENTS.contains(&normalised.as_str())
             || normalised.starts_with("onopen")
-            || normalised.starts_with("startup");
+            // `startup`, `onStartup`, `on_startup` — four hosts, four spellings
+            // of the same event, and the one we fail to match is the one that
+            // ships.
+            || normalised.contains("startup");
 
         let commands = commands_under(&event.value);
         if commands.is_empty() {
