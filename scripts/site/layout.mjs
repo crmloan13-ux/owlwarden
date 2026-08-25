@@ -141,6 +141,7 @@ export function renderPage(page, site, version) {
 <link rel="icon" type="image/svg+xml" href="${up}favicon.svg">
 <link rel="alternate icon" type="image/png" href="${up}favicon.png">
 <link rel="apple-touch-icon" href="${up}favicon.png">
+<link rel="alternate" type="application/atom+xml" title="owlwarden releases" href="${site}/changelog/feed.xml">
 <link rel="stylesheet" href="${up}styles.css?v=${esc(version)}">
 
 <script type="application/ld+json">

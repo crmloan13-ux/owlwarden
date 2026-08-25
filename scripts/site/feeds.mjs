@@ -97,6 +97,7 @@ ${[
   ["agent-config-security/", { title: "Agent config security", blurb: "Why agent and editor configuration is executable, and why no dependency scanner reads it." }],
   ["vet/", { title: "owlwarden vet", blurb: "Scanning a repository you did not write, with the target's own suppressions treated as evidence." }],
   ["offline/", { title: "Offline by default", blurb: "The threat model: what leaves the machine, and the two flags that make it." }],
+  ["changelog/", { title: "Changelog", blurb: "Every user-visible change, with the security notes spelled out. Atom feed at /changelog/feed.xml." }],
 ]
   .map(([path, note]) => line(path, note))
   .join("\n")}

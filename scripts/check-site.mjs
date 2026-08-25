@@ -46,6 +46,9 @@ assert(pages.length > 50, `expected the generated site, found ${pages.length} pa
 /** Every file the site actually contains, for the link check. */
 const present = new Set(await collectPaths(siteDir));
 const known = new Set(pages.map((page) => page.path));
+
+/** How many *other* pages link to each page. Orphans do not get crawled. */
+const inbound = new Map(pages.map((page) => [page.path, 0]));
 const problems = [];
 
 function fail(where, message) {
@@ -135,8 +138,16 @@ for (const page of pages) {
     const target = normalize(join(dirname(path), href));
     const resolved = target.endsWith("/") || target === "" ? join(target, "index.html") : target;
     const candidates = [resolved, join(target, "index.html"), target];
-    if (!candidates.some((candidate) => known.has(candidate) || present.has(candidate))) {
+    const hit = candidates.find((candidate) => known.has(candidate));
+    if (hit === undefined && !candidates.some((candidate) => present.has(candidate))) {
       fail(path, `dead link: ${href}`);
+      continue;
+    }
+    // Links from the shared header and footer do not count: every page has
+    // them, so counting them would make every page look well-linked and the
+    // check would find nothing.
+    if (hit !== undefined && hit !== path && bodyLinks.includes(href)) {
+      inbound.set(hit, (inbound.get(hit) ?? 0) + 1);
     }
   }
 
@@ -149,6 +160,21 @@ for (const page of pages) {
   }
   if (/target="_blank"(?![^>]+rel="[^"]*noopener)/.test(html)) {
     fail(path, "target=_blank without rel=noopener");
+  }
+}
+
+// --- the link graph --------------------------------------------------------
+//
+// A page nothing links to is a page a crawler reaches only through the sitemap,
+// which is the weakest signal there is. Two inbound links from the *body* of
+// other pages is the floor; the header and footer do not count, because they
+// are on every page and would make every page look well-connected.
+
+for (const page of pages) {
+  if (page.path === "404.html" || page.path === "index.html") continue;
+  const count = inbound.get(page.path) ?? 0;
+  if (count < 2) {
+    fail(page.path, `${count} inbound body link(s); a page nothing links to is an orphan`);
   }
 }
 
@@ -177,6 +203,20 @@ const robots = await readFile(join(siteDir, "robots.txt"), "utf8");
 assert.match(robots, new RegExp(`Sitemap: ${escapeRegExp(site)}/sitemap.xml`));
 assert.match(robots, /^User-agent: \*$/m);
 assert.match(robots, /^Allow: \/$/m);
+
+const feed = await readFile(join(siteDir, "changelog", "feed.xml"), "utf8");
+assert.match(feed, /^<\?xml version="1\.0" encoding="UTF-8"\?>/);
+assert.match(feed, /<feed xmlns="http:\/\/www\.w3\.org\/2005\/Atom">/);
+assert(feed.includes(`${site}/changelog/feed.xml`), "the feed must name its own URL");
+assert(
+  (feed.match(/<entry>/g) ?? []).length >= 2,
+  "the feed should carry the release history, not just the newest",
+);
+for (const page of pages) {
+  if (!page.html.includes('type="application/atom+xml"')) {
+    fail(page.path, "does not advertise the feed in <head>");
+  }
+}
 
 const llms = await readFile(join(siteDir, "llms.txt"), "utf8");
 assert.match(llms, /^# owlwarden$/m);

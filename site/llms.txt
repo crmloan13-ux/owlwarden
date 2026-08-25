@@ -18,6 +18,7 @@ Exit codes: 0 clean, 1 findings at or above --fail-on, 2 could not run.
 - [Agent config security](https://suthat.github.io/owlwarden/agent-config-security/): Why agent and editor configuration is executable, and why no dependency scanner reads it.
 - [owlwarden vet](https://suthat.github.io/owlwarden/vet/): Scanning a repository you did not write, with the target's own suppressions treated as evidence.
 - [Offline by default](https://suthat.github.io/owlwarden/offline/): The threat model: what leaves the machine, and the two flags that make it.
+- [Changelog](https://suthat.github.io/owlwarden/changelog/): Every user-visible change, with the security notes spelled out. Atom feed at /changelog/feed.xml.
 
 ## Coverage
 

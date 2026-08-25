@@ -33,6 +33,7 @@ import { fileURLToPath } from "node:url";
 import { dirname, join, relative } from "node:path";
 
 import { problems, renderPage } from "./site/layout.mjs";
+import { changelogFeed, changelogPage } from "./site/changelog.mjs";
 import { llms, robots, sitemap } from "./site/feeds.mjs";
 import { staticPages } from "./site/pages.mjs";
 import { rulePages } from "./site/rules.mjs";
@@ -62,8 +63,11 @@ const explain = new Map(
 process.stdout.write(`scanning fixtures for verified examples…\n`);
 const samples = await harvestSamples(native);
 
+const changelogSource = await readFile(join(root, "CHANGELOG.md"), "utf8");
+
 const pages = [
   ...staticPages({ rules, coverage, samples, version }),
+  { path: "changelog/", page: changelogPage(changelogSource, version) },
   ...rulePages({ rules, explain, samples, coverage }),
 ];
 
@@ -94,6 +98,7 @@ files.set(
   ),
 );
 files.set("llms.txt", llms({ site, version, rules, coverage }));
+files.set(join("changelog", "feed.xml"), changelogFeed(changelogSource, site));
 files.set("404.html", renderPage(notFound(), site, version));
 
 // Every page has been rendered, so every problem is known. Reporting them

@@ -27,6 +27,7 @@
 <link rel="icon" type="image/svg+xml" href="../../../favicon.svg">
 <link rel="alternate icon" type="image/png" href="../../../favicon.png">
 <link rel="apple-touch-icon" href="../../../favicon.png">
+<link rel="alternate" type="application/atom+xml" title="owlwarden releases" href="https://suthat.github.io/owlwarden/changelog/feed.xml">
 <link rel="stylesheet" href="../../../styles.css?v=1.1.0">
 
 <script type="application/ld+json">
@@ -182,6 +183,11 @@ npx owlwarden explain open-redirect</code></pre>
 </p>
 
 <h2>Other Next.js checks</h2>
+<p>
+  Every rule that has a verified Next.js example. Cross-linked in both
+  directions on purpose: a page nothing links to is a page a crawler reaches
+  only through the sitemap, and a reader never reaches at all.
+</p>
 <ul class="cards">
   <li><a href="../../cors-permissive/next/">
     <span class="name">cors-permissive</span>
@@ -214,6 +220,10 @@ npx owlwarden explain open-redirect</code></pre>
   <li><a href="../../stack-trace-leak/next/">
     <span class="name">stack-trace-leak</span>
     <span class="blurb"><span class="chip chip-high">high</span> Stack trace leaked in error response</span>
+  </a></li>
+  <li><a href="../../weak-crypto/next/">
+    <span class="name">weak-crypto</span>
+    <span class="blurb"><span class="chip chip-high">high</span> Broken cryptographic primitive protecting a secret</span>
   </a></li>
 </ul>
 

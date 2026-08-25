@@ -27,6 +27,7 @@
 <link rel="icon" type="image/svg+xml" href="../../favicon.svg">
 <link rel="alternate icon" type="image/png" href="../../favicon.png">
 <link rel="apple-touch-icon" href="../../favicon.png">
+<link rel="alternate" type="application/atom+xml" title="owlwarden releases" href="https://suthat.github.io/owlwarden/changelog/feed.xml">
 <link rel="stylesheet" href="../../styles.css?v=1.1.0">
 
 <script type="application/ld+json">
@@ -61,6 +62,27 @@
       "@type": "TechArticle",
       "headline": "owlwarden vs eslint-plugin-security",
       "proficiencyLevel": "Beginner"
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Is owlwarden a replacement for eslint-plugin-security?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "It answers the same questions with more context — framework-aware, route-aware, and with a confidence field so a guess is never presented as a fact. Keeping both costs nothing."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Why do lint security rules produce so many false positives?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Because they match syntax without knowing what a response, a cookie, or a request is in your framework. owlwarden asks the detected framework's profile instead."
+          }
+        }
+      ]
     }
   ]
 }

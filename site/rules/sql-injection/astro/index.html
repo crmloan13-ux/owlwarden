@@ -27,6 +27,7 @@
 <link rel="icon" type="image/svg+xml" href="../../../favicon.svg">
 <link rel="alternate icon" type="image/png" href="../../../favicon.png">
 <link rel="apple-touch-icon" href="../../../favicon.png">
+<link rel="alternate" type="application/atom+xml" title="owlwarden releases" href="https://suthat.github.io/owlwarden/changelog/feed.xml">
 <link rel="stylesheet" href="../../../styles.css?v=1.1.0">
 
 <script type="application/ld+json">
@@ -179,6 +180,11 @@ npx owlwarden explain sql-injection</code></pre>
 </p>
 
 <h2>Other Astro checks</h2>
+<p>
+  Every rule that has a verified Astro example. Cross-linked in both
+  directions on purpose: a page nothing links to is a page a crawler reaches
+  only through the sitemap, and a reader never reaches at all.
+</p>
 <ul class="cards">
   <li><a href="../../cors-permissive/astro/">
     <span class="name">cors-permissive</span>
@@ -211,6 +217,14 @@ npx owlwarden explain sql-injection</code></pre>
   <li><a href="../../ssrf/astro/">
     <span class="name">ssrf</span>
     <span class="blurb"><span class="chip chip-high">high</span> Server fetches a URL the caller controls</span>
+  </a></li>
+  <li><a href="../../stack-trace-leak/astro/">
+    <span class="name">stack-trace-leak</span>
+    <span class="blurb"><span class="chip chip-high">high</span> Stack trace leaked in error response</span>
+  </a></li>
+  <li><a href="../../weak-crypto/astro/">
+    <span class="name">weak-crypto</span>
+    <span class="blurb"><span class="chip chip-high">high</span> Broken cryptographic primitive protecting a secret</span>
   </a></li>
 </ul>
 

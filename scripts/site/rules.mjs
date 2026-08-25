@@ -416,9 +416,13 @@ ${code("bash", `npx owlwarden scan\nnpx owlwarden explain ${rule.id}`)}
 ${
   siblings.length > 0
     ? `<h2>Other ${esc(label)} checks</h2>
+<p>
+  Every rule that has a verified ${esc(label)} example. Cross-linked in both
+  directions on purpose: a page nothing links to is a page a crawler reaches
+  only through the sitemap, and a reader never reaches at all.
+</p>
 <ul class="cards">
 ${siblings
-  .slice(0, 8)
   .map(
     (other) => `  <li><a href="../../${esc(other.id)}/${esc(profile)}/">
     <span class="name">${esc(other.id)}</span>

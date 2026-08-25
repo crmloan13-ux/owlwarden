@@ -162,7 +162,8 @@ ${code("bash", "npx owlwarden scan          # your app\nnpx owlwarden vet .     
 ${code("bash", "owlwarden init --claude-code   # hooks + MCP entry\nowlwarden init --cursor\nowlwarden init --generic       # any host that can run a process")}
 <p>
   <a href="./claude-code/">Claude Code</a> · <a href="./cursor/">Cursor</a> ·
-  <a href="./mcp/">MCP</a> · <a href="./ci/">CI</a>
+  <a href="./mcp/">MCP</a> · <a href="./ci/">CI</a> ·
+  <a href="./vet/">vet</a> · <a href="./changelog/">Changelog</a>
 </p>
 
 <h2>Common questions</h2>
@@ -175,7 +176,17 @@ ${code("bash", "owlwarden init --claude-code   # hooks + MCP entry\nowlwarden in
 <p>MIT OR Apache-2.0, at your option. No account, no seat count, no hosted tier.</p>
 <h3>Does it replace my existing scanner?</h3>
 <p>
-  No, and it does not try to. <a href="./vs/semgrep/">Here is where it loses</a>.
+  No, and it does not try to. <a href="./vs/semgrep/">Here is where it loses</a>,
+  and the same page for <a href="./vs/snyk/">Snyk</a>,
+  <a href="./vs/claude-security/">model-based review</a>, and
+  <a href="./vs/eslint-plugin-security/">eslint-plugin-security</a>.
+</p>
+
+<h3>What changed in the last release?</h3>
+<p>
+  <a href="./changelog/">The changelog</a> lists every user-visible change with
+  the security notes spelled out, and carries an
+  <a href="./changelog/feed.xml">Atom feed</a> — no account, no mailing list.
 </p>
 `,
   };
@@ -552,6 +563,11 @@ ${code("bash", "npx owlwarden mcp")}
 </p>
 
 <h2>Configuration</h2>
+<p>
+  <code>owlwarden init</code> writes this for you:
+  <a href="../claude-code/">Claude Code</a>, <a href="../cursor/">Cursor</a>, or
+  <a href="../vet/">check a repository first</a>.
+</p>
 ${code(
   "json",
   `{
@@ -862,7 +878,7 @@ ${CROSS("../")}
 
 // ---------------------------------------------------------------------------
 
-function comparison({ path, slug, title, heading, description, body }) {
+function comparison({ path, slug, title, heading, description, body, questions }) {
   return {
     path,
     page: {
@@ -874,7 +890,13 @@ function comparison({ path, slug, title, heading, description, body }) {
         { label: "Compare", href: "vs/semgrep/" },
         { label: slug, href: path },
       ],
-      schema: [{ "@type": "TechArticle", headline: heading, proficiencyLevel: "Beginner" }],
+      schema: [
+        { "@type": "TechArticle", headline: heading, proficiencyLevel: "Beginner" },
+        // "owlwarden vs X" is a question someone types, and the answer is
+        // already on the page. A padded FAQ is worse than none, so these are
+        // the two real questions each comparison actually answers.
+        ...(questions ? [{ "@type": "FAQPage", mainEntity: questions.map(([q, a]) => faq(q, a)) }] : []),
+      ],
       body: `${body}
 <h2>Other comparisons</h2>
 <ul class="cards">
@@ -890,6 +912,19 @@ function comparison({ path, slug, title, heading, description, body }) {
 
 function vsSemgrep() {
   return comparison({
+    questions: [
+      [
+        "Should I use owlwarden instead of Semgrep?",
+        "No — run both. Semgrep has thousands of rules across many languages; owlwarden has 25, " +
+          "runs offline with no account, gives a fix written for your framework, and reads the " +
+          "agent and editor configuration Semgrep does not.",
+      ],
+      [
+        "Does owlwarden need an account or a cloud service?",
+        "No. It runs entirely on your machine and constructs no network transport at all unless " +
+          "you pass --osv or --target.",
+      ],
+    ],
     path: "vs/semgrep/",
     slug: "Semgrep",
     title: "owlwarden vs Semgrep — where each one wins",
@@ -928,6 +963,19 @@ ${code("bash", "semgrep --config auto        # breadth\nowlwarden scan --since o
 
 function vsSnyk() {
   return comparison({
+    questions: [
+      [
+        "Does owlwarden replace Snyk?",
+        "No. Snyk's dependency database and reachability analysis are better than anything " +
+          "owlwarden does with a lockfile. owlwarden covers the half a lockfile does not record: " +
+          "the agent and editor configuration a compromised package writes into your repository.",
+      ],
+      [
+        "Why does removing a poisoned package not remove the problem?",
+        "Because the persistence lives in files a lockfile does not record. A hook written into " +
+          ".claude/settings.json survives the package rollback, and opening the folder runs it again.",
+      ],
+    ],
     path: "vs/snyk/",
     slug: "Snyk",
     title: "owlwarden vs Snyk — dependencies and the config gap",
@@ -967,6 +1015,19 @@ function vsSnyk() {
 
 function vsModelReviewers() {
   return comparison({
+    questions: [
+      [
+        "Can a model replace static analysis for security review?",
+        "Not as a gate. A model answers differently between runs, which a baseline, a suppression, " +
+          "and a CI threshold all depend on it not doing. Use it for judgement — authorisation, " +
+          "business rules — on top of a deterministic floor.",
+      ],
+      [
+        "How much does a deterministic floor cost per run?",
+        "Nothing per token. --format agent puts the report on a budget of about 1500 tokens so the " +
+          "checks a parser can answer stop being asked of a frontier model.",
+      ],
+    ],
     path: "vs/claude-security/",
     slug: "Model-based review",
     title: "Static analysis vs model-based code review",
@@ -1009,6 +1070,18 @@ ${code("bash", "owlwarden scan --format agent --budget 1500")}`,
 
 function vsEslint() {
   return comparison({
+    questions: [
+      [
+        "Is owlwarden a replacement for eslint-plugin-security?",
+        "It answers the same questions with more context — framework-aware, route-aware, and with " +
+          "a confidence field so a guess is never presented as a fact. Keeping both costs nothing.",
+      ],
+      [
+        "Why do lint security rules produce so many false positives?",
+        "Because they match syntax without knowing what a response, a cookie, or a request is in " +
+          "your framework. owlwarden asks the detected framework's profile instead.",
+      ],
+    ],
     path: "vs/eslint-plugin-security/",
     slug: "eslint-plugin-security",
     title: "owlwarden vs eslint-plugin-security",

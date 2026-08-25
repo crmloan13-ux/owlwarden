@@ -27,6 +27,7 @@
 <link rel="icon" type="image/svg+xml" href="./favicon.svg">
 <link rel="alternate icon" type="image/png" href="./favicon.png">
 <link rel="apple-touch-icon" href="./favicon.png">
+<link rel="alternate" type="application/atom+xml" title="owlwarden releases" href="https://suthat.github.io/owlwarden/changelog/feed.xml">
 <link rel="stylesheet" href="./styles.css?v=1.1.0">
 
 <script type="application/ld+json">
@@ -209,7 +210,8 @@ owlwarden init --cursor
 owlwarden init --generic       # any host that can run a process</code></pre>
 <p>
   <a href="./claude-code/">Claude Code</a> · <a href="./cursor/">Cursor</a> ·
-  <a href="./mcp/">MCP</a> · <a href="./ci/">CI</a>
+  <a href="./mcp/">MCP</a> · <a href="./ci/">CI</a> ·
+  <a href="./vet/">vet</a> · <a href="./changelog/">Changelog</a>
 </p>
 
 <h2>Common questions</h2>
@@ -222,7 +224,17 @@ owlwarden init --generic       # any host that can run a process</code></pre>
 <p>MIT OR Apache-2.0, at your option. No account, no seat count, no hosted tier.</p>
 <h3>Does it replace my existing scanner?</h3>
 <p>
-  No, and it does not try to. <a href="./vs/semgrep/">Here is where it loses</a>.
+  No, and it does not try to. <a href="./vs/semgrep/">Here is where it loses</a>,
+  and the same page for <a href="./vs/snyk/">Snyk</a>,
+  <a href="./vs/claude-security/">model-based review</a>, and
+  <a href="./vs/eslint-plugin-security/">eslint-plugin-security</a>.
+</p>
+
+<h3>What changed in the last release?</h3>
+<p>
+  <a href="./changelog/">The changelog</a> lists every user-visible change with
+  the security notes spelled out, and carries an
+  <a href="./changelog/feed.xml">Atom feed</a> — no account, no mailing list.
 </p>
 
 </main>

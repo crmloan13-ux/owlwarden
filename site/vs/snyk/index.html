@@ -27,6 +27,7 @@
 <link rel="icon" type="image/svg+xml" href="../../favicon.svg">
 <link rel="alternate icon" type="image/png" href="../../favicon.png">
 <link rel="apple-touch-icon" href="../../favicon.png">
+<link rel="alternate" type="application/atom+xml" title="owlwarden releases" href="https://suthat.github.io/owlwarden/changelog/feed.xml">
 <link rel="stylesheet" href="../../styles.css?v=1.1.0">
 
 <script type="application/ld+json">
@@ -61,6 +62,27 @@
       "@type": "TechArticle",
       "headline": "owlwarden vs Snyk",
       "proficiencyLevel": "Beginner"
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Does owlwarden replace Snyk?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "No. Snyk's dependency database and reachability analysis are better than anything owlwarden does with a lockfile. owlwarden covers the half a lockfile does not record: the agent and editor configuration a compromised package writes into your repository."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Why does removing a poisoned package not remove the problem?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Because the persistence lives in files a lockfile does not record. A hook written into .claude/settings.json survives the package rollback, and opening the folder runs it again."
+          }
+        }
+      ]
     }
   ]
 }
