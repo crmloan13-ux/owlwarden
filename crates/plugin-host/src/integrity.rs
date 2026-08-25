@@ -23,11 +23,27 @@ const TRUST_REL_PATH: &str = ".owlwarden/plugin-trust.json";
 const ENV_TRUST: &str = "OWLWARDEN_PLUGIN_TRUST";
 
 /// Options controlling plugin load policy.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct LoadOptions {
     /// When true, refuse plugins whose detached signature did not verify against
     /// a configured trust root.
     pub require_signed_plugins: bool,
+    /// The operator's project root, the only directory a trust file is read
+    /// from besides [`ENV_TRUST`].
+    ///
+    /// # Why this is not the plugin's own directory
+    ///
+    /// It used to be — `plugin_dir/.owlwarden/plugin-trust.json` and the same
+    /// path one level up. Both are inside the artifact being verified, so a
+    /// plugin could sign itself with a key it generated, ship the public half
+    /// beside the signature, and come back `Verified`. That is not a weakened
+    /// check; it is the complete absence of one, and it made
+    /// `--require-signed-plugins` a flag that refused nothing.
+    ///
+    /// A signature answers "which author is this?", and the list of acceptable
+    /// authors has to come from the person asking. `None` means the environment
+    /// variable is the only source.
+    pub trust_root_dir: Option<PathBuf>,
 }
 
 /// Result of comparing manifest `artifact.sha256` to file bytes.
@@ -75,13 +91,13 @@ pub fn module_path(plugin_dir: &Path, manifest: &PluginManifest) -> PathBuf {
 /// Inspects digest and signature without loading WASM.
 #[must_use]
 pub fn inspect_artifact(
-    plugin_dir: &Path,
+    trust_root_dir: Option<&Path>,
     manifest: &PluginManifest,
     wasm_bytes: &[u8],
     module_path: &Path,
 ) -> ArtifactInspection {
     let digest = digest_status(manifest, wasm_bytes);
-    let signature = signature_status(plugin_dir, wasm_bytes, module_path);
+    let signature = signature_status(trust_root_dir, wasm_bytes, module_path);
     ArtifactInspection { digest, signature }
 }
 
@@ -91,13 +107,17 @@ pub fn inspect_artifact(
 /// [`PluginError`] on digest mismatch, or when [`LoadOptions::require_signed_plugins`]
 /// is set and the signature did not verify.
 pub fn enforce_artifact_policy(
-    plugin_dir: &Path,
     manifest: &PluginManifest,
     wasm_bytes: &[u8],
     module_path: &Path,
     options: &LoadOptions,
 ) -> Result<(), PluginError> {
-    let inspection = inspect_artifact(plugin_dir, manifest, wasm_bytes, module_path);
+    let inspection = inspect_artifact(
+        options.trust_root_dir.as_deref(),
+        manifest,
+        wasm_bytes,
+        module_path,
+    );
     if inspection.digest == DigestStatus::Mismatch {
         let expected = manifest
             .artifact
@@ -130,7 +150,11 @@ fn digest_status(manifest: &PluginManifest, wasm_bytes: &[u8]) -> DigestStatus {
     }
 }
 
-fn signature_status(plugin_dir: &Path, wasm_bytes: &[u8], module_path: &Path) -> SignatureStatus {
+fn signature_status(
+    trust_root_dir: Option<&Path>,
+    wasm_bytes: &[u8],
+    module_path: &Path,
+) -> SignatureStatus {
     let sig_path = signature_path(module_path);
     let Some(sig_text) = read_sig_file_optional(&sig_path) else {
         return SignatureStatus::Absent;
@@ -139,7 +163,7 @@ fn signature_status(plugin_dir: &Path, wasm_bytes: &[u8], module_path: &Path) ->
         return SignatureStatus::Untrusted;
     };
     let digest = Sha256::digest(wasm_bytes);
-    let keys = match load_trust_roots(plugin_dir) {
+    let keys = match load_trust_roots(trust_root_dir) {
         Ok(keys) => keys,
         Err(_) => return SignatureStatus::Untrusted,
     };
@@ -235,29 +259,18 @@ fn hex_encode(bytes: &[u8]) -> String {
     out
 }
 
-fn load_trust_roots(plugin_dir: &Path) -> Result<Vec<VerifyingKey>, PluginError> {
+fn load_trust_roots(trust_root_dir: Option<&Path>) -> Result<Vec<VerifyingKey>, PluginError> {
     let mut keys = Vec::new();
     keys.extend(parse_env_trust()?);
-    for trust_path in trust_file_paths(plugin_dir) {
-        keys.extend(read_trust_file(&trust_path)?);
-        if keys.len() > MAX_TRUST_KEYS {
-            return Err(PluginError::TooManyTrustKeys {
-                max: MAX_TRUST_KEYS,
-            });
-        }
+    if let Some(dir) = trust_root_dir {
+        keys.extend(read_trust_file(&dir.join(TRUST_REL_PATH))?);
     }
-    keys.truncate(MAX_TRUST_KEYS);
+    if keys.len() > MAX_TRUST_KEYS {
+        return Err(PluginError::TooManyTrustKeys {
+            max: MAX_TRUST_KEYS,
+        });
+    }
     Ok(keys)
-}
-
-fn trust_file_paths(plugin_dir: &Path) -> [PathBuf; 2] {
-    [
-        plugin_dir.join(TRUST_REL_PATH),
-        plugin_dir
-            .parent()
-            .unwrap_or(plugin_dir)
-            .join(TRUST_REL_PATH),
-    ]
 }
 
 fn parse_env_trust() -> Result<Vec<VerifyingKey>, PluginError> {
@@ -434,7 +447,6 @@ mod tests {
         let manifest = manifest_with_digest(wasm);
         let dir = tempdir().unwrap();
         enforce_artifact_policy(
-            dir.path(),
             &manifest,
             wasm,
             &dir.path().join("plugin.wasm"),
@@ -448,7 +460,6 @@ mod tests {
         let manifest = manifest_with_digest(b"expected");
         let dir = tempdir().unwrap();
         let error = enforce_artifact_policy(
-            dir.path(),
             &manifest,
             b"actual",
             &dir.path().join("plugin.wasm"),
@@ -458,46 +469,180 @@ mod tests {
         assert!(matches!(error, PluginError::ArtifactDigestMismatch { .. }));
     }
 
-    #[test]
-    fn signed_plugin_verifies_with_trust_root() {
-        let wasm = b"signed-wasm";
-        let manifest = manifest_with_digest(wasm);
-        let dir = tempdir().unwrap();
-        let module = dir.path().join("plugin.wasm");
-        fs::write(&module, wasm).unwrap();
-
-        let signing = test_signing_key();
-        let digest = Sha256::digest(wasm);
-        let sig = signing.sign(digest.as_slice());
-        let encoded = base64_encode(sig.to_bytes().as_slice());
-        fs::write(signature_path(&module), encoded).unwrap();
-
-        let hex_key = hex_encode(signing.verifying_key().as_bytes());
-        fs::create_dir_all(dir.path().join(".owlwarden")).unwrap();
+    /// Writes a trust file naming `key` under `dir`.
+    fn trust(dir: &Path, key: &VerifyingKey) {
+        fs::create_dir_all(dir.join(".owlwarden")).unwrap();
         fs::write(
-            dir.path().join(TRUST_REL_PATH),
-            format!(r#"{{"keys":["{hex_key}"]}}"#),
+            dir.join(TRUST_REL_PATH),
+            format!(r#"{{"keys":["{}"]}}"#, hex_encode(key.as_bytes())),
         )
         .unwrap();
+    }
 
-        let inspection = inspect_artifact(dir.path(), &manifest, wasm, &module);
-        assert_eq!(inspection.digest, DigestStatus::Ok);
-        assert_eq!(inspection.signature, SignatureStatus::Verified);
-
-        enforce_artifact_policy(
-            dir.path(),
-            &manifest,
-            wasm,
-            &module,
-            &LoadOptions {
-                require_signed_plugins: true,
-            },
+    /// Signs `wasm` with `signing` and writes the detached signature.
+    fn sign(module: &Path, wasm: &[u8], signing: &SigningKey) {
+        let sig = signing.sign(Sha256::digest(wasm).as_slice());
+        fs::write(
+            signature_path(module),
+            base64_encode(sig.to_bytes().as_slice()),
         )
         .unwrap();
     }
 
     #[test]
+    fn signed_plugin_verifies_with_trust_root() {
+        let _guard = env_guard();
+        let wasm = b"signed-wasm";
+        let manifest = manifest_with_digest(wasm);
+        // Two directories, deliberately: the plugin is the thing being checked,
+        // the project is where the operator's answer about authors lives. When
+        // these were one directory, the bug below was invisible.
+        let plugin = tempdir().unwrap();
+        let project = tempdir().unwrap();
+        let module = plugin.path().join("plugin.wasm");
+        fs::write(&module, wasm).unwrap();
+
+        let signing = test_signing_key();
+        sign(&module, wasm, &signing);
+        trust(project.path(), &signing.verifying_key());
+
+        let options = LoadOptions {
+            require_signed_plugins: true,
+            trust_root_dir: Some(project.path().to_path_buf()),
+        };
+
+        let inspection =
+            inspect_artifact(options.trust_root_dir.as_deref(), &manifest, wasm, &module);
+        assert_eq!(inspection.digest, DigestStatus::Ok);
+        assert_eq!(inspection.signature, SignatureStatus::Verified);
+
+        enforce_artifact_policy(&manifest, wasm, &module, &options).unwrap();
+    }
+
+    #[test]
+    fn a_trust_file_inside_the_plugin_does_not_vouch_for_the_plugin() {
+        let _guard = env_guard();
+        // The bug this replaced: trust roots were read from the plugin's own
+        // directory and from its parent. Both are inside the artifact under
+        // verification, so a plugin could generate a key, sign itself, ship the
+        // public half beside the signature, and come back `Verified` —
+        // `--require-signed-plugins` refused nothing at all.
+        let wasm = b"self-signed-wasm";
+        let manifest = manifest_with_digest(wasm);
+        let plugin = tempdir().unwrap();
+        let module = plugin.path().join("plugin.wasm");
+        fs::write(&module, wasm).unwrap();
+
+        let signing = test_signing_key();
+        sign(&module, wasm, &signing);
+        // The plugin supplies the key that vouches for it, in both places the
+        // old implementation looked.
+        trust(plugin.path(), &signing.verifying_key());
+        trust(plugin.path().parent().unwrap(), &signing.verifying_key());
+
+        let options = LoadOptions {
+            require_signed_plugins: true,
+            trust_root_dir: None,
+        };
+        assert_eq!(
+            inspect_artifact(None, &manifest, wasm, &module).signature,
+            SignatureStatus::Untrusted,
+        );
+        assert!(matches!(
+            enforce_artifact_policy(&manifest, wasm, &module, &options).unwrap_err(),
+            PluginError::SignatureRequired { .. }
+        ));
+
+        // ...and naming a project root does not resurrect it either.
+        let project = tempdir().unwrap();
+        let scoped = LoadOptions {
+            require_signed_plugins: true,
+            trust_root_dir: Some(project.path().to_path_buf()),
+        };
+        assert!(matches!(
+            enforce_artifact_policy(&manifest, wasm, &module, &scoped).unwrap_err(),
+            PluginError::SignatureRequired { .. }
+        ));
+    }
+
+    #[test]
+    fn a_trust_file_beside_the_plugin_directory_does_not_vouch_for_it() {
+        let _guard = env_guard();
+        // The second path the old implementation searched: one level up from
+        // the plugin. `--plugin ./vendor/thing` put `./vendor` in scope, which
+        // is still inside whatever tree shipped the plugin.
+        let wasm = b"sibling-trust-wasm";
+        let manifest = manifest_with_digest(wasm);
+        let outer = tempdir().unwrap();
+        let plugin = outer.path().join("vendor").join("thing");
+        fs::create_dir_all(&plugin).unwrap();
+        let module = plugin.join("plugin.wasm");
+        fs::write(&module, wasm).unwrap();
+
+        let signing = test_signing_key();
+        sign(&module, wasm, &signing);
+        trust(&outer.path().join("vendor"), &signing.verifying_key());
+
+        assert_eq!(
+            inspect_artifact(None, &manifest, wasm, &module).signature,
+            SignatureStatus::Untrusted,
+        );
+    }
+
+    #[test]
+    fn the_environment_alone_is_enough_to_verify() {
+        let _guard = env_guard();
+        // The operator's shell is a trust source with no directory involved,
+        // and it has to keep working when `trust_root_dir` is `None`.
+        let wasm = b"env-trusted-wasm";
+        let manifest = manifest_with_digest(wasm);
+        let plugin = tempdir().unwrap();
+        let module = plugin.path().join("plugin.wasm");
+        fs::write(&module, wasm).unwrap();
+
+        let signing = test_signing_key();
+        sign(&module, wasm, &signing);
+
+        // SAFETY: `env_guard()` above is held for the rest of this test, and
+        // every other test that reads `ENV_TRUST` takes the same guard.
+        unsafe {
+            std::env::set_var(ENV_TRUST, hex_encode(signing.verifying_key().as_bytes()));
+        }
+        let status = inspect_artifact(None, &manifest, wasm, &module).signature;
+        unsafe {
+            std::env::remove_var(ENV_TRUST);
+        }
+        assert_eq!(status, SignatureStatus::Verified);
+    }
+
+    static ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+    /// Serialises every test whose answer depends on `OWLWARDEN_PLUGIN_TRUST`.
+    ///
+    /// The environment is process-wide and `cargo test` runs these on threads,
+    /// so a test that sets the variable changes the answer for every other test
+    /// running at that moment. That is not hypothetical: it made two unrelated
+    /// signature tests fail in a workspace run and pass in isolation, which is
+    /// the worst way for a suite to be wrong.
+    ///
+    /// Acquiring the guard also clears the variable, so a test asserting on "no
+    /// trust roots configured" is asserting on that and not on whatever the
+    /// developer happens to have exported.
+    fn env_guard() -> std::sync::MutexGuard<'static, ()> {
+        let guard = ENV_LOCK
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        // SAFETY: the guard is held for the duration of the calling test, and
+        // every other test that reads this variable takes the same guard.
+        unsafe {
+            std::env::remove_var(ENV_TRUST);
+        }
+        guard
+    }
+
+    #[test]
     fn require_signed_without_signature_is_refused() {
+        let _guard = env_guard();
         let wasm = b"unsigned-wasm";
         let manifest = manifest_with_digest(wasm);
         let dir = tempdir().unwrap();
@@ -505,12 +650,12 @@ mod tests {
         fs::write(&module, wasm).unwrap();
 
         let error = enforce_artifact_policy(
-            dir.path(),
             &manifest,
             wasm,
             &module,
             &LoadOptions {
                 require_signed_plugins: true,
+                trust_root_dir: Some(dir.path().to_path_buf()),
             },
         )
         .unwrap_err();
@@ -519,6 +664,7 @@ mod tests {
 
     #[test]
     fn require_signed_rejects_wrong_key() {
+        let _guard = env_guard();
         let wasm = b"signed-wasm-wrong-key";
         let manifest = manifest_with_digest(wasm);
         let dir = tempdir().unwrap();
@@ -526,37 +672,24 @@ mod tests {
         fs::write(&module, wasm).unwrap();
 
         let signing = test_signing_key();
-        let digest = Sha256::digest(wasm);
-        let sig = signing.sign(digest.as_slice());
-        fs::write(
-            signature_path(&module),
-            base64_encode(sig.to_bytes().as_slice()),
-        )
-        .unwrap();
+        sign(&module, wasm, &signing);
 
         // Trust a different key — signature must not verify.
-        let other = SigningKey::from_bytes(&[9u8; 32]);
-        let hex_key = hex_encode(other.verifying_key().as_bytes());
-        fs::create_dir_all(dir.path().join(".owlwarden")).unwrap();
-        fs::write(
-            dir.path().join(TRUST_REL_PATH),
-            format!(r#"{{"keys":["{hex_key}"]}}"#),
-        )
-        .unwrap();
+        let project = tempdir().unwrap();
+        trust(
+            project.path(),
+            &SigningKey::from_bytes(&[9u8; 32]).verifying_key(),
+        );
 
-        let inspection = inspect_artifact(dir.path(), &manifest, wasm, &module);
+        let options = LoadOptions {
+            require_signed_plugins: true,
+            trust_root_dir: Some(project.path().to_path_buf()),
+        };
+        let inspection =
+            inspect_artifact(options.trust_root_dir.as_deref(), &manifest, wasm, &module);
         assert_eq!(inspection.signature, SignatureStatus::Untrusted);
 
-        let error = enforce_artifact_policy(
-            dir.path(),
-            &manifest,
-            wasm,
-            &module,
-            &LoadOptions {
-                require_signed_plugins: true,
-            },
-        )
-        .unwrap_err();
+        let error = enforce_artifact_policy(&manifest, wasm, &module, &options).unwrap_err();
         assert!(matches!(error, PluginError::SignatureRequired { .. }));
     }
 

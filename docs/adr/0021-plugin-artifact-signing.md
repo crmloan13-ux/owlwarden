@@ -32,6 +32,25 @@ authors, they do not expand the sandbox.
 **No hosted registry in this ADR.** Publishing, discovery, and revocation lists
 stay later work.
 
+## As shipped
+
+§2 says trust roots come from `.owlwarden/plugin-trust.json` "in the project".
+The 1.0 implementation read it from the *plugin's* directory and from that
+directory's parent instead — both inside the artifact being verified. A plugin
+could generate a key, sign itself, ship the public half beside the signature,
+and be reported `verified`; `--require-signed-plugins` refused nothing.
+
+Fixed in 1.1. `LoadOptions::trust_root_dir` is supplied by the caller and set to
+the scan root, and the plugin directory is no longer consulted. `inspect_artifact`
+takes the trust directory rather than deriving it, so there is no path by which
+the artifact can name its own roots.
+
+**Residual, accepted:** the scan root's trust file is honoured, so a repository
+whose `.owlwarden/plugin-trust.json` was written by a contributor is trusted for
+plugins the operator explicitly passed with `--plugin` in that tree. That is the
+same trust the operator already extended by naming the plugin: `vet` refuses
+plugins outright, and `--ci` requires `--allow-plugins`.
+
 ## Consequences
 
 - New optional manifest fields; old manifests keep loading (unsigned).

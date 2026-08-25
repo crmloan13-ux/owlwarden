@@ -54,9 +54,17 @@ A detached `<artifact>.sig` holds a base64 ed25519 signature over the raw
 32-byte SHA-256 digest. Trust roots come from:
 
 - `OWLWARDEN_PLUGIN_TRUST` — colon-separated hex public keys, or
-- `.owlwarden/plugin-trust.json` — `{ "keys": ["…"] }` in the project
+- `.owlwarden/plugin-trust.json` — `{ "keys": ["…"] }` **in the scan root**
 
-`plugin inspect` reports `signature: verified | untrusted | absent`.
+Those two, and nothing else. In particular a trust file *inside the plugin*, or
+beside its directory, is not read: a plugin that supplies the key vouching for
+it has been asked to grade its own work, and `--require-signed-plugins` would
+refuse nothing. A signature answers "which author is this?", so the list of
+acceptable authors has to come from the person asking.
+
+`plugin inspect` reports `signature: verified | untrusted | absent`. It reads
+no trust file at all — a plugin inspected outside a project reports `untrusted`
+unless the environment names a key, which is the honest answer.
 
 Require verified signatures in CI:
 

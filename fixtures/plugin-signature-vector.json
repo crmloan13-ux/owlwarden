@@ -1,0 +1,8 @@
+{
+  "comment": "Shared ed25519 test vector for plugin artifact signatures (ADR 0021). Read by crates/plugin-host/tests/trust_scope.rs and packages/cli/test/plugin-trust.test.ts so the Rust host and the TypeScript mirror cannot drift apart on encoding. Regenerate only if the signing scheme changes.",
+  "seedHex": "0707070707070707070707070707070707070707070707070707070707070707",
+  "publicKeyHex": "ea4a6c63e29c520abef5507b132ec5f9954776aebebe7b92421eea691446d22c",
+  "wasmHex": "0061736d01000000",
+  "digestHex": "93a44bbb96c751218e4c00d479e4c14358122a389acca16205b1e4d0dc5f9476",
+  "signatureBase64": "tybHqglj0+erVizM3FJ6W3ARKbIo5u8J6M8rhAM8G+RgqX7ezMTKoFKKQ5rXGf+4gc8/cYGABjXm1FWx5SVAAg=="
+}

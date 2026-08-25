@@ -308,6 +308,7 @@ fn build_scan_request(
     scan_request.extra_detectors.extend(load_requested_plugins(
         &args.plugins,
         args.require_signed_plugins,
+        std::path::Path::new(&args.path),
     )?);
     prepare_osv(
         args.osv,
@@ -395,6 +396,7 @@ fn prepare_osv(
 fn load_requested_plugins(
     paths: &[String],
     require_signed_plugins: bool,
+    project_root: &std::path::Path,
 ) -> Result<Vec<std::sync::Arc<dyn owlwarden_core::detector::Detector>>, String> {
     if paths.is_empty() {
         return Ok(Vec::new());
@@ -402,6 +404,9 @@ fn load_requested_plugins(
     let paths: Vec<std::path::PathBuf> = paths.iter().map(std::path::PathBuf::from).collect();
     let options = owlwarden_plugin_host::LoadOptions {
         require_signed_plugins,
+        // The operator's project, never the plugin's own directory — see
+        // `LoadOptions::trust_root_dir`.
+        trust_root_dir: Some(project_root.to_path_buf()),
     };
     owlwarden_plugin_host::load_plugins_with(&paths, &options).map_err(|error| error.to_string())
 }

@@ -89,7 +89,7 @@ pub fn load_one_with(path: &Path, options: &LoadOptions) -> Result<WasmDetector,
             map_read_error(&module_path, limits::MAX_PLUGIN_BYTES as u64, error, false)
         })?;
 
-    integrity::enforce_artifact_policy(&plugin_dir, &manifest, &wasm_bytes, &module_path, options)?;
+    integrity::enforce_artifact_policy(&manifest, &wasm_bytes, &module_path, options)?;
 
     WasmDetector::load(&manifest, &wasm_bytes)
 }
@@ -321,10 +321,14 @@ mod tests {
         )
         .unwrap();
 
-        fs::create_dir_all(dir.path().join(".owlwarden")).unwrap();
+        // The trust file goes in the operator's project, not in the plugin.
+        // A plugin that ships the key vouching for itself has been asked to
+        // grade its own work — see `LoadOptions::trust_root_dir`.
+        let project = tempdir().unwrap();
+        fs::create_dir_all(project.path().join(".owlwarden")).unwrap();
         let hex_key = hex_encode(signing.verifying_key().as_bytes());
         fs::write(
-            dir.path().join(".owlwarden/plugin-trust.json"),
+            project.path().join(".owlwarden/plugin-trust.json"),
             format!(r#"{{"keys":["{hex_key}"]}}"#),
         )
         .unwrap();
@@ -333,9 +337,55 @@ mod tests {
             dir.path(),
             &LoadOptions {
                 require_signed_plugins: true,
+                trust_root_dir: Some(project.path().to_path_buf()),
             },
         )
         .unwrap();
+    }
+
+    #[test]
+    fn require_signed_refuses_a_plugin_that_trusts_itself() {
+        let wasm = trivial_wasm();
+        let dir = tempdir().unwrap();
+        fs::write(
+            dir.path().join(MANIFEST_FILENAME),
+            manifest_with_digest(&wasm),
+        )
+        .unwrap();
+        let module = dir.path().join(MODULE_FILENAME);
+        fs::write(&module, &wasm).unwrap();
+
+        let signing = SigningKey::from_bytes(&[9u8; 32]);
+        let sig = signing.sign(Sha256::digest(&wasm).as_slice());
+        fs::write(
+            format!("{}.sig", module.display()),
+            base64_encode(sig.to_bytes().as_slice()),
+        )
+        .unwrap();
+
+        // Everything a self-certifying plugin would ship, in the two places the
+        // old implementation searched.
+        let hex_key = hex_encode(signing.verifying_key().as_bytes());
+        for at in [dir.path(), dir.path().parent().unwrap()] {
+            fs::create_dir_all(at.join(".owlwarden")).unwrap();
+            fs::write(
+                at.join(".owlwarden/plugin-trust.json"),
+                format!(r#"{{"keys":["{hex_key}"]}}"#),
+            )
+            .unwrap();
+        }
+
+        let refused = load_one_with(
+            dir.path(),
+            &LoadOptions {
+                require_signed_plugins: true,
+                trust_root_dir: None,
+            },
+        );
+        assert!(matches!(
+            refused,
+            Err(PluginError::SignatureRequired { .. })
+        ));
     }
 
     #[test]

@@ -103,6 +103,15 @@ like any other code you execute: only load ones you trust. See
 [ADR 0015](docs/adr/0015-plugin-host-wasmtime.md) and
 `crates/plugin-host/tests/sandbox_escape.rs`.
 
+**A plugin vouching for itself.** Fixed in 1.1. Trust roots for
+`--require-signed-plugins` come from `OWLWARDEN_PLUGIN_TRUST` and from
+`.owlwarden/plugin-trust.json` in the **scan root** — never from the plugin's
+own directory or its parent, which is where 1.0 also looked. A signature answers
+"which author is this?", so the list of acceptable authors has to come from the
+person asking. `crates/plugin-host/tests/trust_scope.rs` and
+`packages/cli/test/plugin-trust.test.ts` attack both implementations, and both
+verify a shared vector neither of them generates.
+
 **A hostile scan target talking to an agent.** Findings and snippets are fed to
 coding agents via MCP / JSON. MCP wraps every tool result as untrusted DATA
 and neutralises common role markers; `init --agent-rules` tells agents not to

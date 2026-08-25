@@ -34,6 +34,9 @@ Rule `maxConfidence` may be `likely` or `possible`, never `confirmed`.
   against the plugin's own manifest before it becomes a finding.
 - No filesystem, no network, no clocks, no environment.
 - `--ci` refuses `--plugin` unless `--allow-plugins`.
+- Trust roots come from `OWLWARDEN_PLUGIN_TRUST` or
+  `.owlwarden/plugin-trust.json` **in the scan root**, never from the plugin's
+  own directory.
 - `--require-signed-plugins` requires a verified ed25519 `.sig` over the
   artifact digest.
 

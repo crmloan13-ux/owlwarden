@@ -79,6 +79,22 @@ hostile?*
 
 ### Fixed
 
+- **A plugin could supply the key that vouched for it.** Trust roots were read
+  from the plugin's own directory and from that directory's parent — both
+  inside the artifact being verified. Generate a key, sign the artifact, ship
+  the public half beside the signature, and `--require-signed-plugins` reported
+  `verified`. It refused nothing. Trust roots now come from
+  `OWLWARDEN_PLUGIN_TRUST` and from `.owlwarden/plugin-trust.json` in the scan
+  root, which is what [ADR 0021](docs/adr/0021-plugin-artifact-signing.md) said
+  in the first place.
+- **`owlwarden plugin inspect` could never report `verified`.** The TypeScript
+  mirror imported public keys with `createPublicKey({ format: "raw" })`, which
+  Node rejects; a cast silenced the type error that said so. Every key threw,
+  every key became `undefined`, and every signature — valid or not — reported
+  `untrusted`. Failing in the safe direction is why it went a release unnoticed:
+  an always-`untrusted` line is indistinguishable from an unconfigured trust
+  root. Keys are wrapped as SPKI DER now, and both implementations verify a
+  shared test vector that neither of them generates.
 - **An unknown config key is refused rather than stripped.** zod drops unknown
   keys by default, so `failon: "high"` parsed cleanly and the run used the
   default `info` — a config that reads as if it tightens the gate, does not,
