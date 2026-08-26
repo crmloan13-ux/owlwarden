@@ -30,6 +30,11 @@ Delivered:
   into CI.
 - Linux, macOS, and Windows in CI. Zero-warning build.
 
+Each of those now has a test that fails when the bug is reintroduced, and where
+a mechanism exists in two languages — signature verification, text
+sanitisation — both sides are held to one fixture that neither of them
+generates.
+
 **Exit criteria, all met:** every fixture issue found with code frames; `--ci`
 emits JSON with a non-zero exit; the false-positive corpus is silent.
 
@@ -239,9 +244,24 @@ Delivered:
 - `owlwarden vet`, `owlwarden gate` with three host adapters, `owlwarden verify`,
   `--since` / `--staged` / `--paths`, `--format agent`, and
   `init --claude-code | --cursor | --generic`.
-- A generated documentation site: 211 pages, one per rule and one per
+- A generated documentation site: 213 pages, one per rule and one per
   (rule, profile) cell that has a verified example, built from the same source
-  that generates `RULES.md`.
+  that generates `RULES.md`, with a changelog and an Atom feed.
+- **A pentest pass over the pre-existing code, not only the new.** It found more
+  than the new work did, and the pattern is worth writing down: every one of the
+  six failed *silently and safely*, which is why they survived a release. The
+  Action rejected every input it was ever given. `plugin inspect` could never
+  report `verified`. A plugin supplied the key that vouched for it. An unknown
+  config key was stripped rather than refused, so `failon` read as tightening
+  and did nothing. A `--since` that could not resolve widened the scan instead
+  of failing it. And of two mirrored sanitisers, each was missing something the
+  other had.
+
+  Nothing here was found by looking harder at code. Four of the six were found
+  by *running* something that had never been run: the Action's script, the
+  signature path, the suppression listing on a terminal. The rule that came out
+  of it, and the one this project should keep: a check that has never failed on
+  purpose is not known to work.
 
 **Exit criteria, all met:** every ADR 0025 and 0026 criterion; a tempting
 fixture per agent host that stays silent in `quick`; a standing corpus of real
