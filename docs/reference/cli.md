@@ -51,6 +51,15 @@ JavaScript runtime for reasons that are theirs, not the engine's.
 `--since`, `--staged`, and `--paths` each narrow the scan a different way;
 passing more than one is an error rather than a guess.
 
+**A narrowing flag that cannot narrow is an error, not a full scan.** A
+`--since` naming a ref git cannot resolve exits `2`. It used to print a note and
+scan everything, which in CI on a shallow clone turns "three new findings" into
+a red job full of pre-existing debt — the usual cause is `actions/checkout`
+defaulting to `fetch-depth: 1`, and the error says so. `--since` takes one ref;
+a range like `main..HEAD` is refused, because it would widen the scope the flag
+was asked to cut. `gate` degrades instead of failing, on purpose: a hook that
+bricks a session over a git hiccup gets uninstalled.
+
 **A diff scope is not a baseline.** A baseline suppresses known findings across
 a full scan; `--since` narrows what is looked at. Using either to imply the
 other is a bug, and there is a fixture for it. The scope is stated in every

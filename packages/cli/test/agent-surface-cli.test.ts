@@ -1,4 +1,5 @@
 import { spawnSync } from "node:child_process";
+import { existsSync } from "node:fs";
 import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -343,6 +344,72 @@ describe("diff scoping", () => {
       await rm(root, { recursive: true, force: true });
     }
   }, 30_000);
+
+  it("refuses a ref that is an option, so git cannot be steered by it", async () => {
+    if (!hasGit()) return;
+
+    // `git diff` takes the ref before the `--` that separates paths, so a ref
+    // beginning with a dash is argv git parses as an option — and
+    // `git diff --output=<file>` writes wherever it is pointed. The invocation
+    // passes `--end-of-options` as the real fix; this is the second layer, and
+    // it exists so the error names the problem instead of git saying "bad
+    // revision" about something that was never a revision.
+    const root = await scratch({ "package.json": "{}" });
+    try {
+      spawnSync("git", ["-C", root, "init", "-q"]);
+      for (const hostile of [
+        "--output=/tmp/owlwarden-should-not-exist.diff",
+        "-p",
+        "--exit-code",
+      ]) {
+        expect(() => resolveScope(root, { since: hostile })).toThrow(/looks like an option/);
+      }
+      expect(existsSync("/tmp/owlwarden-should-not-exist.diff")).toBe(false);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  }, 30_000);
+
+  it("refuses a range, which would widen the scope a narrowing flag asked to cut", async () => {
+    if (!hasGit()) return;
+
+    const root = await scratch({ "package.json": "{}" });
+    try {
+      spawnSync("git", ["-C", root, "init", "-q"]);
+      for (const range of ["main..HEAD", "main...HEAD", "HEAD~3..HEAD"]) {
+        expect(() => resolveScope(root, { since: range })).toThrow(/one ref, not a range/);
+      }
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  }, 30_000);
+
+  it("refuses more than one narrowing flag rather than picking one", () => {
+    expect(() => resolveScope(".", { since: "HEAD", staged: true })).toThrow(/pass one/);
+    expect(() => resolveScope(".", { since: "HEAD", paths: ["src"] })).toThrow(/pass one/);
+    expect(() => resolveScope(".", { staged: true, paths: ["src"] })).toThrow(/pass one/);
+  });
+
+  it("fails the scan rather than widening it when --since cannot resolve", async () => {
+    if (!hasGit()) return;
+
+    // The behaviour this replaced printed a note and scanned everything. In CI
+    // on a shallow clone — `actions/checkout` defaults to `fetch-depth: 1` —
+    // that turns "three new findings" into a red job full of pre-existing debt,
+    // with one line on stderr to explain it.
+    const root = await scratch({ "package.json": "{}", "app.ts": "export const a = 1\n" });
+    try {
+      spawnSync("git", ["-C", root, "init", "-q"]);
+      const result = await cli(["scan", root, "--since", "no-such-ref"]);
+      expect(result.code).toBe(EXIT.ERROR);
+      expect(result.err).toMatch(/a narrowing flag that cannot narrow is an error/);
+      expect(result.err).toMatch(/fetch-depth: 0/);
+      // And nothing was scanned, rather than everything.
+      expect(result.out).not.toMatch(/findings/);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  }, 60_000);
 
   it("two narrowing flags are an error rather than a guess", () => {
     expect(() => resolveScope(".", { since: "HEAD", staged: true })).toThrow(/pass one/);

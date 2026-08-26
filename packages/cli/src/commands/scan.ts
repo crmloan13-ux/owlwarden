@@ -142,6 +142,18 @@ export async function runScan(
     }
   }
 
+  let scope: { scopedPaths?: string[]; diffScope?: string };
+  try {
+    scope = scopeFields(options, stderr);
+  } catch (error) {
+    stderr.write(
+      `error: ${error instanceof Error ? error.message : String(error)}\n` +
+        "  a narrowing flag that cannot narrow is an error, not a full scan\n" +
+        "  in CI this is usually a shallow clone: set fetch-depth: 0 on checkout\n",
+    );
+    return EXIT.ERROR;
+  }
+
   const envelope = JSON.parse(
     await native.scan(
       JSON.stringify({
@@ -169,7 +181,7 @@ export async function runScan(
         ...(options.previousReportJson !== undefined
           ? { previousReportJson: options.previousReportJson }
           : {}),
-        ...scopeFields(options, stderr),
+        ...scope,
       }),
     ),
   ) as Envelope;
@@ -369,13 +381,20 @@ function scopeFields(
     }
     return { scopedPaths: scope.paths, diffScope: scope.label };
   } catch (error) {
-    stderr.write(
-      `note: ${error instanceof Error ? error.message : String(error)}\n` +
-        "  scanning the whole project instead\n",
-    );
-    return {};
+    // Not a note, and not a wider scan. A `--since` that cannot resolve used to
+    // degrade to scanning everything, which is the failure this module's own
+    // comment warns about: the operator asked to look at a diff and got the
+    // whole repository, twenty times the findings, and one line on stderr
+    // explaining why. In CI that is the difference between "three new findings"
+    // and a red job full of debt the change did not introduce — and the usual
+    // cause is `actions/checkout` defaulting to `fetch-depth: 1`, which the
+    // message names because nobody guesses it.
+    throw new ScopeError(error instanceof Error ? error.message : String(error));
   }
 }
+
+/** A narrowing flag that could not narrow. Fatal rather than widening. */
+class ScopeError extends Error {}
 
 function isMachineFormat(format: ReportFormat): boolean {
   return format !== "pretty";

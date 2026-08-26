@@ -70,10 +70,24 @@ export function resolveScope(
     return { paths: normalise(staged.split("\n")), label: "staged" };
   }
 
-  const reference = options.since ?? "HEAD";
+  const reference = assertRef(options.since ?? "HEAD");
   // `--diff-filter=ACMRT` drops deletions: a file that no longer exists cannot
   // be scanned, and counting it would make the file count wrong.
-  const changed = git(root, ["diff", "--name-only", "--diff-filter=ACMRT", reference, "--"]);
+  //
+  // `--end-of-options` is what stops the ref being read as one. git's trailing
+  // `--` separates paths from revisions, not options from anything, so a ref
+  // sitting in front of it is still argv git will happily parse — and
+  // `git diff --output=<file>` writes wherever it is pointed. That combination
+  // only matters when a workflow wires `--since` to something a contributor can
+  // influence, which the Action's `since:` input is exactly designed to be.
+  const changed = git(root, [
+    "diff",
+    "--name-only",
+    "--diff-filter=ACMRT",
+    "--end-of-options",
+    reference,
+    "--",
+  ]);
   // Untracked files are what an agent just wrote, and are "what changed" to
   // every human who asks.
   const untracked = git(root, ["ls-files", "--others", "--exclude-standard"]);
@@ -82,6 +96,28 @@ export function resolveScope(
     paths: normalise([...changed.split("\n"), ...untracked.split("\n")]),
     label: `since ${reference}`,
   };
+}
+
+/**
+ * Refuses a `--since` value that is an option, a range, or a path.
+ *
+ * `--end-of-options` already stops git parsing it, so this is the second layer
+ * and it exists for the error message: a caller who typed `--since main..HEAD`
+ * has asked for something git understands and this tool does not, and turning
+ * that into "unknown revision" would send them looking in the wrong place. A
+ * range would also silently widen the scope past what they asked for, which is
+ * the one thing a *narrowing* flag must never do.
+ */
+function assertRef(reference: string): string {
+  if (reference.startsWith("-")) {
+    throw new GitError(`--since ${reference} looks like an option, not a ref`);
+  }
+  if (reference.includes("..")) {
+    throw new GitError(
+      `--since takes one ref, not a range; ${reference} would widen the scope, not narrow it`,
+    );
+  }
+  return reference;
 }
 
 /**

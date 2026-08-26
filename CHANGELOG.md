@@ -83,6 +83,20 @@ hostile?*
 
 ### Fixed
 
+- **A `--since` that could not resolve widened the scan instead of failing it.**
+  It printed a note and scanned the whole project. On a shallow CI clone — which
+  is what `actions/checkout` gives you by default — that is the difference
+  between three new findings and a red job full of debt the change did not
+  introduce. `scan` now exits `2` and names `fetch-depth: 0`; `gate` still
+  degrades, because a hook that bricks a session over a git hiccup gets
+  uninstalled. A range (`main..HEAD`) is refused rather than passed through: it
+  would widen the scope a narrowing flag was asked to cut.
+- **A `--since` value beginning with `-` reached git as an option.** The ref sits
+  in front of `git diff`'s trailing `--`, which separates paths from revisions
+  and not options from anything, so `--since --output=<file>` was argv git
+  parsed — and `git diff --output=` writes where it is pointed. The invocation
+  passes `--end-of-options` now, and the value is validated before it gets
+  there.
 - **`--report-suppressions` printed repository text straight to the terminal.**
   The reason on a suppression is a comment somebody wrote, and the listing exists
   so a reviewer can audit what a tree has silenced. A reason containing
