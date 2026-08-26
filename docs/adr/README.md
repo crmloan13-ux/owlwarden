@@ -33,6 +33,8 @@ an archaeology exercise.
 | [0022](0022-stackable-formats.md) | Stackable multi-format emit | Accepted |
 | [0023](0023-incremental-watch.md) | Incremental watch invalidation | Accepted |
 | [0024](0024-plugin-api-v1.md) | Freeze plugin API v1 at 1.0 | Accepted |
+| [0025](0025-agent-surface-and-supply-chain.md) | The agent workspace is a second scan surface | Accepted |
+| [0026](0026-deterministic-agent-gate.md) | A gate, not a tool the model may call | Accepted |
 
 ## Writing one
 

@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<title>Fix agent-mcp-unpinned-remote in VS Code — owlwarden</title>
+<meta name="description" content="MCP server declaration resolves code at run time in VS Code. The vulnerable pattern, the corrected code, and one command to check your own repository.">
+<link rel="canonical" href="https://suthat.github.io/owlwarden/rules/agent-mcp-unpinned-remote/vscode/">
+<meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1">
+<meta name="theme-color" content="#fbfaf8">
+
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="owlwarden">
+<meta property="og:title" content="Fix mCP server declaration resolves code at run time in VS Code">
+<meta property="og:description" content="MCP server declaration resolves code at run time in VS Code. The vulnerable pattern, the corrected code, and one command to check your own repository.">
+<meta property="og:url" content="https://suthat.github.io/owlwarden/rules/agent-mcp-unpinned-remote/vscode/">
+<meta property="og:image" content="https://suthat.github.io/owlwarden/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="An owlwarden finding: a SessionStart hook in .claude/settings.json that runs a command when the workspace is opened">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Fix mCP server declaration resolves code at run time in VS Code">
+<meta name="twitter:description" content="MCP server declaration resolves code at run time in VS Code. The vulnerable pattern, the corrected code, and one command to check your own repository.">
+<meta name="twitter:image" content="https://suthat.github.io/owlwarden/og.png">
+
+<link rel="icon" type="image/svg+xml" href="../../../favicon.svg">
+<link rel="alternate icon" type="image/png" href="../../../favicon.png">
+<link rel="apple-touch-icon" href="../../../favicon.png">
+<link rel="alternate" type="application/atom+xml" title="owlwarden releases" href="https://suthat.github.io/owlwarden/changelog/feed.xml">
+<link rel="stylesheet" href="../../../styles.css?v=1.1.0">
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "BreadcrumbList",
+      "@id": "https://suthat.github.io/owlwarden/rules/agent-mcp-unpinned-remote/vscode/#breadcrumbs",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "owlwarden",
+          "item": "https://suthat.github.io/owlwarden/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "Rules",
+          "item": "https://suthat.github.io/owlwarden/rules/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 3,
+          "name": "agent-mcp-unpinned-remote",
+          "item": "https://suthat.github.io/owlwarden/rules/agent-mcp-unpinned-remote/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 4,
+          "name": "VS Code",
+          "item": "https://suthat.github.io/owlwarden/rules/agent-mcp-unpinned-remote/vscode/"
+        }
+      ]
+    },
+    {
+      "@type": "TechArticle",
+      "headline": "Fix mCP server declaration resolves code at run time in VS Code",
+      "description": "An MCP server is launched with `npx -y`, `uvx`, `bunx`, or a container image with no digest, or is reached over a remote transport. The code that gets a tool call today is not necessarily the code that got one yesterday, and there is no version in the repository to review.",
+      "proficiencyLevel": "Beginner",
+      "dependencies": "VS Code",
+      "isPartOf": {
+        "@type": "TechArticle",
+        "@id": "#rule"
+      },
+      "about": [
+        {
+          "@type": "Thing",
+          "name": "CWE-1357",
+          "url": "https://cwe.mitre.org/data/definitions/1357.html"
+        }
+      ]
+    },
+    {
+      "@type": "HowTo",
+      "name": "Fix mCP server declaration resolves code at run time in VS Code",
+      "totalTime": "PT2M",
+      "step": [
+        {
+          "@type": "HowToStep",
+          "name": "Find it",
+          "text": "Run npx owlwarden scan in your VS Code project."
+        },
+        {
+          "@type": "HowToStep",
+          "name": "Fix it",
+          "text": "Pin the version in the `mcp` block of `.vscode/settings.json`, or use a container image by digest. `latest` in a workspace file is a moving target every contributor inherits."
+        },
+        {
+          "@type": "HowToStep",
+          "name": "Confirm it",
+          "text": "Run npx owlwarden scan again; the agent-mcp-unpinned-remote finding is gone."
+        }
+      ]
+    }
+  ]
+}
+</script>
+</head>
+<body>
+<a class="skip-link" href="#main-content">Skip to content</a>
+
+<header class="site-header">
+  <a class="wordmark" href="../../../">
+    <span aria-hidden="true">◉ᴥ◉</span>
+    <span>owlwarden</span>
+  </a>
+  <nav aria-label="Primary">
+    <a href="../../../rules/">Rules</a>
+    <a href="../../../agent-config-security/">Agent config</a>
+    <a href="../../../vet/">vet</a>
+    <a href="../../../offline/">Offline</a>
+    <a href="../../../owasp/">Coverage</a>
+    <a href="https://github.com/suthat/owlwarden" rel="noopener">GitHub</a>
+  </nav>
+</header>
+
+<nav class="breadcrumbs" aria-label="Breadcrumb">
+  <ol>
+    <li><a href="../../../">owlwarden</a></li>
+    <li><a href="../../../rules/">Rules</a></li>
+    <li><a href="../../../rules/agent-mcp-unpinned-remote/">agent-mcp-unpinned-remote</a></li>
+    <li aria-current="page">VS Code</li>
+  </ol>
+</nav>
+
+<main id="main-content">
+<h1>Fix mCP server declaration resolves code at run time in VS Code</h1>
+
+<p class="lede">An MCP server is launched with `npx -y`, `uvx`, `bunx`, or a container image with no digest, or is reached over a remote transport. The code that gets a tool call today is not necessarily the code that got one yesterday, and there is no version in the repository to review.</p>
+
+<p>
+  <span class="chip chip-medium">medium</span> <span class="chip chip-likely">likely</span>
+  <span class="chip chip-scope">VS Code</span>
+  <a href="https://cwe.mitre.org/data/definitions/1357.html" rel="noopener">CWE-1357</a>
+  
+   · <a href="../../../asi/">ASI ASI04</a>
+</p>
+
+<h2>The vulnerable pattern in VS Code</h2>
+<div class="transcript"><span class="sev-medium">MEDIUM</span>  <span class="conf">likely</span>  <span class="dim">active</span>  MCP server declaration resolves code at run time  <span class="dim">ASI04</span>
+<span class="dim">.vscode/settings.json:9:20</span>
+
+<span class="dim"> 7 │</span>     &quot;servers&quot;: {
+<span class="dim"> 8 │</span>       &quot;x&quot;: {
+<span class="dim"> 9 │</span>         &quot;command&quot;: &quot;npx&quot;,
+<span class="dim">   │ </span>                   <span class="mark">~~~~~ resolves the package when the server starts</span>
+<span class="dim">10 │</span>         &quot;args&quot;: [
+<span class="dim">11 │</span>           &quot;-y&quot;,</div>
+<p>
+  This is a real finding from the VS Code fixture in the owlwarden test
+  suite.
+  `x` resolves its package at run time with no version pinned, so today&#39;s code is whatever the registry serves. Whoever controls what that name resolves to controls a process holding tool access to this workspace.
+</p>
+
+<h2>The corrected configuration</h2>
+<p>Pin the version in the `mcp` block of `.vscode/settings.json`, or use a container image by digest. `latest` in a workspace file is a moving target every contributor inherits.</p>
+<pre class="code"><code class="language-json">// .vscode/settings.json
+&quot;mcp&quot;: { &quot;servers&quot;: { &quot;db&quot;: { &quot;command&quot;: &quot;npx&quot;, &quot;args&quot;: [&quot;-y&quot;, &quot;mcp-db@1.4.2&quot;] } } }</code></pre>
+
+<h3>If you are not using VS Code</h3>
+<p>Pin the version or the digest, and prefer a dependency in `devDependencies` over a run-time resolve. For a remote transport, state the trust decision in the config — a comment naming who runs the endpoint — rather than leaving it implicit.</p>
+
+<h2>Check your own repository</h2>
+<pre class="code"><code class="language-bash">npx owlwarden scan
+npx owlwarden explain agent-mcp-unpinned-remote</code></pre>
+<p>
+  Runs entirely on your machine — <a href="../../../offline/">no account, no
+  telemetry, no network unless you ask</a>. In CI, <a href="../../../ci/">SARIF
+  uploads to code scanning</a> and the exit code is the gate.
+</p>
+
+<h2>Other VS Code checks</h2>
+<p>
+  Every rule that has a verified VS Code example. Cross-linked in both
+  directions on purpose: a page nothing links to is a page a crawler reaches
+  only through the sitemap, and a reader never reaches at all.
+</p>
+<ul class="cards">
+  <li><a href="../../agent-config-env-redirect/vscode/">
+    <span class="name">agent-config-env-redirect</span>
+    <span class="blurb"><span class="chip chip-high">high</span> Repository config redirects the agent&#39;s API traffic</span>
+  </a></li>
+  <li><a href="../../agent-config-loader-script/vscode/">
+    <span class="name">agent-config-loader-script</span>
+    <span class="blurb"><span class="chip chip-high">high</span> Executable script inside an agent or editor config directory</span>
+  </a></li>
+  <li><a href="../../agent-config-secret-reachable/vscode/">
+    <span class="name">agent-config-secret-reachable</span>
+    <span class="blurb"><span class="chip chip-high">high</span> Repository config puts credentials in reach of a repository-controlled command</span>
+  </a></li>
+  <li><a href="../../agent-hook-autoexec/vscode/">
+    <span class="name">agent-hook-autoexec</span>
+    <span class="blurb"><span class="chip chip-high">high</span> Repository config executes a command when the workspace is opened</span>
+  </a></li>
+  <li><a href="../../agent-hook-untrusted-command/vscode/">
+    <span class="name">agent-hook-untrusted-command</span>
+    <span class="blurb"><span class="chip chip-high">high</span> Hook command reaches outside the project</span>
+  </a></li>
+  <li><a href="../../agent-permission-wildcard/vscode/">
+    <span class="name">agent-permission-wildcard</span>
+    <span class="blurb"><span class="chip chip-medium">medium</span> Repository config pre-approves a broad tool permission</span>
+  </a></li>
+</ul>
+
+<p>
+  <a href="../">agent-mcp-unpinned-remote for every agent host</a> ·
+  <a href="../../">All rules</a> ·
+  <a href="../../../">owlwarden</a>
+</p>
+
+</main>
+
+<footer class="site-footer">
+  <p>
+    <strong>owlwarden 1.1.0</strong> — offline security scanner for Node web apps
+    and AI coding agents. No account, no telemetry, no network unless you ask.
+  </p>
+  <nav aria-label="Footer">
+    <a href="../../../rules/">All rules</a>
+    <a href="../../../owasp/">OWASP coverage</a>
+    <a href="../../../asi/">ASI coverage</a>
+    <a href="../../../offline/">Offline</a>
+    <a href="../../../ci/">CI</a>
+    <a href="../../../mcp/">MCP</a>
+    <a href="https://github.com/suthat/owlwarden/blob/main/RULES.md" rel="noopener">RULES.md</a>
+    <a href="https://www.npmjs.com/package/owlwarden" rel="noopener">npm</a>
+  </nav>
+  <p class="licence">MIT OR Apache-2.0. <code>npx owlwarden scan</code></p>
+</footer>
+</body>
+</html>

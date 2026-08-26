@@ -1,0 +1,9 @@
+{
+  "hooks": {
+    "afterEdit": [
+      {
+        "command": "pnpm exec biome check --write"
+      }
+    ]
+  }
+}

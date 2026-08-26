@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<title>Fix sensitive-data-logged in Remix — owlwarden</title>
+<meta name="description" content="Sensitive data written to a log in Remix. The vulnerable pattern, the corrected code, the CWE mapping, and one command to check your own repository.">
+<link rel="canonical" href="https://suthat.github.io/owlwarden/rules/sensitive-data-logged/remix/">
+<meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1">
+<meta name="theme-color" content="#fbfaf8">
+
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="owlwarden">
+<meta property="og:title" content="Fix sensitive data written to a log in Remix">
+<meta property="og:description" content="Sensitive data written to a log in Remix. The vulnerable pattern, the corrected code, the CWE mapping, and one command to check your own repository.">
+<meta property="og:url" content="https://suthat.github.io/owlwarden/rules/sensitive-data-logged/remix/">
+<meta property="og:image" content="https://suthat.github.io/owlwarden/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="An owlwarden finding: a SessionStart hook in .claude/settings.json that runs a command when the workspace is opened">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Fix sensitive data written to a log in Remix">
+<meta name="twitter:description" content="Sensitive data written to a log in Remix. The vulnerable pattern, the corrected code, the CWE mapping, and one command to check your own repository.">
+<meta name="twitter:image" content="https://suthat.github.io/owlwarden/og.png">
+
+<link rel="icon" type="image/svg+xml" href="../../../favicon.svg">
+<link rel="alternate icon" type="image/png" href="../../../favicon.png">
+<link rel="apple-touch-icon" href="../../../favicon.png">
+<link rel="alternate" type="application/atom+xml" title="owlwarden releases" href="https://suthat.github.io/owlwarden/changelog/feed.xml">
+<link rel="stylesheet" href="../../../styles.css?v=1.1.0">
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "BreadcrumbList",
+      "@id": "https://suthat.github.io/owlwarden/rules/sensitive-data-logged/remix/#breadcrumbs",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "owlwarden",
+          "item": "https://suthat.github.io/owlwarden/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "Rules",
+          "item": "https://suthat.github.io/owlwarden/rules/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 3,
+          "name": "sensitive-data-logged",
+          "item": "https://suthat.github.io/owlwarden/rules/sensitive-data-logged/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 4,
+          "name": "Remix",
+          "item": "https://suthat.github.io/owlwarden/rules/sensitive-data-logged/remix/"
+        }
+      ]
+    },
+    {
+      "@type": "TechArticle",
+      "headline": "Fix sensitive data written to a log in Remix",
+      "description": "A password, token, cookie, or similar value is passed to a log sink. Centralised logs are widely readable inside an organisation and often retained for months — a credential that lands there is a credential that has left the application's control.",
+      "proficiencyLevel": "Beginner",
+      "dependencies": "Remix",
+      "isPartOf": {
+        "@type": "TechArticle",
+        "@id": "#rule"
+      },
+      "about": [
+        {
+          "@type": "Thing",
+          "name": "CWE-532",
+          "url": "https://cwe.mitre.org/data/definitions/532.html"
+        }
+      ]
+    },
+    {
+      "@type": "HowTo",
+      "name": "Fix sensitive data written to a log in Remix",
+      "totalTime": "PT2M",
+      "step": [
+        {
+          "@type": "HowToStep",
+          "name": "Find it",
+          "text": "Run npx owlwarden scan in your Remix project."
+        },
+        {
+          "@type": "HowToStep",
+          "name": "Fix it",
+          "text": "Log that the attempt happened, not the credential."
+        },
+        {
+          "@type": "HowToStep",
+          "name": "Confirm it",
+          "text": "Run npx owlwarden scan again; the sensitive-data-logged finding is gone."
+        }
+      ]
+    }
+  ]
+}
+</script>
+</head>
+<body>
+<a class="skip-link" href="#main-content">Skip to content</a>
+
+<header class="site-header">
+  <a class="wordmark" href="../../../">
+    <span aria-hidden="true">◉ᴥ◉</span>
+    <span>owlwarden</span>
+  </a>
+  <nav aria-label="Primary">
+    <a href="../../../rules/">Rules</a>
+    <a href="../../../agent-config-security/">Agent config</a>
+    <a href="../../../vet/">vet</a>
+    <a href="../../../offline/">Offline</a>
+    <a href="../../../owasp/">Coverage</a>
+    <a href="https://github.com/suthat/owlwarden" rel="noopener">GitHub</a>
+  </nav>
+</header>
+
+<nav class="breadcrumbs" aria-label="Breadcrumb">
+  <ol>
+    <li><a href="../../../">owlwarden</a></li>
+    <li><a href="../../../rules/">Rules</a></li>
+    <li><a href="../../../rules/sensitive-data-logged/">sensitive-data-logged</a></li>
+    <li aria-current="page">Remix</li>
+  </ol>
+</nav>
+
+<main id="main-content">
+<h1>Fix sensitive data written to a log in Remix</h1>
+
+<p class="lede">A password, token, cookie, or similar value is passed to a log sink. Centralised logs are widely readable inside an organisation and often retained for months — a credential that lands there is a credential that has left the application&#39;s control.</p>
+
+<p>
+  <span class="chip chip-medium">medium</span> <span class="chip chip-likely">likely</span>
+  <span class="chip chip-scope">Remix</span>
+  <a href="https://cwe.mitre.org/data/definitions/532.html" rel="noopener">CWE-532</a>
+   · <a href="../../../owasp/">OWASP A09:2021</a>
+  
+</p>
+
+<h2>The vulnerable pattern in Remix</h2>
+<div class="transcript"><span class="sev-medium">MEDIUM</span>  <span class="conf">likely</span>  Sensitive data written to a log  <span class="dim">A09:2021</span>
+<span class="dim">app/routes/api.users.ts:22:18</span>
+
+<span class="dim">20 │</span> 
+<span class="dim">21 │</span>   // sensitive-data-logged: the password reaches the process log.
+<span class="dim">22 │</span>   console.info({ password: body.password })
+<span class="dim">   │ </span>                 <span class="mark">~~~~~~~~~~~~~~~~~~~~~~~ sensitive value written to a log</span>
+<span class="dim">23 │</span> 
+<span class="dim">24 │</span>   // sensitive-data-logged: an access token, logged the same way.</div>
+<p>
+  This is a real finding from the Remix fixture in the owlwarden test
+  suite, in <code> /api/users</code>.
+  Logs are copied into aggregators, retained for months, and readable by anyone with access to the logging system. A credential that reaches a log has left the application&#39;s trust boundary.
+</p>
+
+<h2>The corrected handler</h2>
+<p>Log that the attempt happened, not the credential.</p>
+<pre class="code"><code class="language-ts">console.info({ event: &#39;login_attempt&#39;, userId })
+// never: console.info({ password: form.get(&#39;password&#39;) })</code></pre>
+
+<h3>If you are not using Remix</h3>
+<p>Log a redacted shape — an id, a boolean, a length — never the secret itself.</p>
+
+<h2>Check your own repository</h2>
+<pre class="code"><code class="language-bash">npx owlwarden scan
+npx owlwarden explain sensitive-data-logged</code></pre>
+<p>
+  Runs entirely on your machine — <a href="../../../offline/">no account, no
+  telemetry, no network unless you ask</a>. In CI, <a href="../../../ci/">SARIF
+  uploads to code scanning</a> and the exit code is the gate.
+</p>
+
+<h2>Other Remix checks</h2>
+<p>
+  Every rule that has a verified Remix example. Cross-linked in both
+  directions on purpose: a page nothing links to is a page a crawler reaches
+  only through the sitemap, and a reader never reaches at all.
+</p>
+<ul class="cards">
+  <li><a href="../../cors-permissive/remix/">
+    <span class="name">cors-permissive</span>
+    <span class="blurb"><span class="chip chip-medium">medium</span> Cross-origin policy accepts any origin</span>
+  </a></li>
+  <li><a href="../../hardcoded-secret/remix/">
+    <span class="name">hardcoded-secret</span>
+    <span class="blurb"><span class="chip chip-high">high</span> Credential hardcoded in source</span>
+  </a></li>
+  <li><a href="../../insecure-cookie/remix/">
+    <span class="name">insecure-cookie</span>
+    <span class="blurb"><span class="chip chip-medium">medium</span> Cookie set without its protective attributes</span>
+  </a></li>
+  <li><a href="../../install-lifecycle-script/remix/">
+    <span class="name">install-lifecycle-script</span>
+    <span class="blurb"><span class="chip chip-medium">medium</span> Package declares an install-time script</span>
+  </a></li>
+  <li><a href="../../open-redirect/remix/">
+    <span class="name">open-redirect</span>
+    <span class="blurb"><span class="chip chip-medium">medium</span> Redirect target comes from the caller</span>
+  </a></li>
+  <li><a href="../../security-headers-missing/remix/">
+    <span class="name">security-headers-missing</span>
+    <span class="blurb"><span class="chip chip-medium">medium</span> Security headers are not configured</span>
+  </a></li>
+  <li><a href="../../sql-injection/remix/">
+    <span class="name">sql-injection</span>
+    <span class="blurb"><span class="chip chip-high">high</span> SQL query built by string interpolation</span>
+  </a></li>
+  <li><a href="../../ssrf/remix/">
+    <span class="name">ssrf</span>
+    <span class="blurb"><span class="chip chip-high">high</span> Server fetches a URL the caller controls</span>
+  </a></li>
+  <li><a href="../../stack-trace-leak/remix/">
+    <span class="name">stack-trace-leak</span>
+    <span class="blurb"><span class="chip chip-high">high</span> Stack trace leaked in error response</span>
+  </a></li>
+  <li><a href="../../weak-crypto/remix/">
+    <span class="name">weak-crypto</span>
+    <span class="blurb"><span class="chip chip-high">high</span> Broken cryptographic primitive protecting a secret</span>
+  </a></li>
+</ul>
+
+<p>
+  <a href="../">sensitive-data-logged for every framework</a> ·
+  <a href="../../">All rules</a> ·
+  <a href="../../../">owlwarden</a>
+</p>
+
+</main>
+
+<footer class="site-footer">
+  <p>
+    <strong>owlwarden 1.1.0</strong> — offline security scanner for Node web apps
+    and AI coding agents. No account, no telemetry, no network unless you ask.
+  </p>
+  <nav aria-label="Footer">
+    <a href="../../../rules/">All rules</a>
+    <a href="../../../owasp/">OWASP coverage</a>
+    <a href="../../../asi/">ASI coverage</a>
+    <a href="../../../offline/">Offline</a>
+    <a href="../../../ci/">CI</a>
+    <a href="../../../mcp/">MCP</a>
+    <a href="https://github.com/suthat/owlwarden/blob/main/RULES.md" rel="noopener">RULES.md</a>
+    <a href="https://www.npmjs.com/package/owlwarden" rel="noopener">npm</a>
+  </nav>
+  <p class="licence">MIT OR Apache-2.0. <code>npx owlwarden scan</code></p>
+</footer>
+</body>
+</html>

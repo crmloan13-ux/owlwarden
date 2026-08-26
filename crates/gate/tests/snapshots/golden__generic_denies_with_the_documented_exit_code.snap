@@ -1,0 +1,10 @@
+---
+source: crates/gate/tests/golden.rs
+expression: "round_trip(\"generic\", r#\"{\"event\":\"turn-boundary\"}\"#,\nGateOutcome::Scanned(report(vec![stack_trace_leak()])),)"
+---
+event: turn-boundary
+kind: turn-boundary
+verdict: deny
+exit: 1
+stdout: {"verdict":"deny","reason":"owlwarden blocked this turn: 1 finding at or above the gate threshold.\n\nHIGH [stack-trace-leak] Stack trace leaked in error response\n  at app/api/users/route.ts:13:16\n  fix: Return a generic message; log the error server-side.\n  | console.error(err)\n  | return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })\n\nFix the findings, then continue. Do not suppress them: a suppression written now is not honoured by this gate.","findings":[{"id":"stack-trace-leak","severity":"high","confidence":"likely","title":"Stack trace leaked in error response","why":"Stack traces expose absolute file paths and dependency versions.","location":{"path":"app/api/users/route.ts","line":13,"col":16},"context":{},"remediation":[{"framework":"next","summary":"Return a generic message; log the error server-side.","patch":"console.error(err)\nreturn NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })","safety":"manual"}],"references":[]}],"ignoredSuppressions":[],"postureRejections":[],"degraded":false}
+stderr: -

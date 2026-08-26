@@ -1,5 +1,11 @@
 # Proves the CI surface: SARIF emit + exit 0 on a clean fixture.
-# Uses the locally built CLI (npm may not have this version yet on a PR).
+#
+# This runs the locally built CLI rather than the Action, because the Action
+# resolves `npx owlwarden@<version>` from npm and a PR's version is not
+# published yet. That gap is why a guard rejecting every input shipped in 1.0
+# unnoticed — so the Action's *script* is now covered by
+# packages/cli/test/action.test.ts, which extracts the block and runs it against
+# a stubbed CLI. What is left here is the report contract.
 name: Action smoke
 
 on:

@@ -1,0 +1,10 @@
+---
+source: crates/gate/tests/golden.rs
+expression: "round_trip(\"claude-code\",\nr#\"{\"hook_event_name\":\"SessionStart\",\"source\":\"startup\"}\"#,\nGateOutcome::Scanned(report(vec![stack_trace_leak()])),)"
+---
+event: SessionStart
+kind: session-start
+verdict: allow
+exit: 0
+stdout: {"hookSpecificOutput":{"additionalContext":"owlwarden 0.0.0-test is watching this workspace (quick preset, since HEAD). Baseline posture: 1 finding(s) currently reported — 1 high, 0 medium. Edits are re-scanned; the turn boundary is gated. Fix findings rather than suppressing them; suppressions written during a session are reported and not honoured.","hookEventName":"SessionStart"}}
+stderr: -

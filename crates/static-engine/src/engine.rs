@@ -8,6 +8,7 @@ use owlwarden_core::context::ScanContext;
 use owlwarden_core::detector::{Capabilities, Detector, DetectorError, DetectorKind, DetectorMeta};
 use owlwarden_core::finding::{Confidence, Finding, RuleId, Severity};
 use owlwarden_core::limits;
+use owlwarden_core::surface::Surface;
 
 use crate::project::Project;
 use crate::rule::{FileRule, FindingSink, ProjectRule};
@@ -25,6 +26,8 @@ pub struct EngineStats {
     pub files_scanned: u32,
     /// Files a rule wanted but which could not be read or parsed.
     pub files_skipped: u32,
+    /// Agent and editor configuration files read.
+    pub config_files_scanned: u32,
     /// A sample of the skips, as `path: reason`.
     pub skip_examples: Vec<String>,
     /// True when a per-file or global findings cap dropped results.
@@ -85,9 +88,56 @@ impl StaticEngine {
             .collect()
     }
 
+    /// Surfaces agent-workspace files that could not be read or parsed.
+    ///
+    /// Only when a rule that reads that surface is actually enabled: a
+    /// `--preset owasp-top10` run has no business reporting on a malformed
+    /// `.cursor/hooks.json` it never intended to look at.
+    ///
+    /// These go through the skip channel rather than becoming findings of their
+    /// own, for two reasons. The rule count stays a count of *security rules*,
+    /// which is what a reader compares between tools. And "we could not read
+    /// this file" is a statement about the scan, not about the code — the same
+    /// category as an unparseable source file, reported the same way, so a
+    /// consumer already handling one handles both.
+    fn note_unreadable_agent_config(&self, project: &Project<'_>) {
+        if !self
+            .project_rules
+            .iter()
+            .any(|rule| rule.meta().surface == Surface::AgentWorkspace)
+        {
+            return;
+        }
+        let workspace = project.agent_workspace();
+        if let Ok(mut stats) = self.stats.lock() {
+            stats.config_files_scanned = u32::try_from(workspace.files().len()).unwrap_or(u32::MAX);
+        }
+        for unreadable in workspace.unreadable() {
+            self.remember_skip(&unreadable.path, &unreadable.reason);
+        }
+        if workspace.truncated() {
+            self.mark_truncated();
+        }
+    }
+
     /// Runs the project-wide rules.
-    fn run_project_rules(&self, project: &Project<'_>, findings: &mut Vec<Finding>) {
+    ///
+    /// Under a diff scope a rule runs when *its own declared inputs* are in the
+    /// list, regardless of what else changed. A commit that touches only
+    /// `package.json` must still fire `unpinned-dependency`, and a commit that
+    /// touches only `app/route.ts` must not pay for the workspace walk.
+    fn run_project_rules(
+        &self,
+        project: &Project<'_>,
+        findings: &mut Vec<Finding>,
+        scoped_paths: Option<&Vec<String>>,
+    ) {
         for rule in &self.project_rules {
+            if let Some(scope) = scoped_paths
+                && !rule.inputs().touched_by(scope)
+            {
+                continue;
+            }
             let mut sink = FindingSink::new();
             // A project rule that fails is recorded as a skip, not as a scan
             // failure: the other rules still have something useful to say.
@@ -190,7 +240,9 @@ impl Detector for StaticEngine {
             // carries its own ceiling.
             max_confidence: Confidence::Likely,
             owasp: None,
+            asi: None,
             cwe: None,
+            surface: Surface::WebApp,
             category: "engine".into(),
             description: "Parses project source with oxc and runs the enabled static rules.".into(),
         }
@@ -214,15 +266,40 @@ impl Detector for StaticEngine {
         let project = Project::discover(ctx.source())?;
         let mut findings = Vec::new();
 
-        let dirty_paths = ctx
+        let scoped_paths = ctx
             .settings()
-            .dirty_paths
+            .scoped_paths
             .as_ref()
-            .filter(|paths| !paths.is_empty())
-            .map(|paths| paths.iter().cloned().collect::<HashSet<String>>());
+            .filter(|paths| !paths.is_empty());
 
-        self.run_project_rules(&project, &mut findings);
-        self.run_file_rules(&project, &mut findings, dirty_paths.as_ref());
+        // Two independent narrowings, and they compose. `dirty_paths` is watch
+        // mode re-parsing what changed since the last run; `scoped_paths` is
+        // the user asking for a smaller question to be answered.
+        let file_filter: Option<HashSet<String>> =
+            match (ctx.settings().dirty_paths.as_ref(), scoped_paths) {
+                (Some(dirty), Some(scope)) if !dirty.is_empty() => Some(
+                    dirty
+                        .iter()
+                        .filter(|path| scope.contains(*path))
+                        .cloned()
+                        .collect(),
+                ),
+                (Some(dirty), None) if !dirty.is_empty() => Some(dirty.iter().cloned().collect()),
+                (_, Some(scope)) => Some(scope.iter().cloned().collect()),
+                _ => None,
+            };
+
+        self.run_project_rules(&project, &mut findings, scoped_paths);
+        self.run_file_rules(&project, &mut findings, file_filter.as_ref());
+        self.note_unreadable_agent_config(&project);
+
+        // The scope ceiling is applied here rather than in each rule. Eleven
+        // rules that had to remember it is eleven chances to forget, and the
+        // failure mode — a fenced example in a tutorial reported like a live
+        // config — is the one that gets a rule family switched off.
+        for finding in &mut findings {
+            finding.apply_runtime_scope_ceiling();
+        }
 
         if findings.len() > limits::scan::MAX_FINDINGS {
             findings.truncate(limits::scan::MAX_FINDINGS);

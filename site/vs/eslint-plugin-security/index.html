@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<title>owlwarden vs eslint-plugin-security</title>
+<meta name="description" content="eslint-plugin-security is lint heuristics with a known false-positive rate. owlwarden is framework-aware, route-aware, and states the confidence its method earns.">
+<link rel="canonical" href="https://suthat.github.io/owlwarden/vs/eslint-plugin-security/">
+<meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1">
+<meta name="theme-color" content="#fbfaf8">
+
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="owlwarden">
+<meta property="og:title" content="owlwarden vs eslint-plugin-security">
+<meta property="og:description" content="eslint-plugin-security is lint heuristics with a known false-positive rate. owlwarden is framework-aware, route-aware, and states the confidence its method earns.">
+<meta property="og:url" content="https://suthat.github.io/owlwarden/vs/eslint-plugin-security/">
+<meta property="og:image" content="https://suthat.github.io/owlwarden/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="An owlwarden finding: a SessionStart hook in .claude/settings.json that runs a command when the workspace is opened">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="owlwarden vs eslint-plugin-security">
+<meta name="twitter:description" content="eslint-plugin-security is lint heuristics with a known false-positive rate. owlwarden is framework-aware, route-aware, and states the confidence its method earns.">
+<meta name="twitter:image" content="https://suthat.github.io/owlwarden/og.png">
+
+<link rel="icon" type="image/svg+xml" href="../../favicon.svg">
+<link rel="alternate icon" type="image/png" href="../../favicon.png">
+<link rel="apple-touch-icon" href="../../favicon.png">
+<link rel="alternate" type="application/atom+xml" title="owlwarden releases" href="https://suthat.github.io/owlwarden/changelog/feed.xml">
+<link rel="stylesheet" href="../../styles.css?v=1.1.0">
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "BreadcrumbList",
+      "@id": "https://suthat.github.io/owlwarden/vs/eslint-plugin-security/#breadcrumbs",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "owlwarden",
+          "item": "https://suthat.github.io/owlwarden/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "Compare",
+          "item": "https://suthat.github.io/owlwarden/vs/semgrep/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 3,
+          "name": "eslint-plugin-security",
+          "item": "https://suthat.github.io/owlwarden/vs/eslint-plugin-security/"
+        }
+      ]
+    },
+    {
+      "@type": "TechArticle",
+      "headline": "owlwarden vs eslint-plugin-security",
+      "proficiencyLevel": "Beginner"
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Is owlwarden a replacement for eslint-plugin-security?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "It answers the same questions with more context — framework-aware, route-aware, and with a confidence field so a guess is never presented as a fact. Keeping both costs nothing."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Why do lint security rules produce so many false positives?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Because they match syntax without knowing what a response, a cookie, or a request is in your framework. owlwarden asks the detected framework's profile instead."
+          }
+        }
+      ]
+    }
+  ]
+}
+</script>
+</head>
+<body>
+<a class="skip-link" href="#main-content">Skip to content</a>
+
+<header class="site-header">
+  <a class="wordmark" href="../../">
+    <span aria-hidden="true">◉ᴥ◉</span>
+    <span>owlwarden</span>
+  </a>
+  <nav aria-label="Primary">
+    <a href="../../rules/">Rules</a>
+    <a href="../../agent-config-security/">Agent config</a>
+    <a href="../../vet/">vet</a>
+    <a href="../../offline/">Offline</a>
+    <a href="../../owasp/">Coverage</a>
+    <a href="https://github.com/suthat/owlwarden" rel="noopener">GitHub</a>
+  </nav>
+</header>
+
+<nav class="breadcrumbs" aria-label="Breadcrumb">
+  <ol>
+    <li><a href="../../">owlwarden</a></li>
+    <li><a href="../../vs/semgrep/">Compare</a></li>
+    <li aria-current="page">eslint-plugin-security</li>
+  </ol>
+</nav>
+
+<main id="main-content">
+<h1>owlwarden vs eslint-plugin-security</h1>
+
+<p class="lede">
+  If eslint-plugin-security is already in your config, keep it — it costs
+  nothing to run. The difference is what happens after it fires.
+</p>
+
+<h2>Where it wins</h2>
+<ul>
+  <li><strong>Zero marginal setup.</strong> It is an ESLint plugin, and you already run ESLint.</li>
+  <li><strong>Editor integration for free.</strong> Squiggles where you type, with no second process.</li>
+</ul>
+
+<h2>Where owlwarden wins</h2>
+<ul>
+  <li><strong>It knows what a response is.</strong> <code>reply.send</code> in Fastify, <code>NextResponse.json</code> in Next.js, <code>ctx.body</code> in Koa. A lint rule matching <code>.stack</code> fires on <code>res.json({ stack: project.stack })</code> too.</li>
+  <li><strong>Confidence is a field.</strong> <code>possible</code> findings are shown and never fail CI on their own. A tool that presents guesses as facts gets uninstalled.</li>
+  <li><strong>The fix is in the finding.</strong> Written for your framework, with the corrected code.</li>
+  <li><strong>It reads your agent configuration.</strong> <a href="../../agent-config-security/">No lint rule does.</a></li>
+</ul>
+
+<h2>Precision is a tested property here</h2>
+<p>
+  Every rule ships with a vulnerable fixture, a clean twin that must stay
+  silent, and — on the agent surface — a <em>tempting</em> fixture: a legitimate
+  configuration that shares surface features with the vulnerable one, whose
+  silence is the assertion. <a href="../../rules/">Every rule, with its
+  examples</a>.
+</p>
+<h2>Other comparisons</h2>
+<ul class="cards">
+  <li><a href="../semgrep/"><span class="name">vs Semgrep</span><span class="blurb">Rule breadth against determinism and offline.</span></a></li>
+  <li><a href="../snyk/"><span class="name">vs Snyk</span><span class="blurb">Dependencies against the config nothing scans.</span></a></li>
+  <li><a href="../claude-security/"><span class="name">vs model-based review</span><span class="blurb">Judgement against a floor that always runs.</span></a></li>
+  <li><a href="../eslint-plugin-security/"><span class="name">vs eslint-plugin-security</span><span class="blurb">Lint heuristics against routed, framework-aware rules.</span></a></li>
+</ul>
+<p><a href="../../rules/">All rules</a> · <a href="../../owasp/">Coverage, gaps included</a> · <a href="../../offline/">Offline</a></p>
+</main>
+
+<footer class="site-footer">
+  <p>
+    <strong>owlwarden 1.1.0</strong> — offline security scanner for Node web apps
+    and AI coding agents. No account, no telemetry, no network unless you ask.
+  </p>
+  <nav aria-label="Footer">
+    <a href="../../rules/">All rules</a>
+    <a href="../../owasp/">OWASP coverage</a>
+    <a href="../../asi/">ASI coverage</a>
+    <a href="../../offline/">Offline</a>
+    <a href="../../ci/">CI</a>
+    <a href="../../mcp/">MCP</a>
+    <a href="https://github.com/suthat/owlwarden/blob/main/RULES.md" rel="noopener">RULES.md</a>
+    <a href="https://www.npmjs.com/package/owlwarden" rel="noopener">npm</a>
+  </nav>
+  <p class="licence">MIT OR Apache-2.0. <code>npx owlwarden scan</code></p>
+</footer>
+</body>
+</html>

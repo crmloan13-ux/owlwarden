@@ -16,12 +16,14 @@ crate-type = ["cdylib"]
 [dependencies]
 owlwarden-core.workspace = true
 owlwarden-detectors.workspace = true
+owlwarden-gate.workspace = true
 owlwarden-dynamic.workspace = true
 owlwarden-plugin-host.workspace = true
 owlwarden-reporters.workspace = true
 owlwarden-static.workspace = true
 owlwarden-transport.workspace = true
 
+futures-executor = "0.3"
 serde.workspace = true
 serde_json.workspace = true
 

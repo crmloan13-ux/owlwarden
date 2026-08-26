@@ -19,7 +19,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use globset::{Glob, GlobSet, GlobSetBuilder};
+use globset::{GlobSet, GlobSetBuilder};
 use owlwarden_core::limits;
 use owlwarden_core::source::{FileSelector, RelPath, SourceError, SourceFile, SourceProvider};
 
@@ -144,15 +144,34 @@ impl FsSourceProvider {
 /// Compiles glob patterns, mapping a bad pattern to a typed error instead of a
 /// panic. Patterns come from user config, so they are untrusted input.
 fn build_globs(patterns: &[String]) -> Result<Option<GlobSet>, SourceError> {
+    build_globs_with(patterns, false)
+}
+
+/// [`build_globs`], with an option to ignore case.
+///
+/// The agent-workspace surface compiles case-insensitively, because macOS and
+/// Windows do. A repository containing `.Claude/settings.json` is, to a host on
+/// a Mac, `.claude/settings.json` — it opens it and runs what is in it, and a
+/// case-sensitive walker would never have listed the file. Application source
+/// keeps the exact-case behaviour: nothing there depends on the filesystem's
+/// opinion, and matching `README.MD` as `readme.md` would be surprising.
+fn build_globs_with(
+    patterns: &[String],
+    case_insensitive: bool,
+) -> Result<Option<GlobSet>, SourceError> {
     if patterns.is_empty() {
         return Ok(None);
     }
     let mut builder = GlobSetBuilder::new();
     for pattern in patterns.iter().take(256) {
-        let glob = Glob::new(pattern).map_err(|error| SourceError::InvalidPattern {
-            pattern: pattern.clone(),
-            reason: error.to_string(),
-        })?;
+        let glob = globset::GlobBuilder::new(pattern)
+            .case_insensitive(case_insensitive)
+            .literal_separator(false)
+            .build()
+            .map_err(|error| SourceError::InvalidPattern {
+                pattern: pattern.clone(),
+                reason: error.to_string(),
+            })?;
         builder.add(glob);
     }
     builder
@@ -164,32 +183,50 @@ fn build_globs(patterns: &[String]) -> Result<Option<GlobSet>, SourceError> {
         })
 }
 
-impl SourceProvider for FsSourceProvider {
-    fn root(&self) -> &Path {
-        &self.root
-    }
+/// Directories skipped even on the agent-workspace surface.
+///
+/// Much shorter than [`ALWAYS_EXCLUDED_DIRS`], because most of that list exists
+/// to keep editor and tool directories out of an application-source scan — and
+/// those directories are the entire point here. What stays excluded is
+/// dependency and VCS trees: an agent config inside `node_modules` is a real
+/// vector and a very large scan, named as out of scope in ADR 0025 rather than
+/// left unsaid.
+const WORKSPACE_EXCLUDED_DIRS: &[&str] = &["node_modules", ".git", ".svn", ".hg", "target"];
 
-    fn files(&self, selector: &FileSelector) -> Result<Vec<SourceFile>, SourceError> {
-        let include = build_globs(&selector.include)?;
-        let exclude = build_globs(&selector.exclude)?;
-
-        // `hidden(false)` plus our own filter: the ignore crate's `hidden(true)`
-        // skips every dot-directory, including `.github`, which is exactly where
-        // CI integrity checks have to look. We still refuse the usual IDE and
-        // VCS clutter via [`ALWAYS_EXCLUDED_DIRS`] and the allow-list below.
+impl FsSourceProvider {
+    /// Walks the tree, honouring `.gitignore` and the deny list, or not.
+    ///
+    /// One walker with a switch rather than two: the containment, depth, and
+    /// size guarantees are then written once, and a future change to them
+    /// cannot apply to one surface and miss the other.
+    fn walk(
+        &self,
+        include: Option<&GlobSet>,
+        exclude: Option<&GlobSet>,
+        honour_ignore_files: bool,
+    ) -> Vec<SourceFile> {
+        let excluded: &[&str] = if honour_ignore_files {
+            ALWAYS_EXCLUDED_DIRS
+        } else {
+            WORKSPACE_EXCLUDED_DIRS
+        };
         let walker = ignore::WalkBuilder::new(&self.root)
             .hidden(false)
-            .git_ignore(true)
+            .git_ignore(honour_ignore_files)
             .git_global(false)
             .parents(false)
             .follow_links(false)
             .max_depth(Some(limits::source::MAX_DEPTH))
-            .filter_entry(|entry| {
+            .filter_entry(move |entry| {
                 let Some(name) = entry.file_name().to_str() else {
                     return false;
                 };
-                if ALWAYS_EXCLUDED_DIRS.contains(&name) {
+                if excluded.contains(&name) {
                     return false;
+                }
+                if !honour_ignore_files {
+                    // The agent surface *is* the dot-directories.
+                    return true;
                 }
                 // Skip dotfiles and most dot-directories. `.github` is the
                 // exception: workflow files live there and are not themselves
@@ -220,27 +257,64 @@ impl SourceProvider for FsSourceProvider {
             let Ok(path) = RelPath::new(relative) else {
                 continue;
             };
-            if let Some(globs) = &include
+            if let Some(globs) = include
                 && !globs.is_match(path.as_str())
             {
                 continue;
             }
-            if let Some(globs) = &exclude
+            if let Some(globs) = exclude
                 && globs.is_match(path.as_str())
             {
                 continue;
             }
             let size_bytes = entry.metadata().map(|meta| meta.len()).unwrap_or_default();
-            if size_bytes > self.max_file_bytes {
+            if size_bytes > self.max_file_bytes && honour_ignore_files {
                 continue;
             }
+            // On the agent-workspace surface an oversized file is *listed*
+            // anyway, and fails at `read` with a typed error the loader turns
+            // into a reported "could not read this".
+            //
+            // Skipping it here instead — which is right for application source,
+            // where one enormous generated file is noise — would mean a 5 MB
+            // `.claude/settings.json` was invisible: not scanned, not reported,
+            // and indistinguishable from a repository that has no agent
+            // configuration at all. Silence is the one answer this surface must
+            // never give by accident.
             files.push(SourceFile { path, size_bytes });
         }
 
         // Deterministic order: two runs over the same tree must produce the
         // same report, and filesystem walk order is not stable across systems.
         files.sort_by(|left, right| left.path.cmp(&right.path));
-        Ok(files)
+        files
+    }
+}
+
+impl SourceProvider for FsSourceProvider {
+    fn root(&self) -> &Path {
+        &self.root
+    }
+
+    fn agent_workspace_files(&self, patterns: &[&str]) -> Result<Vec<SourceFile>, SourceError> {
+        // Each pattern is matched at the root and under any prefix. The prefix
+        // form is what finds a `examples/…/.claude/settings.json` so it can be
+        // reported as a template rather than missed entirely; the caller
+        // decides what a prefixed match means.
+        let mut expanded: Vec<String> = Vec::with_capacity(patterns.len().saturating_mul(2));
+        for pattern in patterns {
+            expanded.push((*pattern).to_owned());
+            expanded.push(format!("**/{pattern}"));
+        }
+        let include = build_globs_with(&expanded, true)?;
+        Ok(self.walk(include.as_ref(), None, false))
+    }
+
+    fn files(&self, selector: &FileSelector) -> Result<Vec<SourceFile>, SourceError> {
+        let include = build_globs(&selector.include)?;
+        let exclude = build_globs(&selector.exclude)?;
+
+        Ok(self.walk(include.as_ref(), exclude.as_ref(), true))
     }
 
     fn read(&self, file: &SourceFile) -> Result<Arc<str>, SourceError> {

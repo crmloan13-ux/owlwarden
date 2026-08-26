@@ -2,7 +2,7 @@ import { lstat, readFile } from "node:fs/promises";
 import { basename, isAbsolute, join, resolve as resolvePath } from "node:path";
 import { pathToFileURL } from "node:url";
 
-import { configSchema, type OwlwardenConfig } from "./schema.js";
+import { configSchema, ruleOverrideSchema, type OwlwardenConfig } from "./schema.js";
 
 /**
  * Config file names that are data only. Always safe to load from a hostile
@@ -63,6 +63,16 @@ export type ConfigResult =
       source: ConfigSource;
       /** Executable config found but skipped because `allowConfigJs` was false. */
       skippedExecutable?: string;
+      /**
+       * A config path that exists but is a symlink, and so was not read.
+       *
+       * Refusing to follow it is the right call — a link is how a hostile tree
+       * points config resolution at content outside itself. Doing it *silently*
+       * was not: `owlwarden.config.json -> ../shared/owlwarden.config.json` is
+       * an ordinary monorepo layout, and the author of that link has no way to
+       * discover their `preset` never applied.
+       */
+      skippedSymlink?: string;
     }
   | { ok: false; error: ConfigError };
 
@@ -82,43 +92,35 @@ export async function resolveConfig(
   const root = isAbsolute(cwd) ? cwd : resolvePath(process.cwd(), cwd);
   const allowConfigJs = options.allowConfigJs === true;
 
-  let skippedExecutable: string | undefined;
+  const skipped: Skipped = {};
 
-  if (allowConfigJs) {
-    for (const name of CONFIG_FILES) {
-      const path = join(root, name);
-      if (!(await exists(path))) continue;
+  const candidates = allowConfigJs ? CONFIG_FILES : JSON_CONFIG_FILES;
 
-      const loaded = name.endsWith(".json")
-        ? await loadJson(path)
-        : await loadModule(path);
-      if (!loaded.ok) return loaded;
-
-      return withSkip(
-        validate(loaded.value, { kind: "file", path }),
-        skippedExecutable,
-      );
-    }
-  } else {
+  if (!allowConfigJs) {
     for (const name of EXECUTABLE_CONFIG_FILES) {
       const path = join(root, name);
-      if (await exists(path)) {
-        skippedExecutable = path;
+      if ((await classify(path)) === "file") {
+        skipped.executable = path;
         break;
       }
     }
-    for (const name of JSON_CONFIG_FILES) {
-      const path = join(root, name);
-      if (!(await exists(path))) continue;
+  }
 
-      const loaded = await loadJson(path);
-      if (!loaded.ok) return loaded;
-
-      return withSkip(
-        validate(loaded.value, { kind: "file", path }),
-        skippedExecutable,
-      );
+  for (const name of candidates) {
+    const path = join(root, name);
+    const kind = await classify(path);
+    if (kind === "absent") continue;
+    if (kind !== "file") {
+      // Present, deliberately not read. Record the first one and keep looking:
+      // a symlinked `.json` beside a real `.mjs` should still load the `.mjs`.
+      skipped.symlink ??= path;
+      continue;
     }
+
+    const loaded = name.endsWith(".json") ? await loadJson(path) : await loadModule(path);
+    if (!loaded.ok) return loaded;
+
+    return withSkip(validate(loaded.value, { kind: "file", path }), skipped);
   }
 
   const fromPackage = await loadPackageJsonKey(root);
@@ -129,16 +131,26 @@ export async function resolveConfig(
         kind: "package.json",
         path: join(root, "package.json"),
       }),
-      skippedExecutable,
+      skipped,
     );
   }
 
-  return withSkip(validate({}, { kind: "defaults" }), skippedExecutable);
+  return withSkip(validate({}, { kind: "defaults" }), skipped);
 }
 
-function withSkip(result: ConfigResult, skippedExecutable: string | undefined): ConfigResult {
-  if (!result.ok || skippedExecutable === undefined) return result;
-  return { ...result, skippedExecutable };
+/** Config paths that were present and deliberately not read. */
+interface Skipped {
+  executable?: string;
+  symlink?: string;
+}
+
+function withSkip(result: ConfigResult, skipped: Skipped): ConfigResult {
+  if (!result.ok) return result;
+  return {
+    ...result,
+    ...(skipped.executable === undefined ? {} : { skippedExecutable: skipped.executable }),
+    ...(skipped.symlink === undefined ? {} : { skippedSymlink: skipped.symlink }),
+  };
 }
 
 /** Runs the schema and turns zod issues into lines a human can act on. */
@@ -151,9 +163,63 @@ function validate(value: unknown, source: ConfigSource): ConfigResult {
   const path = source.kind === "defaults" ? "<defaults>" : source.path;
   const issues = parsed.error.issues.map((issue) => {
     const where = issue.path.length > 0 ? issue.path.join(".") : "(root)";
+    if (issue.code === "unrecognized_keys") {
+      return issue.keys.map((key) => `${where}: ${unrecognisedKey(key, issue.path)}`).join("\n  ");
+    }
     return `${where}: ${issue.message}`;
   });
   return { ok: false, error: { kind: "invalid", path, issues } };
+}
+
+/**
+ * Explains an unrecognised key, naming the intended one when it is a near miss.
+ *
+ * Worth the twenty lines: the keys that get misspelled are `failOn` and
+ * `minConfidence`, both of which are camel-case in a file format where nothing
+ * else is, and both of which fail permissively when they do not apply.
+ */
+function unrecognisedKey(key: string, at: readonly PropertyKey[]): string {
+  const known = at.length === 0 ? Object.keys(configSchema.shape) : Object.keys(ruleOverrideSchema.shape);
+  const suggestion = known.find(
+    (candidate) =>
+      candidate.toLowerCase() === key.toLowerCase() || editDistanceAtMostTwo(candidate, key),
+  );
+  return suggestion === undefined
+    ? `unknown key "${key}"; known keys are ${known.join(", ")}`
+    : `unknown key "${key}" — did you mean "${suggestion}"?`;
+}
+
+/**
+ * True when `a` and `b` are within two single-character edits.
+ *
+ * Bounded rather than a full Levenshtein because the answer past two is not
+ * used, and because bounding it keeps a pathological key from costing anything:
+ * the strings compared are a config key and a schema key, but only one of those
+ * two is under the config author's control.
+ */
+function editDistanceAtMostTwo(a: string, b: string): boolean {
+  if (Math.abs(a.length - b.length) > 2) return false;
+
+  const previous = Array.from({ length: b.length + 1 }, (_, index) => index);
+  for (let i = 1; i <= a.length; i += 1) {
+    let diagonal = previous[0] ?? 0;
+    previous[0] = i;
+    let best = i;
+    for (let j = 1; j <= b.length; j += 1) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      const value = Math.min(
+        (previous[j] ?? 0) + 1,
+        (previous[j - 1] ?? 0) + 1,
+        diagonal + cost,
+      );
+      diagonal = previous[j] ?? 0;
+      previous[j] = value;
+      best = Math.min(best, value);
+    }
+    // Every cell in this row already exceeds the bound, and rows only grow.
+    if (best > 2) return false;
+  }
+  return (previous[b.length] ?? Infinity) <= 2;
 }
 
 type Loaded = { ok: true; value: unknown } | { ok: false; error: ConfigError };
@@ -177,6 +243,11 @@ async function loadJson(path: string): Promise<Loaded> {
  * Only called when the caller opted into executable config. `.ts` relies on
  * Node's own type stripping; on a Node that does not strip types we say so
  * plainly rather than bundling a TypeScript compiler.
+ *
+ * A module with no `default` is validated as its own namespace, so
+ * `export const preset = "deep"` works. That is leniency in a place where it
+ * costs nothing: the strict schema still rejects any name it does not know, so
+ * there is no shape that loads and then quietly does nothing.
  */
 async function loadModule(path: string): Promise<Loaded> {
   try {
@@ -212,7 +283,7 @@ async function loadPackageJsonKey(
   root: string,
 ): Promise<{ ok: true; value: unknown } | { ok: false; error: ConfigError }> {
   const path = join(root, "package.json");
-  if (!(await exists(path))) return { ok: true, value: undefined };
+  if ((await classify(path)) !== "file") return { ok: true, value: undefined };
 
   let parsed: unknown;
   try {
@@ -280,13 +351,19 @@ async function readFileBounded(
   return { ok: true, value };
 }
 
-async function exists(path: string): Promise<boolean> {
+/**
+ * What is at `path`, without following a link to find out.
+ *
+ * `lstat` rather than `stat` so a planted symlink cannot pull a file from
+ * outside the project into config resolution. The three-way answer is the
+ * point: "absent" and "present but not a regular file" lead to the same
+ * decision and need different reporting.
+ */
+async function classify(path: string): Promise<"absent" | "file" | "other"> {
   try {
-    // Symlinks are not regular files under lstat — ignore them so we neither
-    // follow into outside content nor treat a link as a trusted config.
-    return (await lstat(path)).isFile();
+    return (await lstat(path)).isFile() ? "file" : "other";
   } catch {
-    return false;
+    return "absent";
   }
 }
 

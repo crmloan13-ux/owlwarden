@@ -1,8 +1,8 @@
 {
   "name": "@dointhai/owlwarden-core-native",
-  "version": "1.0.0",
-  "description": "Prebuilt Rust engine used by the owlwarden CLI.",
-  "license": "MIT OR Apache-2.0",
+  "version": "1.1.0",
+  "description": "Prebuilt Rust engine for owlwarden. Install `owlwarden` instead — this package is not useful on its own.",
+  "license": "(MIT OR Apache-2.0)",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/suthat/owlwarden.git",
@@ -37,5 +37,17 @@
   },
   "devDependencies": {
     "@napi-rs/cli": "^3.0.0"
-  }
+  },
+  "homepage": "https://suthat.github.io/owlwarden",
+  "funding": "https://github.com/sponsors/suthat",
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "keywords": [
+    "owlwarden",
+    "security",
+    "sast",
+    "internal"
+  ]
 }

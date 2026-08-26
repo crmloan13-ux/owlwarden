@@ -15,6 +15,7 @@ use owlwarden_core::finding::{
     Reference, RuleId, Severity,
 };
 use owlwarden_core::remediation::Remediation;
+use owlwarden_core::surface::Surface;
 use owlwarden_core::transport::{BoundedRequest, Method};
 use owlwarden_static::rule::RuleInfo;
 
@@ -44,7 +45,9 @@ impl CsrfCrossOriginPost {
             severity: Severity::High,
             max_confidence: Confidence::Likely,
             owasp: Some(OwaspRef::new_static("A01:2021")),
+            asi: None,
             cwe: Some(352),
+            surface: Surface::WebApp,
             category: "csrf".into(),
             description: "With `--allow-active`, owlwarden POSTs a canary body to `--target` \
                           using Origin https://owlwarden-untrusted.invalid. A 2xx response means \
@@ -144,6 +147,7 @@ impl Detector for CsrfCrossOriginPostDetector {
             }))
             .context(FindingContext {
                 framework: None,
+                host: None,
                 route: Some(self.path.clone()),
                 method: Some("POST".to_owned()),
                 evidence: Some(format!(

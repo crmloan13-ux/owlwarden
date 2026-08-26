@@ -291,7 +291,9 @@ mod tests {
             severity: Severity::High,
             max_confidence: Confidence::Likely,
             owasp: owasp.map(OwaspRef::new_static),
+            asi: None,
             cwe: None,
+            surface: crate::surface::Surface::WebApp,
             category: "c".into(),
             description: "d".into(),
         }

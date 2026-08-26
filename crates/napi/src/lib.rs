@@ -94,6 +94,22 @@ struct ScanRequest {
     /// Project-relative paths that changed since the last scan (watch mode).
     #[serde(default)]
     dirty_paths: Vec<String>,
+    /// Restricts the scan to these project-relative paths (`--since`,
+    /// `--staged`, `--paths`). The CLI resolves a git ref into this list; the
+    /// engine never runs a subprocess.
+    #[serde(default)]
+    scoped_paths: Vec<String>,
+    /// Human-readable description of the scope, for the report header.
+    #[serde(default)]
+    diff_scope: Option<String>,
+    /// Project-relative paths written during the current agent session.
+    ///
+    /// Inline suppressions in these files are listed and **not honoured**: a
+    /// directive written thirty seconds ago by the thing being gated is not a
+    /// decision the team made
+    /// ([ADR 0026](../../docs/adr/0026-deterministic-agent-gate.md) §3).
+    #[serde(default)]
+    session_paths: Vec<String>,
     /// Previous report JSON for incremental merge in watch mode.
     #[serde(default)]
     previous_report_json: Option<String>,
@@ -228,6 +244,7 @@ pub async fn scan(request_json: String) -> napi::Result<String> {
 fn load_requested_plugins(
     paths: &[String],
     require_signed_plugins: bool,
+    project_root: &str,
 ) -> Result<Vec<std::sync::Arc<dyn owlwarden_core::detector::Detector>>, String> {
     if paths.is_empty() {
         return Ok(Vec::new());
@@ -235,6 +252,9 @@ fn load_requested_plugins(
     let paths: Vec<std::path::PathBuf> = paths.iter().map(std::path::PathBuf::from).collect();
     let options = owlwarden_plugin_host::LoadOptions {
         require_signed_plugins,
+        // The operator's project, never the plugin's own directory — see
+        // `LoadOptions::trust_root_dir`.
+        trust_root_dir: Some(std::path::PathBuf::from(project_root)),
     };
     owlwarden_plugin_host::load_plugins_with(&paths, &options).map_err(|error| error.to_string())
 }
@@ -316,6 +336,11 @@ fn settings_from_request(request: &ScanRequest) -> ScanSettings {
             .unwrap_or(Severity::Info),
         preset: request.preset.clone(),
         dirty_paths: None,
+        scoped_paths: if request.scoped_paths.is_empty() {
+            None
+        } else {
+            Some(request.scoped_paths.clone())
+        },
     }
 }
 
@@ -335,7 +360,11 @@ fn wire_extras(
                 .to_owned(),
         ));
     }
-    match load_requested_plugins(&request.plugins, request.require_signed_plugins) {
+    match load_requested_plugins(
+        &request.plugins,
+        request.require_signed_plugins,
+        &request.project_root,
+    ) {
         Ok(detectors) => scan_request.extra_detectors.extend(detectors),
         Err(message) => return Err(("E_PLUGIN_INVALID", message)),
     }
@@ -430,7 +459,20 @@ fn build_scan_request(
             .write_baseline
             .as_ref()
             .map(std::path::PathBuf::from),
-        honor_suppressions: request.honor_suppressions,
+        suppressions: if request.honor_suppressions {
+            if request.session_paths.is_empty() {
+                owlwarden_core::suppression::SuppressionPolicy::Honour
+            } else {
+                // The gate's posture: a directive committed last month still
+                // works; one that appeared in a file written during this
+                // session does not.
+                owlwarden_core::suppression::SuppressionPolicy::HonourExcept(
+                    request.session_paths.clone(),
+                )
+            }
+        } else {
+            owlwarden_core::suppression::SuppressionPolicy::ReportOnly
+        },
         extra_detectors: Vec::new(),
         network: None,
         advisory: None,
@@ -440,6 +482,7 @@ fn build_scan_request(
         } else {
             Some(request.dirty_paths.clone())
         },
+        diff_scope: request.diff_scope.clone(),
         previous_report,
     })
 }
@@ -760,4 +803,200 @@ pub fn engine_version() -> String {
 #[must_use]
 pub fn schema_version() -> String {
     owlwarden_core::report::SCHEMA_VERSION.to_owned()
+}
+
+// ---------------------------------------------------------------------------
+// gate
+// ---------------------------------------------------------------------------
+
+/// What the CLI asks the gate to do.
+///
+/// The CLI does the two things the engine must not: it reads stdin, and it runs
+/// git to turn `--since` into a path list. Everything after that is here.
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct GateRequestJson {
+    /// Adapter id: `claude-code`, `cursor`, `generic`.
+    host: String,
+    /// The host's event payload, verbatim from stdin.
+    event: String,
+    /// Project root.
+    project_root: String,
+    /// Paths to scan. Empty means the whole project.
+    #[serde(default)]
+    scoped_paths: Vec<String>,
+    /// Paths written during this session.
+    #[serde(default)]
+    session_paths: Vec<String>,
+    /// Severity at or above which the gate denies.
+    #[serde(default)]
+    fail_on: Option<String>,
+    /// Confidence at or above which a finding counts.
+    #[serde(default)]
+    min_confidence: Option<String>,
+    /// Whether a post-execution failure denies instead of allowing.
+    #[serde(default)]
+    fail_closed: bool,
+    /// What the scanned project's own config asked for. Tightenings are
+    /// applied; loosenings are refused and reported.
+    #[serde(default)]
+    project_fail_on: Option<String>,
+    /// As above, for confidence.
+    #[serde(default)]
+    project_min_confidence: Option<String>,
+}
+
+/// What the gate hands back to the CLI.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct GateResponse {
+    ok: bool,
+    /// Written to stdout verbatim, in the host's own shape.
+    stdout: String,
+    /// Written to stderr, when the developer needs to see something.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    stderr: Option<String>,
+    /// The process exit code the host expects.
+    exit_code: i32,
+    /// The decision itself, for logging and for `--format json`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    decision: Option<owlwarden_gate::GateDecision>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    error: Option<EngineError>,
+}
+
+/// Runs one gate event.
+///
+/// Never throws for a gate failure. A hook that throws is a hook that shows a
+/// developer a stack trace in the middle of their session; the failure posture
+/// (`ask` before execution, `allow` after) is the answer, and it is encoded in
+/// the response like any other.
+///
+/// # Errors
+/// Throws only when `request_json` is not valid JSON matching the request
+/// shape, which is a programming error in the caller.
+#[napi]
+pub async fn gate(request_json: String) -> napi::Result<String> {
+    let _: GateRequestJson = serde_json::from_str(&request_json)
+        .map_err(|error| napi::Error::from_reason(format!("invalid gate request: {error}")))?;
+
+    napi::bindgen_prelude::spawn_blocking(move || gate_blocking(&request_json))
+        .await
+        .map_err(|error| napi::Error::from_reason(format!("gate worker failed: {error}")))
+}
+
+fn gate_blocking(request_json: &str) -> String {
+    let Ok(request) = serde_json::from_str::<GateRequestJson>(request_json) else {
+        return encode_gate_error("E_GATE_REQUEST", "the gate request could not be parsed");
+    };
+
+    let Some(adapter) = owlwarden_gate::adapter_for(&request.host) else {
+        return encode_gate_error(
+            "E_GATE_HOST",
+            format!(
+                "unknown --host {:?}; available: {}",
+                request.host,
+                owlwarden_gate::available_hosts().join(", ")
+            ),
+        );
+    };
+
+    let event = match adapter.parse(&request.event) {
+        Ok(event) => event,
+        Err(error) => {
+            // An event this adapter does not recognise is not an allow. The
+            // CLI cannot tell whether it preceded execution, so the safest
+            // shape that still lets a session continue is `defer` with the
+            // reason on stderr — the host's own permission model decides.
+            let decision = owlwarden_gate::GateDecision::new(
+                owlwarden_gate::Verdict::Defer,
+                format!("owlwarden gate: {error}"),
+            )
+            .degraded();
+            let encoded = adapter.encode(
+                &owlwarden_gate::GateEvent::new(
+                    &request.host,
+                    owlwarden_gate::GateEventKind::FileEdited,
+                ),
+                &decision,
+            );
+            return encode_gate_response(&encoded, Some(decision));
+        }
+    };
+
+    let policy = owlwarden_gate::GatePolicy {
+        fail_on: request
+            .fail_on
+            .as_deref()
+            .and_then(Severity::from_str_opt)
+            .unwrap_or(Severity::High),
+        min_confidence: request
+            .min_confidence
+            .as_deref()
+            .and_then(Confidence::from_str_opt)
+            .unwrap_or(Confidence::Likely),
+        fail_closed: request.fail_closed,
+    };
+    let posture = owlwarden_gate::ProjectPosture {
+        fail_on: request
+            .project_fail_on
+            .as_deref()
+            .and_then(Severity::from_str_opt),
+        min_confidence: request
+            .project_min_confidence
+            .as_deref()
+            .and_then(Confidence::from_str_opt),
+    };
+
+    // A gate scan is static-only: no transport, no live target, so the
+    // lightweight executor is enough and a Tokio runtime per hook invocation
+    // would be cost on a keystroke path.
+    let decision = futures_executor::block_on(owlwarden_gate::run(owlwarden_gate::GateRequest {
+        project_root: std::path::Path::new(&request.project_root),
+        event: &event,
+        scoped_paths: request.scoped_paths.clone(),
+        session_paths: request.session_paths.clone(),
+        policy,
+        project_posture: posture,
+    }));
+
+    let encoded = adapter.encode(&event, &decision);
+    encode_gate_response(&encoded, Some(decision))
+}
+
+fn encode_gate_response(
+    encoded: &owlwarden_gate::Encoded,
+    decision: Option<owlwarden_gate::GateDecision>,
+) -> String {
+    let response = GateResponse {
+        ok: true,
+        stdout: encoded.stdout.clone(),
+        stderr: encoded.stderr.clone(),
+        exit_code: encoded.exit_code,
+        decision,
+        error: None,
+    };
+    serde_json::to_string(&response)
+        .unwrap_or_else(|_| r#"{"ok":false,"stdout":"{}","exitCode":2}"#.to_owned())
+}
+
+fn encode_gate_error(code: &'static str, message: impl Into<String>) -> String {
+    let message = message.into();
+    let response = GateResponse {
+        ok: false,
+        // Nothing the host can act on, so nothing on stdout: an empty object is
+        // valid for every adapter and asks the host to carry on.
+        stdout: "{}".to_owned(),
+        stderr: Some(format!("owlwarden gate: {message}")),
+        // `2` is "could not run" everywhere else in the CLI.
+        exit_code: 2,
+        decision: None,
+        error: Some(EngineError {
+            code,
+            message,
+            help: owlwarden_core::error_url(code),
+        }),
+    };
+    serde_json::to_string(&response)
+        .unwrap_or_else(|_| r#"{"ok":false,"stdout":"{}","exitCode":2}"#.to_owned())
 }

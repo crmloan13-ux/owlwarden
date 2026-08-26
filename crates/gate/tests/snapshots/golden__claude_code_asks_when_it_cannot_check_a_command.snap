@@ -1,0 +1,10 @@
+---
+source: crates/gate/tests/golden.rs
+expression: "round_trip(\"claude-code\",\nr#\"{\"hook_event_name\":\"PreToolUse\",\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"pnpm add left-pad\"}}\"#,\nGateOutcome::Failed(\"engine timed out after 400ms\".into()),)"
+---
+event: PreToolUse
+kind: shell-command
+verdict: ask
+exit: 0
+stdout: {"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"ask","permissionDecisionReason":"owlwarden could not check this command (engine timed out after 400ms). Nothing has run yet — approve it only if you know what it does."}}
+stderr: owlwarden gate degraded: owlwarden could not check this command (engine timed out after 400ms). Nothing has run yet — approve it only if you know what it does.

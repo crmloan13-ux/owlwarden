@@ -12,14 +12,26 @@
 #![warn(clippy::pedantic)]
 
 mod cli;
+mod git;
 
 use std::io::{IsTerminal, Write};
 
 use owlwarden_core::context::ScanSettings;
 use owlwarden_core::report::Report;
+use owlwarden_core::untrusted_text;
 use owlwarden_reporters::{BannerOpts, PrettyOptions, print_banner};
 
 use cli::{Command, ScanArgs};
+
+/// Caps for the three repository-controlled strings in the suppression listing.
+///
+/// A path and a rule id both have their own length limits well under these, so
+/// in practice the caps only ever fire on a reason — which is capped at parse
+/// time too, and is capped again here because the report may have come from a
+/// file rather than from this process.
+const MAX_SUPPRESSION_PATH_CHARS: usize = 200;
+const MAX_SUPPRESSION_RULE_CHARS: usize = 80;
+const MAX_SUPPRESSION_REASON_CHARS: usize = 280;
 
 /// Exit code when the scan ran and found nothing to fail on.
 const EXIT_CLEAN: i32 = 0;
@@ -58,7 +70,14 @@ fn main() -> std::process::ExitCode {
             ascii,
         } => run_coverage(json, no_color, ascii),
         Command::Explain { rule, json } => run_explain(&rule, json),
-        Command::Scan(args) => run_scan(&args),
+        Command::Scan(args) | Command::Vet(args) => run_scan(&args),
+        Command::Gate {
+            host,
+            path,
+            fail_on,
+            min_confidence,
+            since,
+        } => run_gate(&host, &path, fail_on, min_confidence, since.as_deref()),
         Command::Watch(args) => run_watch(&args),
         Command::OsvUpdate { path, out } => run_osv_update(&path, out.as_deref()),
     };
@@ -85,6 +104,111 @@ fn use_color(no_color: bool) -> bool {
 
 fn run_scan(args: &ScanArgs) -> i32 {
     run_scan_inner(args, None).0
+}
+
+/// Runs one gate event: read the host's payload from stdin, scan what it names,
+/// decide, and write the host's own shape back.
+///
+/// Never returns the error code for a *gate* failure. A hook that fails hard
+/// shows the developer a stack trace mid-session and leaves the host with no
+/// verdict; the failure posture — `ask` before execution, `allow` after — is
+/// the answer, and it is chosen in `owlwarden_gate::decide` rather than here.
+fn run_gate(
+    host: &str,
+    path: &str,
+    fail_on: Option<owlwarden_core::finding::Severity>,
+    min_confidence: Option<owlwarden_core::finding::Confidence>,
+    since: Option<&str>,
+) -> i32 {
+    use std::io::Read as _;
+
+    let Some(adapter) = owlwarden_gate::adapter_for(host) else {
+        return fail(&format!(
+            "unknown --host {host:?}; available: {}",
+            owlwarden_gate::available_hosts().join(", ")
+        ));
+    };
+
+    let mut payload = String::new();
+    if let Err(error) = std::io::stdin()
+        .take(owlwarden_gate::event::MAX_EVENT_BYTES as u64)
+        .read_to_string(&mut payload)
+    {
+        return fail(&format!("could not read the event from stdin: {error}"));
+    }
+
+    let event = match adapter.parse(payload.trim()) {
+        Ok(event) => event,
+        Err(error) => {
+            // Not an allow. The host's own permission model is left to decide,
+            // and the developer sees why on stderr.
+            let decision = owlwarden_gate::GateDecision::new(
+                owlwarden_gate::Verdict::Defer,
+                format!("owlwarden gate: {error}"),
+            )
+            .degraded();
+            let fallback =
+                owlwarden_gate::GateEvent::new(host, owlwarden_gate::GateEventKind::FileEdited);
+            return emit_gate(&*adapter, &fallback, &decision);
+        }
+    };
+
+    // A turn boundary names nothing, so the scope is the diff. Any other event
+    // carries its own paths, and widening them here would undo the narrowing
+    // the host asked for.
+    let scoped_paths = since
+        .and_then(|reference| {
+            git::resolve_scope(path, Some(reference), false, &[])
+                .ok()
+                .flatten()
+        })
+        .map(|scope| scope.paths)
+        .unwrap_or_default();
+
+    let policy = owlwarden_gate::GatePolicy {
+        fail_on: fail_on.unwrap_or(owlwarden_core::finding::Severity::High),
+        min_confidence: min_confidence.unwrap_or(owlwarden_core::finding::Confidence::Likely),
+        // Off by default: the default should be the one that keeps people from
+        // removing the hook.
+        fail_closed: std::env::var("OWLWARDEN_GATE_FAIL").is_ok_and(|value| value == "closed"),
+    };
+
+    let decision =
+        match owlwarden_dynamic::block_on(owlwarden_gate::run(owlwarden_gate::GateRequest {
+            project_root: std::path::Path::new(path),
+            event: &event,
+            scoped_paths,
+            session_paths: git::session_paths(path),
+            policy,
+            // The native CLI does not read the project's owlwarden config for a
+            // gate at all, which is the strictest reading of the tighten-only
+            // rule: nothing in the tree can move the threshold in either
+            // direction.
+            project_posture: owlwarden_gate::ProjectPosture::default(),
+        })) {
+            Ok(decision) => decision,
+            Err(error) => owlwarden_gate::GateDecision::new(
+                owlwarden_gate::Verdict::Ask,
+                format!("owlwarden gate could not run: {error}"),
+            )
+            .degraded(),
+        };
+
+    emit_gate(&*adapter, &event, &decision)
+}
+
+/// Writes an encoded decision and returns the host's exit code.
+fn emit_gate(
+    adapter: &dyn owlwarden_gate::HostAdapter,
+    event: &owlwarden_gate::GateEvent,
+    decision: &owlwarden_gate::GateDecision,
+) -> i32 {
+    let encoded = adapter.encode(event, decision);
+    let _ = writeln!(std::io::stdout(), "{}", encoded.stdout);
+    if let Some(message) = &encoded.stderr {
+        let _ = writeln!(std::io::stderr(), "{message}");
+    }
+    encoded.exit_code
 }
 
 /// Optional incremental inputs for watch re-scans.
@@ -167,6 +291,7 @@ fn build_scan_request(
         Some(hint) => (Some(hint.dirty_paths), Some(hint.previous_report)),
         None => (None, None),
     };
+    let scope = git::resolve_scope(&args.path, args.since.as_deref(), args.staged, &args.paths)?;
     let mut scan_request = owlwarden_static::ScanRequest {
         settings: ScanSettings {
             allow_active: args.allow_active,
@@ -174,20 +299,27 @@ fn build_scan_request(
             min_severity: owlwarden_core::finding::Severity::Info,
             preset: args.preset.clone(),
             dirty_paths: None,
+            scoped_paths: scope.as_ref().map(|scope| scope.paths.clone()),
         },
         baseline,
         write_baseline: args.write_baseline.as_ref().map(std::path::PathBuf::from),
-        honor_suppressions: !args.ci || args.allow_suppressions,
+        suppressions: if !args.ci || args.allow_suppressions {
+            owlwarden_core::suppression::SuppressionPolicy::Honour
+        } else {
+            owlwarden_core::suppression::SuppressionPolicy::ReportOnly
+        },
         extra_detectors: Vec::new(),
         network: None,
         advisory: None,
         correlate: None,
         dirty_paths,
+        diff_scope: scope.map(|scope| scope.label),
         previous_report,
     };
     scan_request.extra_detectors.extend(load_requested_plugins(
         &args.plugins,
         args.require_signed_plugins,
+        std::path::Path::new(&args.path),
     )?);
     prepare_osv(
         args.osv,
@@ -275,6 +407,7 @@ fn prepare_osv(
 fn load_requested_plugins(
     paths: &[String],
     require_signed_plugins: bool,
+    project_root: &std::path::Path,
 ) -> Result<Vec<std::sync::Arc<dyn owlwarden_core::detector::Detector>>, String> {
     if paths.is_empty() {
         return Ok(Vec::new());
@@ -282,6 +415,9 @@ fn load_requested_plugins(
     let paths: Vec<std::path::PathBuf> = paths.iter().map(std::path::PathBuf::from).collect();
     let options = owlwarden_plugin_host::LoadOptions {
         require_signed_plugins,
+        // The operator's project, never the plugin's own directory — see
+        // `LoadOptions::trust_root_dir`.
+        trust_root_dir: Some(project_root.to_path_buf()),
     };
     owlwarden_plugin_host::load_plugins_with(&paths, &options).map_err(|error| error.to_string())
 }
@@ -396,15 +532,24 @@ fn write_suppressions(report: &Report) {
         } else {
             "active"
         };
+        // Every string on these two lines comes out of the scanned repository:
+        // the reason is a comment somebody wrote, and a path is a filename,
+        // which on every platform this runs on may contain an escape byte.
+        // `--report-suppressions` exists so a reviewer can audit what a tree has
+        // silenced, and `\x1b[2K\x1b[1A\x1b[2K` in a reason erased the entry
+        // above it — deleting a line from the audit, from inside the audit.
         let reason = if record.reason.is_empty() {
-            "(no reason)"
+            "(no reason)".to_owned()
         } else {
-            record.reason.as_str()
+            untrusted_text::one_line(&record.reason, MAX_SUPPRESSION_REASON_CHARS)
         };
         let _ = writeln!(
             err,
             "  {}:{}  {}  [{}]",
-            record.path, record.line, record.rule, flags
+            untrusted_text::one_line(&record.path, MAX_SUPPRESSION_PATH_CHARS),
+            record.line,
+            untrusted_text::one_line(&record.rule, MAX_SUPPRESSION_RULE_CHARS),
+            flags
         );
         let _ = writeln!(err, "    {reason}");
     }
@@ -423,6 +568,15 @@ fn run_watch(args: &ScanArgs) -> i32 {
     }
 
     let mut watch_args = ScanArgs {
+        // Watch owns its own incrementality (ADR 0023); a diff scope on top
+        // would narrow every re-scan to the first diff and quietly stop
+        // reporting anything else.
+        since: None,
+        staged: false,
+        paths: Vec::new(),
+        budget: args.budget,
+        max_findings: args.max_findings,
+        vet: args.vet,
         path: args.path.clone(),
         preset: args.preset.clone(),
         format: args.format.clone(),
@@ -593,6 +747,15 @@ fn write_report(args: &ScanArgs, report: &Report, color: bool) -> Result<(), Str
         }
         "junit" => owlwarden_reporters::JunitReporter::to_string(report),
         "md" => owlwarden_reporters::MdReporter::to_string(report),
+        "agent" => Ok(owlwarden_reporters::agent::render(
+            report,
+            owlwarden_reporters::AgentOptions {
+                budget_tokens: args
+                    .budget
+                    .unwrap_or(owlwarden_reporters::DEFAULT_BUDGET_TOKENS),
+                max_findings: args.max_findings,
+            },
+        )),
         other => {
             return Err(format!(
                 "unknown format {other:?}; available: {}",

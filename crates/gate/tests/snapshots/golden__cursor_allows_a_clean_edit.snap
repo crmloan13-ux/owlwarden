@@ -1,0 +1,10 @@
+---
+source: crates/gate/tests/golden.rs
+expression: "round_trip(\"cursor\",\nr#\"{\"hook_event_name\":\"afterFileEdit\",\"file_path\":\"app/route.ts\"}\"#,\nGateOutcome::Scanned(report(Vec::new())),)"
+---
+event: afterFileEdit
+kind: file-edited
+verdict: allow
+exit: 0
+stdout: {"continue":true,"permission":"allow"}
+stderr: -

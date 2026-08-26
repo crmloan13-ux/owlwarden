@@ -18,6 +18,7 @@ use owlwarden_core::finding::{
 };
 use owlwarden_core::remediation::Remediation;
 use owlwarden_core::source::FileSelector;
+use owlwarden_core::surface::Surface;
 use owlwarden_static::project::Project;
 use owlwarden_static::rule::{FindingSink, ProjectRule, RuleInfo};
 
@@ -48,7 +49,9 @@ impl UnpinnedDependency {
             severity: Severity::Medium,
             max_confidence: Confidence::Likely,
             owasp: Some(OwaspRef::new_static("A06:2021")),
+            asi: None,
             cwe: Some(1104),
+            surface: Surface::WebApp,
             category: "dependencies".into(),
             description: "A package.json dependency uses '*' or 'latest', so every install can \
                           pull a different major version with no review. Pin a lower bound (or \
@@ -124,6 +127,7 @@ fn build_finding(framework: &Framework, name: &str, range: &str, line: u32) -> F
         }))
         .context(FindingContext {
             framework: Some(framework.clone()),
+            host: None,
             route: None,
             method: None,
             evidence: Some(truncate_evidence(&format!("{name}: {range}"))),

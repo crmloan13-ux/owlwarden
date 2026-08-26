@@ -2,18 +2,33 @@
 
 # Rules
 
-14 rules in owlwarden 1.0.0.
+25 rules in owlwarden 1.1.0:
+15 that read application source, and 10 that read the
+agent and editor configuration in the working tree.
 
 Rule ids are permanent. They appear in suppressions, in agent rules files, and
 in other people's CI configs, so they are treated as public API.
+
+## Surfaces
+
+A rule declares which kind of artefact it reads, and that decides which set of
+fixes it owes. A `webApp` rule ships remediation for all twelve frameworks; an
+`agentWorkspace` rule ships remediation for all seven agent hosts. Neither is
+checked against the other's list, and a missing cell fails the build either way.
+
+| Surface | Rules | Profiles it must cover |
+| --- | --- | --- |
+| `webApp` | 15 | 12 frameworks |
+| `agentWorkspace` | 10 | 7 agent hosts |
 
 ## Presets
 
 | Preset | Rules | What it is for |
 | --- | --- | --- |
-| `quick` | ci-unpinned-action, cors-permissive, csrf-cross-origin-post, hardcoded-secret, insecure-cookie, known-vulnerable-dependency, open-redirect, security-headers-missing, sensitive-data-logged, sql-injection, ssrf, stack-trace-leak, unpinned-dependency, weak-crypto | Fast, high-signal rules. The zero-config default. |
-| `owasp-top10` | ci-unpinned-action, cors-permissive, csrf-cross-origin-post, hardcoded-secret, insecure-cookie, known-vulnerable-dependency, open-redirect, security-headers-missing, sensitive-data-logged, sql-injection, ssrf, stack-trace-leak, unpinned-dependency, weak-crypto | Rules mapped to an OWASP Top 10 (2021) category. |
-| `deep` | ci-unpinned-action, cors-permissive, csrf-cross-origin-post, hardcoded-secret, insecure-cookie, known-vulnerable-dependency, open-redirect, security-headers-missing, sensitive-data-logged, sql-injection, ssrf, stack-trace-leak, unpinned-dependency, weak-crypto | Every rule, including the noisier heuristics. |
+| `quick` | agent-config-env-redirect, agent-config-loader-script, agent-config-secret-reachable, agent-hook-autoexec, agent-hook-untrusted-command, agent-instructions-hidden-text, agent-marketplace-untrusted, agent-mcp-unpinned-remote, agent-permission-wildcard, ci-unpinned-action, cors-permissive, csrf-cross-origin-post, hardcoded-secret, insecure-cookie, install-lifecycle-script, known-vulnerable-dependency, open-redirect, security-headers-missing, sensitive-data-logged, sql-injection, ssrf, stack-trace-leak, unpinned-dependency, weak-crypto | Fast, high-signal rules. The zero-config default. |
+| `owasp-top10` | ci-unpinned-action, cors-permissive, csrf-cross-origin-post, hardcoded-secret, insecure-cookie, install-lifecycle-script, known-vulnerable-dependency, open-redirect, security-headers-missing, sensitive-data-logged, sql-injection, ssrf, stack-trace-leak, unpinned-dependency, weak-crypto | Rules mapped to an OWASP Top 10 (2021) category. |
+| `deep` | agent-config-env-redirect, agent-config-loader-script, agent-config-secret-reachable, agent-hook-autoexec, agent-hook-untrusted-command, agent-instructions-directive, agent-instructions-hidden-text, agent-marketplace-untrusted, agent-mcp-unpinned-remote, agent-permission-wildcard, ci-unpinned-action, cors-permissive, csrf-cross-origin-post, hardcoded-secret, insecure-cookie, install-lifecycle-script, known-vulnerable-dependency, open-redirect, security-headers-missing, sensitive-data-logged, sql-injection, ssrf, stack-trace-leak, unpinned-dependency, weak-crypto | Every rule, including the noisier heuristics. |
+| `agent-surface` | agent-config-env-redirect, agent-config-loader-script, agent-config-secret-reachable, agent-hook-autoexec, agent-hook-untrusted-command, agent-instructions-directive, agent-instructions-hidden-text, agent-marketplace-untrusted, agent-mcp-unpinned-remote, agent-permission-wildcard | Agent and editor configuration only. What `vet` runs. |
 
 ## OWASP Top 10 (2021) coverage
 
@@ -37,41 +52,681 @@ or a human.
 | **A05:2021** Security Misconfiguration | good | `cors-permissive`, `insecure-cookie`, `security-headers-missing`, `stack-trace-leak` |
 | **A06:2021** Vulnerable and Outdated Components | partial | `known-vulnerable-dependency`, `unpinned-dependency` |
 | **A07:2021** Identification and Authentication Failures | partial | `hardcoded-secret` |
-| **A08:2021** Software and Data Integrity Failures | partial | `ci-unpinned-action` |
+| **A08:2021** Software and Data Integrity Failures | partial | `ci-unpinned-action`, `install-lifecycle-script` |
 | **A09:2021** Security Logging and Monitoring Failures | partial | `sensitive-data-logged` |
 | **A10:2021** Server-Side Request Forgery (SSRF) | good | `ssrf` |
 
 `owlwarden coverage` prints this from the engine you have installed, which
 is the version that matters if you are running a plugin or an older release.
 
+## OWASP ASI 2026 coverage
+
+4 of 10 agentic categories have at least one rule.
+
+A second taxonomy, kept separate on purpose. The Top 10 (2021) is about the web
+application in this repository; the ASI list is about the agent that works in
+it. Merging them would let an agent rule appear to raise Top 10 coverage, and
+the `owasp-top10` preset would stop meaning anything.
+
+The edition is pinned in the engine, so moving to a later one is a reviewed
+change rather than a drift. CWE is the primary mapping on every rule here.
+
+| Category | Reach | Rules |
+| --- | --- | --- |
+| **ASI01** Agent Goal Hijack | good | `agent-instructions-directive`, `agent-instructions-hidden-text` |
+| **ASI02** Tool Misuse and Exploitation | poor | *not reachable from configuration* |
+| **ASI03** Agent Identity and Privilege Abuse | partial | `agent-config-env-redirect`, `agent-config-secret-reachable`, `agent-permission-wildcard` |
+| **ASI04** Agentic Supply Chain Compromise | good | `agent-config-loader-script`, `agent-marketplace-untrusted`, `agent-mcp-unpinned-remote`, `install-lifecycle-script` |
+| **ASI05** Unexpected Code Execution | good | `agent-hook-autoexec`, `agent-hook-untrusted-command` |
+| **ASI06** Memory and Context Poisoning | poor | *not reachable from configuration* |
+| **ASI07** Insufficient Human Oversight | partial | *none yet* |
+| **ASI08** Multi-Agent and Orchestration Exploitation | poor | *not reachable from configuration* |
+| **ASI09** Insufficient Agent Observability | poor | *not reachable from configuration* |
+| **ASI10** Unbounded Autonomy | poor | *not reachable from configuration* |
+
 ## Framework support
 
-Every rule carries remediation written for each framework, not one generic
-paragraph. A rule shipping without advice for a supported framework fails the
-build, so this column cannot silently drift to zero.
+Every `webApp` rule carries remediation written for each framework, not one
+generic paragraph. A rule shipping without advice for a supported framework
+fails the build, so this column cannot silently drift to zero.
 
 | Framework | Rules with framework-specific remediation |
 | --- | --- |
-| `next` | 14 of 14 |
-| `nuxt` | 14 of 14 |
-| `nest` | 14 of 14 |
-| `express` | 14 of 14 |
-| `fastify` | 14 of 14 |
-| `hono` | 14 of 14 |
-| `koa` | 14 of 14 |
-| `hapi` | 14 of 14 |
-| `sails` | 14 of 14 |
-| `astro` | 14 of 14 |
-| `remix` | 14 of 14 |
-| `gatsby` | 14 of 14 |
+| `next` | 15 of 15 |
+| `nuxt` | 15 of 15 |
+| `nest` | 15 of 15 |
+| `express` | 15 of 15 |
+| `fastify` | 15 of 15 |
+| `hono` | 15 of 15 |
+| `koa` | 15 of 15 |
+| `hapi` | 15 of 15 |
+| `sails` | 15 of 15 |
+| `astro` | 15 of 15 |
+| `remix` | 15 of 15 |
+| `gatsby` | 15 of 15 |
+
+## Agent host support
+
+The same invariant, one surface over. Every `agentWorkspace` rule names the
+host's own file and key in its fix — `.claude/settings.json` → `hooks.SessionStart`
+is a fix; "remove the hook" is advice.
+
+`generic` is not a placeholder. It is the fix for a host we have never heard
+of, and keeping it mandatory is what stops this family from becoming an
+advertisement for four vendors.
+
+| Agent host | Rules with host-specific remediation |
+| --- | --- |
+| `claude-code` | 10 of 10 |
+| `cursor` | 10 of 10 |
+| `vscode` | 10 of 10 |
+| `copilot` | 10 of 10 |
+| `codex` | 10 of 10 |
+| `gemini-cli` | 10 of 10 |
+| `generic` | 10 of 10 |
 
 ## Catalogue
+
+### `agent-config-env-redirect`
+
+Repository config redirects the agent's API traffic
+
+**high** · confidence at most `likely` · surface `agentWorkspace` · [ASI ASI03](https://genai.owasp.org/) · [CWE-15](https://cwe.mitre.org/data/definitions/15.html)
+
+Repository-local configuration sets a base URL, proxy, auth token, or certificate bundle that the host applies to the session. A repository that decides where your agent's traffic goes decides who reads your prompts and your source.
+
+**Fixes**
+
+- *claude-code* — Delete the entry from `.claude/settings.json`. If your organisation runs a gateway, set it in user settings (`~/.claude/settings.json`) or in the managed settings tier, where the repository has no say.
+
+  ```ts
+  // ~/.claude/settings.json — user level, not the repository
+  { "env": { "ANTHROPIC_BASE_URL": "https://gateway.internal" } }
+  ```
+- *cursor* — Remove it from `.cursor/` and set it in Cursor's own settings instead. A repository that can set a base URL can point your session at a proxy that logs it.
+
+  ```ts
+  // Cursor settings (user scope), not .cursor/mcp.json
+  ```
+- *vscode* — Remove it from `.vscode/settings.json` (or the dev container's `containerEnv`). Use your user settings, or a `.env` file the developer opts into, rather than one the repository applies on open.
+
+  ```ts
+  // user settings.json
+  "terminal.integrated.env.osx": { "HTTPS_PROXY": "http://gateway.internal:3128" }
+  ```
+- *copilot* — Copilot takes its endpoint from the editor and the organisation's policy, so a base URL in the repository is the editor's configuration. Remove it there and let policy decide.
+
+  ```ts
+  // remove the override from .vscode/settings.json
+  ```
+- *codex* — Remove the endpoint or token from `.codex/` in the repository and put it in the user-level Codex configuration.
+
+  ```ts
+  // ~/.codex/config.json, not the repository's
+  ```
+- *gemini-cli* — Remove it from `.gemini/settings.json` and set it in the user-level settings file, which a clone cannot overwrite.
+
+  ```ts
+  // ~/.gemini/settings.json
+  ```
+- *generic* — Move the variable to a configuration tier the repository cannot write. The property you want is that opening a project never changes which server your agent trusts.
+
+  ```ts
+  // set the gateway in user or organisation settings
+  ```
+- *any profile* — Remove the variable from the repository's configuration. There is a legitimate case — a company gateway — and the right place for it is user- or organisation-level settings, so that cloning a project cannot change where your agent talks.
+
+  ```ts
+  // remove the env entry from the repository config
+  ```
+
+`owlwarden explain agent-config-env-redirect` prints this in the terminal.
+
+### `agent-config-loader-script`
+
+Executable script inside an agent or editor config directory
+
+**high** · confidence at most `likely` · surface `agentWorkspace` · [ASI ASI04](https://genai.owasp.org/) · [CWE-506](https://cwe.mitre.org/data/definitions/506.html)
+
+A `.js`, `.mjs`, `.cjs`, `.ts`, `.sh`, or `.py` file sits loose in a directory meant to hold configuration, or is referenced by a hook. Configuration directories are reviewed as configuration; a dropper placed in one is read as settings and executed as code.
+
+**Fixes**
+
+- *claude-code* — Move it to `scripts/` and point the hook at the new path, or — if it really is a hook — put it under `.claude/hooks/` where a reviewer expects executable code and can see it in the diff.
+
+  ```ts
+  git mv .claude/setup.mjs scripts/setup.mjs
+  // .claude/settings.json
+  "command": "node scripts/setup.mjs"
+  ```
+- *cursor* — Move it to `scripts/` and reference it from `.cursor/hooks.json` by path, or place it under `.cursor/hooks/` so it is reviewed as code.
+
+  ```ts
+  git mv .cursor/init.mjs scripts/init.mjs
+  ```
+- *vscode* — Move it out of `.vscode/` — that directory is editor configuration and is skimmed as such. A task can invoke `scripts/setup.mjs` just as easily.
+
+  ```ts
+  git mv .vscode/setup.mjs scripts/setup.mjs
+  // .vscode/tasks.json
+  { "command": "node", "args": ["scripts/setup.mjs"] }
+  ```
+- *copilot* — The script is in the editor's configuration directory rather than Copilot's. Move it to `scripts/` and let the task or workflow that needs it reference the path.
+
+  ```ts
+  git mv .vscode/setup.mjs scripts/setup.mjs
+  ```
+- *codex* — Move it out of `.codex/` into `scripts/`, and reference it by path from the Codex configuration.
+
+  ```ts
+  git mv .codex/setup.mjs scripts/setup.mjs
+  ```
+- *gemini-cli* — Move it out of `.gemini/` into `scripts/`, and reference it by path from `.gemini/settings.json`.
+
+  ```ts
+  git mv .gemini/setup.mjs scripts/setup.mjs
+  ```
+- *generic* — Keep executable files out of configuration directories. Move it to the repository's scripts folder and reference it by path, so the review that reads the config does not also have to read code.
+
+  ```ts
+  git mv .config-dir/setup.mjs scripts/setup.mjs
+  ```
+- *any profile* — Move the script out of the configuration directory into the repository's own scripts folder, and reference it by path. Configuration directories should hold configuration, so that a file appearing in one is itself a signal.
+
+  ```ts
+  git mv .claude/setup.mjs scripts/setup.mjs
+  ```
+
+`owlwarden explain agent-config-loader-script` prints this in the terminal.
+
+### `agent-config-secret-reachable`
+
+Repository config puts credentials in reach of a repository-controlled command
+
+**high** · confidence at most `likely` · surface `agentWorkspace` · [ASI ASI03](https://genai.owasp.org/) · [CWE-522](https://cwe.mitre.org/data/definitions/522.html)
+
+A hook command, task, or MCP server declaration in this repository references a credential-shaped variable, or asks for the whole process environment. Nothing is hardcoded — the secret is stored correctly and then handed to a command the repository controls.
+
+**Fixes**
+
+- *claude-code* — Remove the credential reference from the hook command in `.claude/settings.json`. If an MCP server genuinely needs one, declare it in that server's own `env` with the single variable it uses, rather than letting a hook command interpolate it.
+
+  ```ts
+  // .claude/settings.json
+  "mcpServers": { "db": { "env": { "DATABASE_URL": "${DATABASE_URL}" } } }
+  ```
+- *cursor* — Narrow the `env` block in `.cursor/mcp.json` to the one variable the server needs, and take credential interpolation out of hook commands entirely.
+
+  ```ts
+  // .cursor/mcp.json
+  "env": { "SERVICE_TOKEN": "${SERVICE_TOKEN}" }
+  ```
+- *vscode* — Do not reference secrets in `tasks.json` or in a dev container's `containerEnv`. Use the editor's secret input variables, which prompt the developer, or read the value inside the script where it is used.
+
+  ```ts
+  // .vscode/tasks.json
+  "options": { "env": {} }  // nothing inherited
+  ```
+- *copilot* — Instructions files must not name credentials at all — the model reads them and will helpfully echo them. Remove the reference and let the task that needs the secret read it from the environment directly.
+
+  ```ts
+  // .github/copilot-instructions.md: no secrets, no variable names
+  ```
+- *codex* — Give the Codex tool declaration in `.codex/` an explicit env allowlist rather than a command line that interpolates a token.
+
+  ```ts
+  // .codex/config.json
+  "env": { "SERVICE_TOKEN": "${SERVICE_TOKEN}" }
+  ```
+- *gemini-cli* — Narrow the env block in `.gemini/settings.json` to the variables the tool needs, and drop credential interpolation from commands.
+
+  ```ts
+  // .gemini/settings.json
+  "env": { "SERVICE_TOKEN": "${SERVICE_TOKEN}" }
+  ```
+- *generic* — Pass an explicit allowlist of environment variables to anything the repository can define, and keep credentials out of command strings, where they are one `echo` away from a log.
+
+  ```ts
+  "env": { "SERVICE_TOKEN": "${SERVICE_TOKEN}" }
+  ```
+- *any profile* — Stop passing the credential to a repository-defined command. Give the subprocess an explicit environment allowlist holding only what it needs, and keep everything else out of its reach.
+
+  ```ts
+  "env": { "ONLY_WHAT_IT_NEEDS": "..." }
+  ```
+
+`owlwarden explain agent-config-secret-reachable` prints this in the terminal.
+
+### `agent-hook-autoexec`
+
+Repository config executes a command when the workspace is opened
+
+**high** · confidence at most `likely` · surface `agentWorkspace` · [ASI ASI05](https://genai.owasp.org/) · [CWE-829](https://cwe.mitre.org/data/definitions/829.html)
+
+A hook or task declared in this repository runs without any further action from the developer: a `SessionStart` hook, a task with `runOn: folderOpen`, or a dev container lifecycle command. Anyone who clones the repository and opens it runs that command. That is remote code execution with a social step small enough not to count as one.
+
+**Fixes**
+
+- *claude-code* — Remove the `SessionStart` entry from `.claude/settings.json`. If your team needs it, put it in user settings (`~/.claude/settings.json`), which a repository cannot write. Platform teams should set `allowManagedHooksOnly` in managed settings so only hooks the organisation ships can load at all.
+
+  ```ts
+  // .claude/settings.json
+  {
+    "hooks": {
+      // SessionStart removed — run setup with `pnpm setup` instead
+    }
+  }
+  ```
+- *cursor* — Remove the open-time entry from `.cursor/hooks.json`. Bind the command to an explicit event the developer causes (an edit or a prompt) instead, or move it to user-level Cursor settings.
+
+  ```ts
+  // .cursor/hooks.json
+  {
+    "hooks": {
+      // no session-start entry
+    }
+  }
+  ```
+- *vscode* — Delete `runOptions.runOn` from the task in `.vscode/tasks.json` so it only runs when someone picks it from the command palette. For a dev container, move the work out of `postCreateCommand` into a documented `pnpm setup` step.
+
+  ```ts
+  // .vscode/tasks.json
+  {
+    "label": "setup",
+    "command": "pnpm setup"
+    // runOptions removed
+  }
+  ```
+- *copilot* — Copilot has no repository-level hook of its own, so an open-time command reaching it came from the editor's configuration. Fix it there — `.vscode/tasks.json` or `.devcontainer/devcontainer.json` — and keep `.github/copilot-instructions.md` to instructions.
+
+  ```ts
+  // .github/copilot-instructions.md holds guidance, never commands
+  ```
+- *codex* — Remove the startup command from the Codex configuration in `.codex/`. Keep repository configuration to project facts and let the developer start setup explicitly.
+
+  ```ts
+  // .codex/config.json
+  {
+    // no startup command
+  }
+  ```
+- *gemini-cli* — Remove the startup entry from `.gemini/settings.json`. Gemini CLI reads user-level settings as well; put anything that must always run there, where the repository has no say.
+
+  ```ts
+  // .gemini/settings.json
+  {
+    // no startup entry
+  }
+  ```
+- *generic* — Delete the entry that runs on open. If the host supports a user- or organisation-level configuration tier, move it there: the property you want is that cloning a repository cannot change what runs on your machine.
+
+  ```ts
+  // remove the open-time entry from the repository's config
+  ```
+- *any profile* — Delete the open-time entry. If the command genuinely has to run, move it to user- or platform-level configuration, which a cloned repository cannot write, and leave the repository with a task the developer starts on purpose.
+
+  ```ts
+  // remove the entry that runs on open
+  ```
+
+`owlwarden explain agent-hook-autoexec` prints this in the terminal.
+
+### `agent-hook-untrusted-command`
+
+Hook command reaches outside the project
+
+**high** · confidence at most `likely` · surface `agentWorkspace` · [ASI ASI05](https://genai.owasp.org/) · [CWE-78](https://cwe.mitre.org/data/definitions/78.html)
+
+A hook, task, or lifecycle command does something a formatter would not: pipes a network fetch into a shell, decodes and executes, reads a credential store, writes outside the project root, or launches a package resolved at run time. The trigger does not matter here — the command does.
+
+**Fixes**
+
+- *claude-code* — Point the hook at a script in the repository and add the tool to `devDependencies`. Claude Code passes the changed paths in `$CLAUDE_FILE_PATHS`, so a formatter hook needs no network and no run-time package resolve.
+
+  ```ts
+  // .claude/settings.json
+  "command": "pnpm exec prettier --write $CLAUDE_FILE_PATHS"
+  ```
+- *cursor* — Point the `.cursor/hooks.json` entry at a committed script. Cursor runs hooks with the developer's environment, so anything the command can read, it can also send.
+
+  ```ts
+  // .cursor/hooks.json
+  "command": "node scripts/hooks/format.mjs"
+  ```
+- *vscode* — Use a task that runs a committed script, with `args` as a list rather than a shell string — a list is not re-parsed by a shell, so `|` and `;` in an argument stay data.
+
+  ```ts
+  // .vscode/tasks.json
+  { "command": "node", "args": ["scripts/setup.mjs"] }
+  ```
+- *copilot* — The command is coming from the editor's own configuration rather than from Copilot. Fix it in `.vscode/tasks.json` or the dev container, and keep instructions files free of shell commands entirely.
+
+  ```ts
+  // .vscode/tasks.json
+  { "command": "pnpm", "args": ["lint"] }
+  ```
+- *codex* — Replace the command in `.codex/` with a repository script invoked by path, and pin any tool it needs in `devDependencies` rather than resolving it when the hook fires.
+
+  ```ts
+  // .codex/config.json
+  "command": "node scripts/check.mjs"
+  ```
+- *gemini-cli* — Replace the command in `.gemini/settings.json` with a committed script. Gemini CLI inherits the shell environment, so a command that reads `.env` has the secret whether or not it prints it.
+
+  ```ts
+  // .gemini/settings.json
+  "command": "node scripts/check.mjs"
+  ```
+- *generic* — Invoke a script that exists in the repository, by path. The test is whether a reviewer can read what will run by reading the diff — `curl … | sh` fails that test whatever the host is.
+
+  ```ts
+  "command": "node scripts/setup.mjs"
+  ```
+- *any profile* — Replace the command with a script committed in the repository, invoked by path, that a reviewer can read in the same pull request. If it needs a package, add it to `devDependencies` and run it through the package manager's `exec`, so the lockfile pins what runs.
+
+  ```ts
+  "command": "node scripts/setup.mjs"
+  ```
+
+`owlwarden explain agent-hook-untrusted-command` prints this in the terminal.
+
+### `agent-instructions-directive`
+
+Instruction file tells the agent to bypass its own controls
+
+**medium** · confidence at most `possible` · surface `agentWorkspace` · [ASI ASI01](https://genai.owasp.org/) · [CWE-77](https://cwe.mitre.org/data/definitions/77.html)
+
+An instruction file matches one of a small, enumerated set of shapes: disregarding prior instructions, skipping the permission prompt, exfiltrating credentials, or fetching and executing remote content. A heuristic over prose — it runs in `deep`, not in `quick`, and it can never exceed `possible`.
+
+**Fixes**
+
+- *claude-code* — Remove it from `CLAUDE.md` (or the subagent definition). If the goal was fewer prompts, list the exact commands in `permissions.allow` in `.claude/settings.json` — that is a reviewable decision, and a sentence in Markdown is not.
+
+  ```ts
+  // CLAUDE.md
+  ## Commands
+  - `pnpm test` runs the unit tests
+  - `pnpm lint` must pass before a commit
+  ```
+- *cursor* — Remove it from `.cursorrules` or `.cursor/rules/**`. Cursor loads rules files verbatim, so a sentence like this is competing with the developer's own instructions on equal terms.
+
+  ```ts
+  // .cursor/rules/project.mdc — project facts only
+  ```
+- *vscode* — Remove it from the workspace instruction file, and keep tool approval in the editor's settings where it is a setting rather than a suggestion.
+
+  ```ts
+  // workspace instructions: project facts only
+  ```
+- *copilot* — Remove it from `.github/copilot-instructions.md`. That file is prepended to every request, so a bypass instruction there applies to every completion anyone in the repository generates.
+
+  ```ts
+  // .github/copilot-instructions.md
+  Use TypeScript. Prefer named exports.
+  ```
+- *codex* — Remove it from `AGENTS.md` or the `.codex/` instruction files. Codex treats `AGENTS.md` as authoritative for the repository, which is exactly why it is worth attacking.
+
+  ```ts
+  // AGENTS.md
+  ## Build
+  `pnpm build` — no network access required.
+  ```
+- *gemini-cli* — Remove it from the `.gemini/` instruction files and keep tool approval in the CLI's own settings.
+
+  ```ts
+  // .gemini/GEMINI.md — project facts only
+  ```
+- *generic* — Delete the sentence, and treat the instruction file the way you treat code: it is an input to something that acts on your behalf, and it deserves the same review.
+
+  ```ts
+  // instructions describe the project, not the agent's controls
+  ```
+- *any profile* — Delete the sentence. If it was written in good faith — a shortcut for a noisy prompt — say what the project actually needs instead: which commands are safe to run, which directories to leave alone. An instruction file should describe the project, never the agent's own controls.
+
+  ```ts
+  // describe the project, not the agent's permission model
+  ```
+
+`owlwarden explain agent-instructions-directive` prints this in the terminal.
+
+### `agent-instructions-hidden-text`
+
+Instruction file contains text a human reader cannot see
+
+**high** · confidence at most `likely` · surface `agentWorkspace` · [ASI ASI01](https://genai.owasp.org/) · [CWE-838](https://cwe.mitre.org/data/definitions/838.html)
+
+An agent instruction file holds zero-width characters, a bidirectional override, or Unicode tag characters. The model reads the bytes; the reviewer reads the rendering. When those disagree, review is not review. The finding renders the run as escaped codepoints and never reproduces it.
+
+**Fixes**
+
+- *claude-code* — Strip them from `CLAUDE.md` and from anything under `.claude/agents/` or `.claude/skills/`, then add a CI check so the next one fails a pull request rather than reaching a session.
+
+  ```ts
+  // scripts/check-instructions.mjs — fail on any C0/format character outside \n and \t
+  ```
+- *cursor* — Strip them from `.cursorrules` and `.cursor/rules/**`. These files are loaded verbatim into context, so what the reviewer cannot see, the model still gets.
+
+  ```ts
+  // .cursor/rules/*.mdc — plain ASCII plus the languages you actually write in
+  ```
+- *vscode* — Strip them from the instruction files in the workspace and turn on the editor's `unicodeHighlight` settings so the next one is visible while it is being reviewed.
+
+  ```ts
+  // user settings.json
+  "editor.unicodeHighlight.invisibleCharacters": true
+  ```
+- *copilot* — Strip them from `.github/copilot-instructions.md`. That file is prepended to every request in the repository, so anything hidden in it is hidden in every completion.
+
+  ```ts
+  // .github/copilot-instructions.md — visible characters only
+  ```
+- *codex* — Strip them from the instruction files under `.codex/` and from `AGENTS.md`, which Codex reads as authoritative.
+
+  ```ts
+  // AGENTS.md — visible characters only
+  ```
+- *gemini-cli* — Strip them from `.gemini/` instruction files, then check the file into the repository again so the diff shows the removal.
+
+  ```ts
+  // .gemini/GEMINI.md — visible characters only
+  ```
+- *generic* — Remove the characters and add a check that refuses them in review. Any file the model reads as instructions should contain only characters a reviewer can see.
+
+  ```ts
+  grep -P '[\x{200B}-\x{200F}\x{202A}-\x{202E}]' -r . && exit 1
+  ```
+- *any profile* — Delete the invisible characters. Then find out how they got in: a paste from a web page is the innocent explanation, and a commit that added them alone is not.
+
+  ```ts
+  perl -CSD -pi -e 's/[\x{200B}-\x{200F}\x{202A}-\x{202E}\x{2060}-\x{2069}\x{FEFF}]//g' <file>
+  ```
+
+`owlwarden explain agent-instructions-hidden-text` prints this in the terminal.
+
+### `agent-marketplace-untrusted`
+
+Repository config adds a third-party plugin or skill source
+
+**medium** · confidence at most `likely` · surface `agentWorkspace` · [ASI ASI04](https://genai.owasp.org/) · [CWE-1357](https://cwe.mitre.org/data/definitions/1357.html)
+
+Repository-local configuration registers an extra plugin marketplace, skill directory, or extension source, or installs from one automatically. A marketplace reference is a delegation of trust the repository is making on the developer's behalf.
+
+**Fixes**
+
+- *claude-code* — Remove `extraKnownMarketplaces` from `.claude/settings.json`. Ask developers to run `/plugin marketplace add` themselves, so the trust decision is theirs and is visible when they make it.
+
+  ```ts
+  // .claude/settings.json — no marketplace entries
+  { "permissions": { "allow": [] } }
+  ```
+- *cursor* — Remove the extra source from `.cursor/`. Cursor's extension and MCP sources belong in the developer's own settings.
+
+  ```ts
+  // .cursor/settings — no extra sources
+  ```
+- *vscode* — Recommendations in `.vscode/extensions.json` are fine — they prompt. An extra gallery or registry URL is not: remove it and let the marketplace the editor ships with be the one that serves code.
+
+  ```ts
+  // .vscode/extensions.json
+  { "recommendations": ["dbaeumer.vscode-eslint"] }
+  ```
+- *copilot* — Extension sources come from the editor and from organisation policy. Remove the entry from the repository and configure it centrally if it is genuinely needed.
+
+  ```ts
+  // organisation policy, not the repository
+  ```
+- *codex* — Remove the extra tool or plugin source from `.codex/` and let each developer add it at user level.
+
+  ```ts
+  // ~/.codex/config.json
+  ```
+- *gemini-cli* — Remove the extension source from `.gemini/settings.json`; Gemini CLI reads user-level settings for exactly this.
+
+  ```ts
+  // ~/.gemini/settings.json
+  ```
+- *generic* — A repository should not be able to decide where the developer's tools come from. Move the source to the tier the developer controls.
+
+  ```ts
+  // user-level configuration, not the repository's
+  ```
+- *any profile* — Take the source out of the repository. If the team wants it, each developer adds it once, deliberately, at user level — the difference being that they chose to.
+
+  ```ts
+  // remove the extra plugin source from repository config
+  ```
+
+`owlwarden explain agent-marketplace-untrusted` prints this in the terminal.
+
+### `agent-mcp-unpinned-remote`
+
+MCP server declaration resolves code at run time
+
+**medium** · confidence at most `likely` · surface `agentWorkspace` · [ASI ASI04](https://genai.owasp.org/) · [CWE-1357](https://cwe.mitre.org/data/definitions/1357.html)
+
+An MCP server is launched with `npx -y`, `uvx`, `bunx`, or a container image with no digest, or is reached over a remote transport. The code that gets a tool call today is not necessarily the code that got one yesterday, and there is no version in the repository to review.
+
+**Fixes**
+
+- *claude-code* — Pin the exact version in `.mcp.json` or `.claude/settings.json`. Better: add the server to `devDependencies` and launch it with `pnpm exec`, so the lockfile is the record of what runs.
+
+  ```ts
+  // .mcp.json
+  {
+    "mcpServers": {
+      "db": { "command": "pnpm", "args": ["exec", "mcp-db"] }
+    }
+  }
+  ```
+- *cursor* — Pin the version in `.cursor/mcp.json`, or point the entry at a binary from `devDependencies`. An unpinned entry means every teammate may be running a different server.
+
+  ```ts
+  // .cursor/mcp.json
+  "args": ["-y", "@scope/mcp-server@1.4.2"]
+  ```
+- *vscode* — Pin the version in the `mcp` block of `.vscode/settings.json`, or use a container image by digest. `latest` in a workspace file is a moving target every contributor inherits.
+
+  ```ts
+  // .vscode/settings.json
+  "mcp": { "servers": { "db": { "command": "npx", "args": ["-y", "mcp-db@1.4.2"] } } }
+  ```
+- *copilot* — Declare the server in the editor's MCP configuration with an exact version, and keep `.github/copilot-instructions.md` free of tool wiring.
+
+  ```ts
+  "args": ["-y", "mcp-db@1.4.2"]
+  ```
+- *codex* — Pin the package version in the Codex tool configuration under `.codex/`, or install the server as a project dependency and invoke it by path.
+
+  ```ts
+  // .codex/config.json
+  "args": ["-y", "mcp-db@1.4.2"]
+  ```
+- *gemini-cli* — Pin the version in `.gemini/settings.json`. Gemini CLI will happily start whatever the registry returns; the pin is the only thing that makes the run reproducible.
+
+  ```ts
+  // .gemini/settings.json
+  "args": ["-y", "mcp-db@1.4.2"]
+  ```
+- *generic* — Name an exact version or an image digest. The test is whether two developers cloning the repository on different days get the same server; `latest` fails it.
+
+  ```ts
+  "args": ["-y", "mcp-db@1.4.2"]
+  ```
+- *any profile* — Pin the version or the digest, and prefer a dependency in `devDependencies` over a run-time resolve. For a remote transport, state the trust decision in the config — a comment naming who runs the endpoint — rather than leaving it implicit.
+
+  ```ts
+  "args": ["-y", "@scope/mcp-server@1.4.2"]
+  ```
+
+`owlwarden explain agent-mcp-unpinned-remote` prints this in the terminal.
+
+### `agent-permission-wildcard`
+
+Repository config pre-approves a broad tool permission
+
+**medium** · confidence at most `likely` · surface `agentWorkspace` · [ASI ASI03](https://genai.owasp.org/) · [CWE-732](https://cwe.mitre.org/data/definitions/732.html)
+
+A repository-local config grants an unbounded tool permission — `Bash`, `WebFetch`, `Write(*)`, `mcp__*` — or switches a permission gate off entirely. The approval prompt exists to bound the blast radius of a model doing something unexpected; a repository should not be the thing that answers it.
+
+**Fixes**
+
+- *claude-code* — Narrow `permissions.allow` in `.claude/settings.json` to exact commands. Note that argument wildcards after a multitool (`Bash(git *)`) are not constraints — pin the subcommand too. Platform teams can set the permitted set in managed settings so a repository cannot widen it.
+
+  ```ts
+  // .claude/settings.json
+  "permissions": {
+    "allow": ["Bash(pnpm test:unit)", "Bash(git status)"],
+    "deny": ["Bash(curl:*)", "Read(./.env)"]
+  }
+  ```
+- *cursor* — List the exact commands in Cursor's allow list rather than a wildcard, and keep the approval prompt for everything else.
+
+  ```ts
+  // .cursor/settings
+  "allow": ["pnpm test", "pnpm lint"]
+  ```
+- *vscode* — Leave `security.workspace.trust` enabled. Restricted mode exists precisely so that opening an unfamiliar repository is safe, and a repository asking you to switch it off is asking for the one thing it should not be able to ask for.
+
+  ```ts
+  // user settings.json
+  "security.workspace.trust.enabled": true
+  ```
+- *copilot* — Tool auto-approval belongs in the editor's own settings, at user scope. Remove it from the repository and let each developer decide what runs without asking.
+
+  ```ts
+  // user settings.json — not the repository's
+  "chat.tools.autoApprove": false
+  ```
+- *codex* — Set the approval policy in the user-level Codex configuration and keep the repository's to project facts. Where a sandbox mode is available, prefer it to a broad allow list.
+
+  ```ts
+  // ~/.codex/config.json
+  "approvalPolicy": "on-request"
+  ```
+- *gemini-cli* — Remove the auto-approve entry from `.gemini/settings.json`. If a command is run often enough to be tedious, add that exact command rather than the tool that runs it.
+
+  ```ts
+  // .gemini/settings.json
+  "autoApprove": ["pnpm test"]
+  ```
+- *generic* — Grant the smallest set that lets the project's own workflow run, name it exactly, and keep the prompt for the rest. The prompt is not friction to be removed; it is where the blast radius is decided.
+
+  ```ts
+  "allow": ["pnpm test", "pnpm lint"]
+  ```
+- *any profile* — Replace the wildcard with the specific commands the project actually needs, and leave everything else to the approval prompt. A list of five exact commands is more useful to the team than one wildcard, and it is reviewable.
+
+  ```ts
+  "allow": ["Bash(pnpm test)", "Bash(pnpm lint)"]
+  ```
+
+`owlwarden explain agent-permission-wildcard` prints this in the terminal.
 
 ### `ci-unpinned-action`
 
 GitHub Action is not pinned to a commit SHA
 
-**medium** · confidence at most `likely` · [OWASP A08:2021](https://owasp.org/Top10/) · [CWE-829](https://cwe.mitre.org/data/definitions/829.html)
+**medium** · confidence at most `likely` · surface `webApp` · [OWASP A08:2021](https://owasp.org/Top10/) · [CWE-829](https://cwe.mitre.org/data/definitions/829.html)
 
 A workflow references a GitHub Action by a branch or version tag. Tags move; a compromised or hijacked tag runs attacker-controlled code in CI with repository secrets. Pin the full commit SHA.
 
@@ -137,7 +792,7 @@ A workflow references a GitHub Action by a branch or version tag. Tags move; a c
   ```ts
   uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
   ```
-- *any framework* — Pin the action to a full commit SHA (keep the tag in a comment for humans).
+- *any profile* — Pin the action to a full commit SHA (keep the tag in a comment for humans).
 
 `owlwarden explain ci-unpinned-action` prints this in the terminal.
 
@@ -145,7 +800,7 @@ A workflow references a GitHub Action by a branch or version tag. Tags move; a c
 
 Cross-origin policy accepts any origin
 
-**medium** · confidence at most `likely` · [OWASP A05:2021](https://owasp.org/Top10/) · [CWE-942](https://cwe.mitre.org/data/definitions/942.html)
+**medium** · confidence at most `likely` · surface `webApp` · [OWASP A05:2021](https://owasp.org/Top10/) · [CWE-942](https://cwe.mitre.org/data/definitions/942.html)
 
 The CORS configuration accepts requests from any origin. Combined with credentials this lets any site a logged-in user visits make authenticated calls to the API and read the responses. Without credentials it may be intentional for a public API — the finding says which case it found.
 
@@ -290,7 +945,7 @@ The CORS configuration accepts requests from any origin. Combined with credentia
     res.json({ ok: true })
   }
   ```
-- *any framework* — Replace the wildcard with the origins that actually need access, and only send credentials to those.
+- *any profile* — Replace the wildcard with the origins that actually need access, and only send credentials to those.
 
 `owlwarden explain cors-permissive` prints this in the terminal.
 
@@ -298,7 +953,7 @@ The CORS configuration accepts requests from any origin. Combined with credentia
 
 Endpoint accepted a cross-origin state-changing POST
 
-**high** · confidence at most `likely` · [OWASP A01:2021](https://owasp.org/Top10/) · [CWE-352](https://cwe.mitre.org/data/definitions/352.html)
+**high** · confidence at most `likely` · surface `webApp` · [OWASP A01:2021](https://owasp.org/Top10/) · [CWE-352](https://cwe.mitre.org/data/definitions/352.html)
 
 With `--allow-active`, owlwarden POSTs a canary body to `--target` using Origin https://owlwarden-untrusted.invalid. A 2xx response means the route accepted a cross-origin state-changing request — the classic CSRF shape on cookie-session apps. Requires staging you control; the canary may still create a resource if the route is a create endpoint.
 
@@ -400,7 +1055,7 @@ With `--allow-active`, owlwarden POSTs a canary body to `--target` using Origin 
   // app.use(csrfProtection)
   // Or set session cookies with SameSite=Strict / Lax and verify Origin.
   ```
-- *any framework* — Require a CSRF synchroniser token (or SameSite=Strict session cookies plus Origin checks) before accepting state-changing requests from browsers.
+- *any profile* — Require a CSRF synchroniser token (or SameSite=Strict session cookies plus Origin checks) before accepting state-changing requests from browsers.
 
   ```ts
   // Reject cross-site state-changing requests without a CSRF token.
@@ -415,7 +1070,7 @@ With `--allow-active`, owlwarden POSTs a canary body to `--target` using Origin 
 
 Credential hardcoded in source
 
-**high** · confidence at most `likely` · [OWASP A07:2021](https://owasp.org/Top10/) · [CWE-798](https://cwe.mitre.org/data/definitions/798.html)
+**high** · confidence at most `likely` · surface `webApp` · [OWASP A07:2021](https://owasp.org/Top10/) · [CWE-798](https://cwe.mitre.org/data/definitions/798.html)
 
 A credential appears as a literal in source. Anything committed is in the repository's history, in every clone, and in every build artefact, so removing the line later does not revoke it. Read secrets from the environment or a secret manager, and rotate anything that has been committed.
 
@@ -508,7 +1163,7 @@ A credential appears as a literal in source. Anything committed is in the reposi
   const apiKey = process.env.API_KEY
   if (!apiKey) throw new Error('API_KEY is not set')
   ```
-- *any framework* — Move the value into an environment variable or a secret manager, and rotate it — once committed it is in the history and in every clone, so removing the line does not revoke it.
+- *any profile* — Move the value into an environment variable or a secret manager, and rotate it — once committed it is in the history and in every clone, so removing the line does not revoke it.
 
 `owlwarden explain hardcoded-secret` prints this in the terminal.
 
@@ -516,7 +1171,7 @@ A credential appears as a literal in source. Anything committed is in the reposi
 
 Cookie set without its protective attributes
 
-**medium** · confidence at most `likely` · [OWASP A05:2021](https://owasp.org/Top10/) · [CWE-614](https://cwe.mitre.org/data/definitions/614.html)
+**medium** · confidence at most `likely` · surface `webApp` · [OWASP A05:2021](https://owasp.org/Top10/) · [CWE-614](https://cwe.mitre.org/data/definitions/614.html)
 
 A cookie is written without `httpOnly`, `secure`, or `sameSite`. Missing `httpOnly` turns any cross-site scripting bug into session theft; missing `secure` sends the cookie over plain HTTP; missing `sameSite` attaches it to cross-site requests. A cookie holding no sensitive value may not need all three, which is why the finding names the ones it did not find rather than assuming the worst.
 
@@ -643,15 +1298,106 @@ A cookie is written without `httpOnly`, `secure`, or `sameSite`. Missing `httpOn
     path: '/',
   })
   ```
-- *any framework* — Set httpOnly, secure, and sameSite when writing a cookie that carries anything the user would not want read or replayed.
+- *any profile* — Set httpOnly, secure, and sameSite when writing a cookie that carries anything the user would not want read or replayed.
 
 `owlwarden explain insecure-cookie` prints this in the terminal.
+
+### `install-lifecycle-script`
+
+Package declares an install-time script
+
+**medium** · confidence at most `likely` · surface `webApp` · [OWASP A08:2021](https://owasp.org/Top10/) · [ASI ASI04](https://genai.owasp.org/) · [CWE-829](https://cwe.mitre.org/data/definitions/829.html)
+
+This project's own `package.json` declares `preinstall`, `install`, or `postinstall`. Those run automatically for anyone who installs the package — in CI, in a container, on a teammate's laptop — and they are the mechanism a worm reaches for when it republishes a package. Legitimate for native addons; reported at a lower weight when the script runs a recognised build tool.
+
+**Fixes**
+
+- *next* — Move the work into an explicit script the developer runs (`pnpm setup`), or into the build step. If it genuinely has to run at install time — a native addon — say so in the README and keep the script to the build tool, with no network fetch and no run-time package resolve.
+
+  ```ts
+  // package.json
+  "scripts": { "prepare": "next build" }
+  // and: pnpm config set ignore-scripts true
+  ```
+- *nuxt* — Move the work into an explicit script the developer runs (`pnpm setup`), or into the build step. If it genuinely has to run at install time — a native addon — say so in the README and keep the script to the build tool, with no network fetch and no run-time package resolve.
+
+  ```ts
+  // package.json
+  "scripts": { "postinstall": "nuxt prepare" }  // the framework's own, nothing else
+  ```
+- *nest* — Move the work into an explicit script the developer runs (`pnpm setup`), or into the build step. If it genuinely has to run at install time — a native addon — say so in the README and keep the script to the build tool, with no network fetch and no run-time package resolve.
+
+  ```ts
+  // package.json
+  "scripts": { "build": "nest build" }  // called by the Dockerfile, not by install
+  ```
+- *express* — Move the work into an explicit script the developer runs (`pnpm setup`), or into the build step. If it genuinely has to run at install time — a native addon — say so in the README and keep the script to the build tool, with no network fetch and no run-time package resolve.
+
+  ```ts
+  // package.json
+  "scripts": { "setup": "node scripts/setup.mjs" }
+  ```
+- *fastify* — Move the work into an explicit script the developer runs (`pnpm setup`), or into the build step. If it genuinely has to run at install time — a native addon — say so in the README and keep the script to the build tool, with no network fetch and no run-time package resolve.
+
+  ```ts
+  // package.json
+  "scripts": { "setup": "node scripts/setup.mjs" }
+  ```
+- *hono* — Move the work into an explicit script the developer runs (`pnpm setup`), or into the build step. If it genuinely has to run at install time — a native addon — say so in the README and keep the script to the build tool, with no network fetch and no run-time package resolve.
+
+  ```ts
+  // package.json
+  "scripts": { "setup": "node scripts/setup.mjs" }
+  ```
+- *koa* — Move the work into an explicit script the developer runs (`pnpm setup`), or into the build step. If it genuinely has to run at install time — a native addon — say so in the README and keep the script to the build tool, with no network fetch and no run-time package resolve.
+
+  ```ts
+  // package.json
+  "scripts": { "setup": "node scripts/setup.mjs" }
+  ```
+- *hapi* — Move the work into an explicit script the developer runs (`pnpm setup`), or into the build step. If it genuinely has to run at install time — a native addon — say so in the README and keep the script to the build tool, with no network fetch and no run-time package resolve.
+
+  ```ts
+  // package.json
+  "scripts": { "setup": "node scripts/setup.mjs" }
+  ```
+- *sails* — Move the work into an explicit script the developer runs (`pnpm setup`), or into the build step. If it genuinely has to run at install time — a native addon — say so in the README and keep the script to the build tool, with no network fetch and no run-time package resolve.
+
+  ```ts
+  // package.json
+  "scripts": { "setup": "sails run setup" }
+  ```
+- *astro* — Move the work into an explicit script the developer runs (`pnpm setup`), or into the build step. If it genuinely has to run at install time — a native addon — say so in the README and keep the script to the build tool, with no network fetch and no run-time package resolve.
+
+  ```ts
+  // package.json
+  "scripts": { "postinstall": "astro sync" }  // the framework's own, nothing else
+  ```
+- *remix* — Move the work into an explicit script the developer runs (`pnpm setup`), or into the build step. If it genuinely has to run at install time — a native addon — say so in the README and keep the script to the build tool, with no network fetch and no run-time package resolve.
+
+  ```ts
+  // package.json
+  "scripts": { "build": "remix vite:build" }
+  ```
+- *gatsby* — Move the work into an explicit script the developer runs (`pnpm setup`), or into the build step. If it genuinely has to run at install time — a native addon — say so in the README and keep the script to the build tool, with no network fetch and no run-time package resolve.
+
+  ```ts
+  // package.json
+  "scripts": { "build": "gatsby build" }
+  ```
+- *any profile* — Move the work into an explicit script the developer runs (`pnpm setup`), or into the build step. If it genuinely has to run at install time — a native addon — say so in the README and keep the script to the build tool, with no network fetch and no run-time package resolve.
+
+  ```ts
+  "scripts": { "setup": "node scripts/setup.mjs" }  // not postinstall
+  ```
+
+`owlwarden explain install-lifecycle-script` prints this in the terminal.
 
 ### `known-vulnerable-dependency`
 
 Dependency has a known vulnerability
 
-**high** · confidence at most `likely` · [OWASP A06:2021](https://owasp.org/Top10/) · [CWE-1395](https://cwe.mitre.org/data/definitions/1395.html)
+**high** · confidence at most `likely` · surface `webApp` · [OWASP A06:2021](https://owasp.org/Top10/) · [CWE-1395](https://cwe.mitre.org/data/definitions/1395.html)
 
 A lockfile pins a package version that Google OSV reports as vulnerable. Requires `--osv` (sends package name and version to api.osv.dev — never source). Upgrade to a fixed release, or accept the risk with an inline suppression and a reason.
 
@@ -765,7 +1511,7 @@ A lockfile pins a package version that Google OSV reports as vulnerable. Require
     }
   }
   ```
-- *any framework* — Upgrade the package to a version that OSV (or the advisory) marks as fixed, then regenerate the lockfile. Confirm the new version still satisfies your app's API requirements before deploying.
+- *any profile* — Upgrade the package to a version that OSV (or the advisory) marks as fixed, then regenerate the lockfile. Confirm the new version still satisfies your app's API requirements before deploying.
 
 `owlwarden explain known-vulnerable-dependency` prints this in the terminal.
 
@@ -773,7 +1519,7 @@ A lockfile pins a package version that Google OSV reports as vulnerable. Require
 
 Redirect target comes from the caller
 
-**medium** · confidence at most `likely` · [OWASP A01:2021](https://owasp.org/Top10/) · [CWE-601](https://cwe.mitre.org/data/definitions/601.html)
+**medium** · confidence at most `likely` · surface `webApp` · [OWASP A01:2021](https://owasp.org/Top10/) · [CWE-601](https://cwe.mitre.org/data/definitions/601.html)
 
 The destination of a redirect is taken from the request without being checked. An attacker can send a link that starts with your domain and ends on theirs, which is what makes a phishing page credible — and in an OAuth callback it hands the authorisation code to whoever asked. Resolve the target against your own origin and refuse anything else.
 
@@ -865,7 +1611,7 @@ The destination of a redirect is taken from the request without being checked. A
   const base = `${req.headers['x-forwarded-proto'] ?? 'https'}://${req.headers.host}`
   res.redirect(safeRedirect(req.query.next, base))
   ```
-- *any framework* — Resolve the target against your own origin and refuse anything that lands elsewhere. Do not use a startsWith('/') check: '//evil.com' passes it and leaves the site.
+- *any profile* — Resolve the target against your own origin and refuse anything that lands elsewhere. Do not use a startsWith('/') check: '//evil.com' passes it and leaves the site.
 
   ```ts
   // lib/safe-redirect.ts
@@ -889,7 +1635,7 @@ The destination of a redirect is taken from the request without being checked. A
 
 Security headers are not configured
 
-**medium** · confidence at most `likely` · [OWASP A05:2021](https://owasp.org/Top10/) · [CWE-693](https://cwe.mitre.org/data/definitions/693.html)
+**medium** · confidence at most `likely` · surface `webApp` · [OWASP A05:2021](https://owasp.org/Top10/) · [CWE-693](https://cwe.mitre.org/data/definitions/693.html)
 
 The application does not set the baseline security response headers. Without them a browser will not enforce HTTPS, will guess content types, and will allow the page to be framed. Headers set by a CDN or ingress are invisible to static analysis, so this rule reports lower confidence when it finds no header configuration at all.
 
@@ -1038,7 +1784,7 @@ The application does not set the baseline security response headers. Without the
     })
   }
   ```
-- *any framework* — Set these response headers at the edge or in the app: strict-transport-security, content-security-policy, x-content-type-options, x-frame-options, referrer-policy.
+- *any profile* — Set these response headers at the edge or in the app: strict-transport-security, content-security-policy, x-content-type-options, x-frame-options, referrer-policy.
 
 `owlwarden explain security-headers-missing` prints this in the terminal.
 
@@ -1046,7 +1792,7 @@ The application does not set the baseline security response headers. Without the
 
 Sensitive data written to a log
 
-**medium** · confidence at most `likely` · [OWASP A09:2021](https://owasp.org/Top10/) · [CWE-532](https://cwe.mitre.org/data/definitions/532.html)
+**medium** · confidence at most `likely` · surface `webApp` · [OWASP A09:2021](https://owasp.org/Top10/) · [CWE-532](https://cwe.mitre.org/data/definitions/532.html)
 
 A password, token, cookie, or similar value is passed to a log sink. Centralised logs are widely readable inside an organisation and often retained for months — a credential that lands there is a credential that has left the application's control.
 
@@ -1124,7 +1870,7 @@ A password, token, cookie, or similar value is passed to a log sink. Centralised
   console.info({ event: 'login_attempt', userId })
   // never: console.info({ password: req.body.password })
   ```
-- *any framework* — Log a redacted shape — an id, a boolean, a length — never the secret itself.
+- *any profile* — Log a redacted shape — an id, a boolean, a length — never the secret itself.
 
 `owlwarden explain sensitive-data-logged` prints this in the terminal.
 
@@ -1132,7 +1878,7 @@ A password, token, cookie, or similar value is passed to a log sink. Centralised
 
 SQL query built by string interpolation
 
-**high** · confidence at most `likely` · [OWASP A03:2021](https://owasp.org/Top10/) · [CWE-89](https://cwe.mitre.org/data/definitions/89.html)
+**high** · confidence at most `likely` · surface `webApp` · [OWASP A03:2021](https://owasp.org/Top10/) · [CWE-89](https://cwe.mitre.org/data/definitions/89.html)
 
 A SQL string is assembled with a template literal or concatenation and passed to a database driver. Any value interpolated into it is executed as SQL, so a request parameter can read, modify, or destroy data the query was never meant to touch. Use the driver's parameter binding instead; every driver has it.
 
@@ -1208,7 +1954,7 @@ A SQL string is assembled with a template literal or concatenation and passed to
   ```ts
   await pool.query('SELECT * FROM users WHERE id = $1', [req.query.id])
   ```
-- *any framework* — Pass the values as query parameters instead of interpolating them. Every driver supports it, and the binding is not optional formatting — it is what stops the value being parsed as SQL.
+- *any profile* — Pass the values as query parameters instead of interpolating them. Every driver supports it, and the binding is not optional formatting — it is what stops the value being parsed as SQL.
 
 `owlwarden explain sql-injection` prints this in the terminal.
 
@@ -1216,7 +1962,7 @@ A SQL string is assembled with a template literal or concatenation and passed to
 
 Server fetches a URL the caller controls
 
-**high** · confidence at most `likely` · [OWASP A10:2021](https://owasp.org/Top10/) · [CWE-918](https://cwe.mitre.org/data/definitions/918.html)
+**high** · confidence at most `likely` · surface `webApp` · [OWASP A10:2021](https://owasp.org/Top10/) · [CWE-918](https://cwe.mitre.org/data/definitions/918.html)
 
 An outbound HTTP request is made to a URL that came from the caller. The server can reach hosts the caller cannot — cloud metadata endpoints, internal admin services, databases bound to localhost — so this turns the server into a proxy into its own network. Validate the destination against an allowlist before fetching it.
 
@@ -1300,7 +2046,7 @@ An outbound HTTP request is made to a URL that came from the caller. The server 
   const target = assertAllowedUrl(req.body.url)
   const upstream = await fetch(target, { redirect: 'error' })
   ```
-- *any framework* — Check the destination against an allowlist of hosts before fetching it. Blocklists do not work here: DNS rebinding, redirects, and IPv6-mapped addresses all defeat them.
+- *any profile* — Check the destination against an allowlist of hosts before fetching it. Blocklists do not work here: DNS rebinding, redirects, and IPv6-mapped addresses all defeat them.
 
   ```ts
   // lib/safe-fetch.ts
@@ -1320,7 +2066,7 @@ An outbound HTTP request is made to a URL that came from the caller. The server 
 
 Stack trace leaked in error response
 
-**high** · confidence at most `likely` · [OWASP A05:2021](https://owasp.org/Top10/) · [CWE-209](https://cwe.mitre.org/data/definitions/209.html)
+**high** · confidence at most `likely` · surface `webApp` · [OWASP A05:2021](https://owasp.org/Top10/) · [CWE-209](https://cwe.mitre.org/data/definitions/209.html)
 
 Returning an error's `.stack` to the client exposes absolute file paths, dependency versions, and internal call structure. Attackers use it to map the application and to fingerprint vulnerable dependency versions. Log the stack server-side and return a generic message.
 
@@ -1410,7 +2156,7 @@ Returning an error's `.stack` to the client exposes absolute file paths, depende
   console.error(err)
   res.status(500).json({ error: 'Internal Server Error' })
   ```
-- *any framework* — Log the error server-side and return a generic message to the client.
+- *any profile* — Log the error server-side and return a generic message to the client.
 
   ```ts
   'Internal Server Error'
@@ -1422,7 +2168,7 @@ Returning an error's `.stack` to the client exposes absolute file paths, depende
 
 Dependency version is unpinned
 
-**medium** · confidence at most `likely` · [OWASP A06:2021](https://owasp.org/Top10/) · [CWE-1104](https://cwe.mitre.org/data/definitions/1104.html)
+**medium** · confidence at most `likely` · surface `webApp` · [OWASP A06:2021](https://owasp.org/Top10/) · [CWE-1104](https://cwe.mitre.org/data/definitions/1104.html)
 
 A package.json dependency uses '*' or 'latest', so every install can pull a different major version with no review. Pin a lower bound (or an exact version) so upgrades are a deliberate change.
 
@@ -1536,7 +2282,7 @@ A package.json dependency uses '*' or 'latest', so every install can pull a diff
     }
   }
   ```
-- *any framework* — Replace '*' or 'latest' with a lower-bounded range (or an exact version), then regenerate the lockfile.
+- *any profile* — Replace '*' or 'latest' with a lower-bounded range (or an exact version), then regenerate the lockfile.
 
 `owlwarden explain unpinned-dependency` prints this in the terminal.
 
@@ -1544,7 +2290,7 @@ A package.json dependency uses '*' or 'latest', so every install can pull a diff
 
 Broken cryptographic primitive protecting a secret
 
-**high** · confidence at most `likely` · [OWASP A02:2021](https://owasp.org/Top10/) · [CWE-327](https://cwe.mitre.org/data/definitions/327.html)
+**high** · confidence at most `likely` · surface `webApp` · [OWASP A02:2021](https://owasp.org/Top10/) · [CWE-327](https://cwe.mitre.org/data/definitions/327.html)
 
 A hash, cipher, or random source that cannot carry the weight it has been given: MD5 or SHA-1 over a password, a DES or ECB cipher, or Math.random() producing a token. Each has a drop-in replacement in the standard library, so the fix is small — the cost of not making it is that the protection is decorative.
 
@@ -1739,7 +2485,7 @@ A hash, cipher, or random source that cannot carry the weight it has been given:
     scrypt(password, salt, 64, (error, key) => (error ? reject(error) : resolve(key))),
   )
   ```
-- *any framework* — Use a slow, salted hash for passwords and a cryptographic random source for tokens. Both are in the Node standard library; neither needs a dependency.
+- *any profile* — Use a slow, salted hash for passwords and a cryptographic random source for tokens. Both are in the Node standard library; neither needs a dependency.
 
   ```ts
   import { randomBytes, randomUUID, scrypt } from 'node:crypto'

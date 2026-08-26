@@ -17,6 +17,13 @@ use tokio::net::TcpListener;
 struct EmptySource;
 
 impl SourceProvider for EmptySource {
+    fn agent_workspace_files(&self, _patterns: &[&str]) -> Result<Vec<SourceFile>, SourceError> {
+        // This double serves no agent workspace. Empty rather than
+        // `unimplemented!`: an agent rule under test here should find
+        // nothing, not abort the run.
+        Ok(Vec::new())
+    }
+
     fn root(&self) -> &std::path::Path {
         std::path::Path::new(".")
     }

@@ -1,48 +1,73 @@
-# Owlwarden
+# owlwarden
 
-> Owlwarden is an open-source security scanner for Node web applications. It runs locally and reports the vulnerable line, why it matters, a framework-specific fix, and an honest confidence level. Version 1.0.0 freezes the plugin API, adds `owlwarden init` (CI + Cursor MCP + agent-rules) and `--format md`, on top of fourteen rules, SARIF/JUnit, and the twelve-framework corpus.
+> Offline security scanner for Node web apps and AI coding agents. 25 rules
+> with framework-specific fixes for 12 stacks and 7 agent hosts, plus scanning of
+> the `.claude/`, `.cursor/`, and `.vscode/` configuration a lockfile does not
+> record. Runs entirely on the developer's machine: no account, no telemetry, no
+> network unless asked. Version 1.1.0. MIT OR Apache-2.0.
 
-Use Owlwarden as a repeatable security floor, not as proof that an application is secure. Static scans are offline and have no telemetry. Runtime probes and OSV lookups only run when the operator explicitly opts in. Active CSRF requires `--target` and `--allow-active` — not in the GitHub Action. The MCP server is static-only, read-only, and workspace-scoped. There is no hosted plugin store. Prefer local baseline scans before spending frontier-model tokens on hard judgment.
+Install: `npm i -D owlwarden` · Scan: `npx owlwarden scan` · Vet a repo you did
+not write: `npx owlwarden vet .`
 
-Install and scan: `npx owlwarden scan`
+Exit codes: 0 clean, 1 findings at or above --fail-on, 2 could not run.
 
-Adopt in one command: `npx owlwarden init`
+## Start here
 
-## Primary resources
+- [owlwarden](https://suthat.github.io/owlwarden/): What it is, what it does not look at, and how to run it.
+- [All rules](https://suthat.github.io/owlwarden/rules/): 25 rules: 15 on application source, 10 on agent configuration.
+- [Agent config security](https://suthat.github.io/owlwarden/agent-config-security/): Why agent and editor configuration is executable, and why no dependency scanner reads it.
+- [owlwarden vet](https://suthat.github.io/owlwarden/vet/): Scanning a repository you did not write, with the target's own suppressions treated as evidence.
+- [Offline by default](https://suthat.github.io/owlwarden/offline/): The threat model: what leaves the machine, and the two flags that make it.
+- [Changelog](https://suthat.github.io/owlwarden/changelog/): Every user-visible change, with the security notes spelled out. Atom feed at /changelog/feed.xml.
 
-- [Source repository](https://github.com/suthat/owlwarden): Canonical source, releases, issues, and contribution history.
-- [Rule catalogue](https://github.com/suthat/owlwarden/blob/main/RULES.md): Every rule, severity, confidence ceiling, OWASP/CWE mapping, and framework-specific remediation.
-- [First-scan tutorial](https://github.com/suthat/owlwarden/blob/main/docs/tutorials/first-scan.md): Five-minute first run.
-- [Agent tutorial](https://github.com/suthat/owlwarden/blob/main/docs/tutorials/agents.md): Cursor / Claude MCP.
-- [Documentation index](https://github.com/suthat/owlwarden/blob/main/docs/README.md): Task-oriented guides and explanations.
-- [CI how-to](https://github.com/suthat/owlwarden/blob/main/docs/how-to/ci.md): Exit codes, GitHub Action, SARIF upload.
-- [Upgrade to 1.0](https://github.com/suthat/owlwarden/blob/main/docs/how-to/upgrade.md): What froze and what did not break.
-- [Agent integration](https://github.com/suthat/owlwarden/blob/main/docs/explanation/agent-integration.md): MCP tools, JSON reports, trust boundaries, and agent workflows.
-- [OSV how-to](https://github.com/suthat/owlwarden/blob/main/docs/how-to/osv.md): Opt-in Google OSV lockfile advisory lookup and offline indexes.
-- [Plugins how-to](https://github.com/suthat/owlwarden/blob/main/docs/how-to/plugins.md): Scaffold, inspect, artifact SHA-256, signatures, trust roots.
-- [Plugin API v1](https://github.com/suthat/owlwarden/blob/main/docs/reference/plugin-api.md): Frozen manifest and host contract.
-- [Coverage method](https://github.com/suthat/owlwarden/blob/main/docs/explanation/coverage.md): What Owlwarden reaches, what it does not, and why.
-- [Security model](https://github.com/suthat/owlwarden/blob/main/SECURITY.md): Local scanning, scope enforcement, resource limits, and vulnerability reporting.
-- [Architecture](https://github.com/suthat/owlwarden/blob/main/ARCHITECTURE.md): Engine boundaries and design constraints.
-- [npm package](https://www.npmjs.com/package/owlwarden): Published CLI for Node 20 and later.
-- [Website](https://suthat.github.io/owlwarden/): Product landing page.
+## Coverage
 
-## Current release facts
+- [OWASP Top 10 (2021)](https://suthat.github.io/owlwarden/owasp/): 9 of 10 categories, with the gaps and the reason each one is empty.
+- [OWASP ASI 2026](https://suthat.github.io/owlwarden/asi/): 4 of 10 agentic categories, kept as a separate table from the Top 10.
 
-- Version: 1.0.0
-- Frameworks: Next.js, Nuxt, NestJS, Express, Fastify, Hono, Koa, Hapi, Sails.js, Astro, Remix, Gatsby
-- Rules: 14 (including opt-in `known-vulnerable-dependency` via `--osv` / `--osv-db` and active `csrf-cross-origin-post` via `--target` + `--allow-active`)
-- OWASP Top 10 (2021): at least one rule in 9 of 10 categories; A04 Insecure Design is explicitly out of reach from source alone
-- Reports: pretty, JSON, SARIF 2.1.0, JUnit, Markdown — one finding model; repeat `--format` for stackable outputs
-- CI: first-party GitHub Action at `suthat/owlwarden/action@v1.0.0`; exit codes 0 / 1 / 2 (canonical in docs/how-to/ci.md)
-- Adopt: `owlwarden init` writes agent-rules, GitHub Action workflow, and Cursor MCP config
-- Agent surface: `scan_project`, `scan_file`, `explain_rule`, `list_rules` (MCP never writes files or probes the network)
-- Autofix: `owlwarden scan --fix` (Safe highlight replacements only; never on Possible)
-- Plugins: API v1 frozen (`schemaVersion: 1`); `plugin inspect` before load; `--require-signed-plugins` for verified-only CI; no hosted registry
-- Watch: incremental re-scan on save; static-only (no `--target` / `--osv`)
-- License: MIT OR Apache-2.0
+## In an agent or in CI
 
-## Optional
+- [Claude Code](https://suthat.github.io/owlwarden/claude-code/): Hooks on edit, before a shell command, and at the turn boundary; plus MCP.
+- [Cursor](https://suthat.github.io/owlwarden/cursor/): Hooks in .cursor/hooks.json, an MCP entry, and a rules file.
+- [MCP server](https://suthat.github.io/owlwarden/mcp/): Read-only, static-only, four tools. Not the enforcement story.
+- [CI](https://suthat.github.io/owlwarden/ci/): SARIF, JUnit, Markdown, and an exit-code contract that refuses to greenwash.
 
-- [Roadmap](https://github.com/suthat/owlwarden/blob/main/ROADMAP.md): What shipped and what remains.
-- [Contributing](https://github.com/suthat/owlwarden/blob/main/CONTRIBUTING.md): Development and review expectations.
+## Comparisons
+
+- [vs Semgrep](https://suthat.github.io/owlwarden/vs/semgrep/): Rule breadth against determinism, offline, and the agent surface.
+- [vs Snyk](https://suthat.github.io/owlwarden/vs/snyk/): Dependency intelligence against the configuration a lockfile does not record.
+- [vs model-based review](https://suthat.github.io/owlwarden/vs/claude-security/): Judgement against a floor that gives the same answer twice.
+- [vs eslint-plugin-security](https://suthat.github.io/owlwarden/vs/eslint-plugin-security/): Lint heuristics against framework-aware, route-aware rules with a confidence field.
+
+## Every rule
+
+Each rule page carries the pattern, why it is dangerous, a verified vulnerable
+example, the corrected code for each supported framework or agent host, the CWE
+and OWASP or ASI mapping, and one command to check a repository.
+
+- [agent-config-env-redirect](https://suthat.github.io/owlwarden/rules/agent-config-env-redirect/): high, max confidence likely. Repository config redirects the agent's API traffic.
+- [agent-config-loader-script](https://suthat.github.io/owlwarden/rules/agent-config-loader-script/): high, max confidence likely. Executable script inside an agent or editor config directory.
+- [agent-config-secret-reachable](https://suthat.github.io/owlwarden/rules/agent-config-secret-reachable/): high, max confidence likely. Repository config puts credentials in reach of a repository-controlled command.
+- [agent-hook-autoexec](https://suthat.github.io/owlwarden/rules/agent-hook-autoexec/): high, max confidence likely. Repository config executes a command when the workspace is opened.
+- [agent-hook-untrusted-command](https://suthat.github.io/owlwarden/rules/agent-hook-untrusted-command/): high, max confidence likely. Hook command reaches outside the project.
+- [agent-instructions-directive](https://suthat.github.io/owlwarden/rules/agent-instructions-directive/): medium, max confidence possible. Instruction file tells the agent to bypass its own controls.
+- [agent-instructions-hidden-text](https://suthat.github.io/owlwarden/rules/agent-instructions-hidden-text/): high, max confidence likely. Instruction file contains text a human reader cannot see.
+- [agent-marketplace-untrusted](https://suthat.github.io/owlwarden/rules/agent-marketplace-untrusted/): medium, max confidence likely. Repository config adds a third-party plugin or skill source.
+- [agent-mcp-unpinned-remote](https://suthat.github.io/owlwarden/rules/agent-mcp-unpinned-remote/): medium, max confidence likely. MCP server declaration resolves code at run time.
+- [agent-permission-wildcard](https://suthat.github.io/owlwarden/rules/agent-permission-wildcard/): medium, max confidence likely. Repository config pre-approves a broad tool permission.
+- [ci-unpinned-action](https://suthat.github.io/owlwarden/rules/ci-unpinned-action/): medium, max confidence likely. GitHub Action is not pinned to a commit SHA.
+- [cors-permissive](https://suthat.github.io/owlwarden/rules/cors-permissive/): medium, max confidence likely. Cross-origin policy accepts any origin.
+- [csrf-cross-origin-post](https://suthat.github.io/owlwarden/rules/csrf-cross-origin-post/): high, max confidence likely. Endpoint accepted a cross-origin state-changing POST.
+- [hardcoded-secret](https://suthat.github.io/owlwarden/rules/hardcoded-secret/): high, max confidence likely. Credential hardcoded in source.
+- [insecure-cookie](https://suthat.github.io/owlwarden/rules/insecure-cookie/): medium, max confidence likely. Cookie set without its protective attributes.
+- [install-lifecycle-script](https://suthat.github.io/owlwarden/rules/install-lifecycle-script/): medium, max confidence likely. Package declares an install-time script.
+- [known-vulnerable-dependency](https://suthat.github.io/owlwarden/rules/known-vulnerable-dependency/): high, max confidence likely. Dependency has a known vulnerability.
+- [open-redirect](https://suthat.github.io/owlwarden/rules/open-redirect/): medium, max confidence likely. Redirect target comes from the caller.
+- [security-headers-missing](https://suthat.github.io/owlwarden/rules/security-headers-missing/): medium, max confidence likely. Security headers are not configured.
+- [sensitive-data-logged](https://suthat.github.io/owlwarden/rules/sensitive-data-logged/): medium, max confidence likely. Sensitive data written to a log.
+- [sql-injection](https://suthat.github.io/owlwarden/rules/sql-injection/): high, max confidence likely. SQL query built by string interpolation.
+- [ssrf](https://suthat.github.io/owlwarden/rules/ssrf/): high, max confidence likely. Server fetches a URL the caller controls.
+- [stack-trace-leak](https://suthat.github.io/owlwarden/rules/stack-trace-leak/): high, max confidence likely. Stack trace leaked in error response.
+- [unpinned-dependency](https://suthat.github.io/owlwarden/rules/unpinned-dependency/): medium, max confidence likely. Dependency version is unpinned.
+- [weak-crypto](https://suthat.github.io/owlwarden/rules/weak-crypto/): high, max confidence likely. Broken cryptographic primitive protecting a secret.
+

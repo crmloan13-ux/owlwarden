@@ -1,0 +1,10 @@
+---
+source: crates/gate/tests/golden.rs
+expression: "round_trip(\"claude-code\",\nr#\"{\"hook_event_name\":\"PostToolUse\",\"tool_name\":\"Edit\",\"tool_input\":{\"file_path\":\"app/api/users/route.ts\"}}\"#,\nGateOutcome::Scanned(report(vec![stack_trace_leak()])),)"
+---
+event: PostToolUse
+kind: file-edited
+verdict: deny
+exit: 0
+stdout: {"decision":"block","reason":"owlwarden blocked this edit: 1 finding at or above the gate threshold.\n\nHIGH [stack-trace-leak] Stack trace leaked in error response\n  at app/api/users/route.ts:13:16\n  fix: Return a generic message; log the error server-side.\n  | console.error(err)\n  | return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })\n\nFix the findings, then continue. Do not suppress them: a suppression written now is not honoured by this gate."}
+stderr: -

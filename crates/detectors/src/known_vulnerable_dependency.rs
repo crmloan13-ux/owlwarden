@@ -19,6 +19,7 @@ use owlwarden_core::finding::{
 };
 use owlwarden_core::limits;
 use owlwarden_core::remediation::Remediation;
+use owlwarden_core::surface::Surface;
 use owlwarden_static::rule::RuleInfo;
 
 use crate::SUPPORTED_FRAMEWORKS;
@@ -43,7 +44,9 @@ impl KnownVulnerableDependency {
             severity: Severity::High,
             max_confidence: Confidence::Likely,
             owasp: Some(OwaspRef::new_static("A06:2021")),
+            asi: None,
             cwe: Some(1395),
+            surface: Surface::WebApp,
             category: "dependencies".into(),
             description: "A lockfile pins a package version that Google OSV reports as \
                           vulnerable. Requires `--osv` (sends package name and version to \
@@ -187,6 +190,7 @@ fn build_finding(hit: &AdvisoryHit, loc: Option<&LockfilePackage>) -> Finding {
         }))
         .context(FindingContext {
             framework: None,
+            host: None,
             route: None,
             method: None,
             evidence: Some(evidence),
@@ -264,6 +268,16 @@ mod tests {
     }
 
     impl SourceProvider for FixtureSource {
+        fn agent_workspace_files(
+            &self,
+            _patterns: &[&str],
+        ) -> Result<Vec<SourceFile>, SourceError> {
+            // This double serves no agent workspace. Empty rather than
+            // `unimplemented!`: an agent rule under test here should find
+            // nothing, not abort the run.
+            Ok(Vec::new())
+        }
+
         fn root(&self) -> &Path {
             &self.root
         }

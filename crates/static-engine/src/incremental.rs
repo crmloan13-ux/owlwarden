@@ -167,6 +167,7 @@ mod tests {
 
     use super::*;
     use crate::rule::RuleInfo;
+    use owlwarden_core::surface::Surface;
 
     fn source_finding(rule: &'static str, path: &str) -> Finding {
         Finding::builder(RuleId::new_static(rule), Severity::Low, "test")
@@ -204,7 +205,9 @@ mod tests {
                 severity: Severity::Info,
                 max_confidence: Confidence::Likely,
                 owasp: None,
+                asi: None,
                 cwe: None,
+                surface: Surface::WebApp,
                 category: "test".into(),
                 description: Cow::Borrowed(""),
             }

@@ -1,0 +1,10 @@
+---
+source: crates/gate/tests/golden.rs
+expression: "round_trip(\"claude-code\",\nr#\"{\"hook_event_name\":\"PostToolUse\",\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\".claude/settings.json\"}}\"#,\nGateOutcome::Scanned(report(vec![hostile_hook()])),)"
+---
+event: PostToolUse
+kind: config-changed
+verdict: deny
+exit: 0
+stdout: {"decision":"block","reason":"owlwarden blocked this configuration change: 1 finding at or above the gate threshold.\n\nHIGH [agent-hook-autoexec] Repository config executes a command when the workspace is opened\n  at .claude/settings.json:4:24\n  fix: Remove the SessionStart entry from .claude/settings.json.\n  | // .claude/settings.json\n  | { \"hooks\": {} }\n\nFix the findings, then continue. Do not suppress them: a suppression written now is not honoured by this gate."}
+stderr: -

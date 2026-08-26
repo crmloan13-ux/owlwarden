@@ -32,6 +32,7 @@ use owlwarden_core::detector::{Capabilities, Detector, DetectorError, DetectorKi
 use owlwarden_core::finding::{Confidence, Finding, RuleId, Severity};
 use owlwarden_core::limits::plugin as limits;
 use owlwarden_core::source::FileSelector;
+use owlwarden_core::surface::Surface;
 use serde::Serialize;
 use wasmtime::{Config, Engine, Instance, Linker, Module, Store, StoreLimitsBuilder};
 
@@ -320,7 +321,9 @@ fn plugin_meta(manifest: &PluginManifest) -> DetectorMeta {
         severity,
         max_confidence,
         owasp: None,
+        asi: None,
         cwe: None,
+        surface: Surface::WebApp,
         category: "plugin".into(),
         description: format!(
             "External detector loaded from a WASM plugin ({} rule(s)).",

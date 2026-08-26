@@ -1,11 +1,122 @@
 [
   {
+    "id": "agent-config-env-redirect",
+    "title": "Repository config redirects the agent's API traffic",
+    "severity": "high",
+    "maxConfidence": "likely",
+    "asi": "ASI03",
+    "cwe": 15,
+    "surface": "agentWorkspace",
+    "category": "agent-config",
+    "description": "Repository-local configuration sets a base URL, proxy, auth token, or certificate bundle that the host applies to the session. A repository that decides where your agent's traffic goes decides who reads your prompts and your source."
+  },
+  {
+    "id": "agent-config-loader-script",
+    "title": "Executable script inside an agent or editor config directory",
+    "severity": "high",
+    "maxConfidence": "likely",
+    "asi": "ASI04",
+    "cwe": 506,
+    "surface": "agentWorkspace",
+    "category": "agent-config",
+    "description": "A `.js`, `.mjs`, `.cjs`, `.ts`, `.sh`, or `.py` file sits loose in a directory meant to hold configuration, or is referenced by a hook. Configuration directories are reviewed as configuration; a dropper placed in one is read as settings and executed as code."
+  },
+  {
+    "id": "agent-config-secret-reachable",
+    "title": "Repository config puts credentials in reach of a repository-controlled command",
+    "severity": "high",
+    "maxConfidence": "likely",
+    "asi": "ASI03",
+    "cwe": 522,
+    "surface": "agentWorkspace",
+    "category": "agent-config",
+    "description": "A hook command, task, or MCP server declaration in this repository references a credential-shaped variable, or asks for the whole process environment. Nothing is hardcoded — the secret is stored correctly and then handed to a command the repository controls."
+  },
+  {
+    "id": "agent-hook-autoexec",
+    "title": "Repository config executes a command when the workspace is opened",
+    "severity": "high",
+    "maxConfidence": "likely",
+    "asi": "ASI05",
+    "cwe": 829,
+    "surface": "agentWorkspace",
+    "category": "agent-config",
+    "description": "A hook or task declared in this repository runs without any further action from the developer: a `SessionStart` hook, a task with `runOn: folderOpen`, or a dev container lifecycle command. Anyone who clones the repository and opens it runs that command. That is remote code execution with a social step small enough not to count as one."
+  },
+  {
+    "id": "agent-hook-untrusted-command",
+    "title": "Hook command reaches outside the project",
+    "severity": "high",
+    "maxConfidence": "likely",
+    "asi": "ASI05",
+    "cwe": 78,
+    "surface": "agentWorkspace",
+    "category": "agent-config",
+    "description": "A hook, task, or lifecycle command does something a formatter would not: pipes a network fetch into a shell, decodes and executes, reads a credential store, writes outside the project root, or launches a package resolved at run time. The trigger does not matter here — the command does."
+  },
+  {
+    "id": "agent-instructions-directive",
+    "title": "Instruction file tells the agent to bypass its own controls",
+    "severity": "medium",
+    "maxConfidence": "possible",
+    "asi": "ASI01",
+    "cwe": 77,
+    "surface": "agentWorkspace",
+    "category": "agent-instructions",
+    "description": "An instruction file matches one of a small, enumerated set of shapes: disregarding prior instructions, skipping the permission prompt, exfiltrating credentials, or fetching and executing remote content. A heuristic over prose — it runs in `deep`, not in `quick`, and it can never exceed `possible`."
+  },
+  {
+    "id": "agent-instructions-hidden-text",
+    "title": "Instruction file contains text a human reader cannot see",
+    "severity": "high",
+    "maxConfidence": "likely",
+    "asi": "ASI01",
+    "cwe": 838,
+    "surface": "agentWorkspace",
+    "category": "agent-instructions",
+    "description": "An agent instruction file holds zero-width characters, a bidirectional override, or Unicode tag characters. The model reads the bytes; the reviewer reads the rendering. When those disagree, review is not review. The finding renders the run as escaped codepoints and never reproduces it."
+  },
+  {
+    "id": "agent-marketplace-untrusted",
+    "title": "Repository config adds a third-party plugin or skill source",
+    "severity": "medium",
+    "maxConfidence": "likely",
+    "asi": "ASI04",
+    "cwe": 1357,
+    "surface": "agentWorkspace",
+    "category": "agent-supply-chain",
+    "description": "Repository-local configuration registers an extra plugin marketplace, skill directory, or extension source, or installs from one automatically. A marketplace reference is a delegation of trust the repository is making on the developer's behalf."
+  },
+  {
+    "id": "agent-mcp-unpinned-remote",
+    "title": "MCP server declaration resolves code at run time",
+    "severity": "medium",
+    "maxConfidence": "likely",
+    "asi": "ASI04",
+    "cwe": 1357,
+    "surface": "agentWorkspace",
+    "category": "agent-supply-chain",
+    "description": "An MCP server is launched with `npx -y`, `uvx`, `bunx`, or a container image with no digest, or is reached over a remote transport. The code that gets a tool call today is not necessarily the code that got one yesterday, and there is no version in the repository to review."
+  },
+  {
+    "id": "agent-permission-wildcard",
+    "title": "Repository config pre-approves a broad tool permission",
+    "severity": "medium",
+    "maxConfidence": "likely",
+    "asi": "ASI03",
+    "cwe": 732,
+    "surface": "agentWorkspace",
+    "category": "agent-config",
+    "description": "A repository-local config grants an unbounded tool permission — `Bash`, `WebFetch`, `Write(*)`, `mcp__*` — or switches a permission gate off entirely. The approval prompt exists to bound the blast radius of a model doing something unexpected; a repository should not be the thing that answers it."
+  },
+  {
     "id": "ci-unpinned-action",
     "title": "GitHub Action is not pinned to a commit SHA",
     "severity": "medium",
     "maxConfidence": "likely",
     "owasp": "A08:2021",
     "cwe": 829,
+    "surface": "webApp",
     "category": "ci",
     "description": "A workflow references a GitHub Action by a branch or version tag. Tags move; a compromised or hijacked tag runs attacker-controlled code in CI with repository secrets. Pin the full commit SHA."
   },
@@ -16,6 +127,7 @@
     "maxConfidence": "likely",
     "owasp": "A05:2021",
     "cwe": 942,
+    "surface": "webApp",
     "category": "cors",
     "description": "The CORS configuration accepts requests from any origin. Combined with credentials this lets any site a logged-in user visits make authenticated calls to the API and read the responses. Without credentials it may be intentional for a public API — the finding says which case it found."
   },
@@ -26,6 +138,7 @@
     "maxConfidence": "likely",
     "owasp": "A01:2021",
     "cwe": 352,
+    "surface": "webApp",
     "category": "csrf",
     "description": "With `--allow-active`, owlwarden POSTs a canary body to `--target` using Origin https://owlwarden-untrusted.invalid. A 2xx response means the route accepted a cross-origin state-changing request — the classic CSRF shape on cookie-session apps. Requires staging you control; the canary may still create a resource if the route is a create endpoint."
   },
@@ -36,6 +149,7 @@
     "maxConfidence": "likely",
     "owasp": "A07:2021",
     "cwe": 798,
+    "surface": "webApp",
     "category": "secrets",
     "description": "A credential appears as a literal in source. Anything committed is in the repository's history, in every clone, and in every build artefact, so removing the line later does not revoke it. Read secrets from the environment or a secret manager, and rotate anything that has been committed."
   },
@@ -46,8 +160,21 @@
     "maxConfidence": "likely",
     "owasp": "A05:2021",
     "cwe": 614,
+    "surface": "webApp",
     "category": "cookies",
     "description": "A cookie is written without `httpOnly`, `secure`, or `sameSite`. Missing `httpOnly` turns any cross-site scripting bug into session theft; missing `secure` sends the cookie over plain HTTP; missing `sameSite` attaches it to cross-site requests. A cookie holding no sensitive value may not need all three, which is why the finding names the ones it did not find rather than assuming the worst."
+  },
+  {
+    "id": "install-lifecycle-script",
+    "title": "Package declares an install-time script",
+    "severity": "medium",
+    "maxConfidence": "likely",
+    "owasp": "A08:2021",
+    "asi": "ASI04",
+    "cwe": 829,
+    "surface": "webApp",
+    "category": "supply-chain",
+    "description": "This project's own `package.json` declares `preinstall`, `install`, or `postinstall`. Those run automatically for anyone who installs the package — in CI, in a container, on a teammate's laptop — and they are the mechanism a worm reaches for when it republishes a package. Legitimate for native addons; reported at a lower weight when the script runs a recognised build tool."
   },
   {
     "id": "known-vulnerable-dependency",
@@ -56,6 +183,7 @@
     "maxConfidence": "likely",
     "owasp": "A06:2021",
     "cwe": 1395,
+    "surface": "webApp",
     "category": "dependencies",
     "description": "A lockfile pins a package version that Google OSV reports as vulnerable. Requires `--osv` (sends package name and version to api.osv.dev — never source). Upgrade to a fixed release, or accept the risk with an inline suppression and a reason."
   },
@@ -66,6 +194,7 @@
     "maxConfidence": "likely",
     "owasp": "A01:2021",
     "cwe": 601,
+    "surface": "webApp",
     "category": "redirect",
     "description": "The destination of a redirect is taken from the request without being checked. An attacker can send a link that starts with your domain and ends on theirs, which is what makes a phishing page credible — and in an OAuth callback it hands the authorisation code to whoever asked. Resolve the target against your own origin and refuse anything else."
   },
@@ -76,6 +205,7 @@
     "maxConfidence": "likely",
     "owasp": "A05:2021",
     "cwe": 693,
+    "surface": "webApp",
     "category": "headers",
     "description": "The application does not set the baseline security response headers. Without them a browser will not enforce HTTPS, will guess content types, and will allow the page to be framed. Headers set by a CDN or ingress are invisible to static analysis, so this rule reports lower confidence when it finds no header configuration at all."
   },
@@ -86,6 +216,7 @@
     "maxConfidence": "likely",
     "owasp": "A09:2021",
     "cwe": 532,
+    "surface": "webApp",
     "category": "logging",
     "description": "A password, token, cookie, or similar value is passed to a log sink. Centralised logs are widely readable inside an organisation and often retained for months — a credential that lands there is a credential that has left the application's control."
   },
@@ -96,6 +227,7 @@
     "maxConfidence": "likely",
     "owasp": "A03:2021",
     "cwe": 89,
+    "surface": "webApp",
     "category": "injection",
     "description": "A SQL string is assembled with a template literal or concatenation and passed to a database driver. Any value interpolated into it is executed as SQL, so a request parameter can read, modify, or destroy data the query was never meant to touch. Use the driver's parameter binding instead; every driver has it."
   },
@@ -106,6 +238,7 @@
     "maxConfidence": "likely",
     "owasp": "A10:2021",
     "cwe": 918,
+    "surface": "webApp",
     "category": "ssrf",
     "description": "An outbound HTTP request is made to a URL that came from the caller. The server can reach hosts the caller cannot — cloud metadata endpoints, internal admin services, databases bound to localhost — so this turns the server into a proxy into its own network. Validate the destination against an allowlist before fetching it."
   },
@@ -116,6 +249,7 @@
     "maxConfidence": "likely",
     "owasp": "A05:2021",
     "cwe": 209,
+    "surface": "webApp",
     "category": "error-handling",
     "description": "Returning an error's `.stack` to the client exposes absolute file paths, dependency versions, and internal call structure. Attackers use it to map the application and to fingerprint vulnerable dependency versions. Log the stack server-side and return a generic message."
   },
@@ -126,6 +260,7 @@
     "maxConfidence": "likely",
     "owasp": "A06:2021",
     "cwe": 1104,
+    "surface": "webApp",
     "category": "dependencies",
     "description": "A package.json dependency uses '*' or 'latest', so every install can pull a different major version with no review. Pin a lower bound (or an exact version) so upgrades are a deliberate change."
   },
@@ -136,6 +271,7 @@
     "maxConfidence": "likely",
     "owasp": "A02:2021",
     "cwe": 327,
+    "surface": "webApp",
     "category": "crypto",
     "description": "A hash, cipher, or random source that cannot carry the weight it has been given: MD5 or SHA-1 over a password, a DES or ECB cipher, or Math.random() producing a token. Each has a drop-in replacement in the standard library, so the fix is small — the cost of not making it is that the protection is decorative."
   }

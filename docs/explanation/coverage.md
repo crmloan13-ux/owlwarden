@@ -16,6 +16,13 @@ them, and the numbers are computed from the rules compiled into the binary you
 are running. There is no hand-maintained claim to go stale, and no way for the
 tool to advertise a category it does not check.
 
+Since v1.1 there are **two** tables, and keeping them apart is the same
+argument one level up. The OWASP Top 10 (2021) is about the web application in
+your repository. [OWASP ASI 2026](../adr/0025-agent-surface-and-supply-chain.md)
+is about the agent that works in it. Merging them would let an agent rule appear
+to raise your Top 10 coverage, and the `owasp-top10` preset — which means
+"rules mapped to an OWASP Top 10 (2021) category" — would stop meaning anything.
+
 ## The three states
 
 | State | Meaning |
@@ -68,6 +75,29 @@ rows to this table: the rule was already mapped; correlation only changes
 confidence. Broader runtime coverage (auth, redirects as served, active checks)
 is still later work — see [ROADMAP.md](../../ROADMAP.md).
 
+## The agentic table, and why it has more holes
+
+The ASI table is shaped the same way and reads the same way, with one
+difference worth stating: it has proportionally more `out of reach` rows.
+
+Instruction files, hooks, permissions, and tool declarations are checked into
+the repository, so a scanner can see them. Memory poisoning, tool misuse at run
+time, and multi-agent orchestration failures are properties of a *running*
+agent. No amount of parsing `.claude/settings.json` reaches them, and the table
+says so rather than leaving those rows looking like a backlog.
+
+The edition is pinned in the engine, so moving to a later ASI list is a
+reviewed change with a visible diff rather than a drift. Every rule in the
+family declares a CWE as its primary mapping for the same reason: CWE ids are
+stable across decades, this edition is new enough that it will be renumbered,
+and a renumbering should cost a table edit rather than invalidating the taxonomy
+on findings already in someone's baseline.
+
+`owlwarden coverage` also prints **the closed path allowlist** the agent surface
+reads. That is the honest answer to "what do you not look at?" on this surface:
+not a category with no rule, but a file that is not on the list. A reader can
+tell in one glance whether their host's configuration is even in scope.
+
 ## Frameworks
 
 The second half of the table counts rules whose remediation is written
@@ -84,6 +114,23 @@ well and the fifth badly.
 Adding a sixth framework is a
 [framework profile](../adr/0011-framework-profiles.md) plus a remediation entry
 on each rule — and the test tells you exactly which rules still need one.
+
+## Agent hosts
+
+The same invariant, one surface over. A rule reading agent configuration owes a
+fix for each of the seven supported hosts, and `rulesFallingBack` is 0 there
+too.
+
+The two profile sets are never checked against each other, and that is the whole
+reason `Surface` exists. `.claude/settings.json` has nothing to do with whether
+the application is Next.js or Koa; writing the same paragraph twelve times to
+satisfy the framework list would have made `RULES.md` dishonest, and exempting
+the new rules would have put a hole in the invariant. Generalising it cost one
+enum and kept the property.
+
+`generic` is in the host set and is not a placeholder. It is the fix for a host
+we have never heard of, and keeping it mandatory is what stops this family from
+becoming an advertisement for the four vendors we happen to know about.
 
 ## Using it in CI
 

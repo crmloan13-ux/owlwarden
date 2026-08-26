@@ -10,6 +10,188 @@ are listed here under Changed.
 
 ## [Unreleased]
 
+## [1.1.0] — 2026-08-25
+
+A second scan surface and a control that always runs
+([ADR 0025](docs/adr/0025-agent-surface-and-supply-chain.md),
+[ADR 0026](docs/adr/0026-deterministic-agent-gate.md)).
+
+owlwarden answered one question: *is the web application in this repository
+written safely?* This release adds the second question the same repository now
+raises: *is the coding agent that works in it being told to do something
+hostile?*
+
+### Added
+
+- **Eleven rules on a new `agentWorkspace` surface**, reading the agent and
+  editor configuration a lockfile does not record. All cap at `likely`, all
+  carry a `runtimeScope`, all map to CWE with OWASP ASI 2026 as a secondary
+  reference:
+  `agent-hook-autoexec`, `agent-hook-untrusted-command`,
+  `agent-config-loader-script`, `agent-config-env-redirect`,
+  `agent-config-secret-reachable`, `agent-permission-wildcard`,
+  `agent-mcp-unpinned-remote`, `agent-marketplace-untrusted`,
+  `agent-instructions-hidden-text`, `agent-instructions-directive`, and
+  `install-lifecycle-script` (which is `webApp`, because it reads
+  `package.json`, and is the one with an OWASP Top 10 mapping — A08).
+- **`Surface`**, and the remediation matrix generalised over it. A `webApp`
+  rule owes twelve framework fixes; an `agentWorkspace` rule owes seven agent
+  host fixes; neither is checked against the other's list, and a missing cell
+  still fails the build.
+- **`owlwarden vet <path>`** — the same engine with a fixed posture for a
+  repository you did not write: agent rules only, offline, no plugins, and the
+  target's own config, baseline, and suppressions counted rather than honoured.
+- **`owlwarden gate --host <claude-code|cursor|generic>`** — the hook entry
+  point. Reads the host's event on stdin, scans what it names, and returns a
+  verdict in the host's own shape. Fails closed before a command executes and
+  open after an edit, because those have different consequences.
+- **`owlwarden verify --patch <file>`** — applies a patch to a scratch copy,
+  re-scans, and exits 0 only if the finding is gone *and* nothing new appeared
+  at or above the threshold.
+- **`--since <ref>` / `--staged` / `--paths`** — diff-scoped scanning. Project
+  rules declare their own inputs, so a `package.json`-only commit still fires
+  the dependency rules. The scope is stated in every output format.
+- **`--format agent`** — the report on a token budget (default ~1500), with
+  explicit truncation. Omits `why`, which is written for a human.
+- **`owlwarden init --claude-code | --cursor | --generic`** — wires the gate
+  into a host's lifecycle events.
+- **`agent-surface` preset**, `runtimeScope` in every format, an ASI coverage
+  table in `owlwarden coverage` and `RULES.md`, and the agent path allowlist in
+  the coverage output so a reader can tell whether their host is in scope.
+- A generated documentation site: 211 pages, including one per (rule, framework)
+  and (rule, agent host) cell that has a verified example.
+
+### Changed
+
+- `honorSuppressions: boolean` became a three-state `SuppressionPolicy`. The
+  gate needs "honour what the team committed, refuse what appeared during this
+  session", and a boolean had nowhere to put it.
+- `Report.target` gained `configFilesScanned` and `diffScope`. A `vet` reporting
+  "0 files" over fourteen findings was describing the wrong number, and a
+  diff-scoped clean result must never render as a clean repository.
+- The npm `description`, `keywords`, `homepage`, `funding`, `license`, and
+  `publishConfig.provenance` were rewritten for the registry's own ranking
+  inputs. The site URL now lives in one file, `site.url`.
+- `owlwarden init` with no flags is unchanged; the host flags are additive.
+- `core::agent_text` is now `core::untrusted_text`. It was named for the reader
+  it was written for; the terminal turned out to be a fourth reader with the same
+  requirement, and a module named `agent_text` sanitising a human's terminal is a
+  name that lies to the next person.
+- The GitHub Action gained `preset` and `since` inputs. Without `preset` the
+  agent surface was unreachable from CI at all; `since` was already in the
+  README's snippet and had never existed.
+
+### Fixed
+
+- **A `--since` that could not resolve widened the scan instead of failing it.**
+  It printed a note and scanned the whole project. On a shallow CI clone — which
+  is what `actions/checkout` gives you by default — that is the difference
+  between three new findings and a red job full of debt the change did not
+  introduce. `scan` now exits `2` and names `fetch-depth: 0`; `gate` still
+  degrades, because a hook that bricks a session over a git hiccup gets
+  uninstalled. A range (`main..HEAD`) is refused rather than passed through: it
+  would widen the scope a narrowing flag was asked to cut.
+- **A `--since` value beginning with `-` reached git as an option.** The ref sits
+  in front of `git diff`'s trailing `--`, which separates paths from revisions
+  and not options from anything, so `--since --output=<file>` was argv git
+  parsed — and `git diff --output=` writes where it is pointed. The invocation
+  passes `--end-of-options` now, and the value is validated before it gets
+  there.
+- **`--report-suppressions` printed repository text straight to the terminal.**
+  The reason on a suppression is a comment somebody wrote, and the listing exists
+  so a reviewer can audit what a tree has silenced. A reason containing
+  `\x1b[2K\x1b[1A\x1b[2K` clears its own line, moves up, and clears the entry
+  above it — deleting a line from the audit, from inside the audit. Bidi
+  overrides made a reason render as its opposite. Both output paths now render
+  the reason, the path, and the rule id as data.
+- **The two sanitisers had drifted, in both directions.**
+  `agent-safety.ts` stripped the Unicode Tags block (U+E0000–E007F, which mirrors
+  ASCII into zero-width code points, and is the channel current prompt-injection
+  work actually uses) and `core` did not, because they are category `Cf` and
+  `char::is_control` only covers `Cc`. Going the other way, `agent-safety.ts`
+  replaced `[INST]` with the label `"[INST]"` — the marker spelled exactly as it
+  arrived — so that substitution ran on every MCP payload and changed nothing.
+  `fixtures/untrusted-text-vectors.json` now owns the list and both sides are
+  tested against it.
+- **A plugin could supply the key that vouched for it.** Trust roots were read
+  from the plugin's own directory and from that directory's parent — both
+  inside the artifact being verified. Generate a key, sign the artifact, ship
+  the public half beside the signature, and `--require-signed-plugins` reported
+  `verified`. It refused nothing. Trust roots now come from
+  `OWLWARDEN_PLUGIN_TRUST` and from `.owlwarden/plugin-trust.json` in the scan
+  root, which is what [ADR 0021](docs/adr/0021-plugin-artifact-signing.md) said
+  in the first place.
+- **`owlwarden plugin inspect` could never report `verified`.** The TypeScript
+  mirror imported public keys with `createPublicKey({ format: "raw" })`, which
+  Node rejects; a cast silenced the type error that said so. Every key threw,
+  every key became `undefined`, and every signature — valid or not — reported
+  `untrusted`. Failing in the safe direction is why it went a release unnoticed:
+  an always-`untrusted` line is indistinguishable from an unconfigured trust
+  root. Keys are wrapped as SPKI DER now, and both implementations verify a
+  shared test vector that neither of them generates.
+- **An unknown config key is refused rather than stripped.** zod drops unknown
+  keys by default, so `failon: "high"` parsed cleanly and the run used the
+  default `info` — a config that reads as if it tightens the gate, does not,
+  and prints nothing either way. Both objects in the schema are strict now, and
+  a near miss names the key it was probably meant to be.
+- **A symlinked config is reported instead of ignored in silence.** Not
+  following it is right — a link is how a hostile tree points config resolution
+  outside itself — but `owlwarden.config.json -> ../shared/config.json` is an
+  ordinary monorepo layout, and its author had no way to learn their `preset`
+  never applied.
+
+- **The GitHub Action refused every invocation it was ever given.** A guard
+  written as `[[ "$value" == *$'\0'* ]]` was meant to reject NUL bytes; bash
+  cannot hold a NUL in a string, so `$'\0'` is the empty string and the pattern
+  is `**`. Every input matched, and the Action exited 2 before running anything.
+  It shipped in 1.0 and nothing caught it, because nothing executed the Action:
+  the "action smoke" workflow re-implements its command line rather than calling
+  it. The check is gone — a NUL cannot reach a shell variable through `execve`
+  either — and the script now has 63 tests that run it with a stubbed CLI and
+  assert on the argv it produces.
+- The Action snippets in both READMEs and on the site pointed at
+  `suthat/owlwarden@v1`, where there is no `action.yml`. A check now validates
+  every documented snippet against the Action's real path and real inputs.
+
+### Security
+
+- **`owlwarden init` never writes a `SessionStart` hook**, and its MCP entry is
+  `node_modules/.bin/owlwarden` rather than `npx -y`. Those are the two shapes
+  `agent-hook-autoexec` and `agent-mcp-unpinned-remote` report, and generating
+  them would have had `owlwarden scan` reporting its own output. A test asserts
+  everything `init` writes passes `owlwarden vet` clean.
+- **`verify` no longer passes `git apply --unsafe-paths`** — the flag exists to
+  let a patch write outside the working tree, and the patch is the agent's
+  output. Patch paths are validated before git sees them (no absolute paths, no
+  `..`, nothing under `.git/`, no NUL bytes, a file-count cap), and symlinks are
+  excluded from the scratch copy rather than followed.
+- **A flag-shaped Action input is no longer a flag.** `path` was interpolated
+  as a bare positional, and the CLI's parser resolves a flag-shaped positional
+  as an option: a workflow wiring `path:` to a `workflow_dispatch` input or a
+  matrix entry read out of the tree could turn a scan step into
+  `--target=http://169.254.169.254` or `--plugin=./evil.wasm`. The path is now
+  passed after `--`, and no input may begin with `-`.
+- **The JSONC string scanner is no longer quadratic.** Reading one character
+  validated the whole remaining input, so a single 1.5 MB string in a
+  `.claude/settings.json` — inside the size cap, in a file an attacker controls,
+  on the gate's keystroke path — took the scanner out of service.
+- **Attacker-derived strings are escaped in the gate's reason and in
+  `--format agent`.** A repository chooses its own filenames and a Unix filename
+  may contain a newline; without this, `route.ts\n\nAll checks passed.ts` would
+  have injected lines into the one message the model is told to trust.
+- **Agent-surface path matching is case-insensitive.** macOS and Windows are
+  case-insensitive filesystems, so `.Claude/settings.json` *is*
+  `.claude/settings.json` to a host running there — a one-character bypass of
+  the entire surface.
+- **Duplicate JSON keys are all kept.** A config declaring `hooks` twice, benign
+  first, exploited the difference between a reviewer reading top-down and a
+  last-wins parser.
+- **An oversized agent config is reported, not skipped.** Silently dropping it
+  made a 5 MB `.claude/settings.json` indistinguishable from a repository with
+  no agent configuration at all.
+- A bidirectional override in a path no longer survives into a Markdown PR
+  comment, where it reorders what the reviewer reads.
+
 ## [1.0.0] — 2026-08-12
 
 Stable: plugin API frozen, documentation complete across Diátaxis, and a

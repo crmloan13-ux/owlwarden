@@ -22,12 +22,44 @@ pub struct CoverageReport {
     pub version: String,
     /// One entry per OWASP Top 10 (2021) category, covered or not.
     pub owasp: Vec<CategoryEntry>,
+    /// One entry per OWASP ASI (agentic) category, covered or not.
+    ///
+    /// A second table rather than more rows in the first: the two taxonomies
+    /// describe different things, and merging them would let an agent rule
+    /// appear to raise OWASP Top 10 coverage
+    /// ([ADR 0025](../../../docs/adr/0025-agent-surface-and-supply-chain.md) §8).
+    #[serde(default)]
+    pub asi: Vec<CategoryEntry>,
+    /// The ASI edition the `asi` table describes.
+    #[serde(default)]
+    pub asi_edition: String,
     /// Frameworks with a profile, and how well the rules serve them.
     pub frameworks: Vec<FrameworkEntry>,
+    /// Agent hosts with a profile, and how well the agent-surface rules serve
+    /// them. The `AgentWorkspace` counterpart of `frameworks`.
+    #[serde(default)]
+    pub hosts: Vec<FrameworkEntry>,
+    /// The closed path allowlist the agent surface reads.
+    ///
+    /// Carried in the report rather than read from the engine by the renderer,
+    /// so `coverage` stays a pure rendering of one value — and so a consumer of
+    /// the JSON can answer "is my host's configuration even in scope?" without
+    /// running the binary.
+    #[serde(default)]
+    pub agent_paths: Vec<String>,
     /// Total rules compiled in.
     pub rule_count: usize,
-    /// Categories with at least one rule, out of ten.
+    /// Rules reading application source.
+    #[serde(default)]
+    pub web_app_rule_count: usize,
+    /// Rules reading agent and editor configuration.
+    #[serde(default)]
+    pub agent_workspace_rule_count: usize,
+    /// OWASP Top 10 categories with at least one rule, out of ten.
     pub categories_covered: usize,
+    /// ASI categories with at least one rule, out of ten.
+    #[serde(default)]
+    pub asi_categories_covered: usize,
 }
 
 /// One row of the OWASP side of the table.
@@ -54,7 +86,12 @@ pub struct CategoryEntry {
     pub summary: String,
 }
 
-/// One row of the framework side of the table.
+/// One row of a profile side of the table — a framework, or an agent host.
+///
+/// One type for both because the question is identical ("how many rules carry
+/// advice written for this environment, and how many fall back?"), and a second
+/// struct with the same three fields would only give the two tables a chance to
+/// diverge.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FrameworkEntry {

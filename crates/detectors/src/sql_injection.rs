@@ -40,6 +40,7 @@ use owlwarden_core::finding::{
 };
 use owlwarden_core::remediation::Remediation;
 use owlwarden_core::source::RelPath;
+use owlwarden_core::surface::Surface;
 use owlwarden_static::ast::{root_identifier, static_property};
 use owlwarden_static::rule::{FileRule, FindingSink, RuleInfo};
 use owlwarden_static::taint::RequestOrigin;
@@ -136,7 +137,9 @@ impl SqlInjection {
             // Likely, however obvious the case looks.
             max_confidence: Confidence::Likely,
             owasp: Some(OwaspRef::new_static("A03:2021")),
+            asi: None,
             cwe: Some(89),
+            surface: Surface::WebApp,
             category: "injection".into(),
             description: "A SQL string is assembled with a template literal or concatenation and \
                           passed to a database driver. Any value interpolated into it is executed \

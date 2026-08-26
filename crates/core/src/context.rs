@@ -27,6 +27,20 @@ pub struct ScanSettings {
     /// empty the static engine walks every file; when set only those paths are
     /// re-parsed for file rules ([ADR 0023](../../../docs/adr/0023-incremental-watch.md)).
     pub dirty_paths: Option<Vec<String>>,
+    /// Restricts the scan to these project-relative paths.
+    ///
+    /// **Not the same thing as [`Self::dirty_paths`]**, and the difference is
+    /// the bug this field exists to prevent. `dirty_paths` says "these changed,
+    /// merge the result with the previous report" — the answer still describes
+    /// the whole project. `scoped_paths` says "look only here", and the answer
+    /// describes only those paths. Using either to imply the other produces a
+    /// report that reads clean about code nobody scanned
+    /// ([ADR 0026](../../../docs/adr/0026-deterministic-agent-gate.md) §4).
+    ///
+    /// Project-scope rules still run when *their own* declared inputs are in
+    /// the list, whatever else changed — a `package.json` edit alone must still
+    /// fire `unpinned-dependency`.
+    pub scoped_paths: Option<Vec<String>>,
 }
 
 impl Default for ScanSettings {
@@ -37,6 +51,7 @@ impl Default for ScanSettings {
             min_severity: Severity::Info,
             preset: "quick".to_owned(),
             dirty_paths: None,
+            scoped_paths: None,
         }
     }
 }

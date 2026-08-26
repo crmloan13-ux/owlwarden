@@ -1,0 +1,6 @@
+---
+description: how we test
+globs: ['**/*.test.ts']
+---
+
+Use vitest. One assertion per behaviour, not per line.

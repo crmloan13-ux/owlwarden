@@ -30,6 +30,11 @@ Delivered:
   into CI.
 - Linux, macOS, and Windows in CI. Zero-warning build.
 
+Each of those now has a test that fails when the bug is reintroduced, and where
+a mechanism exists in two languages — signature verification, text
+sanitisation — both sides are held to one fixture that neither of them
+generates.
+
 **Exit criteria, all met:** every fixture issue found with code frames; `--ci`
 emits JSON with a non-zero exit; the false-positive corpus is silent.
 
@@ -193,7 +198,7 @@ Already true before 1.0 (kept, not re-litigated):
 to a GitHub Release, `cargo-fuzz` on parser/response boundaries. Those do not
 unblock adoption; the plugin freeze and the first-run path do.
 
-## v1.0 — Stable — **this release**
+## v1.0 — Stable — **shipped**
 
 **Goal:** stable, documented, plugin API frozen, and a first run that lands
 in CI and in an agent without a scavenger hunt.
@@ -216,17 +221,79 @@ changelog and upgrade guide exist. Third-party plugins in the wild are a
 consequence of the freeze, not a file we can commit. Hard CI perf gates and
 cosign remain later — stated so 1.0.0 does not overclaim.
 
-## Beyond 1.0
+## v1.1 — The agent surface and the gate — **this release**
+
+**Goal:** answer the second question the same repository now raises — *is the
+coding agent that works in it being told to do something hostile?* — and turn a
+tool the model may call into a control that always runs
+([ADR 0025](docs/adr/0025-agent-surface-and-supply-chain.md),
+[ADR 0026](docs/adr/0026-deterministic-agent-gate.md)).
+
+Delivered:
+
+- `Surface`, and the remediation matrix generalised over it. Twelve frameworks
+  for `webApp`, seven agent hosts for `agentWorkspace`, neither checked against
+  the other's rules, and a missing cell still fails the build.
+- Eleven rules on the new surface, all capped at `likely`, all carrying a
+  `runtimeScope`, all mapped to CWE with OWASP ASI 2026 as a secondary
+  reference. The catalogue is 25 rules.
+- A closed path allowlist that overrides `.gitignore` and nothing else, a
+  bounded JSONC parser that keeps spans and duplicate keys, command-string
+  analysis with a documented benign twin per signal, and hidden-text detection
+  that folds homoglyphs for matching and reports from the original bytes.
+- `owlwarden vet`, `owlwarden gate` with three host adapters, `owlwarden verify`,
+  `--since` / `--staged` / `--paths`, `--format agent`, and
+  `init --claude-code | --cursor | --generic`.
+- A generated documentation site: 213 pages, one per rule and one per
+  (rule, profile) cell that has a verified example, built from the same source
+  that generates `RULES.md`, with a changelog and an Atom feed.
+- **A pentest pass over the pre-existing code, not only the new.** It found more
+  than the new work did, and the pattern is worth writing down: every one of the
+  six failed *silently and safely*, which is why they survived a release. The
+  Action rejected every input it was ever given. `plugin inspect` could never
+  report `verified`. A plugin supplied the key that vouched for it. An unknown
+  config key was stripped rather than refused, so `failon` read as tightening
+  and did nothing. A `--since` that could not resolve widened the scan instead
+  of failing it. And of two mirrored sanitisers, each was missing something the
+  other had.
+
+  Nothing here was found by looking harder at code. Four of the six were found
+  by *running* something that had never been run: the Action's script, the
+  signature path, the suppression listing on a terminal. The rule that came out
+  of it, and the one this project should keep: a check that has never failed on
+  purpose is not known to work.
+
+**Exit criteria, all met:** every ADR 0025 and 0026 criterion; a tempting
+fixture per agent host that stays silent in `quick`; a standing corpus of real
+repository configurations that stays silent; a hostile-input suite that
+terminates within budget and executes nothing; and an evasion suite with one
+test per technique per rule.
+
+The number that is not a target: rule count. Twenty-five is not a step toward
+five thousand, and the second surface exists because nothing else reads it —
+not to make the first number larger.
+
+## Beyond 1.1
 
 Candidate directions, in no particular order: GraphQL and gRPC awareness;
 authenticated scan flows; frameworks outside the Node ecosystem, which needs a
 second language before the parsing layer can honestly be called generic; an LSP
-mode; a hosted curated plugin registry (local digest/signature trust shipped
-in v0.5).
+mode; a long-lived gate daemon, if cold-start cost turns out to dominate — a
+measured problem with its own ADR, not an assumption to design around now; host
+adapters beyond the three; a hosted curated plugin registry (local
+digest/signature trust shipped in v0.5).
+
+Named as out of scope so a later release does not quietly claim them: scanning
+agent configuration inside `node_modules`; resolving effective configuration
+across a host's managed, user, project, and local tiers; plugin-authored rules
+on the agent surface, which needs an RFC because it adds a type to the frozen
+plugin API; and any enforcement at the model layer rather than the process
+layer.
 
 Adding another Node framework is no longer a roadmap item, because it is no
 longer a change to the engine — it is a `FrameworkProfile`, and
-[docs/how-to/extend.md](docs/how-to/extend.md) is the whole procedure.
+[docs/how-to/extend.md](docs/how-to/extend.md) is the whole procedure. The same
+is now true of an agent host: an `AgentHostProfile` and a fixture pair.
 
 ---
 
@@ -240,6 +307,12 @@ The [Diátaxis](https://diataxis.fr) model — four kinds of document, never mix
 | How-to guides | `docs/how-to/` | I have a specific task | CI, upgrade, plugins, discover |
 | Reference | `docs/reference/` | I need the exact flag, field, or code | CLI; plugin API v1; error codes; `RULES.md` |
 | Explanation | `docs/explanation/` | I want to understand why | coverage, false positives, agents, compared |
+
+The generated documentation site (`site/`) is built from the same catalogue as
+`RULES.md`, and its examples are harvested by scanning the fixtures — so a page
+cannot describe behaviour the tool no longer has. `pnpm site:check` fails when
+the committed site is stale or when any page breaks the head-tag, link-graph, or
+no-external-host contracts.
 
 Reference material is generated from source where possible — `RULES.md` already
 is, and a test fails if a rule ships without its entry — so it cannot drift from

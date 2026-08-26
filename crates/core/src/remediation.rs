@@ -28,23 +28,32 @@
 //! agentic loop it is worse than that: the agent has been told there is a
 //! problem and given nothing to do, so it invents something.
 
-use crate::finding::{Fix, FixSafety, Framework};
+use crate::finding::{AgentHost, Fix, FixSafety, Framework};
+use crate::surface::Profile;
 
-/// Every fix one rule can offer, keyed by framework.
+/// Every fix one rule can offer, keyed by profile.
+///
+/// Two keyed tables rather than one, because a rule has exactly one surface and
+/// therefore fills exactly one of them. Keeping them apart means the matrix
+/// test can say *which* table is short, and it means a `WebApp` rule cannot
+/// accidentally satisfy its coverage with a fix written for Cursor.
 #[derive(Debug, Clone)]
 pub struct Remediation {
     specific: Vec<Fix>,
+    host_specific: Vec<Fix>,
     generic: Fix,
 }
 
 impl Remediation {
-    /// Starts a table with the advice that applies regardless of framework.
+    /// Starts a table with the advice that applies regardless of profile.
     #[must_use]
     pub fn new(summary: impl Into<String>) -> Self {
         Self {
             specific: Vec::new(),
+            host_specific: Vec::new(),
             generic: Fix {
                 framework: None,
+                host: None,
                 summary: summary.into(),
                 patch: None,
                 safety: FixSafety::Manual,
@@ -80,10 +89,69 @@ impl Remediation {
     ) -> Self {
         self.specific.push(Fix {
             framework: Some(framework),
+            host: None,
             summary: summary.into(),
             patch,
             safety,
         });
+        self
+    }
+
+    /// Adds advice for one agent host.
+    ///
+    /// The `AgentWorkspace` counterpart of [`Self::fix`]. Agent-config fixes
+    /// are `Manual` without exception so far — the correct replacement for a
+    /// hostile hook depends on what the team meant to do — but the safety level
+    /// is a parameter here rather than a constant so the contract stays the
+    /// same shape on both surfaces.
+    #[must_use]
+    pub fn host_fix(
+        mut self,
+        host: AgentHost,
+        summary: impl Into<String>,
+        patch: Option<String>,
+        safety: FixSafety,
+    ) -> Self {
+        self.host_specific.push(Fix {
+            framework: None,
+            host: Some(host),
+            summary: summary.into(),
+            patch,
+            safety,
+        });
+        self
+    }
+
+    /// Adds `Manual` advice for one agent host — the common case.
+    #[must_use]
+    pub fn host(
+        self,
+        host: AgentHost,
+        summary: impl Into<String>,
+        patch: impl Into<String>,
+    ) -> Self {
+        self.host_fix(host, summary, Some(patch.into()), FixSafety::Manual)
+    }
+
+    /// Adds the same `Manual` advice for every host in `hosts`.
+    ///
+    /// For the genuinely host-independent half of an agent-config fix — "delete
+    /// the entry" reads the same everywhere. Prefer [`Self::host`] whenever the
+    /// patch can name the host's own file and key, which is most of the time:
+    /// a fix a reader cannot paste is the thing this project exists not to
+    /// ship.
+    #[must_use]
+    pub fn host_each(
+        mut self,
+        hosts: &[AgentHost],
+        summary: impl Into<String>,
+        patch: impl Into<String>,
+    ) -> Self {
+        let summary = summary.into();
+        let patch = patch.into();
+        for host in hosts {
+            self = self.host(host.clone(), summary.clone(), patch.clone());
+        }
         self
     }
 
@@ -166,6 +234,28 @@ impl Remediation {
             .collect()
     }
 
+    /// The fixes to attach to a finding in a workspace using `host`.
+    ///
+    /// Always at least one entry, for the same reason as [`Self::select`].
+    #[must_use]
+    pub fn select_for_host(&self, host: &AgentHost) -> Vec<Fix> {
+        self.host_specific
+            .iter()
+            .filter(|fix| fix.host.as_ref() == Some(host))
+            .cloned()
+            .chain(std::iter::once(self.generic.clone()))
+            .collect()
+    }
+
+    /// The fixes for whichever profile a finding carries.
+    #[must_use]
+    pub fn select_for(&self, profile: &Profile) -> Vec<Fix> {
+        match profile {
+            Profile::Framework(framework) => self.select(framework),
+            Profile::Host(host) => self.select_for_host(host),
+        }
+    }
+
     /// Every fix, for `owlwarden explain` and the rule catalogue.
     ///
     /// `explain` must work with no network at all — the reader may be an agent
@@ -175,6 +265,7 @@ impl Remediation {
     pub fn all(&self) -> Vec<Fix> {
         self.specific
             .iter()
+            .chain(self.host_specific.iter())
             .cloned()
             .chain(std::iter::once(self.generic.clone()))
             .collect()
@@ -189,10 +280,36 @@ impl Remediation {
             .collect()
     }
 
+    /// The agent hosts this table has specific advice for.
+    #[must_use]
+    pub fn hosts(&self) -> Vec<&AgentHost> {
+        self.host_specific
+            .iter()
+            .filter_map(|fix| fix.host.as_ref())
+            .collect()
+    }
+
     /// Whether there is specific advice for a framework.
     #[must_use]
     pub fn covers(&self, framework: &Framework) -> bool {
         self.frameworks().contains(&framework)
+    }
+
+    /// Whether there is specific advice for an agent host.
+    #[must_use]
+    pub fn covers_host(&self, host: &AgentHost) -> bool {
+        self.hosts().contains(&host)
+    }
+
+    /// Whether there is specific advice for a profile, whichever set it is
+    /// from. This is the predicate the matrix test asserts, once per profile of
+    /// the rule's own surface.
+    #[must_use]
+    pub fn covers_profile(&self, profile: &Profile) -> bool {
+        match profile {
+            Profile::Framework(framework) => self.covers(framework),
+            Profile::Host(host) => self.covers_host(host),
+        }
     }
 }
 
@@ -232,6 +349,57 @@ mod tests {
         assert_eq!(all.len(), 3);
         assert!(table().covers(&Framework::NEXT));
         assert!(!table().covers(&Framework::EXPRESS));
+    }
+
+    #[test]
+    fn a_host_table_selects_by_host_and_still_carries_the_fallback() {
+        let table = Remediation::new("Remove the entry.")
+            .host(AgentHost::CLAUDE_CODE, "Claude advice", "claude patch")
+            .host(AgentHost::CURSOR, "Cursor advice", "cursor patch");
+
+        let selected = table.select_for_host(&AgentHost::CLAUDE_CODE);
+        assert_eq!(selected.len(), 2);
+        assert_eq!(
+            selected.first().and_then(|fix| fix.host.as_ref()),
+            Some(&AgentHost::CLAUDE_CODE)
+        );
+        assert!(table.covers_host(&AgentHost::CURSOR));
+        assert!(!table.covers_host(&AgentHost::VSCODE));
+        assert_eq!(table.select_for_host(&AgentHost::VSCODE).len(), 1);
+    }
+
+    #[test]
+    fn framework_advice_never_satisfies_a_host_profile() {
+        // The whole point of two tables: a WebApp fix must not be able to close
+        // an AgentWorkspace coverage gap, or the matrix test would accept
+        // advice written for the wrong kind of environment entirely.
+        let table = table();
+        assert!(!table.covers_host(&AgentHost::CLAUDE_CODE));
+        assert!(!table.covers_profile(&Profile::Host(AgentHost::CLAUDE_CODE)));
+        assert!(table.covers_profile(&Profile::Framework(Framework::NEXT)));
+
+        let hosts = Remediation::new("g").host(AgentHost::GENERIC, "s", "p");
+        assert!(!hosts.covers(&Framework::NEXT));
+    }
+
+    #[test]
+    fn explain_lists_both_tables() {
+        let table = Remediation::new("generic")
+            .manual(Framework::NEXT, "n", "np")
+            .host(AgentHost::CURSOR, "c", "cp");
+        assert_eq!(table.all().len(), 3);
+    }
+
+    #[test]
+    fn host_each_fills_a_whole_profile_set() {
+        let table = Remediation::new("generic").host_each(
+            crate::surface::SUPPORTED_AGENT_HOSTS,
+            "Delete the entry.",
+            "remove it",
+        );
+        for host in crate::surface::SUPPORTED_AGENT_HOSTS {
+            assert!(table.covers_host(host), "{host} uncovered");
+        }
     }
 
     #[test]

@@ -71,7 +71,8 @@
       "id": "A08:2021",
       "title": "Software and Data Integrity Failures",
       "rules": [
-        "ci-unpinned-action"
+        "ci-unpinned-action",
+        "install-lifecycle-script"
       ],
       "reachability": "partial",
       "summary": "Code or data is trusted without verifying where it came from: unsigned updates, unpinned CI actions, deserialisation of attacker-controlled payloads."
@@ -95,68 +96,224 @@
       "summary": "The server fetches a URL the user chose, and can be pointed at internal services, cloud metadata endpoints, or the loopback interface."
     }
   ],
+  "asi": [
+    {
+      "id": "ASI01",
+      "title": "Agent Goal Hijack",
+      "rules": [
+        "agent-instructions-directive",
+        "agent-instructions-hidden-text"
+      ],
+      "reachability": "good",
+      "summary": "The agent is redirected to pursue an attacker's objective — through instruction text it reads as authoritative, or content it treats as data and then obeys."
+    },
+    {
+      "id": "ASI02",
+      "title": "Tool Misuse and Exploitation",
+      "rules": [],
+      "reachability": "poor",
+      "summary": "A tool the agent legitimately holds is used for something it was not scoped for, or is fed arguments that turn it into a different capability."
+    },
+    {
+      "id": "ASI03",
+      "title": "Agent Identity and Privilege Abuse",
+      "rules": [
+        "agent-config-env-redirect",
+        "agent-config-secret-reachable",
+        "agent-permission-wildcard"
+      ],
+      "reachability": "partial",
+      "summary": "The agent acts with more authority than the task needs: credentials in reach of repository-controlled commands, pre-approved permissions, redirected traffic."
+    },
+    {
+      "id": "ASI04",
+      "title": "Agentic Supply Chain Compromise",
+      "rules": [
+        "agent-config-loader-script",
+        "agent-marketplace-untrusted",
+        "agent-mcp-unpinned-remote",
+        "install-lifecycle-script"
+      ],
+      "reachability": "good",
+      "summary": "Code, tools, or instructions reach the agent from a source nobody vetted: a run-time package resolve, an unpinned MCP server, a third-party marketplace."
+    },
+    {
+      "id": "ASI05",
+      "title": "Unexpected Code Execution",
+      "rules": [
+        "agent-hook-autoexec",
+        "agent-hook-untrusted-command"
+      ],
+      "reachability": "good",
+      "summary": "Opening a repository, or letting the agent take one step in it, runs code the developer never asked to run."
+    },
+    {
+      "id": "ASI06",
+      "title": "Memory and Context Poisoning",
+      "rules": [],
+      "reachability": "poor",
+      "summary": "Durable state the agent carries between turns or sessions is written by an attacker and read back as trusted context."
+    },
+    {
+      "id": "ASI07",
+      "title": "Insufficient Human Oversight",
+      "rules": [],
+      "reachability": "partial",
+      "summary": "The approval step that was supposed to bound the blast radius is absent, pre-answered, or worded so it is always accepted."
+    },
+    {
+      "id": "ASI08",
+      "title": "Multi-Agent and Orchestration Exploitation",
+      "rules": [],
+      "reachability": "poor",
+      "summary": "One agent's output becomes another's instruction, and a boundary that existed on paper does not exist in the message flow."
+    },
+    {
+      "id": "ASI09",
+      "title": "Insufficient Agent Observability",
+      "rules": [],
+      "reachability": "poor",
+      "summary": "What the agent did cannot be reconstructed afterwards: no record of the tool calls, the inputs, or the decision that authorised them."
+    },
+    {
+      "id": "ASI10",
+      "title": "Unbounded Autonomy",
+      "rules": [],
+      "reachability": "poor",
+      "summary": "The agent is permitted to act without a ceiling on scope, spend, or duration, so a single wrong step is not a bounded mistake."
+    }
+  ],
+  "asiEdition": "2026",
   "frameworks": [
     {
       "id": "next",
-      "rulesWithSpecificFix": 14,
+      "rulesWithSpecificFix": 15,
       "rulesFallingBack": 0
     },
     {
       "id": "nuxt",
-      "rulesWithSpecificFix": 14,
+      "rulesWithSpecificFix": 15,
       "rulesFallingBack": 0
     },
     {
       "id": "nest",
-      "rulesWithSpecificFix": 14,
+      "rulesWithSpecificFix": 15,
       "rulesFallingBack": 0
     },
     {
       "id": "express",
-      "rulesWithSpecificFix": 14,
+      "rulesWithSpecificFix": 15,
       "rulesFallingBack": 0
     },
     {
       "id": "fastify",
-      "rulesWithSpecificFix": 14,
+      "rulesWithSpecificFix": 15,
       "rulesFallingBack": 0
     },
     {
       "id": "hono",
-      "rulesWithSpecificFix": 14,
+      "rulesWithSpecificFix": 15,
       "rulesFallingBack": 0
     },
     {
       "id": "koa",
-      "rulesWithSpecificFix": 14,
+      "rulesWithSpecificFix": 15,
       "rulesFallingBack": 0
     },
     {
       "id": "hapi",
-      "rulesWithSpecificFix": 14,
+      "rulesWithSpecificFix": 15,
       "rulesFallingBack": 0
     },
     {
       "id": "sails",
-      "rulesWithSpecificFix": 14,
+      "rulesWithSpecificFix": 15,
       "rulesFallingBack": 0
     },
     {
       "id": "astro",
-      "rulesWithSpecificFix": 14,
+      "rulesWithSpecificFix": 15,
       "rulesFallingBack": 0
     },
     {
       "id": "remix",
-      "rulesWithSpecificFix": 14,
+      "rulesWithSpecificFix": 15,
       "rulesFallingBack": 0
     },
     {
       "id": "gatsby",
-      "rulesWithSpecificFix": 14,
+      "rulesWithSpecificFix": 15,
       "rulesFallingBack": 0
     }
   ],
-  "ruleCount": 14,
-  "categoriesCovered": 9
+  "hosts": [
+    {
+      "id": "claude-code",
+      "rulesWithSpecificFix": 10,
+      "rulesFallingBack": 0
+    },
+    {
+      "id": "cursor",
+      "rulesWithSpecificFix": 10,
+      "rulesFallingBack": 0
+    },
+    {
+      "id": "vscode",
+      "rulesWithSpecificFix": 10,
+      "rulesFallingBack": 0
+    },
+    {
+      "id": "copilot",
+      "rulesWithSpecificFix": 10,
+      "rulesFallingBack": 0
+    },
+    {
+      "id": "codex",
+      "rulesWithSpecificFix": 10,
+      "rulesFallingBack": 0
+    },
+    {
+      "id": "gemini-cli",
+      "rulesWithSpecificFix": 10,
+      "rulesFallingBack": 0
+    },
+    {
+      "id": "generic",
+      "rulesWithSpecificFix": 10,
+      "rulesFallingBack": 0
+    }
+  ],
+  "agentPaths": [
+    ".claude/settings.json",
+    ".claude/settings.local.json",
+    ".claude/hooks/**",
+    ".claude/agents/**",
+    ".claude/skills/**",
+    ".claude/*.{js,mjs,cjs,ts,sh,py}",
+    ".claude-plugin/**",
+    ".cursor/mcp.json",
+    ".cursor/hooks.json",
+    ".cursor/hooks/**",
+    ".cursor/*.{js,mjs,cjs,ts,sh,py}",
+    ".cursor/rules/**",
+    ".cursorrules",
+    ".vscode/tasks.json",
+    ".vscode/settings.json",
+    ".vscode/extensions.json",
+    ".vscode/*.{js,mjs,cjs,ts,sh,py}",
+    ".devcontainer/devcontainer.json",
+    ".devcontainer/**/devcontainer.json",
+    ".github/copilot-instructions.md",
+    ".gemini/**",
+    ".codex/**",
+    ".mcp.json",
+    "mcp.json",
+    "CLAUDE.md",
+    "AGENTS.md"
+  ],
+  "ruleCount": 25,
+  "webAppRuleCount": 15,
+  "agentWorkspaceRuleCount": 10,
+  "categoriesCovered": 9,
+  "asiCategoriesCovered": 4
 }

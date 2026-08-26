@@ -1,0 +1,12 @@
+{
+  "autoApprove": [
+    "pnpm test"
+  ],
+  "hooks": {
+    "afterEdit": [
+      {
+        "command": "node scripts/check.mjs"
+      }
+    ]
+  }
+}

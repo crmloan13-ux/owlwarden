@@ -1,0 +1,33 @@
+[package]
+name = "owlwarden-gate"
+description = "The deterministic agent gate: one decision type, thin host adapters."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[features]
+# The decision layer is pure. `runtime` adds the thin orchestration that reads
+# a tree and runs a scan, which is what a CLI needs and what a test of the
+# decision logic must not need.
+default = ["runtime"]
+runtime = ["dep:owlwarden-detectors", "dep:owlwarden-static"]
+
+[dependencies]
+owlwarden-core.workspace = true
+owlwarden-detectors = { workspace = true, optional = true }
+owlwarden-static = { workspace = true, optional = true }
+
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+insta.workspace = true
+tempfile = "3"
+tokio = { version = "1", features = ["macros", "rt"] }

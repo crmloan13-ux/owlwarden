@@ -21,6 +21,7 @@
 //!  ⓘ ref            A05:2021 · CWE-209 · RULES.md#stack-trace-leak
 //! ```
 
+use std::fmt::Write as _;
 use std::io::Write;
 
 use owlwarden_core::finding::{CodeFrame, Finding, ReferenceKind, Severity};
@@ -106,10 +107,24 @@ impl<'w> PrettyReporter<'w> {
         let summary = report.summary;
         let glyphs = self.glyphs();
 
+        // Two counts, because they answer different questions: how much source
+        // was parsed, and how much configuration was read. A `vet` reporting
+        // "0 files" over fourteen findings would be describing the wrong one.
+        let mut scanned = format!("{} files", report.target.files_scanned);
+        if report.target.config_files_scanned > 0 {
+            let _ = write!(scanned, " · {} config", report.target.config_files_scanned);
+        }
+        // A diff-scoped clean result must never render as a clean repository.
+        let scope = report
+            .target
+            .diff_scope
+            .as_ref()
+            .map(|scope| format!(" · {scope}"))
+            .unwrap_or_default();
+
         let header = format!(
-            "{} {} files · {} · {}.{:02}s",
+            "{} {scanned} · {}{scope} · {}.{:02}s",
             crate::banner::owl_mark(self.options.unicode),
-            report.target.files_scanned,
             report.target.preset,
             report.duration_ms / 1000,
             (report.duration_ms % 1000) / 10,
@@ -162,14 +177,25 @@ impl<'w> PrettyReporter<'w> {
             confidence_style(finding.confidence),
             finding.confidence.as_str(),
         );
+        // OWASP for an application finding, ASI for an agent-surface one. A
+        // finding never carries both, so one column is enough and the reader
+        // learns which taxonomy applies from the id itself.
         let category = finding
             .owasp
             .as_ref()
-            .map(|owasp| self.paint(dim(), owasp.as_str()))
+            .map(|owasp| owasp.as_str().to_owned())
+            .or_else(|| finding.asi.as_ref().map(|asi| asi.as_str().to_owned()))
+            .map(|text| self.paint(dim(), &text))
+            .unwrap_or_default();
+        // `active` / `template` sits next to the confidence because it modifies
+        // the same judgement: how much of your real configuration this is.
+        let scope = finding
+            .runtime_scope
+            .map(|scope| format!("{}  ", self.paint(dim(), scope.as_str())))
             .unwrap_or_default();
         writeln!(
             self.writer,
-            "{severity}  {confidence}  {}  {category}",
+            "{severity}  {confidence}  {scope}{}  {category}",
             self.paint(bold(), &finding.title)
         )?;
         writeln!(self.writer, "{}", self.paint(dim(), &rule))?;
@@ -274,10 +300,18 @@ impl<'w> PrettyReporter<'w> {
         let glyphs = self.glyphs();
 
         if let Some(fix) = finding.primary_fix() {
-            let label = fix
-                .framework
-                .as_ref()
-                .map_or_else(|| "fix".to_owned(), |fw| format!("fix ({fw})"));
+            // `fix (Next.js)` or `fix (Claude Code)`. The parenthesis is what
+            // tells the reader this advice was written for their environment
+            // rather than being a generic paragraph with their stack's name
+            // pasted in.
+            let label = fix.host.as_ref().map_or_else(
+                || {
+                    fix.framework
+                        .as_ref()
+                        .map_or_else(|| "fix".to_owned(), |profile| format!("fix ({profile})"))
+                },
+                |host| format!("fix ({host})"),
+            );
             self.write_labelled(glyphs.arrow, &label, &fix.summary)?;
 
             if let Some(patch) = &fix.patch {
@@ -292,6 +326,15 @@ impl<'w> PrettyReporter<'w> {
             self.write_labelled(glyphs.arrow, "why", &finding.why)?;
         }
 
+        // A `template`- or `documentation`-scoped finding is still reported —
+        // a repository that ships a risky example is telling its readers to do
+        // the risky thing — but the reader needs one line saying which it is.
+        if let Some(scope) = finding.runtime_scope
+            && scope != owlwarden_core::finding::RuntimeScope::Active
+        {
+            self.write_labelled(glyphs.info, "scope", scope.explanation())?;
+        }
+
         if !finding.references.is_empty() {
             let separator = if self.options.unicode { " · " } else { " | " };
             let joined = finding
@@ -300,7 +343,11 @@ impl<'w> PrettyReporter<'w> {
                 .map(|reference| {
                     let label = match reference.kind {
                         ReferenceKind::Owasp => format!("OWASP {}", reference.id),
-                        ReferenceKind::Cwe | ReferenceKind::Docs => reference.id.clone(),
+                        // ASI ids are already prefixed ("ASI05"); repeating the
+                        // taxonomy name would be noise in a terminal column.
+                        ReferenceKind::Asi | ReferenceKind::Cwe | ReferenceKind::Docs => {
+                            reference.id.clone()
+                        }
                     };
                     self.link(&reference.url, &label)
                 })
@@ -318,7 +365,14 @@ impl<'w> PrettyReporter<'w> {
     /// their labels one column apart in the same report.
     fn write_labelled(&mut self, marker: &str, label: &str, text: &str) -> std::io::Result<()> {
         let indent = 1 + MARKER_WIDTH + 1 + LABEL_WIDTH;
-        let head = format!("{marker:<MARKER_WIDTH$} {label:<LABEL_WIDTH$}");
+        // A label longer than the column — `fix (GitHub Copilot)` — still gets
+        // a separating space. Without it the label runs into the text and the
+        // reader sees `fix (Claude Code)Delete the entry`.
+        let head = if label.chars().count() >= LABEL_WIDTH {
+            format!("{marker:<MARKER_WIDTH$} {label} ")
+        } else {
+            format!("{marker:<MARKER_WIDTH$} {label:<LABEL_WIDTH$}")
+        };
         writeln!(
             self.writer,
             " {}{}",

@@ -9,7 +9,7 @@
 use owlwarden_core::detector::DetectorMeta;
 use owlwarden_core::finding::{Finding, FindingBuilder, Severity};
 
-/// A builder seeded from a rule's metadata: id, severity, title, OWASP, CWE.
+/// A builder seeded from a rule's metadata: id, severity, title, OWASP, ASI, CWE.
 ///
 /// The caller still supplies everything that varies per finding — location,
 /// confidence, evidence, remediation — because those are properties of what was
@@ -19,6 +19,9 @@ pub fn finding_builder(meta: &DetectorMeta) -> FindingBuilder {
     let mut builder = Finding::builder(meta.id.clone(), meta.severity, meta.title.clone());
     if let Some(owasp) = &meta.owasp {
         builder = builder.owasp(owasp.clone());
+    }
+    if let Some(asi) = &meta.asi {
+        builder = builder.asi(asi.clone());
     }
     if let Some(cwe) = meta.cwe {
         builder = builder.cwe(cwe);
@@ -37,6 +40,9 @@ pub fn finding_builder_with(meta: &DetectorMeta, severity: Severity) -> FindingB
     if let Some(owasp) = &meta.owasp {
         builder = builder.owasp(owasp.clone());
     }
+    if let Some(asi) = &meta.asi {
+        builder = builder.asi(asi.clone());
+    }
     if let Some(cwe) = meta.cwe {
         builder = builder.cwe(cwe);
     }
@@ -49,6 +55,7 @@ mod tests {
 
     use super::*;
     use owlwarden_core::finding::{Confidence, OwaspRef, RuleId};
+    use owlwarden_core::surface::Surface;
 
     fn meta() -> DetectorMeta {
         DetectorMeta {
@@ -57,7 +64,9 @@ mod tests {
             severity: Severity::High,
             max_confidence: Confidence::Likely,
             owasp: Some(OwaspRef::new_static("A05:2021")),
+            asi: None,
             cwe: Some(209),
+            surface: Surface::WebApp,
             category: "c".into(),
             description: "d".into(),
         }

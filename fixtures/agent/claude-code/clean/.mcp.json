@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "db": {
+      "command": "pnpm",
+      "args": [
+        "exec",
+        "mcp-db"
+      ]
+    }
+  }
+}

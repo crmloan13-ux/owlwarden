@@ -15,6 +15,17 @@ export interface NativeEngine {
   scan(requestJson: string): Promise<string>;
 
   /**
+   * Runs one gate event: parse the host's payload, scan what it names, decide,
+   * and encode the answer in the host's own shape.
+   *
+   * Takes a JSON gate request and returns `{ stdout, stderr, exitCode }`. Never
+   * rejects for a gate failure — a hook that throws shows a developer a stack
+   * trace mid-session, and the failure posture (`ask` before execution, `allow`
+   * after) is the answer instead.
+   */
+  gate(requestJson: string): Promise<string>;
+
+  /**
    * Builds a lockfile-scoped OSV index JSON string for `owlwarden osv update`.
    * Queries api.osv.dev (online).
    */
@@ -50,6 +61,7 @@ export class NativeLoadError extends Error {
 
 const REQUIRED_EXPORTS = [
   "scan",
+  "gate",
   "buildOsvIndex",
   "render",
   "listRules",

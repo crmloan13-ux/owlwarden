@@ -7,6 +7,7 @@ use owlwarden_core::ScanContext;
 use owlwarden_core::detector::{Capabilities, Detector, DetectorError, DetectorKind, DetectorMeta};
 use owlwarden_core::finding::{Confidence, Finding, RuleId, Severity};
 use owlwarden_core::scope::Target;
+use owlwarden_core::surface::Surface;
 
 use crate::headers;
 
@@ -76,7 +77,9 @@ impl Detector for DynamicEngine {
             severity: Severity::Info,
             max_confidence: Confidence::Likely,
             owasp: None,
+            asi: None,
             cwe: None,
+            surface: Surface::WebApp,
             category: "engine".into(),
             description: "Probes a live target through the bounded transport and \
                           reports runtime observations for correlation."

@@ -72,7 +72,26 @@ pub fn render(report: &CoverageReport, options: CoverageOptions) -> String {
     );
 
     write_owasp(&mut out, report, options, heading, muted);
-    write_frameworks(&mut out, report, heading, muted);
+    write_asi(&mut out, report, options, heading, muted);
+    write_profiles(
+        &mut out,
+        "Frameworks",
+        &report.frameworks,
+        report.web_app_rule_count,
+        "framework",
+        heading,
+        muted,
+    );
+    write_profiles(
+        &mut out,
+        "Agent hosts",
+        &report.hosts,
+        report.agent_workspace_rule_count,
+        "host",
+        heading,
+        muted,
+    );
+    write_agent_paths(&mut out, report, heading, muted);
 
     let _ = writeln!(out);
     let _ = writeln!(
@@ -143,27 +162,127 @@ fn write_owasp(
     }
 }
 
-/// The framework half: how many rules speak each framework's dialect.
-fn write_frameworks(out: &mut String, report: &CoverageReport, heading: Style, muted: Style) {
+/// The ASI half of the table.
+///
+/// A separate section rather than more rows in the OWASP one: the two
+/// taxonomies answer different questions, and a reader who scans for "how much
+/// of the Top 10?" must not have that number quietly inflated by agent rules.
+fn write_asi(
+    out: &mut String,
+    report: &CoverageReport,
+    options: CoverageOptions,
+    heading: Style,
+    muted: Style,
+) {
+    if report.asi.is_empty() {
+        return;
+    }
     let _ = writeln!(out);
-    let _ = writeln!(out, "{heading}Frameworks{heading:#}");
+    let _ = writeln!(
+        out,
+        "{heading}OWASP ASI {} (agentic){heading:#}",
+        report.asi_edition
+    );
     let _ = writeln!(out);
 
-    for framework in &report.frameworks {
-        let note = if framework.rules_falling_back == 0 {
-            "every rule has framework-specific remediation".to_owned()
+    for entry in &report.asi {
+        let status = status_of(entry);
+        let _ = writeln!(
+            out,
+            "  {:<ID_WIDTH$}  {:<9}  {}",
+            entry.id,
+            status.label(options.unicode),
+            entry.title
+        );
+        let detail = if entry.rules.is_empty() {
+            status.agent_explanation().to_owned()
+        } else {
+            entry.rules.join(", ")
+        };
+        let _ = writeln!(
+            out,
+            "  {:<ID_WIDTH$}  {:<9}  {muted}{detail}{muted:#}",
+            "", ""
+        );
+    }
+
+    let _ = writeln!(out);
+    let _ = writeln!(
+        out,
+        "  {} of 10 agentic categories have at least one rule, from {} agent-surface rule{}.",
+        report.asi_categories_covered,
+        report.agent_workspace_rule_count,
+        if report.agent_workspace_rule_count == 1 {
+            ""
+        } else {
+            "s"
+        }
+    );
+}
+
+/// One profile table: how many of a surface's rules speak each dialect.
+///
+/// Shared between frameworks and hosts because the question is identical, and
+/// two copies would be two places for the phrasing to drift.
+fn write_profiles(
+    out: &mut String,
+    title: &str,
+    profiles: &[owlwarden_core::coverage::FrameworkEntry],
+    total: usize,
+    noun: &str,
+    heading: Style,
+    muted: Style,
+) {
+    if profiles.is_empty() {
+        return;
+    }
+    let _ = writeln!(out);
+    let _ = writeln!(out, "{heading}{title}{heading:#}");
+    let _ = writeln!(out);
+
+    for profile in profiles {
+        let note = if profile.rules_falling_back == 0 {
+            format!("every rule has {noun}-specific remediation")
         } else {
             format!(
                 "{} rule(s) fall back to generic advice",
-                framework.rules_falling_back
+                profile.rules_falling_back
             )
         };
         let _ = writeln!(
             out,
-            "  {:<10}  {:>2} rules  {muted}{note}{muted:#}",
-            framework.id, framework.rules_with_specific_fix
+            "  {:<12}  {:>2} of {total} rules  {muted}{note}{muted:#}",
+            profile.id, profile.rules_with_specific_fix
         );
     }
+}
+
+/// What the agent surface reads, stated as a list.
+///
+/// The counterpart of the OWASP gaps: on this surface the honest answer to
+/// "what do you not look at?" is a path list, because the allowlist is closed.
+/// Printing it means a reader can tell in one glance whether their host's
+/// configuration is even in scope.
+fn write_agent_paths(out: &mut String, report: &CoverageReport, heading: Style, muted: Style) {
+    let globs = &report.agent_paths;
+    if globs.is_empty() {
+        return;
+    }
+    let _ = writeln!(out);
+    let _ = writeln!(out, "{heading}Agent workspace paths read{heading:#}");
+    let _ = writeln!(out);
+    for chunk in globs.chunks(3) {
+        let _ = writeln!(out, "  {}", chunk.join("  "));
+    }
+    let _ = writeln!(out);
+    let _ = writeln!(
+        out,
+        "  {muted}A closed list, matched at the repository root and under any prefix.{muted:#}"
+    );
+    let _ = writeln!(
+        out,
+        "  {muted}A path not on it is not scanned, including agent config inside node_modules.{muted:#}"
+    );
 }
 
 /// The three honest states a category can be in.
@@ -194,6 +313,16 @@ impl Status {
             Self::Covered => "",
             Self::Gap => "no rule yet; source analysis can see this",
             Self::OutOfReach => "needs runtime or deployment context, not source",
+        }
+    }
+
+    /// The same three states, worded for the agent surface, where the limit is
+    /// the run-time behaviour of an agent rather than a deployment.
+    fn agent_explanation(self) -> &'static str {
+        match self {
+            Self::Covered => "",
+            Self::Gap => "no rule yet; configuration can show this",
+            Self::OutOfReach => "needs the agent's run-time behaviour, not its configuration",
         }
     }
 }
@@ -244,6 +373,37 @@ mod tests {
             out_of_reach > 0,
             "at least one Top 10 category is genuinely beyond static analysis; \
              if this fails, the reachability data has been overstated"
+        );
+    }
+
+    #[test]
+    fn the_agent_surface_states_its_own_gaps_in_the_same_voice() {
+        // ADR 0025 exit criterion 8: the ASI table prints with its gaps stated,
+        // the way the OWASP table does. A table that only listed what we cover
+        // would be an advertisement.
+        let report = owlwarden_detectors::coverage_report();
+        let text = render(&report, CoverageOptions::default());
+        assert!(text.contains("OWASP ASI"), "the ASI table is printed");
+        for entry in &report.asi {
+            assert!(text.contains(&entry.id), "{} is missing", entry.id);
+        }
+        let uncovered = report
+            .asi
+            .iter()
+            .filter(|entry| entry.rules.is_empty())
+            .count();
+        assert!(
+            uncovered > 0,
+            "some agentic categories are beyond a configuration scanner; if this fails, check \
+             the claim is genuine before updating the test"
+        );
+        assert!(
+            text.contains("Agent hosts") && text.contains("claude-code"),
+            "the host support table is printed"
+        );
+        assert!(
+            text.contains(".claude/settings.local.json"),
+            "the path list is what tells a reader whether their config is in scope at all"
         );
     }
 

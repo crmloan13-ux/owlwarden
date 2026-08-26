@@ -178,6 +178,9 @@ impl FileUnit<'_> {
         let route = self.meta.route.as_ref();
         FindingContext {
             framework: Some(self.framework().clone()),
+            // A parsed application file is never an agent-host artefact; the
+            // agent surface builds its own context (see `agentws`).
+            host: None,
             route: route.map(|route| route.path.clone()),
             method: method.or_else(|| route.and_then(|route| route.method.clone())),
             evidence,

@@ -91,6 +91,7 @@ fn observed_finding(url: &str, method: &str, path: &str, evidence: String, why: 
         }))
         .context(FindingContext {
             framework: None,
+            host: None,
             route: Some(path.to_owned()),
             method: Some(method.to_owned()),
             evidence: Some(evidence),

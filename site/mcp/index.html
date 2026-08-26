@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<title>owlwarden MCP server — read-only, static, offline</title>
+<meta name="description" content="A stdio MCP server exposing scan_project, scan_file, explain_rule, and list_rules. Read-only, static-only, and it never touches the network.">
+<link rel="canonical" href="https://suthat.github.io/owlwarden/mcp/">
+<meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1">
+<meta name="theme-color" content="#fbfaf8">
+
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="owlwarden">
+<meta property="og:title" content="The owlwarden MCP server">
+<meta property="og:description" content="A stdio MCP server exposing scan_project, scan_file, explain_rule, and list_rules. Read-only, static-only, and it never touches the network.">
+<meta property="og:url" content="https://suthat.github.io/owlwarden/mcp/">
+<meta property="og:image" content="https://suthat.github.io/owlwarden/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="An owlwarden finding: a SessionStart hook in .claude/settings.json that runs a command when the workspace is opened">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="The owlwarden MCP server">
+<meta name="twitter:description" content="A stdio MCP server exposing scan_project, scan_file, explain_rule, and list_rules. Read-only, static-only, and it never touches the network.">
+<meta name="twitter:image" content="https://suthat.github.io/owlwarden/og.png">
+
+<link rel="icon" type="image/svg+xml" href="../favicon.svg">
+<link rel="alternate icon" type="image/png" href="../favicon.png">
+<link rel="apple-touch-icon" href="../favicon.png">
+<link rel="alternate" type="application/atom+xml" title="owlwarden releases" href="https://suthat.github.io/owlwarden/changelog/feed.xml">
+<link rel="stylesheet" href="../styles.css?v=1.1.0">
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "BreadcrumbList",
+      "@id": "https://suthat.github.io/owlwarden/mcp/#breadcrumbs",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "owlwarden",
+          "item": "https://suthat.github.io/owlwarden/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "MCP",
+          "item": "https://suthat.github.io/owlwarden/mcp/"
+        }
+      ]
+    },
+    {
+      "@type": "SoftwareApplication",
+      "name": "owlwarden MCP server",
+      "applicationCategory": "DeveloperApplication",
+      "operatingSystem": "macOS, Linux, Windows",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD"
+      }
+    }
+  ]
+}
+</script>
+</head>
+<body>
+<a class="skip-link" href="#main-content">Skip to content</a>
+
+<header class="site-header">
+  <a class="wordmark" href="../">
+    <span aria-hidden="true">◉ᴥ◉</span>
+    <span>owlwarden</span>
+  </a>
+  <nav aria-label="Primary">
+    <a href="../rules/">Rules</a>
+    <a href="../agent-config-security/">Agent config</a>
+    <a href="../vet/">vet</a>
+    <a href="../offline/">Offline</a>
+    <a href="../owasp/">Coverage</a>
+    <a href="https://github.com/suthat/owlwarden" rel="noopener">GitHub</a>
+  </nav>
+</header>
+
+<nav class="breadcrumbs" aria-label="Breadcrumb">
+  <ol>
+    <li><a href="../">owlwarden</a></li>
+    <li aria-current="page">MCP</li>
+  </ol>
+</nav>
+
+<main id="main-content">
+<h1>The owlwarden MCP server</h1>
+
+<p class="lede">
+  Four tools, all read-only: <code>scan_project</code>, <code>scan_file</code>,
+  <code>explain_rule</code>, <code>list_rules</code>. No live target, no file
+  writes, and every path stays under the workspace root.
+</p>
+
+<pre class="code"><code class="language-bash">npx owlwarden mcp</code></pre>
+
+<h2>What it is for, and what it is not</h2>
+<p>
+  It is the right surface for the prompted, exploratory case: <em>what does this
+  rule mean</em>, <em>show me everything in <code>packages/api</code></em>.
+</p>
+<p>
+  It is not the enforcement story, and this page will not pretend otherwise.
+  An MCP tool is called when the model decides the task warrants it, and
+  mid-refactor it often does not. Every commercial scanner shipped an MCP server
+  in 2026; that is not a differentiator, and leading with it invites the
+  comparison we lose. <a href="../claude-code/">The gate is the control</a>.
+</p>
+
+<h2>Configuration</h2>
+<p>
+  <code>owlwarden init</code> writes this for you:
+  <a href="../claude-code/">Claude Code</a>, <a href="../cursor/">Cursor</a>, or
+  <a href="../vet/">check a repository first</a>.
+</p>
+<pre class="code"><code class="language-json">{
+  &quot;mcpServers&quot;: {
+    &quot;owlwarden&quot;: {
+      &quot;command&quot;: &quot;node_modules/.bin/owlwarden&quot;,
+      &quot;args&quot;: [&quot;mcp&quot;]
+    }
+  }
+}</code></pre>
+<p>
+  Invoked by path rather than <code>npx -y owlwarden</code>, because
+  <a href="../rules/agent-mcp-unpinned-remote/">a server resolved at run time is
+  a finding</a> — and generating the shape we report would be indefensible.
+</p>
+
+<h2>On a terminal</h2>
+<p>
+  Run without a host and it prints a short how-to on stderr, then waits.
+  Silence means it is waiting for a host, not that it hung.
+</p>
+
+<h2>Keep reading</h2>
+<ul class="cards">
+  <li><a href="../rules/"><span class="name">All rules</span><span class="blurb">The pattern, the fix for your stack, the CWE.</span></a></li>
+  <li><a href="../agent-config-security/"><span class="name">Agent config security</span><span class="blurb">The files your agent executes and nothing scans.</span></a></li>
+  <li><a href="../vet/"><span class="name">owlwarden vet</span><span class="blurb">Check a repository before you open it.</span></a></li>
+  <li><a href="../owasp/"><span class="name">Coverage, gaps included</span><span class="blurb">What it checks, and what no parser can.</span></a></li>
+</ul>
+
+</main>
+
+<footer class="site-footer">
+  <p>
+    <strong>owlwarden 1.1.0</strong> — offline security scanner for Node web apps
+    and AI coding agents. No account, no telemetry, no network unless you ask.
+  </p>
+  <nav aria-label="Footer">
+    <a href="../rules/">All rules</a>
+    <a href="../owasp/">OWASP coverage</a>
+    <a href="../asi/">ASI coverage</a>
+    <a href="../offline/">Offline</a>
+    <a href="../ci/">CI</a>
+    <a href="../mcp/">MCP</a>
+    <a href="https://github.com/suthat/owlwarden/blob/main/RULES.md" rel="noopener">RULES.md</a>
+    <a href="https://www.npmjs.com/package/owlwarden" rel="noopener">npm</a>
+  </nav>
+  <p class="licence">MIT OR Apache-2.0. <code>npx owlwarden scan</code></p>
+</footer>
+</body>
+</html>

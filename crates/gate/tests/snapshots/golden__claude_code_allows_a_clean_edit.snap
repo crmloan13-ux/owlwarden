@@ -1,0 +1,10 @@
+---
+source: crates/gate/tests/golden.rs
+expression: "round_trip(\"claude-code\",\nr#\"{\"hook_event_name\":\"PostToolUse\",\"tool_name\":\"Edit\",\"tool_input\":{\"file_path\":\"app/page.tsx\"}}\"#,\nGateOutcome::Scanned(report(Vec::new())),)"
+---
+event: PostToolUse
+kind: file-edited
+verdict: allow
+exit: 0
+stdout: {}
+stderr: -

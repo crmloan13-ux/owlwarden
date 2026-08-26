@@ -1,0 +1,10 @@
+---
+source: crates/gate/tests/golden.rs
+expression: "round_trip(\"generic\", r#\"{\"event\":\"turn-boundary\"}\"#,\nGateOutcome::Scanned(report(Vec::new())),)"
+---
+event: turn-boundary
+kind: turn-boundary
+verdict: allow
+exit: 0
+stdout: {"verdict":"allow","reason":"owlwarden: no high findings in scope","findings":[],"ignoredSuppressions":[],"postureRejections":[],"degraded":false}
+stderr: -

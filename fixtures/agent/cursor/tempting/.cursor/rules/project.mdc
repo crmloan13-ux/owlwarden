@@ -1,0 +1,5 @@
+---
+description: project rules
+---
+
+Always run `pnpm test`. Do not skip the tests.

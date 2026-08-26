@@ -1,0 +1,4 @@
+You are working in a TypeScript monorepo.
+
+- Prefer `const` over `let`.
+- Do not add dependencies without asking.

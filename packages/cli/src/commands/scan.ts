@@ -7,6 +7,8 @@ import type { ReportFormat, ScanOptions } from "../args.js";
 import { EXIT } from "../exit.js";
 import { applyFixes } from "../fix.js";
 import type { NativeEngine } from "../native.js";
+import { resolveScope } from "../git.js";
+import { sanitizeTerminalLine } from "../mcp/agent-safety.js";
 import { readFileBounded, writeReplacing } from "../safe-write.js";
 
 /** Must match `owlwarden_core::baseline::MAX_BASELINE_BYTES`. */
@@ -39,18 +41,31 @@ export async function runScan(
   stdout: NodeJS.WritableStream,
   capture?: ScanCapture,
 ): Promise<number> {
-  const resolved = await resolveConfig(options.path, {
-    allowConfigJs: options.allowConfigJs,
-  });
+  // `vet` does not read the target's config at all. Not "reads it and ignores
+  // the gate knobs" — does not read it. The whole value of the command is that
+  // its answer does not depend on what the scanned repository asked for
+  // (ADR 0025 §7).
+  const resolved = options.vet
+    ? ({ ok: true, config: VET_CONFIG, source: { kind: "defaults" } } as const)
+    : await resolveConfig(options.path, { allowConfigJs: options.allowConfigJs });
   if (!resolved.ok) {
     stderr.write(`error: ${formatConfigError(resolved.error)}\n`);
     return EXIT.ERROR;
   }
 
-  if (resolved.skippedExecutable !== undefined && !options.quiet) {
+  if ("skippedExecutable" in resolved && resolved.skippedExecutable !== undefined && !options.quiet) {
     stderr.write(
       `note: skipped executable config ${resolved.skippedExecutable}\n` +
         `  pass --allow-config-js to load it (never on an untrusted tree)\n`,
+    );
+  }
+
+  // Said out loud because the alternative is a monorepo whose shared config
+  // never applied and whose author has no way to find out.
+  if ("skippedSymlink" in resolved && resolved.skippedSymlink !== undefined && !options.quiet) {
+    stderr.write(
+      `note: ignored ${resolved.skippedSymlink}: config is not read through a symlink\n` +
+        `  replace the link with a real file, or set the keys in package.json\n`,
     );
   }
 
@@ -89,7 +104,8 @@ export async function runScan(
     return EXIT.ERROR;
   }
 
-  const honorSuppressions = !options.ci || options.allowSuppressions;
+  // On someone else's repository a suppression is evidence, not instruction.
+  const honorSuppressions = options.vet ? false : !options.ci || options.allowSuppressions;
   if (options.ci && !options.allowSuppressions) {
     stderr.write(
       "note: --ci ignores inline suppressions\n" +
@@ -126,6 +142,18 @@ export async function runScan(
     }
   }
 
+  let scope: { scopedPaths?: string[]; diffScope?: string };
+  try {
+    scope = scopeFields(options, stderr);
+  } catch (error) {
+    stderr.write(
+      `error: ${error instanceof Error ? error.message : String(error)}\n` +
+        "  a narrowing flag that cannot narrow is an error, not a full scan\n" +
+        "  in CI this is usually a shallow clone: set fetch-depth: 0 on checkout\n",
+    );
+    return EXIT.ERROR;
+  }
+
   const envelope = JSON.parse(
     await native.scan(
       JSON.stringify({
@@ -153,6 +181,7 @@ export async function runScan(
         ...(options.previousReportJson !== undefined
           ? { previousReportJson: options.previousReportJson }
           : {}),
+        ...scope,
       }),
     ),
   ) as Envelope;
@@ -186,6 +215,20 @@ export async function runScan(
 
   if (options.writeBaseline !== undefined && !options.quiet) {
     stderr.write(`wrote baseline to ${options.writeBaseline}\n`);
+  }
+
+  // ADR 0025 §7: on someone else's repository the suppression surface is
+  // evidence. Printed on the summary line rather than buried in the JSON,
+  // because "this repository silences four of our rules" is the single most
+  // useful sentence `vet` can produce about a tree you have not read.
+  if (options.vet && !options.quiet) {
+    const directives = parsed.data.suppressions.length;
+    if (directives > 0) {
+      stderr.write(
+        `note: this repository carries ${directives} inline suppression(s), which vet counted ` +
+          "and did not honour\n",
+      );
+    }
   }
 
   if (options.allowActive && envelope.audit !== undefined && envelope.audit.length > 0) {
@@ -297,6 +340,62 @@ function resolveFormats(options: ScanOptions, configDefault: ReportFormat): Repo
   return [configDefault];
 }
 
+/**
+ * The config `vet` runs with, in place of the target's own.
+ *
+ * A literal rather than a call to `resolveConfig` with overrides: there is no
+ * path here on which a file in the scanned repository is read.
+ */
+const VET_CONFIG = {
+  preset: "agent-surface",
+  format: "pretty",
+  failOn: "high",
+  minConfidence: "likely",
+} as const;
+
+/**
+ * Resolves `--since` / `--staged` / `--paths` into the fields the engine reads.
+ *
+ * A git failure degrades to a full scan with a note rather than an error: the
+ * scan is still correct, only wider, and refusing to scan because a ref was
+ * mistyped helps nobody. The *label* is only ever set when the narrowing
+ * actually happened, so a report can never claim a scope it did not have.
+ */
+function scopeFields(
+  options: ScanOptions,
+  stderr: NodeJS.WritableStream,
+): { scopedPaths?: string[]; diffScope?: string } {
+  if (options.since === undefined && !options.staged && options.paths.length === 0) {
+    return {};
+  }
+  try {
+    const scope = resolveScope(options.path, {
+      ...(options.since === undefined ? {} : { since: options.since }),
+      staged: options.staged,
+      paths: options.paths,
+    });
+    if (scope === undefined) return {};
+    if (scope.paths.length === 0) {
+      // Nothing changed. Say so rather than silently scanning everything.
+      stderr.write(`note: ${scope.label} matched no files; nothing to scan\n`);
+    }
+    return { scopedPaths: scope.paths, diffScope: scope.label };
+  } catch (error) {
+    // Not a note, and not a wider scan. A `--since` that cannot resolve used to
+    // degrade to scanning everything, which is the failure this module's own
+    // comment warns about: the operator asked to look at a diff and got the
+    // whole repository, twenty times the findings, and one line on stderr
+    // explaining why. In CI that is the difference between "three new findings"
+    // and a red job full of debt the change did not introduce — and the usual
+    // cause is `actions/checkout` defaulting to `fetch-depth: 1`, which the
+    // message names because nobody guesses it.
+    throw new ScopeError(error instanceof Error ? error.message : String(error));
+  }
+}
+
+/** A narrowing flag that could not narrow. Fatal rather than widening. */
+class ScopeError extends Error {}
+
 function isMachineFormat(format: ReportFormat): boolean {
   return format !== "pretty";
 }
@@ -311,6 +410,8 @@ function machineExtension(format: ReportFormat): string {
       return ".xml";
     case "md":
       return ".md";
+    case "agent":
+      return ".agent.txt";
     case "pretty":
       throw new Error("pretty is not a machine format");
   }
@@ -422,8 +523,15 @@ function writeSuppressions(report: Report, stdout: NodeJS.WritableStream): void 
       : record.stale
         ? "stale"
         : "active";
-    const reason = record.reason === "" ? "(no reason)" : record.reason;
-    stdout.write(`  ${record.path}:${record.line}  ${record.rule}  [${flags}]\n`);
+    // Every string on these two lines comes out of the scanned repository: the
+    // reason is a comment somebody wrote, and a path is a filename, which on
+    // every platform this runs on may contain an escape byte.
+    const reason =
+      record.reason === "" ? "(no reason)" : sanitizeTerminalLine(record.reason, 280);
+    stdout.write(
+      `  ${sanitizeTerminalLine(record.path, 200)}:${record.line}` +
+        `  ${sanitizeTerminalLine(record.rule, 80)}  [${flags}]\n`,
+    );
     stdout.write(`    ${reason}\n`);
   }
 }

@@ -147,7 +147,7 @@ async fn scan_live(relative: &str, target: &str) -> Report {
                 preset: "deep".into(),
                 ..ScanSettings::default()
             },
-            honor_suppressions: true,
+            suppressions: owlwarden_core::suppression::SuppressionPolicy::Honour,
             extra_detectors: vec![live.engine],
             network: Some(live.network),
             correlate: Some(correlate),

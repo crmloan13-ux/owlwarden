@@ -11,7 +11,7 @@ import {
   type KeyObject,
 } from "node:crypto";
 import { lstat, readFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 
 import type { PluginManifest } from "@dointhai/owlwarden-sdk";
 
@@ -38,10 +38,18 @@ export function modulePath(manifestDir: string, manifest: PluginManifest): strin
   return join(manifestDir, relative);
 }
 
-/** Inspects digest and detached signature without loading WASM. */
+/**
+ * Inspects digest and detached signature without loading WASM.
+ *
+ * `trustRootDir` is the operator's project. Omitting it — which is what
+ * `plugin inspect` does, since it is given a plugin path and no project —
+ * leaves `OWLWARDEN_PLUGIN_TRUST` as the only source of keys. It is never
+ * derived from `manifestDir`; see {@link loadTrustRoots}.
+ */
 export async function inspectArtifactStatus(
   manifestDir: string,
   manifest: PluginManifest,
+  trustRootDir?: string,
 ): Promise<ArtifactStatus> {
   const module = modulePath(manifestDir, manifest);
   let wasm: Buffer;
@@ -52,7 +60,7 @@ export async function inspectArtifactStatus(
   }
 
   const digest = digestStatus(manifest, wasm);
-  const signature = await signatureStatus(manifestDir, wasm, module);
+  const signature = await signatureStatus(trustRootDir, wasm, module);
   return { digest, signature, modulePath: module };
 }
 
@@ -81,7 +89,7 @@ function digestStatus(manifest: PluginManifest, wasm: Buffer): DigestStatus {
 }
 
 async function signatureStatus(
-  manifestDir: string,
+  trustRootDir: string | undefined,
   wasm: Buffer,
   moduleFile: string,
 ): Promise<SignatureStatus> {
@@ -98,7 +106,7 @@ async function signatureStatus(
   }
 
   const digest = createHash("sha256").update(wasm).digest();
-  const keys = await loadTrustRoots(manifestDir);
+  const keys = await loadTrustRoots(trustRootDir);
   if (keys.length === 0) {
     return "untrusted";
   }
@@ -111,36 +119,69 @@ async function signatureStatus(
   return "untrusted";
 }
 
+/**
+ * The fixed SubjectPublicKeyInfo prefix for an Ed25519 key.
+ *
+ * `SEQUENCE { SEQUENCE { OID 1.3.101.112 }, BIT STRING (32 bytes) }`. Every
+ * byte of it is determined by the algorithm, so the whole encoding is this
+ * constant followed by the raw key — asserted against Node's own export in
+ * `plugin-trust.test.ts` rather than trusted from a comment.
+ */
+const ED25519_SPKI_PREFIX = Buffer.from("302a300506032b6570032100", "hex");
+
+/**
+ * Wraps 32 raw public-key bytes in the DER encoding Node will accept.
+ *
+ * # Why not `format: "raw"`
+ *
+ * That is what this used to be, with a cast to get it past `@types/node`. The
+ * types were right: Node rejects `format: "raw"` for `createPublicKey`, so this
+ * threw for every key, returned `undefined` for every key, and
+ * `plugin inspect` could not report `verified` for any signature ever made. It
+ * failed in the safe direction, which is exactly why nobody noticed — an
+ * always-`untrusted` signature line looks like an unconfigured trust root.
+ *
+ * The cast was the bug. It silenced the one thing that knew.
+ */
 function ed25519PublicKey(raw: Buffer): KeyObject | undefined {
   if (raw.byteLength !== 32) {
     return undefined;
   }
   try {
-    // Node's raw ed25519 import; cast keeps @types/node from rejecting `format: "raw"`.
     return createPublicKey({
-      key: raw,
-      format: "raw",
-      type: "ed25519",
-    } as unknown as Parameters<typeof createPublicKey>[0]);
+      key: Buffer.concat([ED25519_SPKI_PREFIX, raw]),
+      format: "der",
+      type: "spki",
+    });
   } catch {
     return undefined;
   }
 }
 
-async function loadTrustRoots(manifestDir: string): Promise<Buffer[]> {
-  const keys: Buffer[] = [];
-  keys.push(...parseEnvTrust());
-  for (const trustPath of trustFilePaths(manifestDir)) {
-    keys.push(...(await readTrustFile(trustPath)));
-    if (keys.length >= MAX_TRUST_KEYS) {
-      break;
-    }
+/**
+ * The keys an operator has said they trust.
+ *
+ * # Why the plugin's own directory is not one of them
+ *
+ * It used to be — `<plugin>/.owlwarden/plugin-trust.json` and the same path one
+ * level up, mirroring the Rust host, which had the same bug. Both are inside
+ * the artifact being verified, so a plugin could generate a key, sign itself,
+ * ship the public half beside the signature, and be reported `verified`. On
+ * this side that is worse than in the loader: `plugin inspect` exists to be
+ * read by a person deciding whether to trust a plugin at all, and it was
+ * printing the plugin's own claim about itself as if it were a finding.
+ *
+ * `trustRootDir` is the operator's project when there is one. `inspect` is
+ * handed a plugin path and no project, so it passes `undefined` and the
+ * environment is the only source — which is why an unconfigured `inspect`
+ * reports `untrusted` rather than `verified`.
+ */
+async function loadTrustRoots(trustRootDir: string | undefined): Promise<Buffer[]> {
+  const keys: Buffer[] = [...parseEnvTrust()];
+  if (trustRootDir !== undefined) {
+    keys.push(...(await readTrustFile(join(trustRootDir, TRUST_REL))));
   }
   return keys.slice(0, MAX_TRUST_KEYS);
-}
-
-function trustFilePaths(manifestDir: string): string[] {
-  return [join(manifestDir, TRUST_REL), join(dirname(manifestDir), TRUST_REL)];
 }
 
 function parseEnvTrust(): Buffer[] {

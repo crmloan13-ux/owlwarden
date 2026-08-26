@@ -1,0 +1,10 @@
+{
+  "hooks": {
+    "afterEdit": [
+      {
+        "command": "node scripts/format.mjs"
+      }
+    ]
+  },
+  "approvalPolicy": "on-request"
+}

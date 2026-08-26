@@ -2,12 +2,25 @@
 /**
  * Asserts that every published version agrees, and matches the release tag.
  *
- * The version lives in five files, and npm publishes are immutable: a wrong
+ * The version lives in seven files, and npm publishes are immutable: a wrong
  * number cannot be replaced, only deprecated and superseded. That makes a
  * mismatch the one release mistake with no clean recovery, so it is checked
  * before anything is uploaded rather than discovered afterwards.
  *
- *   node scripts/check-version.mjs            # all five agree
+ * Five of the seven are manifests, where a stale number is at least loud: the
+ * publish fails, or the package is visibly the wrong version. The other two are
+ * worse, and are the reason this file grew:
+ *
+ * - `action/action.yml` carries the *default* `version` input, which is the
+ *   `owlwarden@…` that every CI job resolves when the caller does not pin one.
+ *   A stale default does not fail anything. It quietly runs last release's
+ *   rules in every repository using the Action, for as long as nobody notices.
+ * - `mcp/server.json` is what the MCP registry serves to hosts.
+ *
+ * Neither is published by `npm publish`, so neither is covered by the failure
+ * that catches the rest. They are checked here instead.
+ *
+ *   node scripts/check-version.mjs            # all seven agree
  *   node scripts/check-version.mjs v0.1.0     # ...and equal the tag
  */
 
@@ -50,11 +63,47 @@ async function cargoVersion() {
   return match[1];
 }
 
+/**
+ * Reads the default of the Action's `version` input.
+ *
+ * Also deliberately not a YAML parser, for the same reason as above — but with
+ * a stricter match, because there are several `default:` keys in that file and
+ * picking the wrong one would make this check pass while measuring nothing.
+ */
+async function actionDefaultVersion() {
+  const raw = await readFile(join(root, "action/action.yml"), "utf8");
+  const block = raw.match(/^ {2}version:\n(?: {4}.*\n)+/m)?.[0];
+  const match = block?.match(/^ {4}default: "([^"]+)"/m);
+  if (!match?.[1]) {
+    throw new Error("action/action.yml has no default for the `version` input");
+  }
+  return match[1];
+}
+
+/**
+ * Reads the two versions in the MCP registry descriptor, which must agree with
+ * each other as well as with everything else: one names the server, the other
+ * names the npm package the host is told to run.
+ */
+async function mcpVersions(relative) {
+  const parsed = JSON.parse(await readFile(join(root, relative), "utf8"));
+  const npm = parsed.packages?.find((entry) => entry.registryType === "npm");
+  if (!npm) {
+    throw new Error(`${relative} has no npm package entry`);
+  }
+  return { server: parsed.version, package: npm.version };
+}
+
 const found = new Map();
 for (const relative of MANIFESTS) {
   found.set(relative, await jsonVersion(relative));
 }
 found.set("Cargo.toml", await cargoVersion());
+found.set("action/action.yml (version input default)", await actionDefaultVersion());
+
+const mcp = await mcpVersions("mcp/server.json");
+found.set("mcp/server.json (server)", mcp.server);
+found.set("mcp/server.json (npm package)", mcp.package);
 
 const distinct = new Set(found.values());
 const problems = [];

@@ -12,6 +12,10 @@
 //! - [`SarifReporter`] — SARIF 2.1.0 for GitHub code scanning (ADR 0017).
 //! - [`JunitReporter`] — `JUnit` XML for CI test-report UIs (ADR 0017).
 //! - [`MdReporter`] — GitHub-flavoured Markdown for PR comments (v1.0).
+//! - [`AgentReporter`] — the report on a token budget, for the model in the
+//!   loop (ADR 0026). The one reporter that deliberately omits a field the
+//!   others carry: `why` is written for a human deciding whether to care, and
+//!   an agent has already been told to care by the verdict.
 //!
 //! Decoration goes to **stderr**, never stdout, so `owlwarden scan --format json`
 //! stays a single parseable object no matter what else is printed.
@@ -30,6 +34,7 @@
 #![warn(clippy::pedantic)]
 #![allow(clippy::module_name_repetitions, clippy::must_use_candidate)]
 
+pub mod agent;
 pub mod banner;
 pub mod coverage;
 pub mod json;
@@ -39,6 +44,7 @@ pub mod pretty;
 pub mod sarif;
 pub mod theme;
 
+pub use agent::{AgentOptions, AgentReporter, DEFAULT_BUDGET_TOKENS};
 pub use banner::{BannerOpts, owl_mark, print_banner, render_banner};
 pub use json::JsonReporter;
 pub use junit::JunitReporter;
@@ -50,7 +56,7 @@ pub use theme::Glyphs;
 use owlwarden_core::reporter::{ReportError, Reporter};
 
 /// Names accepted by `--format`, in the order they are offered in help text.
-pub const AVAILABLE_FORMATS: &[&str] = &["pretty", "json", "sarif", "junit", "md"];
+pub const AVAILABLE_FORMATS: &[&str] = &["pretty", "json", "sarif", "junit", "md", "agent"];
 
 /// Builds a reporter by name, writing to the given sink.
 ///
@@ -69,6 +75,7 @@ pub fn reporter_by_name<'w>(
         "sarif" => Ok(Box::new(SarifReporter::new(writer))),
         "junit" => Ok(Box::new(JunitReporter::new(writer))),
         "md" => Ok(Box::new(MdReporter::new(writer))),
+        "agent" => Ok(Box::new(AgentReporter::new(writer))),
         other => Err(ReportError::UnknownFormat {
             name: other.to_owned(),
             available: AVAILABLE_FORMATS.join(", "),

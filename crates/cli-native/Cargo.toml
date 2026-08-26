@@ -19,6 +19,7 @@ path = "src/main.rs"
 owlwarden-core.workspace = true
 owlwarden-detectors.workspace = true
 owlwarden-dynamic.workspace = true
+owlwarden-gate.workspace = true
 owlwarden-plugin-host.workspace = true
 owlwarden-reporters.workspace = true
 owlwarden-static.workspace = true
@@ -27,3 +28,6 @@ owlwarden-transport.workspace = true
 anstream.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
+
+[dev-dependencies]
+tempfile = "3"
