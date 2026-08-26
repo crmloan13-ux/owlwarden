@@ -10,7 +10,7 @@ are listed here under Changed.
 
 ## [Unreleased]
 
-## [1.1.0] — 2026-08-25
+## [1.1.0] — 2026-08-26
 
 A second scan surface and a control that always runs
 ([ADR 0025](docs/adr/0025-agent-surface-and-supply-chain.md),
@@ -572,7 +572,8 @@ does and does not reach.
 - Bounded file count, file size, total bytes, and parser recursion depth, so a
   hostile repository cannot exhaust memory or the stack.
 
-[Unreleased]: https://github.com/suthat/owlwarden/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/suthat/owlwarden/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/suthat/owlwarden/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/suthat/owlwarden/compare/v0.5.0...v1.0.0
 [0.5.0]: https://github.com/suthat/owlwarden/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/suthat/owlwarden/compare/v0.3.0...v0.4.0

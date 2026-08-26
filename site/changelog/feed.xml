@@ -5,12 +5,12 @@
   <link href="https://suthat.github.io/owlwarden/changelog/feed.xml" rel="self"/>
   <link href="https://suthat.github.io/owlwarden/changelog/"/>
   <id>https://suthat.github.io/owlwarden/changelog/</id>
-  <updated>2026-08-25T00:00:00Z</updated>
+  <updated>2026-08-26T00:00:00Z</updated>
   <entry>
     <title>owlwarden 1.1.0</title>
     <link href="https://suthat.github.io/owlwarden/changelog/#1-1-0"/>
     <id>https://suthat.github.io/owlwarden/changelog/#1-1-0</id>
-    <updated>2026-08-25T00:00:00Z</updated>
+    <updated>2026-08-26T00:00:00Z</updated>
     <content type="html">&lt;p&gt;A second scan surface and a control that always runs (&lt;a href=&quot;https://github.com/suthat/owlwarden/blob/main/docs/adr/0025-agent-surface-and-supply-chain.md&quot;&gt;ADR 0025&lt;/a&gt;, &lt;a href=&quot;https://github.com/suthat/owlwarden/blob/main/docs/adr/0026-deterministic-agent-gate.md&quot;&gt;ADR 0026&lt;/a&gt;).&lt;/p&gt;
 &lt;p&gt;owlwarden answered one question: &lt;em&gt;is the web application in this repository written safely?&lt;/em&gt; This release adds the second question the same repository now raises: &lt;em&gt;is the coding agent that works in it being told to do something hostile?&lt;/em&gt;&lt;/p&gt;
 &lt;h3&gt;Added&lt;/h3&gt;
@@ -209,7 +209,7 @@
     <title>owlwarden 0.1.0</title>
     <link href="https://suthat.github.io/owlwarden/changelog/#0-1-0"/>
     <id>https://suthat.github.io/owlwarden/changelog/#0-1-0</id>
-    <updated>2026-08-25T00:00:00Z</updated>
+    <updated>2026-08-26T00:00:00Z</updated>
     <content type="html">&lt;p&gt;Passive dynamic engine and correlation. &lt;code&gt;Confirmed&lt;/code&gt; is reachable for the first time, without opening active (state-changing) checks.&lt;/p&gt;
 &lt;h3&gt;Added&lt;/h3&gt;
 &lt;ul&gt;
@@ -244,7 +244,7 @@
     <title>owlwarden 0.0.2</title>
     <link href="https://suthat.github.io/owlwarden/changelog/#0-0-2"/>
     <id>https://suthat.github.io/owlwarden/changelog/#0-0-2</id>
-    <updated>2026-08-25T00:00:00Z</updated>
+    <updated>2026-08-26T00:00:00Z</updated>
     <content type="html">&lt;p&gt;Static slice of the trust-and-noise work planned for v0.1: suppressions, baseline, three gap-closing rules, and &lt;code&gt;watch&lt;/code&gt;. Still no network — the dynamic engine that makes &lt;code&gt;Confirmed&lt;/code&gt; reachable remains later.&lt;/p&gt;
 &lt;h3&gt;Added&lt;/h3&gt;
 &lt;ul&gt;
@@ -267,7 +267,7 @@
     <title>owlwarden 0.0.1</title>
     <link href="https://suthat.github.io/owlwarden/changelog/#0-0-1"/>
     <id>https://suthat.github.io/owlwarden/changelog/#0-0-1</id>
-    <updated>2026-08-25T00:00:00Z</updated>
+    <updated>2026-08-26T00:00:00Z</updated>
     <content type="html">&lt;p&gt;First release. A static engine, a rule set, and honest reporting about what it does and does not reach.&lt;/p&gt;
 &lt;h3&gt;Added&lt;/h3&gt;
 &lt;ul&gt;
@@ -288,6 +288,6 @@
   &lt;li&gt;&lt;code&gt;#![forbid(unsafe_code)]&lt;/code&gt; in every crate.&lt;/li&gt;
   &lt;li&gt;Bounded file count, file size, total bytes, and parser recursion depth, so a hostile repository cannot exhaust memory or the stack.&lt;/li&gt;
 &lt;/ul&gt;
-&lt;p&gt;[Unreleased]: https://github.com/suthat/owlwarden/compare/v1.0.0...HEAD [1.0.0]: https://github.com/suthat/owlwarden/compare/v0.5.0...v1.0.0 [0.5.0]: https://github.com/suthat/owlwarden/compare/v0.4.0...v0.5.0 [0.4.0]: https://github.com/suthat/owlwarden/compare/v0.3.0...v0.4.0 [0.3.0]: https://github.com/suthat/owlwarden/compare/v0.2.0...v0.3.0 [0.2.0]: https://github.com/suthat/owlwarden/compare/v0.1.0...v0.2.0 [0.1.0]: https://github.com/suthat/owlwarden/compare/v0.0.2...v0.1.0 [0.0.2]: https://github.com/suthat/owlwarden/compare/v0.0.1...v0.0.2 [0.0.1]: https://github.com/suthat/owlwarden/releases/tag/v0.0.1&lt;/p&gt;</content>
+&lt;p&gt;[Unreleased]: https://github.com/suthat/owlwarden/compare/v1.1.0...HEAD [1.1.0]: https://github.com/suthat/owlwarden/compare/v1.0.0...v1.1.0 [1.0.0]: https://github.com/suthat/owlwarden/compare/v0.5.0...v1.0.0 [0.5.0]: https://github.com/suthat/owlwarden/compare/v0.4.0...v0.5.0 [0.4.0]: https://github.com/suthat/owlwarden/compare/v0.3.0...v0.4.0 [0.3.0]: https://github.com/suthat/owlwarden/compare/v0.2.0...v0.3.0 [0.2.0]: https://github.com/suthat/owlwarden/compare/v0.1.0...v0.2.0 [0.1.0]: https://github.com/suthat/owlwarden/compare/v0.0.2...v0.1.0 [0.0.2]: https://github.com/suthat/owlwarden/compare/v0.0.1...v0.0.2 [0.0.1]: https://github.com/suthat/owlwarden/releases/tag/v0.0.1&lt;/p&gt;</content>
   </entry>
 </feed>
