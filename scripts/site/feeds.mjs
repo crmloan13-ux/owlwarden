@@ -19,11 +19,12 @@ function xml(text) {
 /**
  * The sitemap.
  *
- * `lastmod` is the build date rather than a per-page git timestamp. A per-page
- * date would be more useful and would also be a lie here: these pages are
- * generated from the rule catalogue, so a rule's write-up changing means every
- * one of its pages changed, and the git history of the HTML file says nothing
- * about that.
+ * `lastmod` is the latest dated changelog release, not a per-page git
+ * timestamp and not the clock. A per-page date would be more useful and would
+ * also be a lie here: these pages are generated from the rule catalogue, so a
+ * rule's write-up changing means every one of its pages changed, and the git
+ * history of the HTML file says nothing about that. The clock is worse: it
+ * makes `site:check` fail the next morning with no content change.
  */
 export function sitemap(paths, site, isoDate) {
   const entries = paths

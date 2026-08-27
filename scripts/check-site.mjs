@@ -269,6 +269,19 @@ assert.equal(
   `sitemap lists ${listed.size} URLs for ${pages.length - 1} indexable pages`,
 );
 
+const changelog = await readFile(join(root, "CHANGELOG.md"), "utf8");
+const changelogDates = new Set(
+  [...changelog.matchAll(/^## \[[^\]]+\] — (\d{4}-\d{2}-\d{2})/gm)].map((match) => match[1]),
+);
+const lastmods = [...sitemap.matchAll(/<lastmod>([^<]+)<\/lastmod>/g)].map((match) => match[1]);
+assert.equal(lastmods.length, listed.size, "every sitemap URL must have a lastmod");
+for (const date of new Set(lastmods)) {
+  assert(
+    changelogDates.has(date),
+    `sitemap lastmod ${date} is not a dated CHANGELOG release; using the clock makes site:check fail the next morning`,
+  );
+}
+
 const robots = await readFile(join(siteDir, "robots.txt"), "utf8");
 assert.match(robots, new RegExp(`Sitemap: ${escapeRegExp(site)}/sitemap.xml`));
 assert.match(robots, /^User-agent: \*$/m);

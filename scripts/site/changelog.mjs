@@ -44,6 +44,23 @@ export function parseReleases(markdown) {
     .filter((release) => release.body.length > 0);
 }
 
+/**
+ * The date the sitemap may claim as `lastmod`.
+ *
+ * The clock is not that date. `site:check` diffs the generated sitemap against
+ * the committed one, so a date that advances at midnight UTC makes CI fail
+ * the next morning with no content change. The latest dated release is the
+ * last day the product actually shipped, which is also the honest answer for
+ * a generated catalogue: every page is rebuilt from the same engine.
+ */
+export function latestReleaseDate(markdown) {
+  const dated = parseReleases(markdown).find((release) => release.date);
+  if (dated === undefined) {
+    throw new Error("CHANGELOG.md has no dated release; the sitemap needs one for lastmod");
+  }
+  return dated.date;
+}
+
 /** Renders the changelog page. */
 export function changelogPage(markdown, version) {
   const releases = parseReleases(markdown);
