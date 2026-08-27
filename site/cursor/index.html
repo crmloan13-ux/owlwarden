@@ -3,14 +3,16 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
 
-<title>owlwarden for Cursor — hooks, MCP, and rules</title>
+<title>owlwarden for Cursor: hooks, MCP, and rules</title>
 <meta name="description" content="Wire owlwarden into Cursor&#39;s hooks: a gate after every edit, before a shell command, and at the turn boundary, plus a rules file the model reads first.">
 <link rel="canonical" href="https://suthat.github.io/owlwarden/cursor/">
 <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1">
 <meta name="theme-color" content="#fbfaf8">
 
 <meta property="og:type" content="article">
+<meta property="og:locale" content="en_US">
 <meta property="og:site_name" content="owlwarden">
 <meta property="og:title" content="Security scanning inside Cursor">
 <meta property="og:description" content="Wire owlwarden into Cursor&#39;s hooks: a gate after every edit, before a shell command, and at the turn boundary, plus a rules file the model reads first.">
@@ -23,17 +25,27 @@
 <meta name="twitter:title" content="Security scanning inside Cursor">
 <meta name="twitter:description" content="Wire owlwarden into Cursor&#39;s hooks: a gate after every edit, before a shell command, and at the turn boundary, plus a rules file the model reads first.">
 <meta name="twitter:image" content="https://suthat.github.io/owlwarden/og.png">
+<meta name="twitter:image:alt" content="An owlwarden scan showing the exact vulnerable line and its fix">
 
 <link rel="icon" type="image/svg+xml" href="../favicon.svg">
-<link rel="alternate icon" type="image/png" href="../favicon.png">
-<link rel="apple-touch-icon" href="../favicon.png">
+<link rel="alternate icon" type="image/png" sizes="192x192" href="../favicon.png">
+<link rel="apple-touch-icon" sizes="180x180" href="../apple-touch-icon.png">
+<link rel="manifest" href="../manifest.webmanifest">
 <link rel="alternate" type="application/atom+xml" title="owlwarden releases" href="https://suthat.github.io/owlwarden/changelog/feed.xml">
-<link rel="stylesheet" href="../styles.css?v=1.1.0">
+<link rel="stylesheet" href="../styles.css?v=86e674860125">
 
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
   "@graph": [
+    {
+      "@type": "WebSite",
+      "@id": "https://suthat.github.io/owlwarden/#website",
+      "name": "owlwarden",
+      "url": "https://suthat.github.io/owlwarden/",
+      "description": "Local security scanner for Node apps and coding-agent configuration.",
+      "inLanguage": "en"
+    },
     {
       "@type": "BreadcrumbList",
       "@id": "https://suthat.github.io/owlwarden/cursor/#breadcrumbs",
@@ -66,16 +78,16 @@
 
 <header class="site-header">
   <a class="wordmark" href="../">
-    <span aria-hidden="true">◉ᴥ◉</span>
+    <img src="../favicon.svg" width="32" height="32" alt="">
     <span>owlwarden</span>
   </a>
   <nav aria-label="Primary">
     <a href="../rules/">Rules</a>
-    <a href="../agent-config-security/">Agent config</a>
+    <a href="../agent-config-security/" aria-current="page">Agent config</a>
     <a href="../vet/">vet</a>
     <a href="../offline/">Offline</a>
     <a href="../owasp/">Coverage</a>
-    <a href="https://github.com/suthat/owlwarden" rel="noopener">GitHub</a>
+    <a class="nav-cta" href="https://github.com/suthat/owlwarden" rel="noopener">GitHub <span aria-hidden="true">↗</span></a>
   </nav>
 </header>
 
@@ -86,38 +98,61 @@
   </ol>
 </nav>
 
-<main id="main-content">
-<h1>Security scanning inside Cursor</h1>
-
-<p class="lede">
-  Cursor runs hooks declared in <code>.cursor/hooks.json</code>. owlwarden
-  attaches to the three that matter and returns a verdict the prompt cannot
-  argue with.
-</p>
+<main id="main-content" class="with-hero">
+<section class="page-hero">
+  <div class="hero-copy">
+    <p class="eyebrow">Cursor hooks</p>
+    <h1>Security scanning inside Cursor</h1>
+    <p class="hero-summary"><strong>Run checks from the host lifecycle instead of relying on a prompt.</strong> Hooks scan edits, inspect shell commands, and check the completed turn.</p>
+    <div class="hero-actions"><a class="button button-primary" href="https://www.npmjs.com/package/owlwarden">Set up Cursor</a>
+<a class="button button-secondary" href="../agent-config-security/">See what gets scanned</a></div>
+  </div>
+  <figure class="product-visual product-visual-safe" aria-label="Cursor lifecycle">
+  <div class="visual-chrome" aria-hidden="true">
+  <span class="window-dots"><i></i><i></i><i></i></span>
+  <span>Cursor lifecycle</span>
+  <span class="visual-status"><i></i>local</span>
+</div>
+  <div class="visual-body">
+    <p class="visual-title">Checks attached to host events</p>
+    <ol class="visual-list"><li>
+  <span class="visual-tag">01</span>
+  <span><strong>afterFileEdit</strong><small>Scan the file Cursor just changed</small></span>
+</li>
+<li>
+  <span class="visual-tag">02</span>
+  <span><strong>beforeShellExecution</strong><small>Decide before the command runs</small></span>
+</li>
+<li>
+  <span class="visual-tag">03</span>
+  <span><strong>stop</strong><small>Close the loop on the whole turn</small></span>
+</li></ol>
+  </div>
+  <figcaption>host event, local check, finding or clean result</figcaption>
+</figure>
+</section>
 
 <pre class="code"><code class="language-bash">npm i -D owlwarden
 npx owlwarden init --cursor</code></pre>
 
 <h2>What that writes</h2>
 <ul>
-  <li><code>.cursor/hooks.json</code> — <code>afterFileEdit</code>, <code>beforeShellExecution</code>, and <code>stop</code>.</li>
-  <li><code>.cursor/mcp.json</code> — the read-only MCP server, pinned to the binary the lockfile already installed.</li>
-  <li><code>.cursor/rules/owlwarden.mdc</code> — what the gate blocks on, so the model prefers the shapes it will not flag.</li>
+  <li><code>.cursor/hooks.json</code> with <code>afterFileEdit</code>, <code>beforeShellExecution</code>, and <code>stop</code>.</li>
+  <li><code>.cursor/mcp.json</code> with the read-only server pinned to the installed binary.</li>
+  <li><code>.cursor/rules/owlwarden.mdc</code> with the rule summary used by the hooks.</li>
 </ul>
 
 <h2>The rules file is not the control</h2>
 <p>
-  It is worth having: a model told "never return <code>err.stack</code>" writes
-  fewer of them. But a sentence in a rules file is an instruction competing with
-  every other instruction in the context window, and losing to whichever one the
-  model weighted higher this turn. The hook is what always runs.
+  Rules reduce avoidable findings, but they remain prompt context. Hooks are the
+  part that runs independently of the model's decision.
 </p>
 
 <h2>Cursor's own configuration is a scan surface</h2>
 <p>
   <code>.cursor/mcp.json</code>, <code>.cursor/hooks.json</code>,
   <code>.cursorrules</code>, and <code>.cursor/rules/**</code> are read by the
-  <a href="../agent-config-security/">agent-surface rules</a> — an unpinned MCP
+  <a href="../agent-config-security/">agent-config rules</a>. They check unpinned MCP
   server, a hook that pipes a fetch into a shell, a rules file with characters a
   reviewer cannot see. Cursor is one <code>git pull</code> away from any of them.
 </p>
@@ -126,19 +161,19 @@ npx owlwarden init --cursor</code></pre>
 
 <h2>Keep reading</h2>
 <ul class="cards">
-  <li><a href="../rules/"><span class="name">All rules</span><span class="blurb">The pattern, the fix for your stack, the CWE.</span></a></li>
-  <li><a href="../agent-config-security/"><span class="name">Agent config security</span><span class="blurb">The files your agent executes and nothing scans.</span></a></li>
+  <li><a href="../rules/"><span class="name">Rules</span><span class="blurb">Trigger, confidence, and framework-specific fix.</span></a></li>
+  <li><a href="../agent-config-security/"><span class="name">Agent config</span><span class="blurb">Hooks, MCP servers, instructions, and editor tasks.</span></a></li>
   <li><a href="../vet/"><span class="name">owlwarden vet</span><span class="blurb">Check a repository before you open it.</span></a></li>
-  <li><a href="../owasp/"><span class="name">Coverage, gaps included</span><span class="blurb">What it checks, and what no parser can.</span></a></li>
+  <li><a href="../owasp/"><span class="name">Coverage</span><span class="blurb">Mapped rules and categories static analysis cannot cover.</span></a></li>
 </ul>
 
 </main>
 
 <footer class="site-footer">
-  <p>
-    <strong>owlwarden 1.1.0</strong> — offline security scanner for Node web apps
-    and AI coding agents. No account, no telemetry, no network unless you ask.
-  </p>
+  <div class="footer-brand">
+    <img src="../favicon.svg" width="36" height="36" alt="">
+    <p><strong>owlwarden 1.1.0</strong><br>Local security checks for Node apps and coding-agent configuration.</p>
+  </div>
   <nav aria-label="Footer">
     <a href="../rules/">All rules</a>
     <a href="../owasp/">OWASP coverage</a>
@@ -149,7 +184,7 @@ npx owlwarden init --cursor</code></pre>
     <a href="https://github.com/suthat/owlwarden/blob/main/RULES.md" rel="noopener">RULES.md</a>
     <a href="https://www.npmjs.com/package/owlwarden" rel="noopener">npm</a>
   </nav>
-  <p class="licence">MIT OR Apache-2.0. <code>npx owlwarden scan</code></p>
+  <p class="licence">No account / no telemetry / MIT OR Apache-2.0 / <code>npx owlwarden scan</code></p>
 </footer>
 </body>
 </html>

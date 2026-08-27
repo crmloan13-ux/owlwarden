@@ -3,16 +3,18 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
 
-<title>OWASP Top 10 coverage for Node — with the gaps — owlwarden</title>
+<title>OWASP Top 10 coverage for Node: owlwarden</title>
 <meta name="description" content="owlwarden maps 15 rules onto the OWASP Top 10 (2021). This table lists every category, including the ones with no rule and the ones no source scanner can reach.">
 <link rel="canonical" href="https://suthat.github.io/owlwarden/owasp/">
 <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1">
 <meta name="theme-color" content="#fbfaf8">
 
 <meta property="og:type" content="article">
+<meta property="og:locale" content="en_US">
 <meta property="og:site_name" content="owlwarden">
-<meta property="og:title" content="OWASP Top 10 (2021) coverage: 9 of 10, gaps included">
+<meta property="og:title" content="OWASP Top 10 (2021): 9 of 10 categories">
 <meta property="og:description" content="owlwarden maps 15 rules onto the OWASP Top 10 (2021). This table lists every category, including the ones with no rule and the ones no source scanner can reach.">
 <meta property="og:url" content="https://suthat.github.io/owlwarden/owasp/">
 <meta property="og:image" content="https://suthat.github.io/owlwarden/og.png">
@@ -20,20 +22,30 @@
 <meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="An owlwarden finding: a SessionStart hook in .claude/settings.json that runs a command when the workspace is opened">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="OWASP Top 10 (2021) coverage: 9 of 10, gaps included">
+<meta name="twitter:title" content="OWASP Top 10 (2021): 9 of 10 categories">
 <meta name="twitter:description" content="owlwarden maps 15 rules onto the OWASP Top 10 (2021). This table lists every category, including the ones with no rule and the ones no source scanner can reach.">
 <meta name="twitter:image" content="https://suthat.github.io/owlwarden/og.png">
+<meta name="twitter:image:alt" content="An owlwarden scan showing the exact vulnerable line and its fix">
 
 <link rel="icon" type="image/svg+xml" href="../favicon.svg">
-<link rel="alternate icon" type="image/png" href="../favicon.png">
-<link rel="apple-touch-icon" href="../favicon.png">
+<link rel="alternate icon" type="image/png" sizes="192x192" href="../favicon.png">
+<link rel="apple-touch-icon" sizes="180x180" href="../apple-touch-icon.png">
+<link rel="manifest" href="../manifest.webmanifest">
 <link rel="alternate" type="application/atom+xml" title="owlwarden releases" href="https://suthat.github.io/owlwarden/changelog/feed.xml">
-<link rel="stylesheet" href="../styles.css?v=1.1.0">
+<link rel="stylesheet" href="../styles.css?v=86e674860125">
 
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
   "@graph": [
+    {
+      "@type": "WebSite",
+      "@id": "https://suthat.github.io/owlwarden/#website",
+      "name": "owlwarden",
+      "url": "https://suthat.github.io/owlwarden/",
+      "description": "Local security scanner for Node apps and coding-agent configuration.",
+      "inLanguage": "en"
+    },
     {
       "@type": "BreadcrumbList",
       "@id": "https://suthat.github.io/owlwarden/owasp/#breadcrumbs",
@@ -66,7 +78,7 @@
 
 <header class="site-header">
   <a class="wordmark" href="../">
-    <span aria-hidden="true">◉ᴥ◉</span>
+    <img src="../favicon.svg" width="32" height="32" alt="">
     <span>owlwarden</span>
   </a>
   <nav aria-label="Primary">
@@ -74,8 +86,8 @@
     <a href="../agent-config-security/">Agent config</a>
     <a href="../vet/">vet</a>
     <a href="../offline/">Offline</a>
-    <a href="../owasp/">Coverage</a>
-    <a href="https://github.com/suthat/owlwarden" rel="noopener">GitHub</a>
+    <a href="../owasp/" aria-current="page">Coverage</a>
+    <a class="nav-cta" href="https://github.com/suthat/owlwarden" rel="noopener">GitHub <span aria-hidden="true">↗</span></a>
   </nav>
 </header>
 
@@ -86,20 +98,44 @@
   </ol>
 </nav>
 
-<main id="main-content">
-<h1>OWASP Top 10 (2021) coverage: 9 of 10, gaps included</h1>
-
-<p class="lede">
-  A coverage table with no holes in it is an advertisement. What a reader needs
-  is what the tool is <em>not</em> looking at, so a clean report is read
-  correctly.
-</p>
+<main id="main-content" class="with-hero">
+<section class="page-hero">
+  <div class="hero-copy">
+    <p class="eyebrow">OWASP Top 10 (2021) mapping</p>
+    <h1>OWASP Top 10 (2021): 9 of 10 categories</h1>
+    <p class="hero-summary"><strong>15 rules map to 9 of 10 categories.</strong> The table also shows categories that static source or configuration checks cannot cover.</p>
+    <div class="hero-actions"><a class="button button-primary" href="../rules/">Read the rules</a>
+<a class="button button-secondary" href="../asi/">Compare taxonomies</a></div>
+  </div>
+  <figure class="product-visual product-visual-default" aria-label="OWASP Top 10 (2021)">
+  <div class="visual-chrome" aria-hidden="true">
+  <span class="window-dots"><i></i><i></i><i></i></span>
+  <span>OWASP Top 10 (2021)</span>
+  <span class="visual-status"><i></i>local</span>
+</div>
+  <div class="visual-body">
+    <p class="visual-title">9 of 10 categories have compiled-in coverage</p>
+    <ol class="visual-list"><li>
+  <span class="visual-tag">09</span>
+  <span><strong>Categories covered</strong><small>Backed by rules in the engine.</small></span>
+</li>
+<li>
+  <span class="visual-tag">15</span>
+  <span><strong>Rules mapped</strong><small>Each mapping is published and inspectable.</small></span>
+</li>
+<li>
+  <span class="visual-tag">ALL</span>
+  <span><strong>Unmapped categories</strong><small>Empty categories remain visible in the table.</small></span>
+</li></ol>
+  </div>
+  <figcaption>Generated from rule metadata in the installed engine</figcaption>
+</figure>
+</section>
 
 <p>
-  <strong>Reach</strong> says whether source analysis can see the category at
-  all. A category with no rules and <code>poor</code> reach is a limit of the
-  method, not a backlog item — no parser finds a design flaw. Those need the
-  dynamic engine, or a human.
+  <strong>Reach</strong> describes how much of a category static source analysis
+  can see. Categories marked <code>poor</code> need runtime data or design
+  review.
 </p>
 
 <div class="table-wrap">
@@ -120,41 +156,38 @@
 </table>
 </div>
 
-<h2>Why A04 is empty on purpose</h2>
+<h2>Why A04 has no rules</h2>
 <p>
-  Insecure Design is correct code implementing the wrong idea: a missing rate
-  limit, a recovery flow that trusts an email address, a threat nobody
-  considered. There is no AST shape for it. Listing it as "0 rules" next to
-  categories we simply have not covered yet would invite you to wait for a
-  release that is never coming.
+  Insecure Design covers choices such as a missing rate limit or an unsafe
+  recovery flow. Those problems do not have a reliable AST pattern and need
+  design review or runtime evidence.
 </p>
 
 <h2>The other taxonomy</h2>
 <p>
   Rules that read agent configuration map to
   <a href="../asi/">OWASP ASI 2026</a> instead, and that
-  table is kept separate on purpose. Merging them would let an agent rule appear
-  to raise Top 10 coverage, and the <code>owasp-top10</code> preset would stop
-  meaning anything.
+  table is separate because agent-config findings do not increase application
+  Top 10 coverage.
 </p>
 
 <pre class="code"><code class="language-bash">npx owlwarden coverage      # printed from the engine you have installed</code></pre>
 
 <h2>Keep reading</h2>
 <ul class="cards">
-  <li><a href="../rules/"><span class="name">All rules</span><span class="blurb">The pattern, the fix for your stack, the CWE.</span></a></li>
-  <li><a href="../agent-config-security/"><span class="name">Agent config security</span><span class="blurb">The files your agent executes and nothing scans.</span></a></li>
+  <li><a href="../rules/"><span class="name">Rules</span><span class="blurb">Trigger, confidence, and framework-specific fix.</span></a></li>
+  <li><a href="../agent-config-security/"><span class="name">Agent config</span><span class="blurb">Hooks, MCP servers, instructions, and editor tasks.</span></a></li>
   <li><a href="../vet/"><span class="name">owlwarden vet</span><span class="blurb">Check a repository before you open it.</span></a></li>
-  <li><a href="../owasp/"><span class="name">Coverage, gaps included</span><span class="blurb">What it checks, and what no parser can.</span></a></li>
+  <li><a href="../owasp/"><span class="name">Coverage</span><span class="blurb">Mapped rules and categories static analysis cannot cover.</span></a></li>
 </ul>
 
 </main>
 
 <footer class="site-footer">
-  <p>
-    <strong>owlwarden 1.1.0</strong> — offline security scanner for Node web apps
-    and AI coding agents. No account, no telemetry, no network unless you ask.
-  </p>
+  <div class="footer-brand">
+    <img src="../favicon.svg" width="36" height="36" alt="">
+    <p><strong>owlwarden 1.1.0</strong><br>Local security checks for Node apps and coding-agent configuration.</p>
+  </div>
   <nav aria-label="Footer">
     <a href="../rules/">All rules</a>
     <a href="../owasp/">OWASP coverage</a>
@@ -165,7 +198,7 @@
     <a href="https://github.com/suthat/owlwarden/blob/main/RULES.md" rel="noopener">RULES.md</a>
     <a href="https://www.npmjs.com/package/owlwarden" rel="noopener">npm</a>
   </nav>
-  <p class="licence">MIT OR Apache-2.0. <code>npx owlwarden scan</code></p>
+  <p class="licence">No account / no telemetry / MIT OR Apache-2.0 / <code>npx owlwarden scan</code></p>
 </footer>
 </body>
 </html>

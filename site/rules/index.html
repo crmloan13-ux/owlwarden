@@ -3,16 +3,18 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
 
-<title>All 25 rules — owlwarden</title>
+<title>All 25 rules: owlwarden</title>
 <meta name="description" content="All 25 owlwarden rules with the vulnerable pattern, the corrected code for each of 171 framework and agent-host combinations, and a command to check your own repo.">
 <link rel="canonical" href="https://suthat.github.io/owlwarden/rules/">
 <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1">
 <meta name="theme-color" content="#fbfaf8">
 
 <meta property="og:type" content="website">
+<meta property="og:locale" content="en_US">
 <meta property="og:site_name" content="owlwarden">
-<meta property="og:title" content="Every rule owlwarden ships, and the fix for your stack">
+<meta property="og:title" content="25 security rules for Node apps and agent config">
 <meta property="og:description" content="All 25 owlwarden rules with the vulnerable pattern, the corrected code for each of 171 framework and agent-host combinations, and a command to check your own repo.">
 <meta property="og:url" content="https://suthat.github.io/owlwarden/rules/">
 <meta property="og:image" content="https://suthat.github.io/owlwarden/og.png">
@@ -20,20 +22,30 @@
 <meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="An owlwarden finding: a SessionStart hook in .claude/settings.json that runs a command when the workspace is opened">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Every rule owlwarden ships, and the fix for your stack">
+<meta name="twitter:title" content="25 security rules for Node apps and agent config">
 <meta name="twitter:description" content="All 25 owlwarden rules with the vulnerable pattern, the corrected code for each of 171 framework and agent-host combinations, and a command to check your own repo.">
 <meta name="twitter:image" content="https://suthat.github.io/owlwarden/og.png">
+<meta name="twitter:image:alt" content="An owlwarden scan showing the exact vulnerable line and its fix">
 
 <link rel="icon" type="image/svg+xml" href="../favicon.svg">
-<link rel="alternate icon" type="image/png" href="../favicon.png">
-<link rel="apple-touch-icon" href="../favicon.png">
+<link rel="alternate icon" type="image/png" sizes="192x192" href="../favicon.png">
+<link rel="apple-touch-icon" sizes="180x180" href="../apple-touch-icon.png">
+<link rel="manifest" href="../manifest.webmanifest">
 <link rel="alternate" type="application/atom+xml" title="owlwarden releases" href="https://suthat.github.io/owlwarden/changelog/feed.xml">
-<link rel="stylesheet" href="../styles.css?v=1.1.0">
+<link rel="stylesheet" href="../styles.css?v=86e674860125">
 
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
   "@graph": [
+    {
+      "@type": "WebSite",
+      "@id": "https://suthat.github.io/owlwarden/#website",
+      "name": "owlwarden",
+      "url": "https://suthat.github.io/owlwarden/",
+      "description": "Local security scanner for Node apps and coding-agent configuration.",
+      "inLanguage": "en"
+    },
     {
       "@type": "BreadcrumbList",
       "@id": "https://suthat.github.io/owlwarden/rules/#breadcrumbs",
@@ -66,16 +78,16 @@
 
 <header class="site-header">
   <a class="wordmark" href="../">
-    <span aria-hidden="true">◉ᴥ◉</span>
+    <img src="../favicon.svg" width="32" height="32" alt="">
     <span>owlwarden</span>
   </a>
   <nav aria-label="Primary">
-    <a href="../rules/">Rules</a>
+    <a href="../rules/" aria-current="page">Rules</a>
     <a href="../agent-config-security/">Agent config</a>
     <a href="../vet/">vet</a>
     <a href="../offline/">Offline</a>
     <a href="../owasp/">Coverage</a>
-    <a href="https://github.com/suthat/owlwarden" rel="noopener">GitHub</a>
+    <a class="nav-cta" href="https://github.com/suthat/owlwarden" rel="noopener">GitHub <span aria-hidden="true">↗</span></a>
   </nav>
 </header>
 
@@ -86,15 +98,39 @@
   </ol>
 </nav>
 
-<main id="main-content">
-<h1>Every rule owlwarden ships, and the fix for your stack</h1>
-
-<p class="lede">
-  Every rule carries a fix written for your framework — or, on the agent surface,
-  for your host. A rule cannot ship without one: the build fails on an empty
-  cell. 171 of those cells have a verified example on this site, taken from
-  a fixture the test suite asserts on.
-</p>
+<main id="main-content" class="with-hero">
+<section class="page-hero">
+  <div class="hero-copy">
+    <p class="eyebrow">Rule reference</p>
+    <h1>25 security rules for Node apps and agent config</h1>
+    <p class="hero-summary"><strong>Each page shows the trigger, confidence, and fix.</strong> Examples come from tested fixtures, and framework variants use the APIs the scanner detected.</p>
+    <div class="hero-actions"><a class="button button-primary" href="https://www.npmjs.com/package/owlwarden">Install from npm</a>
+<a class="button button-secondary" href="../owasp/">Review OWASP coverage</a></div>
+  </div>
+  <figure class="product-visual product-visual-default" aria-label="compiled-in catalogue">
+  <div class="visual-chrome" aria-hidden="true">
+  <span class="window-dots"><i></i><i></i><i></i></span>
+  <span>compiled-in catalogue</span>
+  <span class="visual-status"><i></i>local</span>
+</div>
+  <div class="visual-body">
+    <p class="visual-title">25 rules, 171 framework and host fixes</p>
+    <ol class="visual-list"><li>
+  <span class="visual-tag">15</span>
+  <span><strong>Application rules</strong><small>Framework-aware checks for Node source.</small></span>
+</li>
+<li>
+  <span class="visual-tag">10</span>
+  <span><strong>Agent rules</strong><small>Hooks, MCP, instructions, and editor config.</small></span>
+</li>
+<li>
+  <span class="visual-tag">171</span>
+  <span><strong>Verified variants</strong><small>Each example comes from a fixture the tests assert on.</small></span>
+</li></ol>
+  </div>
+  <figcaption>Generated from compiled rule metadata and tested fixtures</figcaption>
+</figure>
+</section>
 
 <pre class="code"><code class="language-bash">npx owlwarden scan          # your app
 npx owlwarden vet .         # your agent&#39;s config</code></pre>
@@ -167,7 +203,7 @@ npx owlwarden vet .         # your agent&#39;s config</code></pre>
 
 
 <h2>Agent and editor configuration</h2>
-<p>10 rules that read the files your agent loads out of the working tree and executes — the ones no dependency scanner reads. See <a href="../agent-config-security/">what that surface is</a> and <a href="../asi/">the ASI 2026 coverage</a>.</p>
+<p>10 rules that read the files your agent loads out of the working tree. See <a href="../agent-config-security/">what that surface is</a> and <a href="../asi/">the ASI 2026 coverage</a>.</p>
 <ul class="cards">
   <li><a href="../rules/agent-config-env-redirect/">
     <span class="name">agent-config-env-redirect</span>
@@ -213,18 +249,17 @@ npx owlwarden vet .         # your agent&#39;s config</code></pre>
 
 <h2>What a rule page tells you</h2>
 <p>
-  The pattern, why it is dangerous, the vulnerable code, the corrected code for
-  <em>your</em> framework, the CWE and OWASP mapping, and one line to check your
-  own repository. <a href="../offline/">All of it runs on your machine</a>.
+  The trigger, impact, example, fix for the selected framework, taxonomy
+  mapping, and commands to reproduce the check locally.
 </p>
 
 </main>
 
 <footer class="site-footer">
-  <p>
-    <strong>owlwarden 1.1.0</strong> — offline security scanner for Node web apps
-    and AI coding agents. No account, no telemetry, no network unless you ask.
-  </p>
+  <div class="footer-brand">
+    <img src="../favicon.svg" width="36" height="36" alt="">
+    <p><strong>owlwarden 1.1.0</strong><br>Local security checks for Node apps and coding-agent configuration.</p>
+  </div>
   <nav aria-label="Footer">
     <a href="../rules/">All rules</a>
     <a href="../owasp/">OWASP coverage</a>
@@ -235,7 +270,7 @@ npx owlwarden vet .         # your agent&#39;s config</code></pre>
     <a href="https://github.com/suthat/owlwarden/blob/main/RULES.md" rel="noopener">RULES.md</a>
     <a href="https://www.npmjs.com/package/owlwarden" rel="noopener">npm</a>
   </nav>
-  <p class="licence">MIT OR Apache-2.0. <code>npx owlwarden scan</code></p>
+  <p class="licence">No account / no telemetry / MIT OR Apache-2.0 / <code>npx owlwarden scan</code></p>
 </footer>
 </body>
 </html>

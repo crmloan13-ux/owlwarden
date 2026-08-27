@@ -58,11 +58,11 @@ ${renderMarkdown(release.body, 3)}`,
     .join("\n");
 
   return {
-    title: "Changelog — owlwarden",
-    heading: "What changed, and why",
+    title: "Changelog: owlwarden",
+    heading: "Release notes",
     description:
-      "Every user-visible change to owlwarden, with the security notes spelled out. Rule ids are " +
-      "public API and are never silently renamed.",
+      "Release notes for owlwarden, including security changes and compatibility notes for rule " +
+      "ids used by CI, suppressions, and agent configuration.",
     ogType: "website",
     breadcrumbs: [
       { label: "owlwarden", href: "" },
@@ -77,15 +77,14 @@ ${renderMarkdown(release.body, 3)}`,
     ],
     body: `
 <p class="lede">
-  <strong>Rule ids are public API.</strong> A rule id, once released, is never
-  reused for a different check and never silently renamed — CI configs, inline
-  suppressions, and agent rules files all reference them. Renames go through a
-  deprecation cycle and are listed under <em>Changed</em>.
+  <strong>Rule ids are public API.</strong> CI config, suppressions, and agent
+  rules files reference them. A rename uses a deprecation cycle and appears
+  under <em>Changed</em>.
 </p>
 
 <p>
-  <a href="./feed.xml">Atom feed</a> ·
-  <a href="https://github.com/suthat/owlwarden/releases" rel="noopener">GitHub releases</a> ·
+  <a href="./feed.xml">Atom feed</a> /
+  <a href="https://github.com/suthat/owlwarden/releases" rel="noopener">GitHub releases</a> /
   <a href="../rules/">the rule catalogue</a>
 </p>
 ${sections}
@@ -111,17 +110,17 @@ export function changelogFeed(markdown, site) {
     })
     .join("\n");
 
-  return `<?xml version="1.0" encoding="UTF-8"?>
+  return plainPunctuation(`<?xml version="1.0" encoding="UTF-8"?>
 <feed xmlns="http://www.w3.org/2005/Atom">
   <title>owlwarden releases</title>
-  <subtitle>Offline security scanner for Node web apps and AI coding agents.</subtitle>
+  <subtitle>Local security checks for Node apps and coding-agent configuration.</subtitle>
   <link href="${xml(`${site}/changelog/feed.xml`)}" rel="self"/>
   <link href="${xml(`${site}/changelog/`)}"/>
   <id>${xml(`${site}/changelog/`)}</id>
   <updated>${xml(updated)}T00:00:00Z</updated>
 ${entries}
 </feed>
-`;
+`);
 }
 
 // ---------------------------------------------------------------------------
@@ -136,6 +135,11 @@ function xml(text) {
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;");
+}
+
+/** Keeps feed copy readable in clients that render punctuation inconsistently. */
+function plainPunctuation(text) {
+  return text.replaceAll("·", "/").replaceAll("—", "-").replaceAll("–", "-");
 }
 
 /**

@@ -3,14 +3,16 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
 
-<title>Fix agent-hook-untrusted-command in Cursor — owlwarden</title>
+<title>Fix agent-hook-untrusted-command in Cursor: owlwarden</title>
 <meta name="description" content="Hook command reaches outside the project in Cursor. The vulnerable pattern, the corrected code, the CWE mapping, and one command to check your own repository.">
 <link rel="canonical" href="https://suthat.github.io/owlwarden/rules/agent-hook-untrusted-command/cursor/">
 <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1">
 <meta name="theme-color" content="#fbfaf8">
 
 <meta property="og:type" content="article">
+<meta property="og:locale" content="en_US">
 <meta property="og:site_name" content="owlwarden">
 <meta property="og:title" content="Fix hook command reaches outside the project in Cursor">
 <meta property="og:description" content="Hook command reaches outside the project in Cursor. The vulnerable pattern, the corrected code, the CWE mapping, and one command to check your own repository.">
@@ -23,17 +25,27 @@
 <meta name="twitter:title" content="Fix hook command reaches outside the project in Cursor">
 <meta name="twitter:description" content="Hook command reaches outside the project in Cursor. The vulnerable pattern, the corrected code, the CWE mapping, and one command to check your own repository.">
 <meta name="twitter:image" content="https://suthat.github.io/owlwarden/og.png">
+<meta name="twitter:image:alt" content="An owlwarden scan showing the exact vulnerable line and its fix">
 
 <link rel="icon" type="image/svg+xml" href="../../../favicon.svg">
-<link rel="alternate icon" type="image/png" href="../../../favicon.png">
-<link rel="apple-touch-icon" href="../../../favicon.png">
+<link rel="alternate icon" type="image/png" sizes="192x192" href="../../../favicon.png">
+<link rel="apple-touch-icon" sizes="180x180" href="../../../apple-touch-icon.png">
+<link rel="manifest" href="../../../manifest.webmanifest">
 <link rel="alternate" type="application/atom+xml" title="owlwarden releases" href="https://suthat.github.io/owlwarden/changelog/feed.xml">
-<link rel="stylesheet" href="../../../styles.css?v=1.1.0">
+<link rel="stylesheet" href="../../../styles.css?v=86e674860125">
 
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
   "@graph": [
+    {
+      "@type": "WebSite",
+      "@id": "https://suthat.github.io/owlwarden/#website",
+      "name": "owlwarden",
+      "url": "https://suthat.github.io/owlwarden/",
+      "description": "Local security scanner for Node apps and coding-agent configuration.",
+      "inLanguage": "en"
+    },
     {
       "@type": "BreadcrumbList",
       "@id": "https://suthat.github.io/owlwarden/rules/agent-hook-untrusted-command/cursor/#breadcrumbs",
@@ -67,7 +79,7 @@
     {
       "@type": "TechArticle",
       "headline": "Fix hook command reaches outside the project in Cursor",
-      "description": "A hook, task, or lifecycle command does something a formatter would not: pipes a network fetch into a shell, decodes and executes, reads a credential store, writes outside the project root, or launches a package resolved at run time. The trigger does not matter here — the command does.",
+      "description": "A hook, task, or lifecycle command does something a formatter would not: pipes a network fetch into a shell, decodes and executes, reads a credential store, writes outside the project root, or launches a package resolved at run time. The trigger does not matter here - the command does.",
       "proficiencyLevel": "Beginner",
       "dependencies": "Cursor",
       "isPartOf": {
@@ -113,16 +125,16 @@
 
 <header class="site-header">
   <a class="wordmark" href="../../../">
-    <span aria-hidden="true">◉ᴥ◉</span>
+    <img src="../../../favicon.svg" width="32" height="32" alt="">
     <span>owlwarden</span>
   </a>
   <nav aria-label="Primary">
-    <a href="../../../rules/">Rules</a>
+    <a href="../../../rules/" aria-current="page">Rules</a>
     <a href="../../../agent-config-security/">Agent config</a>
     <a href="../../../vet/">vet</a>
     <a href="../../../offline/">Offline</a>
     <a href="../../../owasp/">Coverage</a>
-    <a href="https://github.com/suthat/owlwarden" rel="noopener">GitHub</a>
+    <a class="nav-cta" href="https://github.com/suthat/owlwarden" rel="noopener">GitHub <span aria-hidden="true">↗</span></a>
   </nav>
 </header>
 
@@ -135,17 +147,17 @@
   </ol>
 </nav>
 
-<main id="main-content">
+<main id="main-content" class="article-page">
 <h1>Fix hook command reaches outside the project in Cursor</h1>
 
-<p class="lede">A hook, task, or lifecycle command does something a formatter would not: pipes a network fetch into a shell, decodes and executes, reads a credential store, writes outside the project root, or launches a package resolved at run time. The trigger does not matter here — the command does.</p>
+<p class="lede">A hook, task, or lifecycle command does something a formatter would not: pipes a network fetch into a shell, decodes and executes, reads a credential store, writes outside the project root, or launches a package resolved at run time. The trigger does not matter here - the command does.</p>
 
 <p>
   <span class="chip chip-high">high</span> <span class="chip chip-likely">likely</span>
   <span class="chip chip-scope">Cursor</span>
   <a href="https://cwe.mitre.org/data/definitions/78.html" rel="noopener">CWE-78</a>
   
-   · <a href="../../../asi/">ASI ASI05</a>
+   / <a href="../../../asi/">ASI ASI05</a>
 </p>
 
 <h2>The vulnerable pattern in Cursor</h2>
@@ -159,7 +171,7 @@
 <span class="dim">11 │</span>       }
 <span class="dim">12 │</span>     ]</div>
 <p>
-  This is a real finding from the Cursor fixture in the owlwarden test
+  This finding comes from the Cursor fixture in the owlwarden test
   suite.
   Whatever that URL serves at the moment the hook runs is executed with the developer&#39;s privileges. Nobody reviews it, because there is nothing checked in to review. The command runs from `afterFileEdit`, which anyone with a pull request can edit.
 </p>
@@ -176,16 +188,14 @@
 <pre class="code"><code class="language-bash">npx owlwarden scan
 npx owlwarden explain agent-hook-untrusted-command</code></pre>
 <p>
-  Runs entirely on your machine — <a href="../../../offline/">no account, no
+  Runs on your machine. <a href="../../../offline/">No account, no
   telemetry, no network unless you ask</a>. In CI, <a href="../../../ci/">SARIF
   uploads to code scanning</a> and the exit code is the gate.
 </p>
 
 <h2>Other Cursor checks</h2>
 <p>
-  Every rule that has a verified Cursor example. Cross-linked in both
-  directions on purpose: a page nothing links to is a page a crawler reaches
-  only through the sitemap, and a reader never reaches at all.
+  Rules with a tested Cursor example.
 </p>
 <ul class="cards">
   <li><a href="../../agent-config-env-redirect/cursor/">
@@ -223,18 +233,18 @@ npx owlwarden explain agent-hook-untrusted-command</code></pre>
 </ul>
 
 <p>
-  <a href="../">agent-hook-untrusted-command for every agent host</a> ·
-  <a href="../../">All rules</a> ·
+  <a href="../">agent-hook-untrusted-command for every agent host</a> /
+  <a href="../../">All rules</a> /
   <a href="../../../">owlwarden</a>
 </p>
 
 </main>
 
 <footer class="site-footer">
-  <p>
-    <strong>owlwarden 1.1.0</strong> — offline security scanner for Node web apps
-    and AI coding agents. No account, no telemetry, no network unless you ask.
-  </p>
+  <div class="footer-brand">
+    <img src="../../../favicon.svg" width="36" height="36" alt="">
+    <p><strong>owlwarden 1.1.0</strong><br>Local security checks for Node apps and coding-agent configuration.</p>
+  </div>
   <nav aria-label="Footer">
     <a href="../../../rules/">All rules</a>
     <a href="../../../owasp/">OWASP coverage</a>
@@ -245,7 +255,7 @@ npx owlwarden explain agent-hook-untrusted-command</code></pre>
     <a href="https://github.com/suthat/owlwarden/blob/main/RULES.md" rel="noopener">RULES.md</a>
     <a href="https://www.npmjs.com/package/owlwarden" rel="noopener">npm</a>
   </nav>
-  <p class="licence">MIT OR Apache-2.0. <code>npx owlwarden scan</code></p>
+  <p class="licence">No account / no telemetry / MIT OR Apache-2.0 / <code>npx owlwarden scan</code></p>
 </footer>
 </body>
 </html>

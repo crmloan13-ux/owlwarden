@@ -53,7 +53,7 @@ export function sitemap(paths, site, isoDate) {
 
 /** `robots.txt`. Nothing is blocked except the 404 page. */
 export function robots(site) {
-  return `# owlwarden — https://github.com/suthat/owlwarden
+  return `# owlwarden: https://github.com/suthat/owlwarden
 User-agent: *
 Allow: /
 Disallow: /404.html
@@ -84,7 +84,7 @@ export function llms({ site, version, rules, coverage, extra }) {
 > record. Runs entirely on the developer's machine: no account, no telemetry, no
 > network unless asked. Version ${version}. MIT OR Apache-2.0.
 
-Install: \`npm i -D owlwarden\` · Scan: \`npx owlwarden scan\` · Vet a repo you did
+Install: \`npm i -D owlwarden\` / Scan: \`npx owlwarden scan\` / Vet a repo you did
 not write: \`npx owlwarden vet .\`
 
 Exit codes: 0 clean, 1 findings at or above --fail-on, 2 could not run.
@@ -94,10 +94,10 @@ Exit codes: 0 clean, 1 findings at or above --fail-on, 2 could not run.
 ${[
   ["", { title: "owlwarden", blurb: "What it is, what it does not look at, and how to run it." }],
   ["rules/", { title: "All rules", blurb: `${rules.length} rules: ${webRules.length} on application source, ${agentRules.length} on agent configuration.` }],
-  ["agent-config-security/", { title: "Agent config security", blurb: "Why agent and editor configuration is executable, and why no dependency scanner reads it." }],
+  ["agent-config-security/", { title: "Agent config security", blurb: "Hooks, MCP servers, instructions, and editor tasks loaded from the repository." }],
   ["vet/", { title: "owlwarden vet", blurb: "Scanning a repository you did not write, with the target's own suppressions treated as evidence." }],
-  ["offline/", { title: "Offline by default", blurb: "The threat model: what leaves the machine, and the two flags that make it." }],
-  ["changelog/", { title: "Changelog", blurb: "Every user-visible change, with the security notes spelled out. Atom feed at /changelog/feed.xml." }],
+  ["offline/", { title: "Offline by default", blurb: "What stays local and which two flags enable network access." }],
+  ["changelog/", { title: "Changelog", blurb: "Release notes and rule-id compatibility notes. Atom feed at /changelog/feed.xml." }],
 ]
   .map(([path, note]) => line(path, note))
   .join("\n")}
@@ -116,8 +116,8 @@ ${[
 ${[
   ["claude-code/", { title: "Claude Code", blurb: "Hooks on edit, before a shell command, and at the turn boundary; plus MCP." }],
   ["cursor/", { title: "Cursor", blurb: "Hooks in .cursor/hooks.json, an MCP entry, and a rules file." }],
-  ["mcp/", { title: "MCP server", blurb: "Read-only, static-only, four tools. Not the enforcement story." }],
-  ["ci/", { title: "CI", blurb: "SARIF, JUnit, Markdown, and an exit-code contract that refuses to greenwash." }],
+  ["mcp/", { title: "MCP server", blurb: "Four read-only static-analysis tools over stdio." }],
+  ["ci/", { title: "CI", blurb: "SARIF, JUnit, Markdown, and exit codes for clean, findings, and scan errors." }],
 ]
   .map(([path, note]) => line(path, note))
   .join("\n")}
@@ -125,15 +125,15 @@ ${[
 ## Comparisons
 
 ${[
-  ["vs/semgrep/", { title: "vs Semgrep", blurb: "Rule breadth against determinism, offline, and the agent surface." }],
-  ["vs/snyk/", { title: "vs Snyk", blurb: "Dependency intelligence against the configuration a lockfile does not record." }],
-  ["vs/claude-security/", { title: "vs model-based review", blurb: "Judgement against a floor that gives the same answer twice." }],
-  ["vs/eslint-plugin-security/", { title: "vs eslint-plugin-security", blurb: "Lint heuristics against framework-aware, route-aware rules with a confidence field." }],
+  ["vs/semgrep/", { title: "vs Semgrep", blurb: "Rule and language coverage, local defaults, and agent config." }],
+  ["vs/snyk/", { title: "vs Snyk", blurb: "Dependency analysis and repository-controlled agent config." }],
+  ["vs/claude-security/", { title: "vs model-based review", blurb: "Repeatable static checks and review that needs judgement." }],
+  ["vs/eslint-plugin-security/", { title: "vs eslint-plugin-security", blurb: "Lint patterns and framework-aware checks with confidence levels." }],
 ]
   .map(([path, note]) => line(path, note))
   .join("\n")}
 
-## Every rule
+## Rules
 
 Each rule page carries the pattern, why it is dangerous, a verified vulnerable
 example, the corrected code for each supported framework or agent host, the CWE

@@ -6,7 +6,7 @@
 > record. Runs entirely on the developer's machine: no account, no telemetry, no
 > network unless asked. Version 1.1.0. MIT OR Apache-2.0.
 
-Install: `npm i -D owlwarden` · Scan: `npx owlwarden scan` · Vet a repo you did
+Install: `npm i -D owlwarden` / Scan: `npx owlwarden scan` / Vet a repo you did
 not write: `npx owlwarden vet .`
 
 Exit codes: 0 clean, 1 findings at or above --fail-on, 2 could not run.
@@ -15,10 +15,10 @@ Exit codes: 0 clean, 1 findings at or above --fail-on, 2 could not run.
 
 - [owlwarden](https://suthat.github.io/owlwarden/): What it is, what it does not look at, and how to run it.
 - [All rules](https://suthat.github.io/owlwarden/rules/): 25 rules: 15 on application source, 10 on agent configuration.
-- [Agent config security](https://suthat.github.io/owlwarden/agent-config-security/): Why agent and editor configuration is executable, and why no dependency scanner reads it.
+- [Agent config security](https://suthat.github.io/owlwarden/agent-config-security/): Hooks, MCP servers, instructions, and editor tasks loaded from the repository.
 - [owlwarden vet](https://suthat.github.io/owlwarden/vet/): Scanning a repository you did not write, with the target's own suppressions treated as evidence.
-- [Offline by default](https://suthat.github.io/owlwarden/offline/): The threat model: what leaves the machine, and the two flags that make it.
-- [Changelog](https://suthat.github.io/owlwarden/changelog/): Every user-visible change, with the security notes spelled out. Atom feed at /changelog/feed.xml.
+- [Offline by default](https://suthat.github.io/owlwarden/offline/): What stays local and which two flags enable network access.
+- [Changelog](https://suthat.github.io/owlwarden/changelog/): Release notes and rule-id compatibility notes. Atom feed at /changelog/feed.xml.
 
 ## Coverage
 
@@ -29,17 +29,17 @@ Exit codes: 0 clean, 1 findings at or above --fail-on, 2 could not run.
 
 - [Claude Code](https://suthat.github.io/owlwarden/claude-code/): Hooks on edit, before a shell command, and at the turn boundary; plus MCP.
 - [Cursor](https://suthat.github.io/owlwarden/cursor/): Hooks in .cursor/hooks.json, an MCP entry, and a rules file.
-- [MCP server](https://suthat.github.io/owlwarden/mcp/): Read-only, static-only, four tools. Not the enforcement story.
-- [CI](https://suthat.github.io/owlwarden/ci/): SARIF, JUnit, Markdown, and an exit-code contract that refuses to greenwash.
+- [MCP server](https://suthat.github.io/owlwarden/mcp/): Four read-only static-analysis tools over stdio.
+- [CI](https://suthat.github.io/owlwarden/ci/): SARIF, JUnit, Markdown, and exit codes for clean, findings, and scan errors.
 
 ## Comparisons
 
-- [vs Semgrep](https://suthat.github.io/owlwarden/vs/semgrep/): Rule breadth against determinism, offline, and the agent surface.
-- [vs Snyk](https://suthat.github.io/owlwarden/vs/snyk/): Dependency intelligence against the configuration a lockfile does not record.
-- [vs model-based review](https://suthat.github.io/owlwarden/vs/claude-security/): Judgement against a floor that gives the same answer twice.
-- [vs eslint-plugin-security](https://suthat.github.io/owlwarden/vs/eslint-plugin-security/): Lint heuristics against framework-aware, route-aware rules with a confidence field.
+- [vs Semgrep](https://suthat.github.io/owlwarden/vs/semgrep/): Rule and language coverage, local defaults, and agent config.
+- [vs Snyk](https://suthat.github.io/owlwarden/vs/snyk/): Dependency analysis and repository-controlled agent config.
+- [vs model-based review](https://suthat.github.io/owlwarden/vs/claude-security/): Repeatable static checks and review that needs judgement.
+- [vs eslint-plugin-security](https://suthat.github.io/owlwarden/vs/eslint-plugin-security/): Lint patterns and framework-aware checks with confidence levels.
 
-## Every rule
+## Rules
 
 Each rule page carries the pattern, why it is dangerous, a verified vulnerable
 example, the corrected code for each supported framework or agent host, the CWE

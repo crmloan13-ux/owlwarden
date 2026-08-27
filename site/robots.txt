@@ -1,4 +1,4 @@
-# owlwarden — https://github.com/suthat/owlwarden
+# owlwarden: https://github.com/suthat/owlwarden
 User-agent: *
 Allow: /
 Disallow: /404.html

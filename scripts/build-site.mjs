@@ -28,6 +28,7 @@
  */
 
 import { createRequire } from "node:module";
+import { createHash } from "node:crypto";
 import { mkdir, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { dirname, join, relative } from "node:path";
@@ -38,7 +39,7 @@ import { llms, robots, sitemap } from "./site/feeds.mjs";
 import { staticPages } from "./site/pages.mjs";
 import { rulePages } from "./site/rules.mjs";
 import { harvestSamples } from "./site/samples.mjs";
-import { favicon } from "./site/icon.mjs";
+import { favicon, webManifest } from "./site/icon.mjs";
 import { stylesheet } from "./site/styles.mjs";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
@@ -64,6 +65,9 @@ process.stdout.write(`scanning fixtures for verified examples…\n`);
 const samples = await harvestSamples(native);
 
 const changelogSource = await readFile(join(root, "CHANGELOG.md"), "utf8");
+const css = stylesheet();
+const icon = favicon();
+const assetVersion = createHash("sha256").update(css).update(icon).digest("hex").slice(0, 12);
 
 const pages = [
   ...staticPages({ rules, coverage, samples, version }),
@@ -83,11 +87,12 @@ for (const { path } of pages) {
 const files = new Map();
 
 for (const { path, page } of pages) {
-  files.set(join(path, "index.html"), renderPage({ ...page, path }, site, version));
+  files.set(join(path, "index.html"), renderPage({ ...page, path }, site, version, assetVersion));
 }
 
-files.set("styles.css", stylesheet());
-files.set("favicon.svg", favicon());
+files.set("styles.css", css);
+files.set("favicon.svg", icon);
+files.set("manifest.webmanifest", webManifest());
 files.set("robots.txt", robots(site));
 files.set(
   "sitemap.xml",
@@ -99,7 +104,7 @@ files.set(
 );
 files.set("llms.txt", llms({ site, version, rules, coverage }));
 files.set(join("changelog", "feed.xml"), changelogFeed(changelogSource, site));
-files.set("404.html", renderPage(notFound(), site, version));
+files.set("404.html", renderPage(notFound(), site, version, assetVersion));
 
 // Every page has been rendered, so every problem is known. Reporting them
 // together is the difference between one fix-up pass and fourteen.
@@ -158,7 +163,16 @@ if (check) {
  * we do not is what makes the orphan check possible.
  */
 async function listGenerated(directory) {
-  const keep = new Set(["favicon.png", "og.png", "og.svg", "README.md", "CNAME", ".nojekyll"]);
+  const keep = new Set([
+    "favicon.png",
+    "apple-touch-icon.png",
+    "icon-512.png",
+    "og.png",
+    "og.svg",
+    "README.md",
+    "CNAME",
+    ".nojekyll",
+  ]);
   const out = [];
 
   async function walk(current) {
@@ -193,7 +207,7 @@ async function pruneEmptyDirectories(directory) {
 function notFound() {
   return {
     path: "404.html",
-    title: "Page not found — owlwarden",
+    title: "Page not found: owlwarden",
     heading: "That page is not here",
     description:
       "The page you were looking for does not exist on owlwarden.dev. Every rule has a page, " +
@@ -203,15 +217,13 @@ function notFound() {
     schema: [],
     body: `
 <p class="lede">
-  Nothing is here. The most likely reason is a rule id that changed, or a
-  framework variant that has no verified example — those pages are not published
-  rather than published thin.
+  The URL does not match a published page. Check the rule id or framework name.
 </p>
 <ul class="cards">
-  <li><a href="./rules/"><span class="name">All rules</span><span class="blurb">Every rule, and every framework and host variant that exists.</span></a></li>
-  <li><a href="./agent-config-security/"><span class="name">Agent config security</span><span class="blurb">The files your agent executes and nothing else scans.</span></a></li>
-  <li><a href="./owasp/"><span class="name">Coverage</span><span class="blurb">What it checks, and what no parser can.</span></a></li>
-  <li><a href="./"><span class="name">Home</span><span class="blurb">Start again.</span></a></li>
+  <li><a href="./rules/"><span class="name">Rules</span><span class="blurb">Application and agent-config rules by framework and host.</span></a></li>
+  <li><a href="./agent-config-security/"><span class="name">Agent config</span><span class="blurb">Hooks, MCP servers, instructions, and editor tasks.</span></a></li>
+  <li><a href="./owasp/"><span class="name">Coverage</span><span class="blurb">OWASP mappings and unsupported categories.</span></a></li>
+  <li><a href="./"><span class="name">Home</span><span class="blurb">Product overview and install command.</span></a></li>
 </ul>
 <p>
   Or run it and see for yourself: <code>npx owlwarden scan</code>.

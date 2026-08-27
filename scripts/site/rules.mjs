@@ -1,4 +1,5 @@
 import { chip, code, esc } from "./layout.mjs";
+import { productVisual } from "./marketing.mjs";
 import { renderFrame } from "./samples.mjs";
 
 /**
@@ -139,11 +140,29 @@ ${list
 
   return {
     title: `All ${rules.length} rules`,
-    heading: `Every rule owlwarden ships, and the fix for your stack`,
+    heading: `${rules.length} security rules for Node apps and agent config`,
     description:
       `All ${rules.length} owlwarden rules with the vulnerable pattern, the corrected code for ` +
       `each of ${cells} framework and agent-host combinations, and a command to check your own repo.`,
     ogType: "website",
+    hero: {
+      kicker: "Rule reference",
+      summary: `<strong>Each page shows the trigger, confidence, and fix.</strong> Examples come from tested fixtures, and framework variants use the APIs the scanner detected.`,
+      actions: [
+        { label: "Install from npm", href: "https://www.npmjs.com/package/owlwarden", kind: "primary" },
+        { label: "Review OWASP coverage", href: "../owasp/", kind: "secondary" },
+      ],
+      visual: productVisual({
+        label: "compiled-in catalogue",
+        title: `${rules.length} rules, ${cells} framework and host fixes`,
+        items: [
+          { tag: String(bySurface.webApp.length).padStart(2, "0"), title: "Application rules", detail: "Framework-aware checks for Node source." },
+          { tag: String(bySurface.agentWorkspace.length).padStart(2, "0"), title: "Agent rules", detail: "Hooks, MCP, instructions, and editor config." },
+          { tag: String(cells), title: "Verified variants", detail: "Each example comes from a fixture the tests assert on." },
+        ],
+        footer: "Generated from compiled rule metadata and tested fixtures",
+      }),
+    },
     breadcrumbs: [
       { label: "owlwarden", href: "" },
       { label: "Rules", href: "rules/" },
@@ -156,13 +175,6 @@ ${list
       },
     ],
     body: `
-<p class="lede">
-  Every rule carries a fix written for your framework — or, on the agent surface,
-  for your host. A rule cannot ship without one: the build fails on an empty
-  cell. ${cells} of those cells have a verified example on this site, taken from
-  a fixture the test suite asserts on.
-</p>
-
 ${code("bash", "npx owlwarden scan          # your app\nnpx owlwarden vet .         # your agent's config")}
 
 ${section(
@@ -177,16 +189,15 @@ ${section(
   "Agent and editor configuration",
   bySurface.agentWorkspace,
   `${bySurface.agentWorkspace.length} rules that read the files your agent loads out of the working ` +
-    `tree and executes — the ones no dependency scanner reads. See ` +
+    `tree. See ` +
     `<a href="../agent-config-security/">what that surface is</a> and ` +
     `<a href="../asi/">the ASI ${esc(coverage.asiEdition)} coverage</a>.`,
 )}
 
 <h2>What a rule page tells you</h2>
 <p>
-  The pattern, why it is dangerous, the vulnerable code, the corrected code for
-  <em>your</em> framework, the CWE and OWASP mapping, and one line to check your
-  own repository. <a href="../offline/">All of it runs on your machine</a>.
+  The trigger, impact, example, fix for the selected framework, taxonomy
+  mapping, and commands to reproduce the check locally.
 </p>
 `,
   };
@@ -260,9 +271,8 @@ ${
     ? `<h2>What it looks like</h2>
 ${renderFrame(example, esc)}
 <p>
-  Taken from <code>${esc(example.location.path ?? "")}</code> in the fixture suite. Every example
-  on this site is a finding the tests already assert on, which is why none of
-  them drift.
+  From <code>${esc(example.location.path ?? "")}</code> in the fixture suite.
+  The fixture test asserts this finding.
 </p>`
     : ""
 }
@@ -275,9 +285,7 @@ ${
   profiles.length > 0
     ? `<h2>The fix for your ${surface === "webApp" ? "framework" : "agent host"}</h2>
 <p>
-  ${surface === "webApp" ? "The same rule, in the API your project actually uses" : "The same rule, in the file your host actually reads"}.
-  Every one of these is a different answer, not the same paragraph with a name
-  swapped in.
+  ${surface === "webApp" ? "Choose the API used by your project" : "Choose the configuration format used by your host"}.
 </p>
 <ul class="pill-row">
 ${profiles
@@ -293,8 +301,8 @@ ${profiles
 <h2>Check your own repository</h2>
 ${code("bash", `npx owlwarden scan --preset deep\nnpx owlwarden explain ${rule.id}`)}
 <p>
-  <code>explain</code> prints this whole write-up in your terminal with no
-  network at all. <a href="../../offline/">Nothing leaves your machine</a>.
+  <code>explain</code> prints the rule and fixes in the terminal. It does not
+  use the network.
 </p>
 
 ${
@@ -389,7 +397,7 @@ function profilePage({ rule, profile, fix, generic, finding, siblings }) {
 <h2>The vulnerable pattern in ${esc(label)}</h2>
 ${renderFrame(finding, esc)}
 <p>
-  This is a real finding from the ${esc(label)} fixture in the owlwarden test
+  This finding comes from the ${esc(label)} fixture in the owlwarden test
   suite${finding?.context?.route ? `, in <code>${esc(finding.context.method ?? "")} ${esc(finding.context.route)}</code>` : ""}.
   ${esc(finding?.why ?? "")}
 </p>
@@ -408,7 +416,7 @@ ${
 <h2>Check your own repository</h2>
 ${code("bash", `npx owlwarden scan\nnpx owlwarden explain ${rule.id}`)}
 <p>
-  Runs entirely on your machine — <a href="../../../offline/">no account, no
+  Runs on your machine. <a href="../../../offline/">No account, no
   telemetry, no network unless you ask</a>. In CI, <a href="../../../ci/">SARIF
   uploads to code scanning</a> and the exit code is the gate.
 </p>
@@ -417,9 +425,7 @@ ${
   siblings.length > 0
     ? `<h2>Other ${esc(label)} checks</h2>
 <p>
-  Every rule that has a verified ${esc(label)} example. Cross-linked in both
-  directions on purpose: a page nothing links to is a page a crawler reaches
-  only through the sitemap, and a reader never reaches at all.
+  Rules with a tested ${esc(label)} example.
 </p>
 <ul class="cards">
 ${siblings

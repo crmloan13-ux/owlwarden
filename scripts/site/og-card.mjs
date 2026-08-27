@@ -36,7 +36,7 @@ export function ogCard() {
 
   <g transform="translate(72 60) scale(1.05)">${mark}</g>
   <text x="152" y="106" font-family="${mono}" font-size="34" font-weight="600" fill="${THEME.ink}">owlwarden</text>
-  <text x="152" y="136" font-family="${mono}" font-size="17" fill="${THEME.inkSoft}">offline security scanner · Node web apps · AI coding agents</text>
+  <text x="152" y="136" font-family="${mono}" font-size="17" fill="${THEME.inkSoft}">local security checks for Node apps and coding-agent config</text>
 
   <rect x="72" y="176" width="1056" height="286" rx="8" fill="${THEME.paperDeep}" stroke="${THEME.rule}"/>
 
@@ -53,8 +53,8 @@ export function ogCard() {
     <tspan x="104" y="428" fill="${THEME.inkSoft}">↳  fix (Claude Code)  Remove the SessionStart entry, or move the hook to</tspan>
   </text>
 
-  <text x="72" y="524" font-family="${mono}" font-size="30" font-weight="600" fill="${THEME.ink}">Your dependency scanner does not read this file.</text>
-  <text x="72" y="562" font-family="${mono}" font-size="19" fill="${THEME.inkSoft}">Not a dependency. Not source. Executed anyway.</text>
+  <text x="72" y="524" font-family="${mono}" font-size="30" font-weight="600" fill="${THEME.ink}">Agent startup hooks sit outside dependency scanning.</text>
+  <text x="72" y="562" font-family="${mono}" font-size="19" fill="${THEME.inkSoft}">Check repository agent config before opening it.</text>
   <text x="72" y="596" font-family="${mono}" font-size="19" fill="${THEME.high}">npx owlwarden vet .</text>
 </svg>
 `;

@@ -3,14 +3,16 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
 
-<title>Page not found — owlwarden</title>
+<title>Page not found: owlwarden</title>
 <meta name="description" content="The page you were looking for does not exist on owlwarden.dev. Every rule has a page, every rule has a page per framework, and both are listed on the rules index.">
 <link rel="canonical" href="https://suthat.github.io/owlwarden/404.html">
-<meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1">
+<meta name="robots" content="noindex,follow">
 <meta name="theme-color" content="#fbfaf8">
 
 <meta property="og:type" content="website">
+<meta property="og:locale" content="en_US">
 <meta property="og:site_name" content="owlwarden">
 <meta property="og:title" content="That page is not here">
 <meta property="og:description" content="The page you were looking for does not exist on owlwarden.dev. Every rule has a page, every rule has a page per framework, and both are listed on the rules index.">
@@ -23,17 +25,27 @@
 <meta name="twitter:title" content="That page is not here">
 <meta name="twitter:description" content="The page you were looking for does not exist on owlwarden.dev. Every rule has a page, every rule has a page per framework, and both are listed on the rules index.">
 <meta name="twitter:image" content="https://suthat.github.io/owlwarden/og.png">
+<meta name="twitter:image:alt" content="An owlwarden scan showing the exact vulnerable line and its fix">
 
 <link rel="icon" type="image/svg+xml" href="./favicon.svg">
-<link rel="alternate icon" type="image/png" href="./favicon.png">
-<link rel="apple-touch-icon" href="./favicon.png">
+<link rel="alternate icon" type="image/png" sizes="192x192" href="./favicon.png">
+<link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png">
+<link rel="manifest" href="./manifest.webmanifest">
 <link rel="alternate" type="application/atom+xml" title="owlwarden releases" href="https://suthat.github.io/owlwarden/changelog/feed.xml">
-<link rel="stylesheet" href="./styles.css?v=1.1.0">
+<link rel="stylesheet" href="./styles.css?v=86e674860125">
 
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
   "@graph": [
+    {
+      "@type": "WebSite",
+      "@id": "https://suthat.github.io/owlwarden/#website",
+      "name": "owlwarden",
+      "url": "https://suthat.github.io/owlwarden/",
+      "description": "Local security scanner for Node apps and coding-agent configuration.",
+      "inLanguage": "en"
+    },
     {
       "@type": "BreadcrumbList",
       "@id": "https://suthat.github.io/owlwarden/404.html#breadcrumbs",
@@ -55,7 +67,7 @@
 
 <header class="site-header">
   <a class="wordmark" href="./">
-    <span aria-hidden="true">◉ᴥ◉</span>
+    <img src="./favicon.svg" width="32" height="32" alt="">
     <span>owlwarden</span>
   </a>
   <nav aria-label="Primary">
@@ -64,7 +76,7 @@
     <a href="./vet/">vet</a>
     <a href="./offline/">Offline</a>
     <a href="./owasp/">Coverage</a>
-    <a href="https://github.com/suthat/owlwarden" rel="noopener">GitHub</a>
+    <a class="nav-cta" href="https://github.com/suthat/owlwarden" rel="noopener">GitHub <span aria-hidden="true">↗</span></a>
   </nav>
 </header>
 
@@ -74,19 +86,17 @@
   </ol>
 </nav>
 
-<main id="main-content">
+<main id="main-content" class="article-page">
 <h1>That page is not here</h1>
 
 <p class="lede">
-  Nothing is here. The most likely reason is a rule id that changed, or a
-  framework variant that has no verified example — those pages are not published
-  rather than published thin.
+  The URL does not match a published page. Check the rule id or framework name.
 </p>
 <ul class="cards">
-  <li><a href="./rules/"><span class="name">All rules</span><span class="blurb">Every rule, and every framework and host variant that exists.</span></a></li>
-  <li><a href="./agent-config-security/"><span class="name">Agent config security</span><span class="blurb">The files your agent executes and nothing else scans.</span></a></li>
-  <li><a href="./owasp/"><span class="name">Coverage</span><span class="blurb">What it checks, and what no parser can.</span></a></li>
-  <li><a href="./"><span class="name">Home</span><span class="blurb">Start again.</span></a></li>
+  <li><a href="./rules/"><span class="name">Rules</span><span class="blurb">Application and agent-config rules by framework and host.</span></a></li>
+  <li><a href="./agent-config-security/"><span class="name">Agent config</span><span class="blurb">Hooks, MCP servers, instructions, and editor tasks.</span></a></li>
+  <li><a href="./owasp/"><span class="name">Coverage</span><span class="blurb">OWASP mappings and unsupported categories.</span></a></li>
+  <li><a href="./"><span class="name">Home</span><span class="blurb">Product overview and install command.</span></a></li>
 </ul>
 <p>
   Or run it and see for yourself: <code>npx owlwarden scan</code>.
@@ -97,10 +107,10 @@
 </main>
 
 <footer class="site-footer">
-  <p>
-    <strong>owlwarden 1.1.0</strong> — offline security scanner for Node web apps
-    and AI coding agents. No account, no telemetry, no network unless you ask.
-  </p>
+  <div class="footer-brand">
+    <img src="./favicon.svg" width="36" height="36" alt="">
+    <p><strong>owlwarden 1.1.0</strong><br>Local security checks for Node apps and coding-agent configuration.</p>
+  </div>
   <nav aria-label="Footer">
     <a href="./rules/">All rules</a>
     <a href="./owasp/">OWASP coverage</a>
@@ -111,7 +121,7 @@
     <a href="https://github.com/suthat/owlwarden/blob/main/RULES.md" rel="noopener">RULES.md</a>
     <a href="https://www.npmjs.com/package/owlwarden" rel="noopener">npm</a>
   </nav>
-  <p class="licence">MIT OR Apache-2.0. <code>npx owlwarden scan</code></p>
+  <p class="licence">No account / no telemetry / MIT OR Apache-2.0 / <code>npx owlwarden scan</code></p>
 </footer>
 </body>
 </html>

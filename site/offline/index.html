@@ -3,37 +3,49 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
 
-<title>Offline by default — no account, no telemetry — owlwarden</title>
-<meta name="description" content="owlwarden runs entirely on your machine. No account, no telemetry, no opt-in switch — there is nothing to switch on. The threat model, not the marketing.">
+<title>Offline by default: no account or telemetry: owlwarden</title>
+<meta name="description" content="owlwarden scans on your machine without an account or telemetry. Network access is used only for explicitly enabled OSV lookups or target probes.">
 <link rel="canonical" href="https://suthat.github.io/owlwarden/offline/">
 <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1">
 <meta name="theme-color" content="#fbfaf8">
 
 <meta property="og:type" content="article">
+<meta property="og:locale" content="en_US">
 <meta property="og:site_name" content="owlwarden">
-<meta property="og:title" content="A security scanner that never sends your code anywhere">
-<meta property="og:description" content="owlwarden runs entirely on your machine. No account, no telemetry, no opt-in switch — there is nothing to switch on. The threat model, not the marketing.">
+<meta property="og:title" content="Local scans with no account or telemetry">
+<meta property="og:description" content="owlwarden scans on your machine without an account or telemetry. Network access is used only for explicitly enabled OSV lookups or target probes.">
 <meta property="og:url" content="https://suthat.github.io/owlwarden/offline/">
 <meta property="og:image" content="https://suthat.github.io/owlwarden/og.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="An owlwarden finding: a SessionStart hook in .claude/settings.json that runs a command when the workspace is opened">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="A security scanner that never sends your code anywhere">
-<meta name="twitter:description" content="owlwarden runs entirely on your machine. No account, no telemetry, no opt-in switch — there is nothing to switch on. The threat model, not the marketing.">
+<meta name="twitter:title" content="Local scans with no account or telemetry">
+<meta name="twitter:description" content="owlwarden scans on your machine without an account or telemetry. Network access is used only for explicitly enabled OSV lookups or target probes.">
 <meta name="twitter:image" content="https://suthat.github.io/owlwarden/og.png">
+<meta name="twitter:image:alt" content="An owlwarden scan showing the exact vulnerable line and its fix">
 
 <link rel="icon" type="image/svg+xml" href="../favicon.svg">
-<link rel="alternate icon" type="image/png" href="../favicon.png">
-<link rel="apple-touch-icon" href="../favicon.png">
+<link rel="alternate icon" type="image/png" sizes="192x192" href="../favicon.png">
+<link rel="apple-touch-icon" sizes="180x180" href="../apple-touch-icon.png">
+<link rel="manifest" href="../manifest.webmanifest">
 <link rel="alternate" type="application/atom+xml" title="owlwarden releases" href="https://suthat.github.io/owlwarden/changelog/feed.xml">
-<link rel="stylesheet" href="../styles.css?v=1.1.0">
+<link rel="stylesheet" href="../styles.css?v=86e674860125">
 
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
   "@graph": [
+    {
+      "@type": "WebSite",
+      "@id": "https://suthat.github.io/owlwarden/#website",
+      "name": "owlwarden",
+      "url": "https://suthat.github.io/owlwarden/",
+      "description": "Local security scanner for Node apps and coding-agent configuration.",
+      "inLanguage": "en"
+    },
     {
       "@type": "BreadcrumbList",
       "@id": "https://suthat.github.io/owlwarden/offline/#breadcrumbs",
@@ -82,16 +94,16 @@
 
 <header class="site-header">
   <a class="wordmark" href="../">
-    <span aria-hidden="true">◉ᴥ◉</span>
+    <img src="../favicon.svg" width="32" height="32" alt="">
     <span>owlwarden</span>
   </a>
   <nav aria-label="Primary">
     <a href="../rules/">Rules</a>
     <a href="../agent-config-security/">Agent config</a>
     <a href="../vet/">vet</a>
-    <a href="../offline/">Offline</a>
+    <a href="../offline/" aria-current="page">Offline</a>
     <a href="../owasp/">Coverage</a>
-    <a href="https://github.com/suthat/owlwarden" rel="noopener">GitHub</a>
+    <a class="nav-cta" href="https://github.com/suthat/owlwarden" rel="noopener">GitHub <span aria-hidden="true">↗</span></a>
   </nav>
 </header>
 
@@ -102,22 +114,45 @@
   </ol>
 </nav>
 
-<main id="main-content">
-<h1>A security scanner that never sends your code anywhere</h1>
-
-<p class="lede">
-  Most scanners answer "is my code private?" with a policy page. The useful
-  answer is a description of what the process actually does, and what would have
-  to be true for that to be wrong.
-</p>
+<main id="main-content" class="with-hero">
+<section class="page-hero">
+  <div class="hero-copy">
+    <p class="eyebrow">Local by default</p>
+    <h1>Local scans with no account or telemetry</h1>
+    <p class="hero-summary"><strong>A normal scan does not create a network client.</strong> Source files stay on the machine. Network access is available only when you explicitly enable an active or OSV check.</p>
+    <div class="hero-actions"><a class="button button-primary" href="https://www.npmjs.com/package/owlwarden">Run a local scan</a>
+<a class="button button-secondary" href="../ci/">Review CI options</a></div>
+  </div>
+  <figure class="product-visual product-visual-safe" aria-label="default scan">
+  <div class="visual-chrome" aria-hidden="true">
+  <span class="window-dots"><i></i><i></i><i></i></span>
+  <span>default scan</span>
+  <span class="visual-status"><i></i>local</span>
+</div>
+  <div class="visual-body">
+    <p class="visual-title">Local input, local report</p>
+    <ol class="visual-list"><li>
+  <span class="visual-tag">IN</span>
+  <span><strong>Repository files</strong><small>Bounded reads below the project root.</small></span>
+</li>
+<li>
+  <span class="visual-tag">CPU</span>
+  <span><strong>Local Rust engine</strong><small>Static rules run on your machine.</small></span>
+</li>
+<li>
+  <span class="visual-tag">OUT</span>
+  <span><strong>Actionable finding</strong><small>Line, confidence, and framework-specific fix.</small></span>
+</li></ol>
+  </div>
+  <figcaption>No outbound requests, telemetry, or account</figcaption>
+</figure>
+</section>
 
 <h2>What the default run does</h2>
 <p>
-  Reads files under the project root, parses them, prints a report. No
-  transport object is constructed at all, so there is nothing for a rule to send
-  a request through — <em>passive by construction, not by promise</em>. The
-  scope resolver denies everything as a second line of defence, and the request
-  budget is zero.
+  The default command reads files below the project root, parses them, and
+  prints a report. It does not create a network transport. The request budget is
+  zero and the scope resolver denies every destination.
 </p>
 
 <h2>The two ways to opt in</h2>
@@ -138,11 +173,9 @@
 
 <h2>What "no telemetry" means here</h2>
 <p>
-  There is no analytics code, no crash reporter, no version check, and no
-  configuration key to disable any of them — because none exists to disable.
-  This site loads no third-party resource either: no font CDN, no analytics, no
-  tag manager. A check in the build refuses any external host, because that is
-  the kind of thing that gets added later "just for a week".
+  There is no analytics code, crash reporter, or version check. This site also
+  loads no font CDN, analytics script, or tag manager. The site build checks the
+  external-host allowlist.
 </p>
 
 <h2>Where it runs</h2>
@@ -155,19 +188,19 @@
 
 <h2>Keep reading</h2>
 <ul class="cards">
-  <li><a href="../rules/"><span class="name">All rules</span><span class="blurb">The pattern, the fix for your stack, the CWE.</span></a></li>
-  <li><a href="../agent-config-security/"><span class="name">Agent config security</span><span class="blurb">The files your agent executes and nothing scans.</span></a></li>
+  <li><a href="../rules/"><span class="name">Rules</span><span class="blurb">Trigger, confidence, and framework-specific fix.</span></a></li>
+  <li><a href="../agent-config-security/"><span class="name">Agent config</span><span class="blurb">Hooks, MCP servers, instructions, and editor tasks.</span></a></li>
   <li><a href="../vet/"><span class="name">owlwarden vet</span><span class="blurb">Check a repository before you open it.</span></a></li>
-  <li><a href="../owasp/"><span class="name">Coverage, gaps included</span><span class="blurb">What it checks, and what no parser can.</span></a></li>
+  <li><a href="../owasp/"><span class="name">Coverage</span><span class="blurb">Mapped rules and categories static analysis cannot cover.</span></a></li>
 </ul>
 
 </main>
 
 <footer class="site-footer">
-  <p>
-    <strong>owlwarden 1.1.0</strong> — offline security scanner for Node web apps
-    and AI coding agents. No account, no telemetry, no network unless you ask.
-  </p>
+  <div class="footer-brand">
+    <img src="../favicon.svg" width="36" height="36" alt="">
+    <p><strong>owlwarden 1.1.0</strong><br>Local security checks for Node apps and coding-agent configuration.</p>
+  </div>
   <nav aria-label="Footer">
     <a href="../rules/">All rules</a>
     <a href="../owasp/">OWASP coverage</a>
@@ -178,7 +211,7 @@
     <a href="https://github.com/suthat/owlwarden/blob/main/RULES.md" rel="noopener">RULES.md</a>
     <a href="https://www.npmjs.com/package/owlwarden" rel="noopener">npm</a>
   </nav>
-  <p class="licence">MIT OR Apache-2.0. <code>npx owlwarden scan</code></p>
+  <p class="licence">No account / no telemetry / MIT OR Apache-2.0 / <code>npx owlwarden scan</code></p>
 </footer>
 </body>
 </html>

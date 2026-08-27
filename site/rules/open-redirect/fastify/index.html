@@ -3,14 +3,16 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
 
-<title>Fix open-redirect in Fastify — owlwarden</title>
+<title>Fix open-redirect in Fastify: owlwarden</title>
 <meta name="description" content="Redirect target comes from the caller in Fastify. The vulnerable pattern, the corrected code, the CWE mapping, and one command to check your own repository.">
 <link rel="canonical" href="https://suthat.github.io/owlwarden/rules/open-redirect/fastify/">
 <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1">
 <meta name="theme-color" content="#fbfaf8">
 
 <meta property="og:type" content="article">
+<meta property="og:locale" content="en_US">
 <meta property="og:site_name" content="owlwarden">
 <meta property="og:title" content="Fix redirect target comes from the caller in Fastify">
 <meta property="og:description" content="Redirect target comes from the caller in Fastify. The vulnerable pattern, the corrected code, the CWE mapping, and one command to check your own repository.">
@@ -23,17 +25,27 @@
 <meta name="twitter:title" content="Fix redirect target comes from the caller in Fastify">
 <meta name="twitter:description" content="Redirect target comes from the caller in Fastify. The vulnerable pattern, the corrected code, the CWE mapping, and one command to check your own repository.">
 <meta name="twitter:image" content="https://suthat.github.io/owlwarden/og.png">
+<meta name="twitter:image:alt" content="An owlwarden scan showing the exact vulnerable line and its fix">
 
 <link rel="icon" type="image/svg+xml" href="../../../favicon.svg">
-<link rel="alternate icon" type="image/png" href="../../../favicon.png">
-<link rel="apple-touch-icon" href="../../../favicon.png">
+<link rel="alternate icon" type="image/png" sizes="192x192" href="../../../favicon.png">
+<link rel="apple-touch-icon" sizes="180x180" href="../../../apple-touch-icon.png">
+<link rel="manifest" href="../../../manifest.webmanifest">
 <link rel="alternate" type="application/atom+xml" title="owlwarden releases" href="https://suthat.github.io/owlwarden/changelog/feed.xml">
-<link rel="stylesheet" href="../../../styles.css?v=1.1.0">
+<link rel="stylesheet" href="../../../styles.css?v=86e674860125">
 
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
   "@graph": [
+    {
+      "@type": "WebSite",
+      "@id": "https://suthat.github.io/owlwarden/#website",
+      "name": "owlwarden",
+      "url": "https://suthat.github.io/owlwarden/",
+      "description": "Local security scanner for Node apps and coding-agent configuration.",
+      "inLanguage": "en"
+    },
     {
       "@type": "BreadcrumbList",
       "@id": "https://suthat.github.io/owlwarden/rules/open-redirect/fastify/#breadcrumbs",
@@ -67,7 +79,7 @@
     {
       "@type": "TechArticle",
       "headline": "Fix redirect target comes from the caller in Fastify",
-      "description": "The destination of a redirect is taken from the request without being checked. An attacker can send a link that starts with your domain and ends on theirs, which is what makes a phishing page credible — and in an OAuth callback it hands the authorisation code to whoever asked. Resolve the target against your own origin and refuse anything else.",
+      "description": "The destination of a redirect is taken from the request without being checked. An attacker can send a link that starts with your domain and ends on theirs, which is what makes a phishing page credible - and in an OAuth callback it hands the authorisation code to whoever asked. Resolve the target against your own origin and refuse anything else.",
       "proficiencyLevel": "Beginner",
       "dependencies": "Fastify",
       "isPartOf": {
@@ -113,16 +125,16 @@
 
 <header class="site-header">
   <a class="wordmark" href="../../../">
-    <span aria-hidden="true">◉ᴥ◉</span>
+    <img src="../../../favicon.svg" width="32" height="32" alt="">
     <span>owlwarden</span>
   </a>
   <nav aria-label="Primary">
-    <a href="../../../rules/">Rules</a>
+    <a href="../../../rules/" aria-current="page">Rules</a>
     <a href="../../../agent-config-security/">Agent config</a>
     <a href="../../../vet/">vet</a>
     <a href="../../../offline/">Offline</a>
     <a href="../../../owasp/">Coverage</a>
-    <a href="https://github.com/suthat/owlwarden" rel="noopener">GitHub</a>
+    <a class="nav-cta" href="https://github.com/suthat/owlwarden" rel="noopener">GitHub <span aria-hidden="true">↗</span></a>
   </nav>
 </header>
 
@@ -135,16 +147,16 @@
   </ol>
 </nav>
 
-<main id="main-content">
+<main id="main-content" class="article-page">
 <h1>Fix redirect target comes from the caller in Fastify</h1>
 
-<p class="lede">The destination of a redirect is taken from the request without being checked. An attacker can send a link that starts with your domain and ends on theirs, which is what makes a phishing page credible — and in an OAuth callback it hands the authorisation code to whoever asked. Resolve the target against your own origin and refuse anything else.</p>
+<p class="lede">The destination of a redirect is taken from the request without being checked. An attacker can send a link that starts with your domain and ends on theirs, which is what makes a phishing page credible - and in an OAuth callback it hands the authorisation code to whoever asked. Resolve the target against your own origin and refuse anything else.</p>
 
 <p>
   <span class="chip chip-medium">medium</span> <span class="chip chip-likely">likely</span>
   <span class="chip chip-scope">Fastify</span>
   <a href="https://cwe.mitre.org/data/definitions/601.html" rel="noopener">CWE-601</a>
-   · <a href="../../../owasp/">OWASP A01:2021</a>
+   / <a href="../../../owasp/">OWASP A01:2021</a>
   
 </p>
 
@@ -158,9 +170,9 @@
 <span class="dim">   │ </span>         <span class="mark">~~~~~~~~~~~~~~~~~~~~ destination chosen by the caller</span>
 <span class="dim">69 │</span> })</div>
 <p>
-  This is a real finding from the Fastify fixture in the owlwarden test
+  This finding comes from the Fastify fixture in the owlwarden test
   suite.
-  The whole redirect target comes from the request, so a link to this endpoint can send a visitor anywhere. The URL they click genuinely belongs to you, which is what makes the page they land on convincing — and on an OAuth callback the authorisation code goes with them.
+  The whole redirect target comes from the request, so a link to this endpoint can send a visitor anywhere. The URL they click genuinely belongs to you, which is what makes the page they land on convincing - and on an OAuth callback the authorisation code goes with them.
 </p>
 
 <h2>The corrected handler</h2>
@@ -176,16 +188,14 @@ return reply.redirect(safeRedirect(next, base))</code></pre>
 <pre class="code"><code class="language-bash">npx owlwarden scan
 npx owlwarden explain open-redirect</code></pre>
 <p>
-  Runs entirely on your machine — <a href="../../../offline/">no account, no
+  Runs on your machine. <a href="../../../offline/">No account, no
   telemetry, no network unless you ask</a>. In CI, <a href="../../../ci/">SARIF
   uploads to code scanning</a> and the exit code is the gate.
 </p>
 
 <h2>Other Fastify checks</h2>
 <p>
-  Every rule that has a verified Fastify example. Cross-linked in both
-  directions on purpose: a page nothing links to is a page a crawler reaches
-  only through the sitemap, and a reader never reaches at all.
+  Rules with a tested Fastify example.
 </p>
 <ul class="cards">
   <li><a href="../../cors-permissive/fastify/">
@@ -231,18 +241,18 @@ npx owlwarden explain open-redirect</code></pre>
 </ul>
 
 <p>
-  <a href="../">open-redirect for every framework</a> ·
-  <a href="../../">All rules</a> ·
+  <a href="../">open-redirect for every framework</a> /
+  <a href="../../">All rules</a> /
   <a href="../../../">owlwarden</a>
 </p>
 
 </main>
 
 <footer class="site-footer">
-  <p>
-    <strong>owlwarden 1.1.0</strong> — offline security scanner for Node web apps
-    and AI coding agents. No account, no telemetry, no network unless you ask.
-  </p>
+  <div class="footer-brand">
+    <img src="../../../favicon.svg" width="36" height="36" alt="">
+    <p><strong>owlwarden 1.1.0</strong><br>Local security checks for Node apps and coding-agent configuration.</p>
+  </div>
   <nav aria-label="Footer">
     <a href="../../../rules/">All rules</a>
     <a href="../../../owasp/">OWASP coverage</a>
@@ -253,7 +263,7 @@ npx owlwarden explain open-redirect</code></pre>
     <a href="https://github.com/suthat/owlwarden/blob/main/RULES.md" rel="noopener">RULES.md</a>
     <a href="https://www.npmjs.com/package/owlwarden" rel="noopener">npm</a>
   </nav>
-  <p class="licence">MIT OR Apache-2.0. <code>npx owlwarden scan</code></p>
+  <p class="licence">No account / no telemetry / MIT OR Apache-2.0 / <code>npx owlwarden scan</code></p>
 </footer>
 </body>
 </html>
