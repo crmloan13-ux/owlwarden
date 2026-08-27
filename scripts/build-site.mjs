@@ -34,7 +34,7 @@ import { fileURLToPath } from "node:url";
 import { dirname, join, relative } from "node:path";
 
 import { problems, renderPage } from "./site/layout.mjs";
-import { changelogFeed, changelogPage } from "./site/changelog.mjs";
+import { changelogFeed, changelogPage, latestReleaseDate } from "./site/changelog.mjs";
 import { llms, robots, sitemap } from "./site/feeds.mjs";
 import { staticPages } from "./site/pages.mjs";
 import { rulePages } from "./site/rules.mjs";
@@ -99,7 +99,7 @@ files.set(
   sitemap(
     [...pages.map(({ path }) => path)].sort(),
     site,
-    new Date().toISOString().slice(0, 10),
+    latestReleaseDate(changelogSource),
   ),
 );
 files.set("llms.txt", llms({ site, version, rules, coverage }));
