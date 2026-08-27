@@ -3,14 +3,16 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
 
-<title>Fix weak-crypto in Hono — owlwarden</title>
+<title>Fix weak-crypto in Hono: owlwarden</title>
 <meta name="description" content="Broken cryptographic primitive protecting a secret in Hono. The vulnerable pattern, the corrected code, and one command to check your own repository.">
 <link rel="canonical" href="https://suthat.github.io/owlwarden/rules/weak-crypto/hono/">
 <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1">
 <meta name="theme-color" content="#fbfaf8">
 
 <meta property="og:type" content="article">
+<meta property="og:locale" content="en_US">
 <meta property="og:site_name" content="owlwarden">
 <meta property="og:title" content="Fix broken cryptographic primitive protecting a secret in Hono">
 <meta property="og:description" content="Broken cryptographic primitive protecting a secret in Hono. The vulnerable pattern, the corrected code, and one command to check your own repository.">
@@ -23,17 +25,27 @@
 <meta name="twitter:title" content="Fix broken cryptographic primitive protecting a secret in Hono">
 <meta name="twitter:description" content="Broken cryptographic primitive protecting a secret in Hono. The vulnerable pattern, the corrected code, and one command to check your own repository.">
 <meta name="twitter:image" content="https://suthat.github.io/owlwarden/og.png">
+<meta name="twitter:image:alt" content="An owlwarden scan showing the exact vulnerable line and its fix">
 
 <link rel="icon" type="image/svg+xml" href="../../../favicon.svg">
-<link rel="alternate icon" type="image/png" href="../../../favicon.png">
-<link rel="apple-touch-icon" href="../../../favicon.png">
+<link rel="alternate icon" type="image/png" sizes="192x192" href="../../../favicon.png">
+<link rel="apple-touch-icon" sizes="180x180" href="../../../apple-touch-icon.png">
+<link rel="manifest" href="../../../manifest.webmanifest">
 <link rel="alternate" type="application/atom+xml" title="owlwarden releases" href="https://suthat.github.io/owlwarden/changelog/feed.xml">
-<link rel="stylesheet" href="../../../styles.css?v=1.1.0">
+<link rel="stylesheet" href="../../../styles.css?v=86e674860125">
 
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
   "@graph": [
+    {
+      "@type": "WebSite",
+      "@id": "https://suthat.github.io/owlwarden/#website",
+      "name": "owlwarden",
+      "url": "https://suthat.github.io/owlwarden/",
+      "description": "Local security scanner for Node apps and coding-agent configuration.",
+      "inLanguage": "en"
+    },
     {
       "@type": "BreadcrumbList",
       "@id": "https://suthat.github.io/owlwarden/rules/weak-crypto/hono/#breadcrumbs",
@@ -67,7 +79,7 @@
     {
       "@type": "TechArticle",
       "headline": "Fix broken cryptographic primitive protecting a secret in Hono",
-      "description": "A hash, cipher, or random source that cannot carry the weight it has been given: MD5 or SHA-1 over a password, a DES or ECB cipher, or Math.random() producing a token. Each has a drop-in replacement in the standard library, so the fix is small — the cost of not making it is that the protection is decorative.",
+      "description": "A hash, cipher, or random source that cannot carry the weight it has been given: MD5 or SHA-1 over a password, a DES or ECB cipher, or Math.random() producing a token. Each has a drop-in replacement in the standard library, so the fix is small - the cost of not making it is that the protection is decorative.",
       "proficiencyLevel": "Beginner",
       "dependencies": "Hono",
       "isPartOf": {
@@ -113,16 +125,16 @@
 
 <header class="site-header">
   <a class="wordmark" href="../../../">
-    <span aria-hidden="true">◉ᴥ◉</span>
+    <img src="../../../favicon.svg" width="32" height="32" alt="">
     <span>owlwarden</span>
   </a>
   <nav aria-label="Primary">
-    <a href="../../../rules/">Rules</a>
+    <a href="../../../rules/" aria-current="page">Rules</a>
     <a href="../../../agent-config-security/">Agent config</a>
     <a href="../../../vet/">vet</a>
     <a href="../../../offline/">Offline</a>
     <a href="../../../owasp/">Coverage</a>
-    <a href="https://github.com/suthat/owlwarden" rel="noopener">GitHub</a>
+    <a class="nav-cta" href="https://github.com/suthat/owlwarden" rel="noopener">GitHub <span aria-hidden="true">↗</span></a>
   </nav>
 </header>
 
@@ -135,16 +147,16 @@
   </ol>
 </nav>
 
-<main id="main-content">
+<main id="main-content" class="article-page">
 <h1>Fix broken cryptographic primitive protecting a secret in Hono</h1>
 
-<p class="lede">A hash, cipher, or random source that cannot carry the weight it has been given: MD5 or SHA-1 over a password, a DES or ECB cipher, or Math.random() producing a token. Each has a drop-in replacement in the standard library, so the fix is small — the cost of not making it is that the protection is decorative.</p>
+<p class="lede">A hash, cipher, or random source that cannot carry the weight it has been given: MD5 or SHA-1 over a password, a DES or ECB cipher, or Math.random() producing a token. Each has a drop-in replacement in the standard library, so the fix is small - the cost of not making it is that the protection is decorative.</p>
 
 <p>
   <span class="chip chip-high">high</span> <span class="chip chip-likely">likely</span>
   <span class="chip chip-scope">Hono</span>
   <a href="https://cwe.mitre.org/data/definitions/327.html" rel="noopener">CWE-327</a>
-   · <a href="../../../owasp/">OWASP A02:2021</a>
+   / <a href="../../../owasp/">OWASP A02:2021</a>
   
 </p>
 
@@ -159,7 +171,7 @@
 <span class="dim">11 │</span> 
 <span class="dim">12 │</span>   // weak-crypto: a session id anyone can predict from a few samples.</div>
 <p>
-  This is a real finding from the Hono fixture in the owlwarden test
+  This finding comes from the Hono fixture in the owlwarden test
   suite.
   This hash is fast, and speed is the attacker&#39;s advantage: a commodity GPU tries billions of candidates a second, so a leaked table of these hashes is a leaked table of the values behind them. Password hashing needs a deliberately slow algorithm with a per-value salt.
 </p>
@@ -186,16 +198,14 @@ const hash = await new Promise&lt;Buffer&gt;((resolve, reject) =&gt;
 <pre class="code"><code class="language-bash">npx owlwarden scan
 npx owlwarden explain weak-crypto</code></pre>
 <p>
-  Runs entirely on your machine — <a href="../../../offline/">no account, no
+  Runs on your machine. <a href="../../../offline/">No account, no
   telemetry, no network unless you ask</a>. In CI, <a href="../../../ci/">SARIF
   uploads to code scanning</a> and the exit code is the gate.
 </p>
 
 <h2>Other Hono checks</h2>
 <p>
-  Every rule that has a verified Hono example. Cross-linked in both
-  directions on purpose: a page nothing links to is a page a crawler reaches
-  only through the sitemap, and a reader never reaches at all.
+  Rules with a tested Hono example.
 </p>
 <ul class="cards">
   <li><a href="../../cors-permissive/hono/">
@@ -241,18 +251,18 @@ npx owlwarden explain weak-crypto</code></pre>
 </ul>
 
 <p>
-  <a href="../">weak-crypto for every framework</a> ·
-  <a href="../../">All rules</a> ·
+  <a href="../">weak-crypto for every framework</a> /
+  <a href="../../">All rules</a> /
   <a href="../../../">owlwarden</a>
 </p>
 
 </main>
 
 <footer class="site-footer">
-  <p>
-    <strong>owlwarden 1.1.0</strong> — offline security scanner for Node web apps
-    and AI coding agents. No account, no telemetry, no network unless you ask.
-  </p>
+  <div class="footer-brand">
+    <img src="../../../favicon.svg" width="36" height="36" alt="">
+    <p><strong>owlwarden 1.1.0</strong><br>Local security checks for Node apps and coding-agent configuration.</p>
+  </div>
   <nav aria-label="Footer">
     <a href="../../../rules/">All rules</a>
     <a href="../../../owasp/">OWASP coverage</a>
@@ -263,7 +273,7 @@ npx owlwarden explain weak-crypto</code></pre>
     <a href="https://github.com/suthat/owlwarden/blob/main/RULES.md" rel="noopener">RULES.md</a>
     <a href="https://www.npmjs.com/package/owlwarden" rel="noopener">npm</a>
   </nav>
-  <p class="licence">MIT OR Apache-2.0. <code>npx owlwarden scan</code></p>
+  <p class="licence">No account / no telemetry / MIT OR Apache-2.0 / <code>npx owlwarden scan</code></p>
 </footer>
 </body>
 </html>

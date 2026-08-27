@@ -3,16 +3,18 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
 
-<title>owlwarden in CI — SARIF, exit codes, no greenwashing</title>
+<title>owlwarden in CI: SARIF, JUnit, and exit codes</title>
 <meta name="description" content="SARIF 2.1.0 for code scanning, JUnit for test UIs, Markdown for PR comments, and an exit code contract that refuses to go green on a partial scan.">
 <link rel="canonical" href="https://suthat.github.io/owlwarden/ci/">
 <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1">
 <meta name="theme-color" content="#fbfaf8">
 
 <meta property="og:type" content="article">
+<meta property="og:locale" content="en_US">
 <meta property="og:site_name" content="owlwarden">
-<meta property="og:title" content="Running owlwarden in CI without greenwashing the build">
+<meta property="og:title" content="Run owlwarden in CI">
 <meta property="og:description" content="SARIF 2.1.0 for code scanning, JUnit for test UIs, Markdown for PR comments, and an exit code contract that refuses to go green on a partial scan.">
 <meta property="og:url" content="https://suthat.github.io/owlwarden/ci/">
 <meta property="og:image" content="https://suthat.github.io/owlwarden/og.png">
@@ -20,20 +22,30 @@
 <meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="An owlwarden finding: a SessionStart hook in .claude/settings.json that runs a command when the workspace is opened">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Running owlwarden in CI without greenwashing the build">
+<meta name="twitter:title" content="Run owlwarden in CI">
 <meta name="twitter:description" content="SARIF 2.1.0 for code scanning, JUnit for test UIs, Markdown for PR comments, and an exit code contract that refuses to go green on a partial scan.">
 <meta name="twitter:image" content="https://suthat.github.io/owlwarden/og.png">
+<meta name="twitter:image:alt" content="An owlwarden scan showing the exact vulnerable line and its fix">
 
 <link rel="icon" type="image/svg+xml" href="../favicon.svg">
-<link rel="alternate icon" type="image/png" href="../favicon.png">
-<link rel="apple-touch-icon" href="../favicon.png">
+<link rel="alternate icon" type="image/png" sizes="192x192" href="../favicon.png">
+<link rel="apple-touch-icon" sizes="180x180" href="../apple-touch-icon.png">
+<link rel="manifest" href="../manifest.webmanifest">
 <link rel="alternate" type="application/atom+xml" title="owlwarden releases" href="https://suthat.github.io/owlwarden/changelog/feed.xml">
-<link rel="stylesheet" href="../styles.css?v=1.1.0">
+<link rel="stylesheet" href="../styles.css?v=86e674860125">
 
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
   "@graph": [
+    {
+      "@type": "WebSite",
+      "@id": "https://suthat.github.io/owlwarden/#website",
+      "name": "owlwarden",
+      "url": "https://suthat.github.io/owlwarden/",
+      "description": "Local security scanner for Node apps and coding-agent configuration.",
+      "inLanguage": "en"
+    },
     {
       "@type": "BreadcrumbList",
       "@id": "https://suthat.github.io/owlwarden/ci/#breadcrumbs",
@@ -66,7 +78,7 @@
 
 <header class="site-header">
   <a class="wordmark" href="../">
-    <span aria-hidden="true">◉ᴥ◉</span>
+    <img src="../favicon.svg" width="32" height="32" alt="">
     <span>owlwarden</span>
   </a>
   <nav aria-label="Primary">
@@ -75,7 +87,7 @@
     <a href="../vet/">vet</a>
     <a href="../offline/">Offline</a>
     <a href="../owasp/">Coverage</a>
-    <a href="https://github.com/suthat/owlwarden" rel="noopener">GitHub</a>
+    <a class="nav-cta" href="https://github.com/suthat/owlwarden" rel="noopener">GitHub <span aria-hidden="true">↗</span></a>
   </nav>
 </header>
 
@@ -86,13 +98,39 @@
   </ol>
 </nav>
 
-<main id="main-content">
-<h1>Running owlwarden in CI without greenwashing the build</h1>
-
-<p class="lede">
-  One command, three output formats from one scan, and an exit code that means
-  the same thing every time.
-</p>
+<main id="main-content" class="with-hero">
+<section class="page-hero">
+  <div class="hero-copy">
+    <p class="eyebrow">CI</p>
+    <h1>Run owlwarden in CI</h1>
+    <p class="hero-summary"><strong>Exit 0 means clean, 1 means findings, and 2 means the scan failed.</strong> The same run can write SARIF, JUnit, JSON, or Markdown.</p>
+    <div class="hero-actions"><a class="button button-primary" href="https://github.com/suthat/owlwarden/tree/main/action">Browse the GitHub Action</a>
+<a class="button button-secondary" href="../owasp/">Review coverage</a></div>
+  </div>
+  <figure class="product-visual product-visual-safe" aria-label="pull request / security gate">
+  <div class="visual-chrome" aria-hidden="true">
+  <span class="window-dots"><i></i><i></i><i></i></span>
+  <span>pull request / security gate</span>
+  <span class="visual-status"><i></i>local</span>
+</div>
+  <div class="visual-body">
+    <p class="visual-title">One scan, several report formats</p>
+    <ol class="visual-list"><li>
+  <span class="visual-tag">SARIF</span>
+  <span><strong>Code scanning</strong><small>Findings land on the exact source line.</small></span>
+</li>
+<li>
+  <span class="visual-tag">JUNIT</span>
+  <span><strong>Test UI</strong><small>Security results sit beside the test suite.</small></span>
+</li>
+<li>
+  <span class="visual-tag">MD</span>
+  <span><strong>Review summary</strong><small>A compact report fits the pull request.</small></span>
+</li></ol>
+  </div>
+  <figcaption>exit 0 clean, exit 1 findings, exit 2 scan error</figcaption>
+</figure>
+</section>
 
 <pre class="code"><code class="language-yaml">- uses: suthat/owlwarden/action@v1
   with:
@@ -107,22 +145,21 @@
   <tbody>
     <tr><td><code>0</code></td><td>Scanned, nothing at or above <code>--fail-on</code></td></tr>
     <tr><td><code>1</code></td><td>Findings at or above the threshold</td></tr>
-    <tr><td><code>2</code></td><td>Could not run — a bad flag, an unreadable tree, a missing engine</td></tr>
+    <tr><td><code>2</code></td><td>Could not run because of a bad flag, unreadable tree, or missing engine</td></tr>
   </tbody>
 </table>
 </div>
 <p>
-  <code>2</code> is distinct from <code>1</code> on purpose. A pipeline that
-  treats "the scanner broke" as "the scanner found nothing" is a pipeline with
-  no scanner in it, and nobody notices for months.
+  Exit code <code>2</code> keeps a scan error separate from a finding. CI should
+  fail in both cases but can report them differently.
 </p>
 
 <h2>What <code>--ci</code> refuses</h2>
 <p>
   Under <code>--ci</code>, project configuration cannot set the gate knobs, and
   inline suppressions and <code>--baseline</code> are ignored unless the
-  operator opts in explicitly. Otherwise a hostile pull request silences the
-  build by adding a JSON file, and the diff looks like configuration.
+  operator opts in explicitly. A pull request cannot weaken the check by editing
+  repository config.
 </p>
 
 <h2>A truncated report is not a clean report</h2>
@@ -138,25 +175,25 @@ owlwarden scan --staged            # a pre-commit hook</code></pre>
 <p>
   A diff-scoped scan states its scope in every format, so a clean result can
   never be mistaken for a clean repository. Project-scope rules still run when
-  <em>their own</em> declared inputs changed — a commit touching only
+  <em>their own</em> declared inputs changed - a commit touching only
   <code>package.json</code> still fires the dependency rules.
 </p>
 
 <h2>Keep reading</h2>
 <ul class="cards">
-  <li><a href="../rules/"><span class="name">All rules</span><span class="blurb">The pattern, the fix for your stack, the CWE.</span></a></li>
-  <li><a href="../agent-config-security/"><span class="name">Agent config security</span><span class="blurb">The files your agent executes and nothing scans.</span></a></li>
+  <li><a href="../rules/"><span class="name">Rules</span><span class="blurb">Trigger, confidence, and framework-specific fix.</span></a></li>
+  <li><a href="../agent-config-security/"><span class="name">Agent config</span><span class="blurb">Hooks, MCP servers, instructions, and editor tasks.</span></a></li>
   <li><a href="../vet/"><span class="name">owlwarden vet</span><span class="blurb">Check a repository before you open it.</span></a></li>
-  <li><a href="../owasp/"><span class="name">Coverage, gaps included</span><span class="blurb">What it checks, and what no parser can.</span></a></li>
+  <li><a href="../owasp/"><span class="name">Coverage</span><span class="blurb">Mapped rules and categories static analysis cannot cover.</span></a></li>
 </ul>
 
 </main>
 
 <footer class="site-footer">
-  <p>
-    <strong>owlwarden 1.1.0</strong> — offline security scanner for Node web apps
-    and AI coding agents. No account, no telemetry, no network unless you ask.
-  </p>
+  <div class="footer-brand">
+    <img src="../favicon.svg" width="36" height="36" alt="">
+    <p><strong>owlwarden 1.1.0</strong><br>Local security checks for Node apps and coding-agent configuration.</p>
+  </div>
   <nav aria-label="Footer">
     <a href="../rules/">All rules</a>
     <a href="../owasp/">OWASP coverage</a>
@@ -167,7 +204,7 @@ owlwarden scan --staged            # a pre-commit hook</code></pre>
     <a href="https://github.com/suthat/owlwarden/blob/main/RULES.md" rel="noopener">RULES.md</a>
     <a href="https://www.npmjs.com/package/owlwarden" rel="noopener">npm</a>
   </nav>
-  <p class="licence">MIT OR Apache-2.0. <code>npx owlwarden scan</code></p>
+  <p class="licence">No account / no telemetry / MIT OR Apache-2.0 / <code>npx owlwarden scan</code></p>
 </footer>
 </body>
 </html>

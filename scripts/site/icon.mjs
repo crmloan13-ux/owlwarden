@@ -9,10 +9,12 @@ import { THEME } from "./theme.mjs";
  * and the thing a tab needs to be is *identifiable at a glance among twenty
  * other tabs*.
  *
- * So this is drawn at 16px and scaled up, not the other way round. Four shapes,
- * maximum contrast, and the three features that make a shape read as an owl
- * rather than as a generic animal: two large adjacent eyes, ear tufts, and a
- * beak between them.
+ * So this is drawn at 16px and scaled up, not the other way round. The short,
+ * outward ear tufts belong to the head silhouette instead of growing into two
+ * horns. The facial disc is one connected mask, while the gap between its two
+ * halves forms the vertical centre without adding a nose or beak. Those
+ * proportions keep it recognisable as an owl at tab size without turning it
+ * into a detailed illustration.
  *
  * It is the same mark the CLI prints — `◉ᴥ◉` — drawn geometrically, and it uses
  * the palette derived from the reporter, so the tab, the page, and the terminal
@@ -30,44 +32,78 @@ import { THEME } from "./theme.mjs";
  * alike, and it looks the same everywhere, which is what a mark is for.
  */
 export function favicon() {
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="owlwarden">
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="owlwarden" data-brand="owlwarden-guardian" shape-rendering="geometricPrecision">
   <title>owlwarden</title>
   <rect width="64" height="64" rx="14" fill="${THEME.ink}"/>
 
-  <!-- Eye rings in the severity colour the reporter uses for "high", so the
-       mark and the report share one accent. -->
-  <circle cx="21" cy="33" r="13.4" fill="${THEME.high}"/>
-  <circle cx="43" cy="33" r="13.4" fill="${THEME.high}"/>
+  <!-- Short outward tufts, a broad crown, and a tapered lower face. -->
+  <g id="owl-head">
+    <path d="M10 29
+             C10 19.6 18.8 12.5 32 12.5
+             C45.2 12.5 54 19.6 54 29
+             C54 40.2 47.1 49.2 38.4 53.5
+             L32 57
+             L25.6 53.5
+             C16.9 49.2 10 40.2 10 29Z"
+          fill="${THEME.paper}"/>
+    <path d="M14.8 18.5
+             C14.4 15.2 13.5 12.2 12 9.5
+             C16.1 11 19.3 12.9 21.5 15.2
+             C18.7 15.8 16.5 16.9 14.8 18.5Z"
+          fill="${THEME.paper}"/>
+    <path d="M42.5 15.2
+             C44.7 12.9 47.9 11 52 9.5
+             C50.5 12.2 49.6 15.2 49.2 18.5
+             C47.5 16.9 45.3 15.8 42.5 15.2Z"
+          fill="${THEME.paper}"/>
+  </g>
 
-  <!-- The face: one swept stroke from the left horn, down to the point between
-       the eyes, and up to the right horn, closed across the brow. Curved rather
-       than triangular — straight tufts read as goggles with eyebrows. -->
-  <path d="M7.5 33
-           C 5.6 20.5, 9.5 10.5, 16.8 6
-           C 15.4 15.5, 17.2 22, 22.6 26.6
-           L 32 35.4
-           L 41.4 26.6
-           C 46.8 22, 48.6 15.5, 47.2 6
-           C 54.5 10.5, 58.4 20.5, 56.5 33
-           C 53 25.6, 47.6 21.6, 41.6 21.4
-           L 22.4 21.4
-           C 16.4 21.6, 11 25.6, 7.5 33 Z"
-        fill="${THEME.paper}"/>
+  <!-- One facial disc rather than two separate goggle rings. -->
+  <g id="owl-face">
+    <path d="M12 31
+             C12 23.2 19.7 18.2 28.2 20.2
+             C29.8 20.6 31 21.4 32 22.6
+             C33 21.4 34.2 20.6 35.8 20.2
+             C44.3 18.2 52 23.2 52 31
+             C52 39.8 44.5 46.2 35.8 44.6
+             C34.1 44.3 32.9 43.5 32 42.3
+             C31.1 43.5 29.9 44.3 28.2 44.6
+             C19.5 46.2 12 39.8 12 31Z"
+          fill="${THEME.high}"/>
+  </g>
 
-  <!-- Eyes. Three rings is the most a 16-pixel render can hold, and it is what
-       makes this read as an owl rather than as a face. -->
-  <circle cx="21" cy="33" r="10.2" fill="${THEME.paper}"/>
-  <circle cx="43" cy="33" r="10.2" fill="${THEME.paper}"/>
-  <circle cx="21" cy="33" r="6.4" fill="${THEME.ink}"/>
-  <circle cx="43" cy="33" r="6.4" fill="${THEME.ink}"/>
-  <circle cx="22.3" cy="31.7" r="1.9" fill="${THEME.paper}"/>
-  <circle cx="44.3" cy="31.7" r="1.9" fill="${THEME.paper}"/>
+  <g id="owl-eyes">
+    <circle cx="22" cy="31.5" r="9.6" fill="${THEME.paper}"/>
+    <circle cx="42" cy="31.5" r="9.6" fill="${THEME.paper}"/>
+    <circle cx="22" cy="31.5" r="5.3" fill="${THEME.ink}"/>
+    <circle cx="42" cy="31.5" r="5.3" fill="${THEME.ink}"/>
+    <circle cx="23.4" cy="30" r="1.15" fill="${THEME.paper}"/>
+    <circle cx="43.4" cy="30" r="1.15" fill="${THEME.paper}"/>
+  </g>
 
-  <!-- The beak. It starts *above* the point where the brow meets rather than at
-       it: a beak that merely touches the V leaves two hairline slivers of the
-       eye ring showing through, which at 16 pixels is a smudge and at 512 is a
-       mistake. Overlapping makes the face one shape. -->
-  <path d="M32 27 L27.8 41.4 L32 50 L36.2 41.4 Z" fill="${THEME.paper}"/>
 </svg>
 `;
+}
+
+/** The install metadata; every raster entry is generated from {@link favicon}. */
+export function webManifest() {
+  return `${JSON.stringify(
+    {
+      name: "owlwarden",
+      short_name: "owlwarden",
+      description: "Local security scanner for Node apps and coding-agent configuration.",
+      start_url: "./",
+      scope: "./",
+      display: "standalone",
+      background_color: THEME.paper,
+      theme_color: THEME.paper,
+      icons: [
+        { src: "./favicon.svg", sizes: "any", type: "image/svg+xml", purpose: "any" },
+        { src: "./favicon.png", sizes: "192x192", type: "image/png", purpose: "any" },
+        { src: "./icon-512.png", sizes: "512x512", type: "image/png", purpose: "any maskable" },
+      ],
+    },
+    null,
+    2,
+  )}\n`;
 }

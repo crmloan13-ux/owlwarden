@@ -1,15 +1,15 @@
 import { chip, code, esc } from "./layout.mjs";
+import { marketingHero } from "./marketing.mjs";
 import { renderFrame } from "./samples.mjs";
 
 /**
  * The pages that are written rather than generated.
  *
- * Each one has a job, and each one serves exactly one:
+ * Each page answers one developer question:
  *
- * - the homepage converts a reader into `npx owlwarden scan`;
- * - the hub pages answer a specific question well enough to be worth linking to;
- * - the comparison pages exist because without them the reader builds a worse
- *   comparison in their head, and ours is allowed to say where we lose.
+ * - the homepage explains what gets scanned and how to run it;
+ * - hub pages document a product surface;
+ * - comparison pages state scope and trade-offs.
  *
  * They live in a module rather than in HTML files so that the header, the
  * footer, the JSON-LD, and the canonical tag have one definition — and so a
@@ -19,10 +19,10 @@ import { renderFrame } from "./samples.mjs";
 const CROSS = (up = "") => `
 <h2>Keep reading</h2>
 <ul class="cards">
-  <li><a href="${up}rules/"><span class="name">All rules</span><span class="blurb">The pattern, the fix for your stack, the CWE.</span></a></li>
-  <li><a href="${up}agent-config-security/"><span class="name">Agent config security</span><span class="blurb">The files your agent executes and nothing scans.</span></a></li>
+  <li><a href="${up}rules/"><span class="name">Rules</span><span class="blurb">Trigger, confidence, and framework-specific fix.</span></a></li>
+  <li><a href="${up}agent-config-security/"><span class="name">Agent config</span><span class="blurb">Hooks, MCP servers, instructions, and editor tasks.</span></a></li>
   <li><a href="${up}vet/"><span class="name">owlwarden vet</span><span class="blurb">Check a repository before you open it.</span></a></li>
-  <li><a href="${up}owasp/"><span class="name">Coverage, gaps included</span><span class="blurb">What it checks, and what no parser can.</span></a></li>
+  <li><a href="${up}owasp/"><span class="name">Coverage</span><span class="blurb">Mapped rules and categories static analysis cannot cover.</span></a></li>
 </ul>`;
 
 export function staticPages({ rules, coverage, samples, version }) {
@@ -32,7 +32,7 @@ export function staticPages({ rules, coverage, samples, version }) {
   const leak = samples.get("stack-trace-leak")?.get("next");
   const hook = samples.get("agent-hook-autoexec")?.get("claude-code");
 
-  return [
+  const pages = [
     { path: "", page: home({ rules, webRules, agentRules, coverage, leak, hook, version }) },
     { path: "agent-config-security/", page: agentConfigSecurity({ agentRules, hook }) },
     { path: "vet/", page: vet({ agentRules }) },
@@ -48,17 +48,23 @@ export function staticPages({ rules, coverage, samples, version }) {
     { path: "vs/claude-security/", page: vsModelReviewers() },
     { path: "vs/eslint-plugin-security/", page: vsEslint() },
   ];
+
+  const heroContext = { rules, webRules, agentRules, coverage, leak, hook };
+  return pages.map(({ path, page }) => ({
+    path,
+    page: { ...page, hero: marketingHero(path, heroContext) },
+  }));
 }
 
 // ---------------------------------------------------------------------------
 
-function home({ rules, webRules, agentRules, coverage, leak, hook, version }) {
+function home({ rules, webRules, agentRules, coverage, version }) {
   return {
-    title: "owlwarden — offline security scanner for Node and AI agents",
-    heading: "The deterministic security floor for code your agent just wrote",
+    title: "owlwarden: local security scanner for Node and coding agents",
+    heading: "Security checks for Node apps and coding-agent config",
     description:
-      "Offline security scanner for Node web apps and AI coding agents. OWASP rules with " +
-      "framework-specific fixes, plus the .claude and .vscode config nothing else reads.",
+      "Local security scanner for Node apps and coding agents. OWASP checks with framework fixes, " +
+      "plus .claude, .cursor, and .vscode configuration.",
     ogType: "website",
     breadcrumbs: [{ label: "owlwarden", href: "" }],
     schema: [
@@ -98,38 +104,25 @@ function home({ rules, webRules, agentRules, coverage, leak, hook, version }) {
           ),
           faq(
             "How is it different from a cloud SAST?",
-            "It runs offline with no account, it is deterministic, and it scans your agent and " +
-              "editor configuration as well as your source. It has 25 rules, not thousands — run " +
-              "both if you want breadth.",
+            `It runs locally and checks agent and editor configuration as well as application ` +
+              `source. It has ${rules.length} focused rules. Run it with a broader scanner when ` +
+              "you need more language or rule coverage.",
           ),
         ],
       },
     ],
     body: `
-<div class="hero-transcript">
-${leak ? renderFrame(leak, esc) : ""}
-${hook ? renderFrame(hook, esc) : ""}
-</div>
-
-<p class="lede">
-  Two findings from one scan: an application bug, and a line of configuration
-  that runs a command when anyone opens the folder. Most tools see the first.
-  <a href="./agent-config-security/">Nothing sees the second</a>, because it is
-  not a dependency and it is not source.
-</p>
-
 ${code("bash", "npx owlwarden scan          # your app\nnpx owlwarden vet .         # your agent's config")}
 
-<h2>What it does not look at</h2>
+<h2>Known limits</h2>
 <p>
-  This is the part most scanners leave out, so it goes above the feature list. A
-  clean report you cannot calibrate is worse than no report.
+  Read these before treating a clean result as a clean repository.
 </p>
 <div class="table-wrap">
 <table>
   <thead><tr><th>Limit</th><th>Why</th></tr></thead>
   <tbody>
-    <tr><td>${coverage.categoriesCovered} of 10 OWASP categories</td><td>A04 (Insecure Design) is out of reach from source, on purpose — <a href="./owasp/">no parser finds a design flaw</a>.</td></tr>
+    <tr><td>${coverage.categoriesCovered} of 10 OWASP categories</td><td>A04 (Insecure Design) needs design context. <a href="./owasp/">See the full mapping</a>.</td></tr>
     <tr><td>Origin tracking is one hop</td><td>Not a full taint engine. Injection-shaped rules cap their confidence instead of guessing.</td></tr>
     <tr><td>Agent rules cap at <code>likely</code></td><td><code>confirmed</code> means corroborated against a running target, and a config file has none.</td></tr>
     <tr><td>${rules.length} rules, not thousands</td><td>Node web applications and agent configuration. <a href="./vs/semgrep/">Run Semgrep too</a>.</td></tr>
@@ -137,27 +130,24 @@ ${code("bash", "npx owlwarden scan          # your app\nnpx owlwarden vet .     
 </table>
 </div>
 
-<h2>Two surfaces, one exit code</h2>
+<h2>What gets scanned</h2>
 <p>
-  ${webRules.length} rules read the code in your repository.
-  ${agentRules.length} read the files your agent loads out of the working tree
-  and executes — <code>.claude/settings.json</code>,
+  <strong>${webRules.length} rules read application code. ${agentRules.length} read agent config.</strong>
+  Agent rules cover files loaded from the working tree, including
+  <code>.claude/settings.json</code>,
   <code>.vscode/tasks.json</code>, <code>.cursor/hooks.json</code>,
-  <code>CLAUDE.md</code>. Your lockfile does not record those. Your SCA tool
-  does not read them. Your review treats them like a <code>.prettierrc</code>.
+  and <code>CLAUDE.md</code>. These files are not recorded in the lockfile.
 </p>
 <p>
-  Every rule carries a fix written for your framework, or for your agent host.
-  A rule cannot ship without one: <a href="./rules/">the build fails on an empty
-  cell</a>.
+  Each finding includes a fix for the detected framework or agent host.
+  <a href="./rules/">The rule catalogue</a> shows the tested examples.
 </p>
 
-<h2>A control, not a suggestion</h2>
+<h2>Run it from agent hooks</h2>
 <p>
-  A tool the model <em>may</em> call is not a control that <em>always</em> runs.
-  <code>owlwarden gate</code> attaches to the host's lifecycle — after every
-  edit, before a shell command, at the turn boundary — and returns a verdict the
-  prompt cannot reach, because the prompt is not its input.
+  <code>owlwarden gate</code> runs from host lifecycle events after edits,
+  before shell commands, and at the end of a turn. The agent does not need to
+  remember to call it.
 </p>
 ${code("bash", "owlwarden init --claude-code   # hooks + MCP entry\nowlwarden init --cursor\nowlwarden init --generic       # any host that can run a process")}
 <p>
@@ -167,27 +157,33 @@ ${code("bash", "owlwarden init --claude-code   # hooks + MCP entry\nowlwarden in
 </p>
 
 <h2>Common questions</h2>
-<h3>Does owlwarden send my code anywhere?</h3>
+<details>
+<summary>Does owlwarden send my code anywhere?</summary>
 <p>
   No. There is no telemetry and no opt-in switch, because there is nothing to
   switch on. <a href="./offline/">The threat model is on its own page</a>.
 </p>
-<h3>Is it free?</h3>
+</details>
+<details>
+<summary>Is it free?</summary>
 <p>MIT OR Apache-2.0, at your option. No account, no seat count, no hosted tier.</p>
-<h3>Does it replace my existing scanner?</h3>
+</details>
+<details>
+<summary>Does it replace my existing scanner?</summary>
 <p>
-  No, and it does not try to. <a href="./vs/semgrep/">Here is where it loses</a>,
-  and the same page for <a href="./vs/snyk/">Snyk</a>,
+  No. Compare its scope with <a href="./vs/semgrep/">Semgrep</a>,
+  <a href="./vs/snyk/">Snyk</a>,
   <a href="./vs/claude-security/">model-based review</a>, and
   <a href="./vs/eslint-plugin-security/">eslint-plugin-security</a>.
 </p>
-
-<h3>What changed in the last release?</h3>
+</details>
+<details>
+<summary>What changed in the last release?</summary>
 <p>
-  <a href="./changelog/">The changelog</a> lists every user-visible change with
-  the security notes spelled out, and carries an
-  <a href="./changelog/feed.xml">Atom feed</a> — no account, no mailing list.
+  Read the <a href="./changelog/">changelog</a> or subscribe to its
+  <a href="./changelog/feed.xml">Atom feed</a>.
 </p>
+</details>
 `,
   };
 }
@@ -204,8 +200,8 @@ function faq(question, answer) {
 
 function agentConfigSecurity({ agentRules, hook }) {
   return {
-    title: "Agent config security — the files nothing scans",
-    heading: "Your dependency scanner does not read .claude/settings.json",
+    title: "Scan agent and editor configuration",
+    heading: "Scan agent config before it runs",
     description:
       "Agent and editor configuration is executable, is read from the working tree, and is not in " +
       "your lockfile. What lives there, and how to check your repo.",
@@ -225,37 +221,28 @@ function agentConfigSecurity({ agentRules, hook }) {
       },
     ],
     body: `
-<p class="lede">
-  The property that makes this class of file dangerous is simple and general:
-  <strong>agent and editor configuration is executable, is read from the working
-  tree, and is not read by any software composition analysis tool.</strong>
+<p>
+  Hooks, MCP declarations, instruction files, and editor tasks are checked into
+  the repository but are not dependencies or application source. Many scanners
+  do not read them.
 </p>
 
+<h2>How the August 2026 npm worm persisted</h2>
 <p>
-  It is not a dependency, so no lockfile records it. It is not application
-  source, so no SAST rule parses it. It is checked in, so review passes over it
-  the way review passes over a <code>.prettierrc</code>.
-</p>
-
-<h2>What the August 2026 npm worm actually did</h2>
-<p>
-  The dependency half of that incident was within reach of ordinary tooling:
-  poisoned package versions, pulled within hours. The half that was not is the
-  persistence mechanism. The payload wrote itself into
+  Dependency tooling found the poisoned package versions. The payload also
+  wrote files under
   <code>.claude/settings.json</code>, <code>.claude/setup.mjs</code>,
   <code>.vscode/tasks.json</code>, and <code>.vscode/setup.mjs</code>, and used
-  stolen credentials to commit those files into every repository it could reach.
+  stolen credentials to commit them to other repositories.
 </p>
 <p>
-  Removing the poisoned package version does not remove that foothold.
-  Regenerating the lockfile does not remove it. The next developer who opens the
-  folder in an editor, or starts an agent session in it, re-executes the
-  dropper.
+  Removing the package or regenerating the lockfile does not remove those
+  files. Opening the folder in an editor or agent can run them again.
 </p>
 
 ${hook ? `<h2>What that looks like in a scan</h2>${renderFrame(hook, esc)}` : ""}
 
-<h2>The ${agentRules.length} rules that read this surface</h2>
+<h2 id="agent-rules">${agentRules.length} agent-config rules</h2>
 <ul class="cards">
 ${agentRules
   .map(
@@ -269,10 +256,8 @@ ${agentRules
 
 <h2>Which files are in scope</h2>
 <p>
-  A closed list, matched at the repository root and under any prefix. A path not
-  on it is not scanned — including agent configuration inside
-  <code>node_modules</code>, which is a real vector and a very large scan, and
-  is named as out of scope rather than left unsaid.
+  owlwarden scans a fixed list of paths at the repository root and below package
+  directories. It does not scan agent config inside <code>node_modules</code>.
 </p>
 ${code(
   "text",
@@ -289,18 +274,16 @@ ${code(
 )}
 <p>
   <code>.claude/settings.local.json</code> is conventionally gitignored. It is
-  also where a workspace-scoped hook configuration vulnerability lived, so this
-  surface deliberately overrides <code>.gitignore</code> — and only that.
-  Containment, symlink refusal, and the size caps all still hold.
+  also used for workspace hooks, so agent-config scans include it even when it
+  is ignored. Path containment, symlink checks, and size limits still apply.
 </p>
 
 <h2>Check your own repository</h2>
 ${code("bash", "npx owlwarden scan --preset agent-surface   # your own repo\nnpx owlwarden vet ./cloned-repo             # someone else's")}
 <p>
   <a href="../vet/"><code>vet</code> is the one to use on a repository you did
-  not write</a>: it treats the target's own suppressions as evidence rather than
-  as instruction. <a href="../asi/">The ASI coverage table</a> lists the agentic
-  categories this reaches and the ones it does not.
+  not write</a>. It ignores target policy and reports target suppressions.
+  <a href="../asi/">The ASI table</a> shows the category mapping.
 </p>
 ${CROSS("../")}
 `,
@@ -311,7 +294,7 @@ ${CROSS("../")}
 
 function vet({ agentRules }) {
   return {
-    title: "owlwarden vet — check a repo before you open it",
+    title: "owlwarden vet: check a repo before opening it",
     heading: "Check a repository before you open it in an agent",
     description:
       "owlwarden vet scans a repository you did not write: agent rules only, offline, no plugins, " +
@@ -337,33 +320,25 @@ function vet({ agentRules }) {
       },
     ],
     body: `
-<p class="lede">
-  Cloning a repository is safe. Opening it in an editor or an agent is not:
-  that is the moment the configuration in it starts being executed.
-</p>
-
 ${code("bash", "git clone https://github.com/someone/thing ./candidate\nnpx owlwarden vet ./candidate")}
 
 <h2>What makes it different from <code>scan</code></h2>
 <p>
   <code>scan</code> reads your config, honours your baseline, and applies your
-  inline suppressions. Every one of those mechanisms exists to make adoption
-  realistic on a legacy repository, and on your own repository that trade is
-  correct and deliberate.
+  inline suppressions. Those options are useful on a repository you maintain.
 </p>
 <p>
-  On someone else's repository it is not a trade at all. In the hands of the
-  repository's author, each of them is a way to hide a finding. So <code>vet</code>
-  fixes the posture:
+  On an unfamiliar repository, its own policy can hide findings. <code>vet</code>
+  therefore uses fixed settings:
 </p>
 <div class="table-wrap">
 <table>
   <thead><tr><th>Setting</th><th>Under <code>vet</code></th></tr></thead>
   <tbody>
-    <tr><td>Preset</td><td><code>agent-surface</code> — the ${agentRules.length} rules that read configuration</td></tr>
+    <tr><td>Preset</td><td><code>agent-surface</code>, the ${agentRules.length} rules that read configuration</td></tr>
     <tr><td>Network</td><td>None. No OSV, no <code>--target</code>, no exceptions</td></tr>
     <tr><td>Plugins</td><td>Not loaded, even signed ones, even with a trust root configured</td></tr>
-    <tr><td>The target's config</td><td>Not read at all — not "read and partly ignored"</td></tr>
+    <tr><td>The target's config</td><td>Not read</td></tr>
     <tr><td>The target's baseline</td><td>Not applied</td></tr>
     <tr><td>Inline suppressions</td><td>Counted and reported, never honoured</td></tr>
   </tbody>
@@ -372,22 +347,19 @@ ${code("bash", "git clone https://github.com/someone/thing ./candidate\nnpx owlw
 <p>
   Passing <code>--plugin</code>, <code>--target</code>, <code>--baseline</code>,
   or <code>--allow-suppressions</code> to <code>vet</code> is an error rather
-  than a no-op. A flag that appears to work and does not is worse than one that
-  is rejected.
+  than a no-op.
 </p>
 
-<h2>The line worth reading</h2>
+<h2>Suppression count</h2>
 <p>
-  A non-zero suppression count is printed on the summary line. "This repository
-  carries four inline suppressions, which vet counted and did not honour" is the
-  single most useful sentence <code>vet</code> can produce about a tree you have
-  not read.
+  The summary reports how many inline suppressions it found and confirms that
+  none were applied.
 </p>
 
 <h2>Then what</h2>
 <p>
   <code>vet</code> tells you what is in the configuration. It does not sandbox
-  anything: a repository hostile enough to matter should be opened in a
+  execution. Open a suspicious repository in a
   sandboxed runtime. <a href="../agent-config-security/">What the rules look
   for</a> · <a href="../rules/">the full catalogue</a> ·
   <a href="../offline/">why none of this needs a network</a>.
@@ -401,7 +373,7 @@ ${CROSS("../")}
 
 function claudeCode() {
   return {
-    title: "owlwarden for Claude Code — hooks, MCP, and vet",
+    title: "owlwarden for Claude Code: hooks, MCP, and vet",
     heading: "Security scanning inside Claude Code",
     description:
       "Wire owlwarden into Claude Code's lifecycle: a gate after every edit and at the turn " +
@@ -412,12 +384,6 @@ function claudeCode() {
     ],
     schema: [{ "@type": "TechArticle", headline: "owlwarden and Claude Code", proficiencyLevel: "Beginner" }],
     body: `
-<p class="lede">
-  One command wires the deterministic checks into the events Claude Code
-  already fires, so they run because the host ran them — not because the model
-  chose to.
-</p>
-
 ${code("bash", "npm i -D owlwarden\nnpx owlwarden init --claude-code")}
 
 <h2>What that writes</h2>
@@ -426,35 +392,34 @@ ${code("bash", "npm i -D owlwarden\nnpx owlwarden init --claude-code")}
   <thead><tr><th>Event</th><th>Scope</th><th>Verdict</th></tr></thead>
   <tbody>
     <tr><td><code>PostToolUse</code> (Edit, Write, MultiEdit)</td><td>the file that was written</td><td>blocks with the rule, the line, and the fix</td></tr>
-    <tr><td><code>PreToolUse</code> (Bash)</td><td>the command string</td><td>the only event before execution — it fails closed</td></tr>
-    <tr><td><code>Stop</code></td><td>everything changed since the turn began</td><td>the loop-closer: work, then no declaring victory over code that does not pass</td></tr>
+    <tr><td><code>PreToolUse</code> (Bash)</td><td>the command string</td><td>blocks the command when the check fails</td></tr>
+    <tr><td><code>Stop</code></td><td>everything changed since the turn began</td><td>checks the completed turn</td></tr>
   </tbody>
 </table>
 </div>
 
-<h2>The hook it deliberately does not write</h2>
+<h2>No repository <code>SessionStart</code> hook</h2>
 <p>
-  There is no <code>SessionStart</code> entry, and that omission is the point.
+  The generated config does not add a <code>SessionStart</code> entry.
   <a href="../rules/agent-hook-autoexec/"><code>agent-hook-autoexec</code></a>
   reports repository configuration that runs when the workspace is opened, at
   high severity, because anyone who clones the repository and opens it runs that
-  command. A tool that ships that rule and then writes exactly that entry into
-  your settings would be indefensible — <code>owlwarden scan</code> would report
-  its own output.
+  command. <code>owlwarden scan</code> would report a generated repository hook
+  of that shape.
 </p>
 <p>
-  The session digest is a real feature and belongs in <em>user</em> settings,
+  The session digest belongs in <em>user</em> settings,
   which a cloned repository cannot write. The same reasoning is why the MCP
   entry is <code>node_modules/.bin/owlwarden</code> rather than
   <code>npx -y owlwarden</code>:
   <a href="../rules/agent-mcp-unpinned-remote/">that shape is a finding too</a>.
 </p>
 
-<h2>MCP as well, for the exploratory case</h2>
+<h2>MCP for manual scans</h2>
 <p>
-  A hook is the control. <a href="../mcp/">MCP</a> is the right surface for the
-  prompted question — <em>what does this rule mean, show me everything in
-  <code>packages/api</code></em> — and it stays read-only and static-only.
+  Hooks run checks automatically. <a href="../mcp/">MCP</a> handles prompted
+  requests such as <em>explain this rule</em> or <em>scan
+  <code>packages/api</code></em>. The server is read-only and static-only.
 </p>
 
 <h2>Before you open an unfamiliar repository</h2>
@@ -471,7 +436,7 @@ ${CROSS("../")}
 
 function cursor() {
   return {
-    title: "owlwarden for Cursor — hooks, MCP, and rules",
+    title: "owlwarden for Cursor: hooks, MCP, and rules",
     heading: "Security scanning inside Cursor",
     description:
       "Wire owlwarden into Cursor's hooks: a gate after every edit, before a shell command, and at " +
@@ -482,34 +447,26 @@ function cursor() {
     ],
     schema: [{ "@type": "TechArticle", headline: "owlwarden and Cursor", proficiencyLevel: "Beginner" }],
     body: `
-<p class="lede">
-  Cursor runs hooks declared in <code>.cursor/hooks.json</code>. owlwarden
-  attaches to the three that matter and returns a verdict the prompt cannot
-  argue with.
-</p>
-
 ${code("bash", "npm i -D owlwarden\nnpx owlwarden init --cursor")}
 
 <h2>What that writes</h2>
 <ul>
-  <li><code>.cursor/hooks.json</code> — <code>afterFileEdit</code>, <code>beforeShellExecution</code>, and <code>stop</code>.</li>
-  <li><code>.cursor/mcp.json</code> — the read-only MCP server, pinned to the binary the lockfile already installed.</li>
-  <li><code>.cursor/rules/owlwarden.mdc</code> — what the gate blocks on, so the model prefers the shapes it will not flag.</li>
+  <li><code>.cursor/hooks.json</code> with <code>afterFileEdit</code>, <code>beforeShellExecution</code>, and <code>stop</code>.</li>
+  <li><code>.cursor/mcp.json</code> with the read-only server pinned to the installed binary.</li>
+  <li><code>.cursor/rules/owlwarden.mdc</code> with the rule summary used by the hooks.</li>
 </ul>
 
 <h2>The rules file is not the control</h2>
 <p>
-  It is worth having: a model told "never return <code>err.stack</code>" writes
-  fewer of them. But a sentence in a rules file is an instruction competing with
-  every other instruction in the context window, and losing to whichever one the
-  model weighted higher this turn. The hook is what always runs.
+  Rules reduce avoidable findings, but they remain prompt context. Hooks are the
+  part that runs independently of the model's decision.
 </p>
 
 <h2>Cursor's own configuration is a scan surface</h2>
 <p>
   <code>.cursor/mcp.json</code>, <code>.cursor/hooks.json</code>,
   <code>.cursorrules</code>, and <code>.cursor/rules/**</code> are read by the
-  <a href="../agent-config-security/">agent-surface rules</a> — an unpinned MCP
+  <a href="../agent-config-security/">agent-config rules</a>. They check unpinned MCP
   server, a hook that pipes a fetch into a shell, a rules file with characters a
   reviewer cannot see. Cursor is one <code>git pull</code> away from any of them.
 </p>
@@ -522,7 +479,7 @@ ${CROSS("../")}
 
 function mcp() {
   return {
-    title: "owlwarden MCP server — read-only, static, offline",
+    title: "owlwarden MCP server: read-only and local",
     heading: "The owlwarden MCP server",
     description:
       "A stdio MCP server exposing scan_project, scan_file, explain_rule, and list_rules. " +
@@ -541,25 +498,17 @@ function mcp() {
       },
     ],
     body: `
-<p class="lede">
-  Four tools, all read-only: <code>scan_project</code>, <code>scan_file</code>,
-  <code>explain_rule</code>, <code>list_rules</code>. No live target, no file
-  writes, and every path stays under the workspace root.
-</p>
-
 ${code("bash", "npx owlwarden mcp")}
 
-<h2>What it is for, and what it is not</h2>
+<h2>When to use it</h2>
 <p>
   It is the right surface for the prompted, exploratory case: <em>what does this
   rule mean</em>, <em>show me everything in <code>packages/api</code></em>.
 </p>
 <p>
-  It is not the enforcement story, and this page will not pretend otherwise.
-  An MCP tool is called when the model decides the task warrants it, and
-  mid-refactor it often does not. Every commercial scanner shipped an MCP server
-  in 2026; that is not a differentiator, and leading with it invites the
-  comparison we lose. <a href="../claude-code/">The gate is the control</a>.
+  MCP calls are optional because the model decides when to make them. Use
+  <a href="../claude-code/">hooks</a> for checks that must run after edits or
+  before commands.
 </p>
 
 <h2>Configuration</h2>
@@ -582,7 +531,7 @@ ${code(
 <p>
   Invoked by path rather than <code>npx -y owlwarden</code>, because
   <a href="../rules/agent-mcp-unpinned-remote/">a server resolved at run time is
-  a finding</a> — and generating the shape we report would be indefensible.
+  a finding</a>. The generated config uses the installed binary instead.
 </p>
 
 <h2>On a terminal</h2>
@@ -599,11 +548,11 @@ ${CROSS("../")}
 
 function offline() {
   return {
-    title: "Offline by default — no account, no telemetry",
-    heading: "A security scanner that never sends your code anywhere",
+    title: "Offline by default: no account or telemetry",
+    heading: "Local scans with no account or telemetry",
     description:
-      "owlwarden runs entirely on your machine. No account, no telemetry, no opt-in switch — " +
-      "there is nothing to switch on. The threat model, not the marketing.",
+      "owlwarden scans on your machine without an account or telemetry. Network access is used " +
+      "only for explicitly enabled OSV lookups or target probes.",
     breadcrumbs: [
       { label: "owlwarden", href: "" },
       { label: "Offline", href: "offline/" },
@@ -627,19 +576,11 @@ function offline() {
       },
     ],
     body: `
-<p class="lede">
-  Most scanners answer "is my code private?" with a policy page. The useful
-  answer is a description of what the process actually does, and what would have
-  to be true for that to be wrong.
-</p>
-
 <h2>What the default run does</h2>
 <p>
-  Reads files under the project root, parses them, prints a report. No
-  transport object is constructed at all, so there is nothing for a rule to send
-  a request through — <em>passive by construction, not by promise</em>. The
-  scope resolver denies everything as a second line of defence, and the request
-  budget is zero.
+  The default command reads files below the project root, parses them, and
+  prints a report. It does not create a network transport. The request budget is
+  zero and the scope resolver denies every destination.
 </p>
 
 <h2>The two ways to opt in</h2>
@@ -660,11 +601,9 @@ function offline() {
 
 <h2>What "no telemetry" means here</h2>
 <p>
-  There is no analytics code, no crash reporter, no version check, and no
-  configuration key to disable any of them — because none exists to disable.
-  This site loads no third-party resource either: no font CDN, no analytics, no
-  tag manager. A check in the build refuses any external host, because that is
-  the kind of thing that gets added later "just for a week".
+  There is no analytics code, crash reporter, or version check. This site also
+  loads no font CDN, analytics script, or tag manager. The site build checks the
+  external-host allowlist.
 </p>
 
 <h2>Where it runs</h2>
@@ -704,8 +643,8 @@ ${entries
 
 function owasp({ coverage, webRules }) {
   return {
-    title: "OWASP Top 10 coverage for Node — with the gaps",
-    heading: `OWASP Top 10 (2021) coverage: ${coverage.categoriesCovered} of 10, gaps included`,
+    title: "OWASP Top 10 coverage for Node",
+    heading: `OWASP Top 10 (2021): ${coverage.categoriesCovered} of 10 categories`,
     description:
       `owlwarden maps ${webRules.length} rules onto the OWASP Top 10 (2021). This table lists every ` +
       `category, including the ones with no rule and the ones no source scanner can reach.`,
@@ -715,37 +654,27 @@ function owasp({ coverage, webRules }) {
     ],
     schema: [{ "@type": "TechArticle", headline: "OWASP Top 10 (2021) coverage", proficiencyLevel: "Beginner" }],
     body: `
-<p class="lede">
-  A coverage table with no holes in it is an advertisement. What a reader needs
-  is what the tool is <em>not</em> looking at, so a clean report is read
-  correctly.
-</p>
-
 <p>
-  <strong>Reach</strong> says whether source analysis can see the category at
-  all. A category with no rules and <code>poor</code> reach is a limit of the
-  method, not a backlog item — no parser finds a design flaw. Those need the
-  dynamic engine, or a human.
+  <strong>Reach</strong> describes how much of a category static source analysis
+  can see. Categories marked <code>poor</code> need runtime data or design
+  review.
 </p>
 
 ${coverageTable(coverage.owasp, "not reachable from source")}
 
-<h2>Why A04 is empty on purpose</h2>
+<h2>Why A04 has no rules</h2>
 <p>
-  Insecure Design is correct code implementing the wrong idea: a missing rate
-  limit, a recovery flow that trusts an email address, a threat nobody
-  considered. There is no AST shape for it. Listing it as "0 rules" next to
-  categories we simply have not covered yet would invite you to wait for a
-  release that is never coming.
+  Insecure Design covers choices such as a missing rate limit or an unsafe
+  recovery flow. Those problems do not have a reliable AST pattern and need
+  design review or runtime evidence.
 </p>
 
 <h2>The other taxonomy</h2>
 <p>
   Rules that read agent configuration map to
   <a href="../asi/">OWASP ASI ${esc(coverage.asiEdition)}</a> instead, and that
-  table is kept separate on purpose. Merging them would let an agent rule appear
-  to raise Top 10 coverage, and the <code>owasp-top10</code> preset would stop
-  meaning anything.
+  table is separate because agent-config findings do not increase application
+  Top 10 coverage.
 </p>
 
 ${code("bash", "npx owlwarden coverage      # printed from the engine you have installed")}
@@ -767,29 +696,22 @@ function asi({ coverage, agentRules }) {
     ],
     schema: [{ "@type": "TechArticle", headline: `OWASP ASI ${coverage.asiEdition} coverage`, proficiencyLevel: "Beginner" }],
     body: `
-<p class="lede">
-  The Top 10 (2021) is about the web application in your repository. This list
-  is about the agent that works in it — goal hijack, privilege abuse, supply
-  chain, unexpected execution.
-</p>
-
 ${coverageTable(coverage.asi, "needs the agent's run-time behaviour, not its configuration")}
 
 <h2>What a configuration scanner can and cannot see</h2>
 <p>
   Instruction files, hooks, permissions, and tool declarations are checked into
   the repository, so they are visible. Memory poisoning, tool misuse at run
-  time, and multi-agent orchestration are properties of a running agent; no
-  amount of parsing <code>.claude/settings.json</code> will reach them, and this
-  table says so rather than leaving the rows looking like a backlog.
+  time, and multi-agent orchestration need runtime data. Parsing
+  <code>.claude/settings.json</code> cannot detect them.
 </p>
 
 <h2>Why CWE is the primary mapping</h2>
 <p>
   CWE ids are stable across decades. The agentic list is new and will be
   renumbered, so every rule in this family declares a CWE and carries the ASI
-  reference as additional context. A renumbering then costs a table edit rather
-  than invalidating the taxonomy on findings already in someone's baseline.
+  reference as additional context. Existing baselines therefore continue to
+  use the stable CWE mapping if ASI numbering changes.
 </p>
 
 <p>
@@ -806,8 +728,8 @@ ${CROSS("../")}
 
 function ci() {
   return {
-    title: "owlwarden in CI — SARIF, exit codes, no greenwashing",
-    heading: "Running owlwarden in CI without greenwashing the build",
+    title: "owlwarden in CI: SARIF, JUnit, and exit codes",
+    heading: "Run owlwarden in CI",
     description:
       "SARIF 2.1.0 for code scanning, JUnit for test UIs, Markdown for PR comments, and an exit " +
       "code contract that refuses to go green on a partial scan.",
@@ -817,11 +739,6 @@ function ci() {
     ],
     schema: [{ "@type": "TechArticle", headline: "owlwarden in CI", proficiencyLevel: "Intermediate" }],
     body: `
-<p class="lede">
-  One command, three output formats from one scan, and an exit code that means
-  the same thing every time.
-</p>
-
 ${code(
   "yaml",
   `- uses: suthat/owlwarden/action@v1
@@ -838,22 +755,21 @@ ${code(
   <tbody>
     <tr><td><code>0</code></td><td>Scanned, nothing at or above <code>--fail-on</code></td></tr>
     <tr><td><code>1</code></td><td>Findings at or above the threshold</td></tr>
-    <tr><td><code>2</code></td><td>Could not run — a bad flag, an unreadable tree, a missing engine</td></tr>
+    <tr><td><code>2</code></td><td>Could not run because of a bad flag, unreadable tree, or missing engine</td></tr>
   </tbody>
 </table>
 </div>
 <p>
-  <code>2</code> is distinct from <code>1</code> on purpose. A pipeline that
-  treats "the scanner broke" as "the scanner found nothing" is a pipeline with
-  no scanner in it, and nobody notices for months.
+  Exit code <code>2</code> keeps a scan error separate from a finding. CI should
+  fail in both cases but can report them differently.
 </p>
 
 <h2>What <code>--ci</code> refuses</h2>
 <p>
   Under <code>--ci</code>, project configuration cannot set the gate knobs, and
   inline suppressions and <code>--baseline</code> are ignored unless the
-  operator opts in explicitly. Otherwise a hostile pull request silences the
-  build by adding a JSON file, and the diff looks like configuration.
+  operator opts in explicitly. A pull request cannot weaken the check by editing
+  repository config.
 </p>
 
 <h2>A truncated report is not a clean report</h2>
@@ -900,10 +816,10 @@ function comparison({ path, slug, title, heading, description, body, questions }
       body: `${body}
 <h2>Other comparisons</h2>
 <ul class="cards">
-  <li><a href="../semgrep/"><span class="name">vs Semgrep</span><span class="blurb">Rule breadth against determinism and offline.</span></a></li>
-  <li><a href="../snyk/"><span class="name">vs Snyk</span><span class="blurb">Dependencies against the config nothing scans.</span></a></li>
-  <li><a href="../claude-security/"><span class="name">vs model-based review</span><span class="blurb">Judgement against a floor that always runs.</span></a></li>
-  <li><a href="../eslint-plugin-security/"><span class="name">vs eslint-plugin-security</span><span class="blurb">Lint heuristics against routed, framework-aware rules.</span></a></li>
+  <li><a href="../semgrep/"><span class="name">vs Semgrep</span><span class="blurb">Rule and language coverage, local defaults, and agent config.</span></a></li>
+  <li><a href="../snyk/"><span class="name">vs Snyk</span><span class="blurb">Dependency analysis and repository-controlled agent config.</span></a></li>
+  <li><a href="../claude-security/"><span class="name">vs model-based review</span><span class="blurb">Static checks and review that needs judgement.</span></a></li>
+  <li><a href="../eslint-plugin-security/"><span class="name">vs eslint-plugin-security</span><span class="blurb">Lint patterns and framework-aware checks.</span></a></li>
 </ul>
 <p><a href="../../rules/">All rules</a> · <a href="../../owasp/">Coverage, gaps included</a> · <a href="../../offline/">Offline</a></p>`,
     },
@@ -915,7 +831,7 @@ function vsSemgrep() {
     questions: [
       [
         "Should I use owlwarden instead of Semgrep?",
-        "No — run both. Semgrep has thousands of rules across many languages; owlwarden has 25, " +
+        "Usually not. Semgrep has thousands of rules across many languages; owlwarden has 25, " +
           "runs offline with no account, gives a fix written for your framework, and reads the " +
           "agent and editor configuration Semgrep does not.",
       ],
@@ -927,33 +843,29 @@ function vsSemgrep() {
     ],
     path: "vs/semgrep/",
     slug: "Semgrep",
-    title: "owlwarden vs Semgrep — where each one wins",
+    title: "owlwarden vs Semgrep: scope and trade-offs",
     heading: "owlwarden vs Semgrep",
     description:
       "Semgrep has thousands of rules across many languages. owlwarden has 25, runs offline with " +
-      "no account, and reads agent config. Where each one loses.",
+      "no account, and reads agent config. Compare their scope and defaults.",
     body: `
-<p class="lede">
-  These are not the same tool, and the honest recommendation is to run both.
-</p>
-
-<h2>Where Semgrep wins</h2>
+<h2>What Semgrep covers</h2>
 <ul>
-  <li><strong>Rule breadth.</strong> Thousands of rules, many languages. owlwarden has 25 and covers Node web applications. That fight cannot be won and this page will not pretend it can.</li>
-  <li><strong>Custom rules.</strong> A mature pattern language with a large public registry. owlwarden's plugin tier is source-only WASM with a frozen v1 API — deliberately smaller.</li>
+  <li><strong>Rule breadth.</strong> Thousands of rules across many languages. owlwarden has 25 rules for Node applications and agent config.</li>
+  <li><strong>Custom rules.</strong> A mature pattern language with a large public registry. owlwarden's plugin tier is source-only WASM with a fixed v1 API.</li>
   <li><strong>Language coverage.</strong> Python, Go, Java, C#. owlwarden is JavaScript and TypeScript.</li>
 </ul>
 
-<h2>Where owlwarden wins</h2>
+<h2>What owlwarden adds</h2>
 <ul>
-  <li><strong>It scans your agent's configuration.</strong> <code>.claude/settings.json</code>, <code>.vscode/tasks.json</code>, <code>.cursor/hooks.json</code>. <a href="../../agent-config-security/">Nothing else in this comparison reads those files.</a></li>
+  <li><strong>Agent configuration.</strong> <code>.claude/settings.json</code>, <code>.vscode/tasks.json</code>, and <code>.cursor/hooks.json</code>.</li>
   <li><strong>Offline with no account.</strong> No login, no upload, no policy service. The default run constructs no transport at all.</li>
-  <li><strong>The fix is in the finding, per framework.</strong> Not a generic message and a documentation link — the corrected code for the API your project actually uses, enforced by a build that fails on an empty cell.</li>
-  <li><strong>It runs in the agent loop.</strong> <a href="../../claude-code/">A hook that always runs</a>, with a report on a token budget.</li>
+  <li><strong>Framework-specific fixes.</strong> Findings include corrected code for the detected API.</li>
+  <li><strong>Agent hooks.</strong> <a href="../../claude-code/">Host events run checks automatically</a>.</li>
 </ul>
 
 <h2>Running both</h2>
-${code("bash", "semgrep --config auto        # breadth\nowlwarden scan --since origin/main   # the floor, and the agent surface")}
+${code("bash", "semgrep --config auto        # broad rule coverage\nowlwarden scan --since origin/main   # Node and agent config")}
 <p>
   Both emit SARIF, so both land in the same code-scanning view.
   <a href="../../ci/">The exit-code contract is here.</a>
@@ -978,29 +890,24 @@ function vsSnyk() {
     ],
     path: "vs/snyk/",
     slug: "Snyk",
-    title: "owlwarden vs Snyk — dependencies and the config gap",
+    title: "owlwarden vs Snyk: dependencies and agent config",
     heading: "owlwarden vs Snyk",
     description:
-      "Snyk is strongest on dependencies. owlwarden reads the agent and editor configuration a " +
-      "lockfile does not record — the gap a 2026 npm worm used for persistence.",
+      "Snyk covers dependencies. owlwarden checks application source and agent configuration that " +
+      "lockfiles do not record. Compare their scope and defaults.",
     body: `
-<p class="lede">
-  Snyk's dependency database and reachability analysis are better than anything
-  owlwarden does with a lockfile, and owlwarden does not try to compete there.
-</p>
-
-<h2>Where Snyk wins</h2>
+<h2>What Snyk covers</h2>
 <ul>
   <li><strong>Dependency intelligence.</strong> A curated database, reachability, and fix pull requests. owlwarden's <code>--osv</code> is an opt-in lookup against a public database and nothing more.</li>
   <li><strong>Breadth and ecosystem.</strong> Many languages, container and IaC scanning, an organisation-wide policy plane.</li>
   <li><strong>Reporting for a security team.</strong> Dashboards, ownership, trend lines. owlwarden prints a report and sets an exit code.</li>
 </ul>
 
-<h2>Where owlwarden wins</h2>
+<h2>What owlwarden adds</h2>
 <ul>
   <li><strong>The persistence half of a supply-chain incident.</strong> Pulling a poisoned package version does not remove a hook someone wrote into <code>.claude/settings.json</code>. Regenerating the lockfile does not either. <a href="../../agent-config-security/">That file is not a dependency</a>.</li>
   <li><strong>No account, no upload.</strong> Nothing leaves the machine unless you pass a flag that says so.</li>
-  <li><strong>Deterministic and free.</strong> Same input, same output, no seat count.</li>
+  <li><strong>Local static checks.</strong> Same input, same output, no seat count.</li>
 </ul>
 
 <h2>Running both</h2>
@@ -1019,11 +926,11 @@ function vsModelReviewers() {
       [
         "Can a model replace static analysis for security review?",
         "Not as a gate. A model answers differently between runs, which a baseline, a suppression, " +
-          "and a CI threshold all depend on it not doing. Use it for judgement — authorisation, " +
-          "business rules — on top of a deterministic floor.",
+          "and a CI threshold cannot use reliably. Use model review for authorisation, business " +
+          "rules, and other work that needs judgement.",
       ],
       [
-        "How much does a deterministic floor cost per run?",
+        "How much do local static checks cost per run?",
         "Nothing per token. --format agent puts the report on a budget of about 1500 tokens so the " +
           "checks a parser can answer stop being asked of a frontier model.",
       ],
@@ -1033,36 +940,29 @@ function vsModelReviewers() {
     title: "Static analysis vs model-based code review",
     heading: "owlwarden vs a model reviewing your code",
     description:
-      "A frontier model finds what no parser can, and answers differently each run. A " +
-      "deterministic floor answers the same way twice. Complements, not rivals.",
+      "A model can review design and business logic. Static rules give repeatable results for " +
+      "known patterns. Compare where each approach fits.",
     body: `
-<p class="lede">
-  The vendors' own model-based scanners say this about themselves: they are
-  non-deterministic, and they do not replace static analysis. This is the static
-  analysis they mean.
-</p>
-
-<h2>Where a model wins</h2>
+<h2>Use model review for</h2>
 <ul>
   <li><strong>Judgement.</strong> Authorisation logic, business rules, whether this particular endpoint should be public. No AST shape exists for any of it.</li>
   <li><strong>Novelty.</strong> A bug nobody wrote a rule for.</li>
   <li><strong>Context.</strong> It can read the ticket, the tests, and the migration in one pass.</li>
 </ul>
 
-<h2>Where a deterministic floor wins</h2>
+<h2>Use static rules for</h2>
 <ul>
   <li><strong>It gives the same answer twice.</strong> A baseline, a suppression, and a CI gate all require that. A reviewer that changes its mind between runs cannot be a gate.</li>
   <li><strong>It always runs.</strong> <a href="../../claude-code/">A hook fires on the host's event</a>; a model reviews when it is asked, and mid-refactor it often is not.</li>
-  <li><strong>It costs nothing per run.</strong> Re-asking <em>did we leak a stack?</em> on every edit is the most expensive way to answer a question a parser answers for free.</li>
-  <li><strong>It cannot be argued with.</strong> The gate runs outside the model, so nothing in the prompt changes the verdict.</li>
+  <li><strong>Low-cost repeated checks.</strong> A parser can check the same known pattern after every edit without using tokens.</li>
+  <li><strong>Checks outside the prompt.</strong> Host hooks run independently of model instructions.</li>
 </ul>
 
-<h2>The order that works</h2>
+<h2>Run both</h2>
 <p>
-  Floor first, judgement on top. Run the deterministic checks locally so the
-  frontier model's budget goes to architecture, auth, payments, and personal
-  data — the things a parser cannot reach. <code>--format agent</code> puts the
-  report on a token budget so the floor is close to free.
+  Run static checks locally, then use model review for architecture,
+  authorisation, payments, and data handling. <code>--format agent</code> keeps
+  the static report within a token budget.
 </p>
 ${code("bash", "owlwarden scan --format agent --budget 1500")}`,
   }).page;
@@ -1073,8 +973,8 @@ function vsEslint() {
     questions: [
       [
         "Is owlwarden a replacement for eslint-plugin-security?",
-        "It answers the same questions with more context — framework-aware, route-aware, and with " +
-          "a confidence field so a guess is never presented as a fact. Keeping both costs nothing.",
+        "Not necessarily. owlwarden adds framework and route context plus an explicit confidence " +
+          "field. Keeping both is reasonable when their rule sets differ.",
       ],
       [
         "Why do lint security rules produce so many false positives?",
@@ -1090,31 +990,26 @@ function vsEslint() {
       "eslint-plugin-security is lint heuristics with a known false-positive rate. owlwarden is " +
       "framework-aware, route-aware, and states the confidence its method earns.",
     body: `
-<p class="lede">
-  If eslint-plugin-security is already in your config, keep it — it costs
-  nothing to run. The difference is what happens after it fires.
-</p>
-
-<h2>Where it wins</h2>
+<h2>What the ESLint plugin provides</h2>
 <ul>
   <li><strong>Zero marginal setup.</strong> It is an ESLint plugin, and you already run ESLint.</li>
   <li><strong>Editor integration for free.</strong> Squiggles where you type, with no second process.</li>
 </ul>
 
-<h2>Where owlwarden wins</h2>
+<h2>What owlwarden adds</h2>
 <ul>
   <li><strong>It knows what a response is.</strong> <code>reply.send</code> in Fastify, <code>NextResponse.json</code> in Next.js, <code>ctx.body</code> in Koa. A lint rule matching <code>.stack</code> fires on <code>res.json({ stack: project.stack })</code> too.</li>
-  <li><strong>Confidence is a field.</strong> <code>possible</code> findings are shown and never fail CI on their own. A tool that presents guesses as facts gets uninstalled.</li>
+  <li><strong>Confidence is a field.</strong> <code>possible</code> findings are shown and do not fail CI on their own.</li>
   <li><strong>The fix is in the finding.</strong> Written for your framework, with the corrected code.</li>
   <li><strong>It reads your agent configuration.</strong> <a href="../../agent-config-security/">No lint rule does.</a></li>
 </ul>
 
-<h2>Precision is a tested property here</h2>
+<h2>How precision is tested</h2>
 <p>
-  Every rule ships with a vulnerable fixture, a clean twin that must stay
-  silent, and — on the agent surface — a <em>tempting</em> fixture: a legitimate
+  Each rule has a vulnerable fixture, a clean twin that must stay
+  silent, and on the agent surface a <em>tempting</em> fixture: a legitimate
   configuration that shares surface features with the vulnerable one, whose
-  silence is the assertion. <a href="../../rules/">Every rule, with its
+  silence is the assertion. <a href="../../rules/">Rules and tested
   examples</a>.
 </p>`,
   }).page;

@@ -19,6 +19,7 @@
  */
 
 import assert from "node:assert/strict";
+import { Buffer } from "node:buffer";
 import { readFile, readdir, stat } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { dirname, join, normalize, relative } from "node:path";
@@ -42,6 +43,54 @@ const ALLOWED_HOSTS = new Set([
 
 const pages = await collect(siteDir, ".html");
 assert(pages.length > 50, `expected the generated site, found ${pages.length} pages`);
+
+// These are the pages that introduce or sell a product surface. Their visual
+// is part of the content contract, not decoration: each must show the product,
+// workflow, or comparison it describes before the long-form explanation.
+const PRODUCT_PAGES = new Set([
+  "index.html",
+  "agent-config-security/index.html",
+  "vet/index.html",
+  "claude-code/index.html",
+  "cursor/index.html",
+  "mcp/index.html",
+  "offline/index.html",
+  "owasp/index.html",
+  "asi/index.html",
+  "ci/index.html",
+  "vs/semgrep/index.html",
+  "vs/snyk/index.html",
+  "vs/claude-security/index.html",
+  "vs/eslint-plugin-security/index.html",
+]);
+
+// Navigation is part of the site contract, not page content. Every generated
+// page must expose the same destinations in the same order; only the current
+// section marker may vary. Keeping this assertion independent of the renderer
+// catches a stale committed page as well as an accidental layout fork.
+const PRIMARY_NAV = [
+  { label: "Rules", href: `${site}/rules/` },
+  { label: "Agent config", href: `${site}/agent-config-security/` },
+  { label: "vet", href: `${site}/vet/` },
+  { label: "Offline", href: `${site}/offline/` },
+  { label: "Coverage", href: `${site}/owasp/` },
+  { label: "GitHub ↗", href: "https://github.com/suthat/owlwarden" },
+];
+
+// Site copy should read like one developer explaining a tool to another.
+// These separators and stock marketing phrases made the generated pages sound
+// synthetic, so keep them out of both visible copy and metadata.
+const BANNED_COPY = [
+  /[·—–]/,
+  /deterministic (?:security )?floor/i,
+  /the overlooked attack surface/i,
+  /trust the repository after you check it/i,
+  /coverage you can calibrate/i,
+  /an honest comparison/i,
+  /one source of truth/i,
+  /privacy by design/i,
+  /passive by construction/i,
+];
 
 /** Every file the site actually contains, for the link check. */
 const present = new Set(await collectPaths(siteDir));
@@ -87,6 +136,19 @@ for (const page of pages) {
   ]) {
     if (!html.includes(tag)) fail(path, `missing ${tag}`);
   }
+  if (!html.includes('name="twitter:image:alt"')) fail(path, "missing twitter:image:alt");
+  if (!html.includes('rel="manifest"')) fail(path, "missing web app manifest");
+  const stylesheetHref = one(html, /<link rel="stylesheet" href="([^"]*)"/);
+  if (!/styles\.css\?v=[a-f0-9]{12}$/.test(stylesheetHref ?? "")) {
+    fail(path, "stylesheet cache key is not content-addressed");
+  }
+
+  const robotsMeta = one(html, /<meta name="robots" content="([^"]*)"/);
+  if (path === "404.html") {
+    if (robotsMeta !== "noindex,follow") fail(path, "404 page must be noindex,follow");
+  } else if (!robotsMeta?.startsWith("index,follow")) {
+    fail(path, "indexable page must opt into index,follow");
+  }
 
   // --- structure ----------------------------------------------------------
   const headings = [...html.matchAll(/<h([123])[\s>]/g)].map((match) => Number(match[1]));
@@ -98,9 +160,17 @@ for (const page of pages) {
     previous = level;
   }
 
-  if (!html.includes('<main id="main-content">')) fail(path, "no <main id=main-content>");
+  if (!/<main id="main-content"(?:\s[^>]*)?>/.test(html)) fail(path, "no <main id=main-content>");
   if (!html.includes('class="skip-link"')) fail(path, "no skip link");
   if (!html.includes('aria-label="Breadcrumb"')) fail(path, "no breadcrumb nav");
+  checkPrimaryNavigation(path, html);
+  for (const pattern of BANNED_COPY) {
+    if (pattern.test(html)) fail(path, `contains banned copy: ${pattern}`);
+  }
+  if (PRODUCT_PAGES.has(path)) {
+    if (!html.includes('class="page-hero"')) fail(path, "no shared product hero");
+    if (!html.includes('class="product-visual')) fail(path, "no product visual in hero");
+  }
 
   // --- structured data ----------------------------------------------------
   const ld = one(html, /<script type="application\/ld\+json">([\s\S]*?)<\/script>/);
@@ -228,18 +298,84 @@ for (const page of pages) {
   }
 }
 
+// Public text assets bypass the HTML layout normalizer, so protect them with
+// the same plain-punctuation contract as the pages themselves.
+for (const asset of [
+  "changelog/feed.xml",
+  "favicon.svg",
+  "llms.txt",
+  "manifest.webmanifest",
+  "og.svg",
+  "robots.txt",
+]) {
+  const content = await readFile(join(siteDir, asset), "utf8");
+  assert(!/[·—–]/.test(content), `site/${asset} must use plain punctuation`);
+}
+
 // A missing social image is a silent failure: the card renders blank and
 // nobody finds out until a link is shared.
-for (const asset of ["og.png", "og.svg", "favicon.svg", "favicon.png"]) {
+for (const asset of [
+  "og.png",
+  "og.svg",
+  "favicon.svg",
+  "favicon.png",
+  "apple-touch-icon.png",
+  "icon-512.png",
+  "manifest.webmanifest",
+]) {
   assert(present.has(asset), `site/${asset} is missing`);
 }
 for (const page of pages) {
   if (!page.html.includes("/og.png")) fail(page.path, "og:image does not point at og.png");
 }
 
+const brandMark = await readFile(join(siteDir, "favicon.svg"), "utf8");
+assert(
+  brandMark.includes('data-brand="owlwarden-guardian"'),
+  "the favicon must use the guardian owl brand mark",
+);
+for (const part of ["owl-head", "owl-face", "owl-eyes", "owl-beak"]) {
+  if (part === "owl-beak") {
+    assert(!brandMark.includes(`id="${part}"`), "the guardian owl must not have a beak shape");
+  } else {
+    assert(brandMark.includes(`id="${part}"`), `the brand mark is missing ${part}`);
+  }
+}
+assert(
+  brandMark.includes('shape-rendering="geometricPrecision"'),
+  "the vector mark must favour precise edge rendering",
+);
+const brandBuilder = await readFile(join(root, "scripts", "build-og.mjs"), "utf8");
+assert(
+  brandBuilder.includes("const ICON_OVERSAMPLE = 4;"),
+  "raster brand assets must use 4x supersampling",
+);
+
 const styles = await readFile(join(siteDir, "styles.css"), "utf8");
 assert(!/@import|url\(https?:/.test(styles), "the stylesheet must not fetch anything");
 assert(styles.includes("prefers-reduced-motion"), "the one animation must respect the preference");
+assert(
+  styles.includes(".page-hero + .code"),
+  "only a code block directly after the hero may overlap the hero boundary",
+);
+assert(
+  !styles.includes(".with-hero > .code:first-of-type"),
+  "the first later code block must not be pulled into its section heading",
+);
+assert(
+  styles.includes(".chip-medium { background: #8a5a00; color: #fff; }"),
+  "the medium badge needs the high-contrast white-on-ochre treatment",
+);
+assert(Buffer.byteLength(styles) < 32 * 1024, "the stylesheet must stay under 32 KiB");
+
+const manifest = JSON.parse(await readFile(join(siteDir, "manifest.webmanifest"), "utf8"));
+assert.equal(manifest.name, "owlwarden");
+assert.equal(manifest.start_url, "./");
+assert.deepEqual(
+  manifest.icons.map((icon) => icon.src),
+  ["./favicon.svg", "./favicon.png", "./icon-512.png"],
+  "the install icons must come from the same owlwarden mark",
+);
 
 // --- report ----------------------------------------------------------------
 
@@ -265,6 +401,65 @@ function one(html, pattern) {
 
 function escapeRegExp(text) {
   return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/** Checks the shared top navigation and its page-aware current marker. */
+function checkPrimaryNavigation(path, html) {
+  const header = one(html, /<header class="site-header">([\s\S]*?)<\/header>/);
+  if (!header) {
+    fail(path, "no shared site header");
+    return;
+  }
+  const nav = one(header, /<nav aria-label="Primary">([\s\S]*?)<\/nav>/);
+  if (!nav) {
+    fail(path, "no primary navigation in the site header");
+    return;
+  }
+
+  const pageUrl = `${site}/${path.replace(/index\.html$/, "")}`;
+  const actual = [...nav.matchAll(/<a([^>]*)href="([^"]+)"([^>]*)>([\s\S]*?)<\/a>/g)].map(
+    (match) => ({
+      label: match[4].replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim(),
+      href: new URL(match[2], pageUrl).href,
+      current: `${match[1]} ${match[3]}`.includes('aria-current="page"'),
+    }),
+  );
+
+  if (actual.length !== PRIMARY_NAV.length) {
+    fail(path, `primary navigation has ${actual.length} links, expected ${PRIMARY_NAV.length}`);
+    return;
+  }
+  for (const [index, expected] of PRIMARY_NAV.entries()) {
+    if (actual[index].label !== expected.label || actual[index].href !== expected.href) {
+      fail(
+        path,
+        `primary link ${index + 1} is ${actual[index].label} (${actual[index].href}), expected ${expected.label} (${expected.href})`,
+      );
+    }
+  }
+
+  const expectedCurrent = primarySection(path);
+  const current = actual.filter((link) => link.current);
+  if (expectedCurrent === undefined && current.length > 0) {
+    fail(path, `marks ${current.map((link) => link.label).join(", ")} current outside a primary section`);
+  } else if (expectedCurrent !== undefined && (current.length !== 1 || current[0].label !== expectedCurrent)) {
+    fail(path, `current primary link is ${current[0]?.label ?? "missing"}, expected ${expectedCurrent}`);
+  }
+}
+
+/** Maps a generated page to the primary product section readers are in. */
+function primarySection(path) {
+  if (path.startsWith("rules/")) return "Rules";
+  if (
+    path.startsWith("agent-config-security/") ||
+    path.startsWith("claude-code/") ||
+    path.startsWith("cursor/") ||
+    path.startsWith("mcp/")
+  ) return "Agent config";
+  if (path.startsWith("vet/")) return "vet";
+  if (path.startsWith("offline/")) return "Offline";
+  if (path.startsWith("owasp/") || path.startsWith("asi/")) return "Coverage";
+  return undefined;
 }
 
 /** Every file under `directory`, as site-relative paths. */

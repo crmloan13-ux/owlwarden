@@ -3,14 +3,16 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
 
-<title>owlwarden for Claude Code — hooks, MCP, and vet</title>
+<title>owlwarden for Claude Code: hooks, MCP, and vet</title>
 <meta name="description" content="Wire owlwarden into Claude Code&#39;s lifecycle: a gate after every edit and at the turn boundary, a read-only MCP server, and a scan of the .claude config itself.">
 <link rel="canonical" href="https://suthat.github.io/owlwarden/claude-code/">
 <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1">
 <meta name="theme-color" content="#fbfaf8">
 
 <meta property="og:type" content="article">
+<meta property="og:locale" content="en_US">
 <meta property="og:site_name" content="owlwarden">
 <meta property="og:title" content="Security scanning inside Claude Code">
 <meta property="og:description" content="Wire owlwarden into Claude Code&#39;s lifecycle: a gate after every edit and at the turn boundary, a read-only MCP server, and a scan of the .claude config itself.">
@@ -23,17 +25,27 @@
 <meta name="twitter:title" content="Security scanning inside Claude Code">
 <meta name="twitter:description" content="Wire owlwarden into Claude Code&#39;s lifecycle: a gate after every edit and at the turn boundary, a read-only MCP server, and a scan of the .claude config itself.">
 <meta name="twitter:image" content="https://suthat.github.io/owlwarden/og.png">
+<meta name="twitter:image:alt" content="An owlwarden scan showing the exact vulnerable line and its fix">
 
 <link rel="icon" type="image/svg+xml" href="../favicon.svg">
-<link rel="alternate icon" type="image/png" href="../favicon.png">
-<link rel="apple-touch-icon" href="../favicon.png">
+<link rel="alternate icon" type="image/png" sizes="192x192" href="../favicon.png">
+<link rel="apple-touch-icon" sizes="180x180" href="../apple-touch-icon.png">
+<link rel="manifest" href="../manifest.webmanifest">
 <link rel="alternate" type="application/atom+xml" title="owlwarden releases" href="https://suthat.github.io/owlwarden/changelog/feed.xml">
-<link rel="stylesheet" href="../styles.css?v=1.1.0">
+<link rel="stylesheet" href="../styles.css?v=86e674860125">
 
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
   "@graph": [
+    {
+      "@type": "WebSite",
+      "@id": "https://suthat.github.io/owlwarden/#website",
+      "name": "owlwarden",
+      "url": "https://suthat.github.io/owlwarden/",
+      "description": "Local security scanner for Node apps and coding-agent configuration.",
+      "inLanguage": "en"
+    },
     {
       "@type": "BreadcrumbList",
       "@id": "https://suthat.github.io/owlwarden/claude-code/#breadcrumbs",
@@ -66,16 +78,16 @@
 
 <header class="site-header">
   <a class="wordmark" href="../">
-    <span aria-hidden="true">◉ᴥ◉</span>
+    <img src="../favicon.svg" width="32" height="32" alt="">
     <span>owlwarden</span>
   </a>
   <nav aria-label="Primary">
     <a href="../rules/">Rules</a>
-    <a href="../agent-config-security/">Agent config</a>
+    <a href="../agent-config-security/" aria-current="page">Agent config</a>
     <a href="../vet/">vet</a>
     <a href="../offline/">Offline</a>
     <a href="../owasp/">Coverage</a>
-    <a href="https://github.com/suthat/owlwarden" rel="noopener">GitHub</a>
+    <a class="nav-cta" href="https://github.com/suthat/owlwarden" rel="noopener">GitHub <span aria-hidden="true">↗</span></a>
   </nav>
 </header>
 
@@ -86,14 +98,39 @@
   </ol>
 </nav>
 
-<main id="main-content">
-<h1>Security scanning inside Claude Code</h1>
-
-<p class="lede">
-  One command wires the deterministic checks into the events Claude Code
-  already fires, so they run because the host ran them — not because the model
-  chose to.
-</p>
+<main id="main-content" class="with-hero">
+<section class="page-hero">
+  <div class="hero-copy">
+    <p class="eyebrow">Claude Code hooks</p>
+    <h1>Security scanning inside Claude Code</h1>
+    <p class="hero-summary"><strong>Run checks from the host lifecycle instead of relying on a prompt.</strong> Hooks scan edits, inspect shell commands, and check the completed turn.</p>
+    <div class="hero-actions"><a class="button button-primary" href="https://www.npmjs.com/package/owlwarden">Set up Claude Code</a>
+<a class="button button-secondary" href="../agent-config-security/">See what gets scanned</a></div>
+  </div>
+  <figure class="product-visual product-visual-safe" aria-label="Claude Code lifecycle">
+  <div class="visual-chrome" aria-hidden="true">
+  <span class="window-dots"><i></i><i></i><i></i></span>
+  <span>Claude Code lifecycle</span>
+  <span class="visual-status"><i></i>local</span>
+</div>
+  <div class="visual-body">
+    <p class="visual-title">Checks attached to host events</p>
+    <ol class="visual-list"><li>
+  <span class="visual-tag">01</span>
+  <span><strong>PostToolUse</strong><small>Scan the file after Edit, Write, or MultiEdit</small></span>
+</li>
+<li>
+  <span class="visual-tag">02</span>
+  <span><strong>PreToolUse</strong><small>Fail closed before a Bash command executes</small></span>
+</li>
+<li>
+  <span class="visual-tag">03</span>
+  <span><strong>Stop</strong><small>Check everything changed before the turn ends</small></span>
+</li></ol>
+  </div>
+  <figcaption>host event, local check, finding or clean result</figcaption>
+</figure>
+</section>
 
 <pre class="code"><code class="language-bash">npm i -D owlwarden
 npx owlwarden init --claude-code</code></pre>
@@ -104,60 +141,59 @@ npx owlwarden init --claude-code</code></pre>
   <thead><tr><th>Event</th><th>Scope</th><th>Verdict</th></tr></thead>
   <tbody>
     <tr><td><code>PostToolUse</code> (Edit, Write, MultiEdit)</td><td>the file that was written</td><td>blocks with the rule, the line, and the fix</td></tr>
-    <tr><td><code>PreToolUse</code> (Bash)</td><td>the command string</td><td>the only event before execution — it fails closed</td></tr>
-    <tr><td><code>Stop</code></td><td>everything changed since the turn began</td><td>the loop-closer: work, then no declaring victory over code that does not pass</td></tr>
+    <tr><td><code>PreToolUse</code> (Bash)</td><td>the command string</td><td>blocks the command when the check fails</td></tr>
+    <tr><td><code>Stop</code></td><td>everything changed since the turn began</td><td>checks the completed turn</td></tr>
   </tbody>
 </table>
 </div>
 
-<h2>The hook it deliberately does not write</h2>
+<h2>No repository <code>SessionStart</code> hook</h2>
 <p>
-  There is no <code>SessionStart</code> entry, and that omission is the point.
+  The generated config does not add a <code>SessionStart</code> entry.
   <a href="../rules/agent-hook-autoexec/"><code>agent-hook-autoexec</code></a>
   reports repository configuration that runs when the workspace is opened, at
   high severity, because anyone who clones the repository and opens it runs that
-  command. A tool that ships that rule and then writes exactly that entry into
-  your settings would be indefensible — <code>owlwarden scan</code> would report
-  its own output.
+  command. <code>owlwarden scan</code> would report a generated repository hook
+  of that shape.
 </p>
 <p>
-  The session digest is a real feature and belongs in <em>user</em> settings,
+  The session digest belongs in <em>user</em> settings,
   which a cloned repository cannot write. The same reasoning is why the MCP
   entry is <code>node_modules/.bin/owlwarden</code> rather than
   <code>npx -y owlwarden</code>:
   <a href="../rules/agent-mcp-unpinned-remote/">that shape is a finding too</a>.
 </p>
 
-<h2>MCP as well, for the exploratory case</h2>
+<h2>MCP for manual scans</h2>
 <p>
-  A hook is the control. <a href="../mcp/">MCP</a> is the right surface for the
-  prompted question — <em>what does this rule mean, show me everything in
-  <code>packages/api</code></em> — and it stays read-only and static-only.
+  Hooks run checks automatically. <a href="../mcp/">MCP</a> handles prompted
+  requests such as <em>explain this rule</em> or <em>scan
+  <code>packages/api</code></em>. The server is read-only and static-only.
 </p>
 
 <h2>Before you open an unfamiliar repository</h2>
 <pre class="code"><code class="language-bash">npx owlwarden vet ./cloned-repo</code></pre>
 <p>
-  <a href="../vet/">What <code>vet</code> refuses to trust</a> ·
-  <a href="../agent-config-security/">what lives in <code>.claude/</code></a> ·
+  <a href="../vet/">What <code>vet</code> refuses to trust</a> /
+  <a href="../agent-config-security/">what lives in <code>.claude/</code></a> /
   <a href="../rules/">every rule</a>.
 </p>
 
 <h2>Keep reading</h2>
 <ul class="cards">
-  <li><a href="../rules/"><span class="name">All rules</span><span class="blurb">The pattern, the fix for your stack, the CWE.</span></a></li>
-  <li><a href="../agent-config-security/"><span class="name">Agent config security</span><span class="blurb">The files your agent executes and nothing scans.</span></a></li>
+  <li><a href="../rules/"><span class="name">Rules</span><span class="blurb">Trigger, confidence, and framework-specific fix.</span></a></li>
+  <li><a href="../agent-config-security/"><span class="name">Agent config</span><span class="blurb">Hooks, MCP servers, instructions, and editor tasks.</span></a></li>
   <li><a href="../vet/"><span class="name">owlwarden vet</span><span class="blurb">Check a repository before you open it.</span></a></li>
-  <li><a href="../owasp/"><span class="name">Coverage, gaps included</span><span class="blurb">What it checks, and what no parser can.</span></a></li>
+  <li><a href="../owasp/"><span class="name">Coverage</span><span class="blurb">Mapped rules and categories static analysis cannot cover.</span></a></li>
 </ul>
 
 </main>
 
 <footer class="site-footer">
-  <p>
-    <strong>owlwarden 1.1.0</strong> — offline security scanner for Node web apps
-    and AI coding agents. No account, no telemetry, no network unless you ask.
-  </p>
+  <div class="footer-brand">
+    <img src="../favicon.svg" width="36" height="36" alt="">
+    <p><strong>owlwarden 1.1.0</strong><br>Local security checks for Node apps and coding-agent configuration.</p>
+  </div>
   <nav aria-label="Footer">
     <a href="../rules/">All rules</a>
     <a href="../owasp/">OWASP coverage</a>
@@ -168,7 +204,7 @@ npx owlwarden init --claude-code</code></pre>
     <a href="https://github.com/suthat/owlwarden/blob/main/RULES.md" rel="noopener">RULES.md</a>
     <a href="https://www.npmjs.com/package/owlwarden" rel="noopener">npm</a>
   </nav>
-  <p class="licence">MIT OR Apache-2.0. <code>npx owlwarden scan</code></p>
+  <p class="licence">No account / no telemetry / MIT OR Apache-2.0 / <code>npx owlwarden scan</code></p>
 </footer>
 </body>
 </html>

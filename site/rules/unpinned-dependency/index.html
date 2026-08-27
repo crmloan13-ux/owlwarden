@@ -3,14 +3,16 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
 
-<title>unpinned-dependency — owlwarden rule</title>
+<title>unpinned-dependency - owlwarden rule</title>
 <meta name="description" content="A package.json dependency uses &#39;*&#39; or &#39;latest&#39;, so every install can pull a different major version with no review. Pin a lower bound (or an exact version) so…">
 <link rel="canonical" href="https://suthat.github.io/owlwarden/rules/unpinned-dependency/">
 <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1">
 <meta name="theme-color" content="#fbfaf8">
 
 <meta property="og:type" content="article">
+<meta property="og:locale" content="en_US">
 <meta property="og:site_name" content="owlwarden">
 <meta property="og:title" content="Dependency version is unpinned">
 <meta property="og:description" content="A package.json dependency uses &#39;*&#39; or &#39;latest&#39;, so every install can pull a different major version with no review. Pin a lower bound (or an exact version) so…">
@@ -23,17 +25,27 @@
 <meta name="twitter:title" content="Dependency version is unpinned">
 <meta name="twitter:description" content="A package.json dependency uses &#39;*&#39; or &#39;latest&#39;, so every install can pull a different major version with no review. Pin a lower bound (or an exact version) so…">
 <meta name="twitter:image" content="https://suthat.github.io/owlwarden/og.png">
+<meta name="twitter:image:alt" content="An owlwarden scan showing the exact vulnerable line and its fix">
 
 <link rel="icon" type="image/svg+xml" href="../../favicon.svg">
-<link rel="alternate icon" type="image/png" href="../../favicon.png">
-<link rel="apple-touch-icon" href="../../favicon.png">
+<link rel="alternate icon" type="image/png" sizes="192x192" href="../../favicon.png">
+<link rel="apple-touch-icon" sizes="180x180" href="../../apple-touch-icon.png">
+<link rel="manifest" href="../../manifest.webmanifest">
 <link rel="alternate" type="application/atom+xml" title="owlwarden releases" href="https://suthat.github.io/owlwarden/changelog/feed.xml">
-<link rel="stylesheet" href="../../styles.css?v=1.1.0">
+<link rel="stylesheet" href="../../styles.css?v=86e674860125">
 
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
   "@graph": [
+    {
+      "@type": "WebSite",
+      "@id": "https://suthat.github.io/owlwarden/#website",
+      "name": "owlwarden",
+      "url": "https://suthat.github.io/owlwarden/",
+      "description": "Local security scanner for Node apps and coding-agent configuration.",
+      "inLanguage": "en"
+    },
     {
       "@type": "BreadcrumbList",
       "@id": "https://suthat.github.io/owlwarden/rules/unpinned-dependency/#breadcrumbs",
@@ -86,16 +98,16 @@
 
 <header class="site-header">
   <a class="wordmark" href="../../">
-    <span aria-hidden="true">◉ᴥ◉</span>
+    <img src="../../favicon.svg" width="32" height="32" alt="">
     <span>owlwarden</span>
   </a>
   <nav aria-label="Primary">
-    <a href="../../rules/">Rules</a>
+    <a href="../../rules/" aria-current="page">Rules</a>
     <a href="../../agent-config-security/">Agent config</a>
     <a href="../../vet/">vet</a>
     <a href="../../offline/">Offline</a>
     <a href="../../owasp/">Coverage</a>
-    <a href="https://github.com/suthat/owlwarden" rel="noopener">GitHub</a>
+    <a class="nav-cta" href="https://github.com/suthat/owlwarden" rel="noopener">GitHub <span aria-hidden="true">↗</span></a>
   </nav>
 </header>
 
@@ -107,7 +119,7 @@
   </ol>
 </nav>
 
-<main id="main-content">
+<main id="main-content" class="article-page">
 <h1>Dependency version is unpinned</h1>
 
 <p class="lede">A package.json dependency uses &#39;*&#39; or &#39;latest&#39;, so every install can pull a different major version with no review. Pin a lower bound (or an exact version) so upgrades are a deliberate change.</p>
@@ -115,7 +127,7 @@
 <p>
   <span class="chip chip-medium">medium</span> <span class="chip chip-likely">likely</span>
   <span class="chip chip-scope">application source</span>
-  <a href="../../owasp/">OWASP A06:2021</a> · <a href="https://cwe.mitre.org/data/definitions/1104.html" rel="noopener">CWE-1104</a>
+  <a href="../../owasp/">OWASP A06:2021</a> / <a href="https://cwe.mitre.org/data/definitions/1104.html" rel="noopener">CWE-1104</a>
 </p>
 
 
@@ -130,8 +142,8 @@
 <pre class="code"><code class="language-bash">npx owlwarden scan --preset deep
 npx owlwarden explain unpinned-dependency</code></pre>
 <p>
-  <code>explain</code> prints this whole write-up in your terminal with no
-  network at all. <a href="../../offline/">Nothing leaves your machine</a>.
+  <code>explain</code> prints the rule and fixes in the terminal. It does not
+  use the network.
 </p>
 
 <h2>Related rules</h2>
@@ -142,15 +154,15 @@ npx owlwarden explain unpinned-dependency</code></pre>
   </a></li>
 </ul>
 
-<p><a href="../">All 25 rules</a> · <a href="../../">owlwarden</a></p>
+<p><a href="../">All 25 rules</a> / <a href="../../">owlwarden</a></p>
 
 </main>
 
 <footer class="site-footer">
-  <p>
-    <strong>owlwarden 1.1.0</strong> — offline security scanner for Node web apps
-    and AI coding agents. No account, no telemetry, no network unless you ask.
-  </p>
+  <div class="footer-brand">
+    <img src="../../favicon.svg" width="36" height="36" alt="">
+    <p><strong>owlwarden 1.1.0</strong><br>Local security checks for Node apps and coding-agent configuration.</p>
+  </div>
   <nav aria-label="Footer">
     <a href="../../rules/">All rules</a>
     <a href="../../owasp/">OWASP coverage</a>
@@ -161,7 +173,7 @@ npx owlwarden explain unpinned-dependency</code></pre>
     <a href="https://github.com/suthat/owlwarden/blob/main/RULES.md" rel="noopener">RULES.md</a>
     <a href="https://www.npmjs.com/package/owlwarden" rel="noopener">npm</a>
   </nav>
-  <p class="licence">MIT OR Apache-2.0. <code>npx owlwarden scan</code></p>
+  <p class="licence">No account / no telemetry / MIT OR Apache-2.0 / <code>npx owlwarden scan</code></p>
 </footer>
 </body>
 </html>

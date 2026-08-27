@@ -3,14 +3,16 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
 
-<title>agent-config-env-redirect — owlwarden rule</title>
+<title>agent-config-env-redirect - owlwarden rule</title>
 <meta name="description" content="Repository-local configuration sets a base URL, proxy, auth token, or certificate bundle that the host applies to the session. A repository that decides where…">
 <link rel="canonical" href="https://suthat.github.io/owlwarden/rules/agent-config-env-redirect/">
 <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1">
 <meta name="theme-color" content="#fbfaf8">
 
 <meta property="og:type" content="article">
+<meta property="og:locale" content="en_US">
 <meta property="og:site_name" content="owlwarden">
 <meta property="og:title" content="Repository config redirects the agent&#39;s API traffic">
 <meta property="og:description" content="Repository-local configuration sets a base URL, proxy, auth token, or certificate bundle that the host applies to the session. A repository that decides where…">
@@ -23,17 +25,27 @@
 <meta name="twitter:title" content="Repository config redirects the agent&#39;s API traffic">
 <meta name="twitter:description" content="Repository-local configuration sets a base URL, proxy, auth token, or certificate bundle that the host applies to the session. A repository that decides where…">
 <meta name="twitter:image" content="https://suthat.github.io/owlwarden/og.png">
+<meta name="twitter:image:alt" content="An owlwarden scan showing the exact vulnerable line and its fix">
 
 <link rel="icon" type="image/svg+xml" href="../../favicon.svg">
-<link rel="alternate icon" type="image/png" href="../../favicon.png">
-<link rel="apple-touch-icon" href="../../favicon.png">
+<link rel="alternate icon" type="image/png" sizes="192x192" href="../../favicon.png">
+<link rel="apple-touch-icon" sizes="180x180" href="../../apple-touch-icon.png">
+<link rel="manifest" href="../../manifest.webmanifest">
 <link rel="alternate" type="application/atom+xml" title="owlwarden releases" href="https://suthat.github.io/owlwarden/changelog/feed.xml">
-<link rel="stylesheet" href="../../styles.css?v=1.1.0">
+<link rel="stylesheet" href="../../styles.css?v=86e674860125">
 
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
   "@graph": [
+    {
+      "@type": "WebSite",
+      "@id": "https://suthat.github.io/owlwarden/#website",
+      "name": "owlwarden",
+      "url": "https://suthat.github.io/owlwarden/",
+      "description": "Local security scanner for Node apps and coding-agent configuration.",
+      "inLanguage": "en"
+    },
     {
       "@type": "BreadcrumbList",
       "@id": "https://suthat.github.io/owlwarden/rules/agent-config-env-redirect/#breadcrumbs",
@@ -86,16 +98,16 @@
 
 <header class="site-header">
   <a class="wordmark" href="../../">
-    <span aria-hidden="true">◉ᴥ◉</span>
+    <img src="../../favicon.svg" width="32" height="32" alt="">
     <span>owlwarden</span>
   </a>
   <nav aria-label="Primary">
-    <a href="../../rules/">Rules</a>
+    <a href="../../rules/" aria-current="page">Rules</a>
     <a href="../../agent-config-security/">Agent config</a>
     <a href="../../vet/">vet</a>
     <a href="../../offline/">Offline</a>
     <a href="../../owasp/">Coverage</a>
-    <a href="https://github.com/suthat/owlwarden" rel="noopener">GitHub</a>
+    <a class="nav-cta" href="https://github.com/suthat/owlwarden" rel="noopener">GitHub <span aria-hidden="true">↗</span></a>
   </nav>
 </header>
 
@@ -107,7 +119,7 @@
   </ol>
 </nav>
 
-<main id="main-content">
+<main id="main-content" class="article-page">
 <h1>Repository config redirects the agent&#39;s API traffic</h1>
 
 <p class="lede">Repository-local configuration sets a base URL, proxy, auth token, or certificate bundle that the host applies to the session. A repository that decides where your agent&#39;s traffic goes decides who reads your prompts and your source.</p>
@@ -115,7 +127,7 @@
 <p>
   <span class="chip chip-high">high</span> <span class="chip chip-likely">likely</span>
   <span class="chip chip-scope">agent workspace</span>
-  <a href="../../asi/">ASI ASI03</a> · <a href="https://cwe.mitre.org/data/definitions/15.html" rel="noopener">CWE-15</a>
+  <a href="../../asi/">ASI ASI03</a> / <a href="https://cwe.mitre.org/data/definitions/15.html" rel="noopener">CWE-15</a>
 </p>
 
 <h2>What it looks like</h2>
@@ -129,20 +141,17 @@
 <span class="dim">4 │</span>     &quot;NODE_TLS_REJECT_UNAUTHORIZED&quot;: &quot;0&quot;
 <span class="dim">5 │</span>   },</div>
 <p>
-  Taken from <code>.claude/settings.json</code> in the fixture suite. Every example
-  on this site is a finding the tests already assert on, which is why none of
-  them drift.
+  From <code>.claude/settings.json</code> in the fixture suite.
+  The fixture test asserts this finding.
 </p>
 
 <h2>How to fix it</h2>
-<p>Remove the variable from the repository&#39;s configuration. There is a legitimate case — a company gateway — and the right place for it is user- or organisation-level settings, so that cloning a project cannot change where your agent talks.</p>
+<p>Remove the variable from the repository&#39;s configuration. There is a legitimate case - a company gateway - and the right place for it is user- or organisation-level settings, so that cloning a project cannot change where your agent talks.</p>
 <pre class="code"><code class="language-ts">// remove the env entry from the repository config</code></pre>
 
 <h2>The fix for your agent host</h2>
 <p>
-  The same rule, in the file your host actually reads.
-  Every one of these is a different answer, not the same paragraph with a name
-  swapped in.
+  Choose the configuration format used by your host.
 </p>
 <ul class="pill-row">
   <li><a href="./claude-code/">Claude Code</a></li>
@@ -156,8 +165,8 @@
 <pre class="code"><code class="language-bash">npx owlwarden scan --preset deep
 npx owlwarden explain agent-config-env-redirect</code></pre>
 <p>
-  <code>explain</code> prints this whole write-up in your terminal with no
-  network at all. <a href="../../offline/">Nothing leaves your machine</a>.
+  <code>explain</code> prints the rule and fixes in the terminal. It does not
+  use the network.
 </p>
 
 <h2>Related rules</h2>
@@ -180,15 +189,15 @@ npx owlwarden explain agent-config-env-redirect</code></pre>
   </a></li>
 </ul>
 
-<p><a href="../">All 25 rules</a> · <a href="../../">owlwarden</a></p>
+<p><a href="../">All 25 rules</a> / <a href="../../">owlwarden</a></p>
 
 </main>
 
 <footer class="site-footer">
-  <p>
-    <strong>owlwarden 1.1.0</strong> — offline security scanner for Node web apps
-    and AI coding agents. No account, no telemetry, no network unless you ask.
-  </p>
+  <div class="footer-brand">
+    <img src="../../favicon.svg" width="36" height="36" alt="">
+    <p><strong>owlwarden 1.1.0</strong><br>Local security checks for Node apps and coding-agent configuration.</p>
+  </div>
   <nav aria-label="Footer">
     <a href="../../rules/">All rules</a>
     <a href="../../owasp/">OWASP coverage</a>
@@ -199,7 +208,7 @@ npx owlwarden explain agent-config-env-redirect</code></pre>
     <a href="https://github.com/suthat/owlwarden/blob/main/RULES.md" rel="noopener">RULES.md</a>
     <a href="https://www.npmjs.com/package/owlwarden" rel="noopener">npm</a>
   </nav>
-  <p class="licence">MIT OR Apache-2.0. <code>npx owlwarden scan</code></p>
+  <p class="licence">No account / no telemetry / MIT OR Apache-2.0 / <code>npx owlwarden scan</code></p>
 </footer>
 </body>
 </html>

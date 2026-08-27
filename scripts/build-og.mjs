@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 /**
- * Writes `site/og.svg`, and rasterises it to `site/og.png` where a rasteriser
+ * Writes `site/og.svg`, rasterises it to `site/og.png`, and generates every
+ * browser/install icon from the same geometric owl mark where a rasteriser
  * exists.
  *
  *   node scripts/build-og.mjs           # SVG only
- *   node scripts/build-og.mjs --raster  # ...and PNG, on macOS
+ *   node scripts/build-og.mjs --raster  # ...plus card and icon PNGs, on macOS
  *
  * # Why the PNG is committed rather than built
  *
@@ -27,13 +28,15 @@
 
 import { execFileSync } from "node:child_process";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
-import { copyFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { ogCard } from "./site/og-card.mjs";
+import { favicon } from "./site/icon.mjs";
 
+const CARD_OVERSAMPLE = 2;
+const ICON_OVERSAMPLE = 4;
 const siteDir = fileURLToPath(new URL("../site/", import.meta.url));
 const card = ogCard();
 
@@ -65,20 +68,57 @@ try {
   const squarePath = join(scratch, "square.svg");
   await writeFile(squarePath, square);
 
-  execFileSync("qlmanage", ["-t", "-s", "1200", "-o", scratch, squarePath], {
+  const cardRenderSize = 1200 * CARD_OVERSAMPLE;
+  execFileSync("qlmanage", ["-t", "-s", String(cardRenderSize), "-o", scratch, squarePath], {
     stdio: "ignore",
   });
+  const cardOversampled = join(scratch, "og-oversampled.png");
   execFileSync("sips", [
     "--cropToHeightWidth",
-    "630",
-    "1200",
+    String(630 * CARD_OVERSAMPLE),
+    String(cardRenderSize),
     join(scratch, "square.svg.png"),
     "--out",
-    join(scratch, "og.png"),
+    cardOversampled,
   ], { stdio: "ignore" });
-
-  await copyFile(join(scratch, "og.png"), join(siteDir, "og.png"));
+  execFileSync("sips", [
+    "--resampleHeightWidth",
+    "630",
+    "1200",
+    cardOversampled,
+    "--out",
+    join(siteDir, "og.png"),
+  ], { stdio: "ignore" });
   process.stdout.write("wrote site/og.png (1200x630)\n");
+  await rasterizeIcons(scratch);
 } finally {
   await rm(scratch, { recursive: true, force: true });
+}
+
+/** Rasterises every browser/install size from the same geometric owl mark. */
+async function rasterizeIcons(scratch) {
+  const source = join(scratch, "owlwarden-icon.svg");
+  await writeFile(source, favicon());
+  const renderSize = 512 * ICON_OVERSAMPLE;
+  execFileSync("qlmanage", ["-t", "-s", String(renderSize), "-o", scratch, source], {
+    stdio: "ignore",
+  });
+
+  const rendered = `${source}.png`;
+  const outputs = [
+    [512, "icon-512.png"],
+    [192, "favicon.png"],
+    [180, "apple-touch-icon.png"],
+  ];
+  for (const [size, name] of outputs) {
+    execFileSync("sips", [
+      "--resampleHeightWidth",
+      String(size),
+      String(size),
+      rendered,
+      "--out",
+      join(siteDir, name),
+    ], { stdio: "ignore" });
+  }
+  process.stdout.write("wrote synced site icons (180, 192, 512)\n");
 }

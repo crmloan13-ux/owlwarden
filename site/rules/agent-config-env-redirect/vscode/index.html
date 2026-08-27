@@ -3,14 +3,16 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
 
-<title>Fix agent-config-env-redirect in VS Code — owlwarden</title>
+<title>Fix agent-config-env-redirect in VS Code: owlwarden</title>
 <meta name="description" content="Repository config redirects the agent&#39;s API traffic in VS Code. The vulnerable pattern, the corrected code, and one command to check your own repository.">
 <link rel="canonical" href="https://suthat.github.io/owlwarden/rules/agent-config-env-redirect/vscode/">
 <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1">
 <meta name="theme-color" content="#fbfaf8">
 
 <meta property="og:type" content="article">
+<meta property="og:locale" content="en_US">
 <meta property="og:site_name" content="owlwarden">
 <meta property="og:title" content="Fix repository config redirects the agent&#39;s API traffic in VS Code">
 <meta property="og:description" content="Repository config redirects the agent&#39;s API traffic in VS Code. The vulnerable pattern, the corrected code, and one command to check your own repository.">
@@ -23,17 +25,27 @@
 <meta name="twitter:title" content="Fix repository config redirects the agent&#39;s API traffic in VS Code">
 <meta name="twitter:description" content="Repository config redirects the agent&#39;s API traffic in VS Code. The vulnerable pattern, the corrected code, and one command to check your own repository.">
 <meta name="twitter:image" content="https://suthat.github.io/owlwarden/og.png">
+<meta name="twitter:image:alt" content="An owlwarden scan showing the exact vulnerable line and its fix">
 
 <link rel="icon" type="image/svg+xml" href="../../../favicon.svg">
-<link rel="alternate icon" type="image/png" href="../../../favicon.png">
-<link rel="apple-touch-icon" href="../../../favicon.png">
+<link rel="alternate icon" type="image/png" sizes="192x192" href="../../../favicon.png">
+<link rel="apple-touch-icon" sizes="180x180" href="../../../apple-touch-icon.png">
+<link rel="manifest" href="../../../manifest.webmanifest">
 <link rel="alternate" type="application/atom+xml" title="owlwarden releases" href="https://suthat.github.io/owlwarden/changelog/feed.xml">
-<link rel="stylesheet" href="../../../styles.css?v=1.1.0">
+<link rel="stylesheet" href="../../../styles.css?v=86e674860125">
 
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
   "@graph": [
+    {
+      "@type": "WebSite",
+      "@id": "https://suthat.github.io/owlwarden/#website",
+      "name": "owlwarden",
+      "url": "https://suthat.github.io/owlwarden/",
+      "description": "Local security scanner for Node apps and coding-agent configuration.",
+      "inLanguage": "en"
+    },
     {
       "@type": "BreadcrumbList",
       "@id": "https://suthat.github.io/owlwarden/rules/agent-config-env-redirect/vscode/#breadcrumbs",
@@ -113,16 +125,16 @@
 
 <header class="site-header">
   <a class="wordmark" href="../../../">
-    <span aria-hidden="true">◉ᴥ◉</span>
+    <img src="../../../favicon.svg" width="32" height="32" alt="">
     <span>owlwarden</span>
   </a>
   <nav aria-label="Primary">
-    <a href="../../../rules/">Rules</a>
+    <a href="../../../rules/" aria-current="page">Rules</a>
     <a href="../../../agent-config-security/">Agent config</a>
     <a href="../../../vet/">vet</a>
     <a href="../../../offline/">Offline</a>
     <a href="../../../owasp/">Coverage</a>
-    <a href="https://github.com/suthat/owlwarden" rel="noopener">GitHub</a>
+    <a class="nav-cta" href="https://github.com/suthat/owlwarden" rel="noopener">GitHub <span aria-hidden="true">↗</span></a>
   </nav>
 </header>
 
@@ -135,7 +147,7 @@
   </ol>
 </nav>
 
-<main id="main-content">
+<main id="main-content" class="article-page">
 <h1>Fix repository config redirects the agent&#39;s API traffic in VS Code</h1>
 
 <p class="lede">Repository-local configuration sets a base URL, proxy, auth token, or certificate bundle that the host applies to the session. A repository that decides where your agent&#39;s traffic goes decides who reads your prompts and your source.</p>
@@ -145,7 +157,7 @@
   <span class="chip chip-scope">VS Code</span>
   <a href="https://cwe.mitre.org/data/definitions/15.html" rel="noopener">CWE-15</a>
   
-   · <a href="../../../asi/">ASI ASI03</a>
+   / <a href="../../../asi/">ASI ASI03</a>
 </p>
 
 <h2>The vulnerable pattern in VS Code</h2>
@@ -159,9 +171,9 @@
 <span class="dim">5 │</span>   },
 <span class="dim">6 │</span>   &quot;mcp&quot;: {</div>
 <p>
-  This is a real finding from the VS Code fixture in the owlwarden test
+  This finding comes from the VS Code fixture in the owlwarden test
   suite.
-  `HTTPS_PROXY` decides where this agent&#39;s requests go and which certificates it trusts. Set here, cloning the project silently changes it — and every prompt, file, and secret the agent sends goes somewhere the developer did not choose.
+  `HTTPS_PROXY` decides where this agent&#39;s requests go and which certificates it trusts. Set here, cloning the project silently changes it - and every prompt, file, and secret the agent sends goes somewhere the developer did not choose.
 </p>
 
 <h2>The corrected configuration</h2>
@@ -170,22 +182,20 @@
 &quot;terminal.integrated.env.osx&quot;: { &quot;HTTPS_PROXY&quot;: &quot;http://gateway.internal:3128&quot; }</code></pre>
 
 <h3>If you are not using VS Code</h3>
-<p>Remove the variable from the repository&#39;s configuration. There is a legitimate case — a company gateway — and the right place for it is user- or organisation-level settings, so that cloning a project cannot change where your agent talks.</p>
+<p>Remove the variable from the repository&#39;s configuration. There is a legitimate case - a company gateway - and the right place for it is user- or organisation-level settings, so that cloning a project cannot change where your agent talks.</p>
 
 <h2>Check your own repository</h2>
 <pre class="code"><code class="language-bash">npx owlwarden scan
 npx owlwarden explain agent-config-env-redirect</code></pre>
 <p>
-  Runs entirely on your machine — <a href="../../../offline/">no account, no
+  Runs on your machine. <a href="../../../offline/">No account, no
   telemetry, no network unless you ask</a>. In CI, <a href="../../../ci/">SARIF
   uploads to code scanning</a> and the exit code is the gate.
 </p>
 
 <h2>Other VS Code checks</h2>
 <p>
-  Every rule that has a verified VS Code example. Cross-linked in both
-  directions on purpose: a page nothing links to is a page a crawler reaches
-  only through the sitemap, and a reader never reaches at all.
+  Rules with a tested VS Code example.
 </p>
 <ul class="cards">
   <li><a href="../../agent-config-loader-script/vscode/">
@@ -215,18 +225,18 @@ npx owlwarden explain agent-config-env-redirect</code></pre>
 </ul>
 
 <p>
-  <a href="../">agent-config-env-redirect for every agent host</a> ·
-  <a href="../../">All rules</a> ·
+  <a href="../">agent-config-env-redirect for every agent host</a> /
+  <a href="../../">All rules</a> /
   <a href="../../../">owlwarden</a>
 </p>
 
 </main>
 
 <footer class="site-footer">
-  <p>
-    <strong>owlwarden 1.1.0</strong> — offline security scanner for Node web apps
-    and AI coding agents. No account, no telemetry, no network unless you ask.
-  </p>
+  <div class="footer-brand">
+    <img src="../../../favicon.svg" width="36" height="36" alt="">
+    <p><strong>owlwarden 1.1.0</strong><br>Local security checks for Node apps and coding-agent configuration.</p>
+  </div>
   <nav aria-label="Footer">
     <a href="../../../rules/">All rules</a>
     <a href="../../../owasp/">OWASP coverage</a>
@@ -237,7 +247,7 @@ npx owlwarden explain agent-config-env-redirect</code></pre>
     <a href="https://github.com/suthat/owlwarden/blob/main/RULES.md" rel="noopener">RULES.md</a>
     <a href="https://www.npmjs.com/package/owlwarden" rel="noopener">npm</a>
   </nav>
-  <p class="licence">MIT OR Apache-2.0. <code>npx owlwarden scan</code></p>
+  <p class="licence">No account / no telemetry / MIT OR Apache-2.0 / <code>npx owlwarden scan</code></p>
 </footer>
 </body>
 </html>

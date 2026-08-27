@@ -1,7 +1,8 @@
 # site/
 
-Generated. Run `pnpm site:build`; the only file in here that is not generated is
-`favicon.png`, which is the illustrated mark used as the Apple touch icon.
+Generated. Run `pnpm site:build`; do not edit the HTML in this directory. The
+PNG brand assets are committed build outputs because browsers and social cards
+need raster files, but their source is generated too.
 
 The generator is `scripts/build-site.mjs`, and it reads three things:
 
@@ -11,6 +12,19 @@ The generator is `scripts/build-site.mjs`, and it reads three things:
   remediation. The same source that generates `RULES.md`.
 - **the fixtures**, which it scans to harvest a real vulnerable example for each
   (rule, framework) and (rule, agent host) cell.
+
+The hand-written layer is split by job rather than by output page:
+
+- `scripts/site/marketing.mjs` owns every product hero, call to action, and
+  product visual as structured content;
+- `scripts/site/pages.mjs` owns the long-form explanations;
+- `scripts/site/layout.mjs` owns the shared HTML and SEO metadata;
+- `scripts/site/styles.mjs` owns the visual system.
+
+That means a positioning or design change is one source edit even though GitHub
+Pages receives a pre-rendered file for every indexable URL. The HTML count is a
+deployment detail, not an authoring model; pre-rendering keeps each rule URL
+fast, crawlable, and useful without shipping client JavaScript.
 
 That last one is the reason a few hundred pages can exist without any of them
 being filler. Every snippet on the site is a finding the test suite already
@@ -43,23 +57,21 @@ sentence. `check-site.mjs` refuses any host outside a short allowlist, and any
 
 ## The icons
 
-`favicon.svg` is generated and is drawn for the size it is actually seen at.
-The illustrated owl it replaced is a good drawing and is unreadable in a browser
-tab: at 16 pixels the tufts, the eye rings, and the registration marks collapse
-into a smudge. Four shapes, maximum contrast, and the three features that make a
-silhouette read as an owl — two large adjacent eyes, ear tufts attached to a
-head, and a beak between them. It keeps the severity red the reporter uses for
-`high`, so the tab, the page, and the terminal are one object.
-
-`favicon.png` stays as the `apple-touch-icon`, where 192×192 is the size it is
-actually rendered at and the illustration's detail earns its place.
+`favicon.svg` is the source mark, drawn for browser-tab legibility. Its guardian
+owl uses short outward feather tufts, one connected facial disc, and an open
+centre so the silhouette stays readable at 16 pixels without a nose or beak.
+The header, footer, favicon, Apple touch icon, install icons, web manifest, and
+social card all use that same geometry and the reporter's severity red.
+`pnpm brand:build` rasterises the 180, 192, and 512 pixel variants from a 4x
+render on macOS, so curves and diagonal edges stay clean and there is no second
+owl illustration to drift away from the product mark.
 
 ## The social card
 
 `og.svg` is generated; `og.png` is rasterised from it and committed.
 
 ```bash
-pnpm og:build     # writes og.svg, and og.png on macOS
+pnpm brand:build  # writes the social card and all raster icon sizes on macOS
 ```
 
 Social platforms do not render SVG in a card, so the `og:image` has to be a

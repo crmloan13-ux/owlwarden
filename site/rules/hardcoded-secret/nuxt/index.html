@@ -3,14 +3,16 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
 
-<title>Fix hardcoded-secret in Nuxt — owlwarden</title>
+<title>Fix hardcoded-secret in Nuxt: owlwarden</title>
 <meta name="description" content="Credential hardcoded in source in Nuxt. The vulnerable pattern, the corrected code, the CWE mapping, and one command to check your own repository.">
 <link rel="canonical" href="https://suthat.github.io/owlwarden/rules/hardcoded-secret/nuxt/">
 <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1">
 <meta name="theme-color" content="#fbfaf8">
 
 <meta property="og:type" content="article">
+<meta property="og:locale" content="en_US">
 <meta property="og:site_name" content="owlwarden">
 <meta property="og:title" content="Fix credential hardcoded in source in Nuxt">
 <meta property="og:description" content="Credential hardcoded in source in Nuxt. The vulnerable pattern, the corrected code, the CWE mapping, and one command to check your own repository.">
@@ -23,17 +25,27 @@
 <meta name="twitter:title" content="Fix credential hardcoded in source in Nuxt">
 <meta name="twitter:description" content="Credential hardcoded in source in Nuxt. The vulnerable pattern, the corrected code, the CWE mapping, and one command to check your own repository.">
 <meta name="twitter:image" content="https://suthat.github.io/owlwarden/og.png">
+<meta name="twitter:image:alt" content="An owlwarden scan showing the exact vulnerable line and its fix">
 
 <link rel="icon" type="image/svg+xml" href="../../../favicon.svg">
-<link rel="alternate icon" type="image/png" href="../../../favicon.png">
-<link rel="apple-touch-icon" href="../../../favicon.png">
+<link rel="alternate icon" type="image/png" sizes="192x192" href="../../../favicon.png">
+<link rel="apple-touch-icon" sizes="180x180" href="../../../apple-touch-icon.png">
+<link rel="manifest" href="../../../manifest.webmanifest">
 <link rel="alternate" type="application/atom+xml" title="owlwarden releases" href="https://suthat.github.io/owlwarden/changelog/feed.xml">
-<link rel="stylesheet" href="../../../styles.css?v=1.1.0">
+<link rel="stylesheet" href="../../../styles.css?v=86e674860125">
 
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
   "@graph": [
+    {
+      "@type": "WebSite",
+      "@id": "https://suthat.github.io/owlwarden/#website",
+      "name": "owlwarden",
+      "url": "https://suthat.github.io/owlwarden/",
+      "description": "Local security scanner for Node apps and coding-agent configuration.",
+      "inLanguage": "en"
+    },
     {
       "@type": "BreadcrumbList",
       "@id": "https://suthat.github.io/owlwarden/rules/hardcoded-secret/nuxt/#breadcrumbs",
@@ -113,16 +125,16 @@
 
 <header class="site-header">
   <a class="wordmark" href="../../../">
-    <span aria-hidden="true">◉ᴥ◉</span>
+    <img src="../../../favicon.svg" width="32" height="32" alt="">
     <span>owlwarden</span>
   </a>
   <nav aria-label="Primary">
-    <a href="../../../rules/">Rules</a>
+    <a href="../../../rules/" aria-current="page">Rules</a>
     <a href="../../../agent-config-security/">Agent config</a>
     <a href="../../../vet/">vet</a>
     <a href="../../../offline/">Offline</a>
     <a href="../../../owasp/">Coverage</a>
-    <a href="https://github.com/suthat/owlwarden" rel="noopener">GitHub</a>
+    <a class="nav-cta" href="https://github.com/suthat/owlwarden" rel="noopener">GitHub <span aria-hidden="true">↗</span></a>
   </nav>
 </header>
 
@@ -135,7 +147,7 @@
   </ol>
 </nav>
 
-<main id="main-content">
+<main id="main-content" class="article-page">
 <h1>Fix credential hardcoded in source in Nuxt</h1>
 
 <p class="lede">A credential appears as a literal in source. Anything committed is in the repository&#39;s history, in every clone, and in every build artefact, so removing the line later does not revoke it. Read secrets from the environment or a secret manager, and rotate anything that has been committed.</p>
@@ -144,7 +156,7 @@
   <span class="chip chip-high">high</span> <span class="chip chip-likely">likely</span>
   <span class="chip chip-scope">Nuxt</span>
   <a href="https://cwe.mitre.org/data/definitions/798.html" rel="noopener">CWE-798</a>
-   · <a href="../../../owasp/">OWASP A07:2021</a>
+   / <a href="../../../owasp/">OWASP A07:2021</a>
   
 </p>
 
@@ -152,13 +164,13 @@
 <div class="transcript"><span class="sev-high">HIGH</span>  <span class="conf">likely</span>  Credential hardcoded in source  <span class="dim">A07:2021</span>
 <span class="dim">server/api/billing.get.ts:2:20</span>
 
-<span class="dim">1 │</span> // FIXTURE: hardcoded-secret — Stripe live key prefix.
+<span class="dim">1 │</span> // FIXTURE: hardcoded-secret - Stripe live key prefix.
 <span class="dim">2 │</span> const STRIPE_KEY = &#39;sk_l***&#39;
 <span class="dim">  │ </span>                   <span class="mark">~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ credential written into source</span>
 <span class="dim">3 │</span> 
 <span class="dim">4 │</span> export default defineEventHandler(async () =&gt; {</div>
 <p>
-  This is a real finding from the Nuxt fixture in the owlwarden test
+  This finding comes from the Nuxt fixture in the owlwarden test
   suite, in <code>GET /api/billing</code>.
   This literal carries the prefix of a Stripe live secret key, so it is a real credential rather than a placeholder. It is in the repository&#39;s history and in every clone; deleting the line does not revoke it.
 </p>
@@ -174,22 +186,20 @@ runtimeConfig: {
 const { apiKey } = useRuntimeConfig()</code></pre>
 
 <h3>If you are not using Nuxt</h3>
-<p>Move the value into an environment variable or a secret manager, and rotate it — once committed it is in the history and in every clone, so removing the line does not revoke it.</p>
+<p>Move the value into an environment variable or a secret manager, and rotate it - once committed it is in the history and in every clone, so removing the line does not revoke it.</p>
 
 <h2>Check your own repository</h2>
 <pre class="code"><code class="language-bash">npx owlwarden scan
 npx owlwarden explain hardcoded-secret</code></pre>
 <p>
-  Runs entirely on your machine — <a href="../../../offline/">no account, no
+  Runs on your machine. <a href="../../../offline/">No account, no
   telemetry, no network unless you ask</a>. In CI, <a href="../../../ci/">SARIF
   uploads to code scanning</a> and the exit code is the gate.
 </p>
 
 <h2>Other Nuxt checks</h2>
 <p>
-  Every rule that has a verified Nuxt example. Cross-linked in both
-  directions on purpose: a page nothing links to is a page a crawler reaches
-  only through the sitemap, and a reader never reaches at all.
+  Rules with a tested Nuxt example.
 </p>
 <ul class="cards">
   <li><a href="../../cors-permissive/nuxt/">
@@ -235,18 +245,18 @@ npx owlwarden explain hardcoded-secret</code></pre>
 </ul>
 
 <p>
-  <a href="../">hardcoded-secret for every framework</a> ·
-  <a href="../../">All rules</a> ·
+  <a href="../">hardcoded-secret for every framework</a> /
+  <a href="../../">All rules</a> /
   <a href="../../../">owlwarden</a>
 </p>
 
 </main>
 
 <footer class="site-footer">
-  <p>
-    <strong>owlwarden 1.1.0</strong> — offline security scanner for Node web apps
-    and AI coding agents. No account, no telemetry, no network unless you ask.
-  </p>
+  <div class="footer-brand">
+    <img src="../../../favicon.svg" width="36" height="36" alt="">
+    <p><strong>owlwarden 1.1.0</strong><br>Local security checks for Node apps and coding-agent configuration.</p>
+  </div>
   <nav aria-label="Footer">
     <a href="../../../rules/">All rules</a>
     <a href="../../../owasp/">OWASP coverage</a>
@@ -257,7 +267,7 @@ npx owlwarden explain hardcoded-secret</code></pre>
     <a href="https://github.com/suthat/owlwarden/blob/main/RULES.md" rel="noopener">RULES.md</a>
     <a href="https://www.npmjs.com/package/owlwarden" rel="noopener">npm</a>
   </nav>
-  <p class="licence">MIT OR Apache-2.0. <code>npx owlwarden scan</code></p>
+  <p class="licence">No account / no telemetry / MIT OR Apache-2.0 / <code>npx owlwarden scan</code></p>
 </footer>
 </body>
 </html>

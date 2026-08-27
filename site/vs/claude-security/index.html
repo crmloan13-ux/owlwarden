@@ -3,17 +3,19 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
 
-<title>Static analysis vs model-based code review — owlwarden</title>
-<meta name="description" content="A frontier model finds what no parser can, and answers differently each run. A deterministic floor answers the same way twice. Complements, not rivals.">
+<title>Static analysis vs model-based code review: owlwarden</title>
+<meta name="description" content="A model can review design and business logic. Static rules give repeatable results for known patterns. Compare where each approach fits.">
 <link rel="canonical" href="https://suthat.github.io/owlwarden/vs/claude-security/">
 <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1">
 <meta name="theme-color" content="#fbfaf8">
 
 <meta property="og:type" content="article">
+<meta property="og:locale" content="en_US">
 <meta property="og:site_name" content="owlwarden">
 <meta property="og:title" content="owlwarden vs a model reviewing your code">
-<meta property="og:description" content="A frontier model finds what no parser can, and answers differently each run. A deterministic floor answers the same way twice. Complements, not rivals.">
+<meta property="og:description" content="A model can review design and business logic. Static rules give repeatable results for known patterns. Compare where each approach fits.">
 <meta property="og:url" content="https://suthat.github.io/owlwarden/vs/claude-security/">
 <meta property="og:image" content="https://suthat.github.io/owlwarden/og.png">
 <meta property="og:image:width" content="1200">
@@ -21,19 +23,29 @@
 <meta property="og:image:alt" content="An owlwarden finding: a SessionStart hook in .claude/settings.json that runs a command when the workspace is opened">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="owlwarden vs a model reviewing your code">
-<meta name="twitter:description" content="A frontier model finds what no parser can, and answers differently each run. A deterministic floor answers the same way twice. Complements, not rivals.">
+<meta name="twitter:description" content="A model can review design and business logic. Static rules give repeatable results for known patterns. Compare where each approach fits.">
 <meta name="twitter:image" content="https://suthat.github.io/owlwarden/og.png">
+<meta name="twitter:image:alt" content="An owlwarden scan showing the exact vulnerable line and its fix">
 
 <link rel="icon" type="image/svg+xml" href="../../favicon.svg">
-<link rel="alternate icon" type="image/png" href="../../favicon.png">
-<link rel="apple-touch-icon" href="../../favicon.png">
+<link rel="alternate icon" type="image/png" sizes="192x192" href="../../favicon.png">
+<link rel="apple-touch-icon" sizes="180x180" href="../../apple-touch-icon.png">
+<link rel="manifest" href="../../manifest.webmanifest">
 <link rel="alternate" type="application/atom+xml" title="owlwarden releases" href="https://suthat.github.io/owlwarden/changelog/feed.xml">
-<link rel="stylesheet" href="../../styles.css?v=1.1.0">
+<link rel="stylesheet" href="../../styles.css?v=86e674860125">
 
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
   "@graph": [
+    {
+      "@type": "WebSite",
+      "@id": "https://suthat.github.io/owlwarden/#website",
+      "name": "owlwarden",
+      "url": "https://suthat.github.io/owlwarden/",
+      "description": "Local security scanner for Node apps and coding-agent configuration.",
+      "inLanguage": "en"
+    },
     {
       "@type": "BreadcrumbList",
       "@id": "https://suthat.github.io/owlwarden/vs/claude-security/#breadcrumbs",
@@ -71,12 +83,12 @@
           "name": "Can a model replace static analysis for security review?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "Not as a gate. A model answers differently between runs, which a baseline, a suppression, and a CI threshold all depend on it not doing. Use it for judgement — authorisation, business rules — on top of a deterministic floor."
+            "text": "Not as a gate. A model answers differently between runs, which a baseline, a suppression, and a CI threshold cannot use reliably. Use model review for authorisation, business rules, and other work that needs judgement."
           }
         },
         {
           "@type": "Question",
-          "name": "How much does a deterministic floor cost per run?",
+          "name": "How much do local static checks cost per run?",
           "acceptedAnswer": {
             "@type": "Answer",
             "text": "Nothing per token. --format agent puts the report on a budget of about 1500 tokens so the checks a parser can answer stop being asked of a frontier model."
@@ -93,7 +105,7 @@
 
 <header class="site-header">
   <a class="wordmark" href="../../">
-    <span aria-hidden="true">◉ᴥ◉</span>
+    <img src="../../favicon.svg" width="32" height="32" alt="">
     <span>owlwarden</span>
   </a>
   <nav aria-label="Primary">
@@ -102,7 +114,7 @@
     <a href="../../vet/">vet</a>
     <a href="../../offline/">Offline</a>
     <a href="../../owasp/">Coverage</a>
-    <a href="https://github.com/suthat/owlwarden" rel="noopener">GitHub</a>
+    <a class="nav-cta" href="https://github.com/suthat/owlwarden" rel="noopener">GitHub <span aria-hidden="true">↗</span></a>
   </nav>
 </header>
 
@@ -114,53 +126,67 @@
   </ol>
 </nav>
 
-<main id="main-content">
-<h1>owlwarden vs a model reviewing your code</h1>
+<main id="main-content" class="with-hero">
+<section class="page-hero">
+  <div class="hero-copy">
+    <p class="eyebrow">owlwarden and model review</p>
+    <h1>owlwarden vs a model reviewing your code</h1>
+    <p class="hero-summary"><strong>The tools cover different jobs.</strong> The table compares scope and default behavior so you can decide whether to run one or both.</p>
+    <div class="hero-actions"><a class="button button-primary" href="../../rules/">See owlwarden rules</a>
+<a class="button button-secondary" href="../../owasp/">Review the gaps</a></div>
+  </div>
+  <figure class="product-visual comparison-visual" aria-label="owlwarden compared with model review">
+  <div class="visual-chrome" aria-hidden="true">
+  <span class="window-dots"><i></i><i></i><i></i></span>
+  <span>compare / model review</span>
+  <span class="visual-status"><i></i>local</span>
+</div>
+  <div class="compare-grid compare-head"><span>Capability</span><strong>model review</strong><strong>owlwarden</strong></div>
+  <div class="compare-grid"><span>Novel bugs</span><span>Strong</span><strong>Rule-bound</strong></div>
+<div class="compare-grid"><span>Same answer twice</span><span>No</span><strong>Yes</strong></div>
+<div class="compare-grid"><span>Always runs</span><span>When asked</span><strong>Host gate</strong></div>
+<div class="compare-grid"><span>Cost per scan</span><span>Tokens</span><strong>None</strong></div>
+  <figcaption>Scope and defaults differ. Run both when you need both sets of checks.</figcaption>
+</figure>
+</section>
 
-<p class="lede">
-  The vendors' own model-based scanners say this about themselves: they are
-  non-deterministic, and they do not replace static analysis. This is the static
-  analysis they mean.
-</p>
-
-<h2>Where a model wins</h2>
+<h2>Use model review for</h2>
 <ul>
   <li><strong>Judgement.</strong> Authorisation logic, business rules, whether this particular endpoint should be public. No AST shape exists for any of it.</li>
   <li><strong>Novelty.</strong> A bug nobody wrote a rule for.</li>
   <li><strong>Context.</strong> It can read the ticket, the tests, and the migration in one pass.</li>
 </ul>
 
-<h2>Where a deterministic floor wins</h2>
+<h2>Use static rules for</h2>
 <ul>
   <li><strong>It gives the same answer twice.</strong> A baseline, a suppression, and a CI gate all require that. A reviewer that changes its mind between runs cannot be a gate.</li>
   <li><strong>It always runs.</strong> <a href="../../claude-code/">A hook fires on the host's event</a>; a model reviews when it is asked, and mid-refactor it often is not.</li>
-  <li><strong>It costs nothing per run.</strong> Re-asking <em>did we leak a stack?</em> on every edit is the most expensive way to answer a question a parser answers for free.</li>
-  <li><strong>It cannot be argued with.</strong> The gate runs outside the model, so nothing in the prompt changes the verdict.</li>
+  <li><strong>Low-cost repeated checks.</strong> A parser can check the same known pattern after every edit without using tokens.</li>
+  <li><strong>Checks outside the prompt.</strong> Host hooks run independently of model instructions.</li>
 </ul>
 
-<h2>The order that works</h2>
+<h2>Run both</h2>
 <p>
-  Floor first, judgement on top. Run the deterministic checks locally so the
-  frontier model's budget goes to architecture, auth, payments, and personal
-  data — the things a parser cannot reach. <code>--format agent</code> puts the
-  report on a token budget so the floor is close to free.
+  Run static checks locally, then use model review for architecture,
+  authorisation, payments, and data handling. <code>--format agent</code> keeps
+  the static report within a token budget.
 </p>
 <pre class="code"><code class="language-bash">owlwarden scan --format agent --budget 1500</code></pre>
 <h2>Other comparisons</h2>
 <ul class="cards">
-  <li><a href="../semgrep/"><span class="name">vs Semgrep</span><span class="blurb">Rule breadth against determinism and offline.</span></a></li>
-  <li><a href="../snyk/"><span class="name">vs Snyk</span><span class="blurb">Dependencies against the config nothing scans.</span></a></li>
-  <li><a href="../claude-security/"><span class="name">vs model-based review</span><span class="blurb">Judgement against a floor that always runs.</span></a></li>
-  <li><a href="../eslint-plugin-security/"><span class="name">vs eslint-plugin-security</span><span class="blurb">Lint heuristics against routed, framework-aware rules.</span></a></li>
+  <li><a href="../semgrep/"><span class="name">vs Semgrep</span><span class="blurb">Rule and language coverage, local defaults, and agent config.</span></a></li>
+  <li><a href="../snyk/"><span class="name">vs Snyk</span><span class="blurb">Dependency analysis and repository-controlled agent config.</span></a></li>
+  <li><a href="../claude-security/"><span class="name">vs model-based review</span><span class="blurb">Static checks and review that needs judgement.</span></a></li>
+  <li><a href="../eslint-plugin-security/"><span class="name">vs eslint-plugin-security</span><span class="blurb">Lint patterns and framework-aware checks.</span></a></li>
 </ul>
-<p><a href="../../rules/">All rules</a> · <a href="../../owasp/">Coverage, gaps included</a> · <a href="../../offline/">Offline</a></p>
+<p><a href="../../rules/">All rules</a> / <a href="../../owasp/">Coverage, gaps included</a> / <a href="../../offline/">Offline</a></p>
 </main>
 
 <footer class="site-footer">
-  <p>
-    <strong>owlwarden 1.1.0</strong> — offline security scanner for Node web apps
-    and AI coding agents. No account, no telemetry, no network unless you ask.
-  </p>
+  <div class="footer-brand">
+    <img src="../../favicon.svg" width="36" height="36" alt="">
+    <p><strong>owlwarden 1.1.0</strong><br>Local security checks for Node apps and coding-agent configuration.</p>
+  </div>
   <nav aria-label="Footer">
     <a href="../../rules/">All rules</a>
     <a href="../../owasp/">OWASP coverage</a>
@@ -171,7 +197,7 @@
     <a href="https://github.com/suthat/owlwarden/blob/main/RULES.md" rel="noopener">RULES.md</a>
     <a href="https://www.npmjs.com/package/owlwarden" rel="noopener">npm</a>
   </nav>
-  <p class="licence">MIT OR Apache-2.0. <code>npx owlwarden scan</code></p>
+  <p class="licence">No account / no telemetry / MIT OR Apache-2.0 / <code>npx owlwarden scan</code></p>
 </footer>
 </body>
 </html>

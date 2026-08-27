@@ -3,14 +3,16 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
 
-<title>open-redirect — owlwarden rule</title>
+<title>open-redirect - owlwarden rule</title>
 <meta name="description" content="The destination of a redirect is taken from the request without being checked. An attacker can send a link that starts with your domain and ends on theirs,…">
 <link rel="canonical" href="https://suthat.github.io/owlwarden/rules/open-redirect/">
 <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1">
 <meta name="theme-color" content="#fbfaf8">
 
 <meta property="og:type" content="article">
+<meta property="og:locale" content="en_US">
 <meta property="og:site_name" content="owlwarden">
 <meta property="og:title" content="Redirect target comes from the caller">
 <meta property="og:description" content="The destination of a redirect is taken from the request without being checked. An attacker can send a link that starts with your domain and ends on theirs,…">
@@ -23,17 +25,27 @@
 <meta name="twitter:title" content="Redirect target comes from the caller">
 <meta name="twitter:description" content="The destination of a redirect is taken from the request without being checked. An attacker can send a link that starts with your domain and ends on theirs,…">
 <meta name="twitter:image" content="https://suthat.github.io/owlwarden/og.png">
+<meta name="twitter:image:alt" content="An owlwarden scan showing the exact vulnerable line and its fix">
 
 <link rel="icon" type="image/svg+xml" href="../../favicon.svg">
-<link rel="alternate icon" type="image/png" href="../../favicon.png">
-<link rel="apple-touch-icon" href="../../favicon.png">
+<link rel="alternate icon" type="image/png" sizes="192x192" href="../../favicon.png">
+<link rel="apple-touch-icon" sizes="180x180" href="../../apple-touch-icon.png">
+<link rel="manifest" href="../../manifest.webmanifest">
 <link rel="alternate" type="application/atom+xml" title="owlwarden releases" href="https://suthat.github.io/owlwarden/changelog/feed.xml">
-<link rel="stylesheet" href="../../styles.css?v=1.1.0">
+<link rel="stylesheet" href="../../styles.css?v=86e674860125">
 
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
   "@graph": [
+    {
+      "@type": "WebSite",
+      "@id": "https://suthat.github.io/owlwarden/#website",
+      "name": "owlwarden",
+      "url": "https://suthat.github.io/owlwarden/",
+      "description": "Local security scanner for Node apps and coding-agent configuration.",
+      "inLanguage": "en"
+    },
     {
       "@type": "BreadcrumbList",
       "@id": "https://suthat.github.io/owlwarden/rules/open-redirect/#breadcrumbs",
@@ -62,7 +74,7 @@
       "@type": "TechArticle",
       "@id": "#rule",
       "headline": "Redirect target comes from the caller",
-      "description": "The destination of a redirect is taken from the request without being checked. An attacker can send a link that starts with your domain and ends on theirs, which is what makes a phishing page credible — and in an OAuth callback it hands the authorisation code to whoever asked. Resolve the target against your own origin and refuse anything else.",
+      "description": "The destination of a redirect is taken from the request without being checked. An attacker can send a link that starts with your domain and ends on theirs, which is what makes a phishing page credible - and in an OAuth callback it hands the authorisation code to whoever asked. Resolve the target against your own origin and refuse anything else.",
       "proficiencyLevel": "Beginner",
       "about": [
         {
@@ -86,16 +98,16 @@
 
 <header class="site-header">
   <a class="wordmark" href="../../">
-    <span aria-hidden="true">◉ᴥ◉</span>
+    <img src="../../favicon.svg" width="32" height="32" alt="">
     <span>owlwarden</span>
   </a>
   <nav aria-label="Primary">
-    <a href="../../rules/">Rules</a>
+    <a href="../../rules/" aria-current="page">Rules</a>
     <a href="../../agent-config-security/">Agent config</a>
     <a href="../../vet/">vet</a>
     <a href="../../offline/">Offline</a>
     <a href="../../owasp/">Coverage</a>
-    <a href="https://github.com/suthat/owlwarden" rel="noopener">GitHub</a>
+    <a class="nav-cta" href="https://github.com/suthat/owlwarden" rel="noopener">GitHub <span aria-hidden="true">↗</span></a>
   </nav>
 </header>
 
@@ -107,15 +119,15 @@
   </ol>
 </nav>
 
-<main id="main-content">
+<main id="main-content" class="article-page">
 <h1>Redirect target comes from the caller</h1>
 
-<p class="lede">The destination of a redirect is taken from the request without being checked. An attacker can send a link that starts with your domain and ends on theirs, which is what makes a phishing page credible — and in an OAuth callback it hands the authorisation code to whoever asked. Resolve the target against your own origin and refuse anything else.</p>
+<p class="lede">The destination of a redirect is taken from the request without being checked. An attacker can send a link that starts with your domain and ends on theirs, which is what makes a phishing page credible - and in an OAuth callback it hands the authorisation code to whoever asked. Resolve the target against your own origin and refuse anything else.</p>
 
 <p>
   <span class="chip chip-medium">medium</span> <span class="chip chip-likely">likely</span>
   <span class="chip chip-scope">application source</span>
-  <a href="../../owasp/">OWASP A01:2021</a> · <a href="https://cwe.mitre.org/data/definitions/601.html" rel="noopener">CWE-601</a>
+  <a href="../../owasp/">OWASP A01:2021</a> / <a href="https://cwe.mitre.org/data/definitions/601.html" rel="noopener">CWE-601</a>
 </p>
 
 <h2>What it looks like</h2>
@@ -128,9 +140,8 @@
 <span class="dim">   │ </span>    <span class="mark">~~~~~~~~~~~~~~ destination chosen by the caller</span>
 <span class="dim">51 │</span>   }</div>
 <p>
-  Taken from <code>app/api/proxy/route.ts</code> in the fixture suite. Every example
-  on this site is a finding the tests already assert on, which is why none of
-  them drift.
+  From <code>app/api/proxy/route.ts</code> in the fixture suite.
+  The fixture test asserts this finding.
 </p>
 
 <h2>How to fix it</h2>
@@ -151,9 +162,7 @@ export function safeRedirect(target: unknown, base: string, fallback = &#39;/&#3
 
 <h2>The fix for your framework</h2>
 <p>
-  The same rule, in the API your project actually uses.
-  Every one of these is a different answer, not the same paragraph with a name
-  swapped in.
+  Choose the API used by your project.
 </p>
 <ul class="pill-row">
   <li><a href="./next/">Next.js</a></li>
@@ -174,21 +183,21 @@ export function safeRedirect(target: unknown, base: string, fallback = &#39;/&#3
 <pre class="code"><code class="language-bash">npx owlwarden scan --preset deep
 npx owlwarden explain open-redirect</code></pre>
 <p>
-  <code>explain</code> prints this whole write-up in your terminal with no
-  network at all. <a href="../../offline/">Nothing leaves your machine</a>.
+  <code>explain</code> prints the rule and fixes in the terminal. It does not
+  use the network.
 </p>
 
 
 
-<p><a href="../">All 25 rules</a> · <a href="../../">owlwarden</a></p>
+<p><a href="../">All 25 rules</a> / <a href="../../">owlwarden</a></p>
 
 </main>
 
 <footer class="site-footer">
-  <p>
-    <strong>owlwarden 1.1.0</strong> — offline security scanner for Node web apps
-    and AI coding agents. No account, no telemetry, no network unless you ask.
-  </p>
+  <div class="footer-brand">
+    <img src="../../favicon.svg" width="36" height="36" alt="">
+    <p><strong>owlwarden 1.1.0</strong><br>Local security checks for Node apps and coding-agent configuration.</p>
+  </div>
   <nav aria-label="Footer">
     <a href="../../rules/">All rules</a>
     <a href="../../owasp/">OWASP coverage</a>
@@ -199,7 +208,7 @@ npx owlwarden explain open-redirect</code></pre>
     <a href="https://github.com/suthat/owlwarden/blob/main/RULES.md" rel="noopener">RULES.md</a>
     <a href="https://www.npmjs.com/package/owlwarden" rel="noopener">npm</a>
   </nav>
-  <p class="licence">MIT OR Apache-2.0. <code>npx owlwarden scan</code></p>
+  <p class="licence">No account / no telemetry / MIT OR Apache-2.0 / <code>npx owlwarden scan</code></p>
 </footer>
 </body>
 </html>

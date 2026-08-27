@@ -3,17 +3,19 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
 
-<title>owlwarden vs Semgrep — where each one wins</title>
-<meta name="description" content="Semgrep has thousands of rules across many languages. owlwarden has 25, runs offline with no account, and reads agent config. Where each one loses.">
+<title>owlwarden vs Semgrep: scope and trade-offs</title>
+<meta name="description" content="Semgrep has thousands of rules across many languages. owlwarden has 25, runs offline with no account, and reads agent config. Compare their scope and defaults.">
 <link rel="canonical" href="https://suthat.github.io/owlwarden/vs/semgrep/">
 <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1">
 <meta name="theme-color" content="#fbfaf8">
 
 <meta property="og:type" content="article">
+<meta property="og:locale" content="en_US">
 <meta property="og:site_name" content="owlwarden">
 <meta property="og:title" content="owlwarden vs Semgrep">
-<meta property="og:description" content="Semgrep has thousands of rules across many languages. owlwarden has 25, runs offline with no account, and reads agent config. Where each one loses.">
+<meta property="og:description" content="Semgrep has thousands of rules across many languages. owlwarden has 25, runs offline with no account, and reads agent config. Compare their scope and defaults.">
 <meta property="og:url" content="https://suthat.github.io/owlwarden/vs/semgrep/">
 <meta property="og:image" content="https://suthat.github.io/owlwarden/og.png">
 <meta property="og:image:width" content="1200">
@@ -21,19 +23,29 @@
 <meta property="og:image:alt" content="An owlwarden finding: a SessionStart hook in .claude/settings.json that runs a command when the workspace is opened">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="owlwarden vs Semgrep">
-<meta name="twitter:description" content="Semgrep has thousands of rules across many languages. owlwarden has 25, runs offline with no account, and reads agent config. Where each one loses.">
+<meta name="twitter:description" content="Semgrep has thousands of rules across many languages. owlwarden has 25, runs offline with no account, and reads agent config. Compare their scope and defaults.">
 <meta name="twitter:image" content="https://suthat.github.io/owlwarden/og.png">
+<meta name="twitter:image:alt" content="An owlwarden scan showing the exact vulnerable line and its fix">
 
 <link rel="icon" type="image/svg+xml" href="../../favicon.svg">
-<link rel="alternate icon" type="image/png" href="../../favicon.png">
-<link rel="apple-touch-icon" href="../../favicon.png">
+<link rel="alternate icon" type="image/png" sizes="192x192" href="../../favicon.png">
+<link rel="apple-touch-icon" sizes="180x180" href="../../apple-touch-icon.png">
+<link rel="manifest" href="../../manifest.webmanifest">
 <link rel="alternate" type="application/atom+xml" title="owlwarden releases" href="https://suthat.github.io/owlwarden/changelog/feed.xml">
-<link rel="stylesheet" href="../../styles.css?v=1.1.0">
+<link rel="stylesheet" href="../../styles.css?v=86e674860125">
 
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
   "@graph": [
+    {
+      "@type": "WebSite",
+      "@id": "https://suthat.github.io/owlwarden/#website",
+      "name": "owlwarden",
+      "url": "https://suthat.github.io/owlwarden/",
+      "description": "Local security scanner for Node apps and coding-agent configuration.",
+      "inLanguage": "en"
+    },
     {
       "@type": "BreadcrumbList",
       "@id": "https://suthat.github.io/owlwarden/vs/semgrep/#breadcrumbs",
@@ -71,7 +83,7 @@
           "name": "Should I use owlwarden instead of Semgrep?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "No — run both. Semgrep has thousands of rules across many languages; owlwarden has 25, runs offline with no account, gives a fix written for your framework, and reads the agent and editor configuration Semgrep does not."
+            "text": "Usually not. Semgrep has thousands of rules across many languages; owlwarden has 25, runs offline with no account, gives a fix written for your framework, and reads the agent and editor configuration Semgrep does not."
           }
         },
         {
@@ -93,7 +105,7 @@
 
 <header class="site-header">
   <a class="wordmark" href="../../">
-    <span aria-hidden="true">◉ᴥ◉</span>
+    <img src="../../favicon.svg" width="32" height="32" alt="">
     <span>owlwarden</span>
   </a>
   <nav aria-label="Primary">
@@ -102,7 +114,7 @@
     <a href="../../vet/">vet</a>
     <a href="../../offline/">Offline</a>
     <a href="../../owasp/">Coverage</a>
-    <a href="https://github.com/suthat/owlwarden" rel="noopener">GitHub</a>
+    <a class="nav-cta" href="https://github.com/suthat/owlwarden" rel="noopener">GitHub <span aria-hidden="true">↗</span></a>
   </nav>
 </header>
 
@@ -114,50 +126,67 @@
   </ol>
 </nav>
 
-<main id="main-content">
-<h1>owlwarden vs Semgrep</h1>
+<main id="main-content" class="with-hero">
+<section class="page-hero">
+  <div class="hero-copy">
+    <p class="eyebrow">owlwarden and Semgrep</p>
+    <h1>owlwarden vs Semgrep</h1>
+    <p class="hero-summary"><strong>The tools cover different jobs.</strong> The table compares scope and default behavior so you can decide whether to run one or both.</p>
+    <div class="hero-actions"><a class="button button-primary" href="../../rules/">See owlwarden rules</a>
+<a class="button button-secondary" href="../../owasp/">Review the gaps</a></div>
+  </div>
+  <figure class="product-visual comparison-visual" aria-label="owlwarden compared with Semgrep">
+  <div class="visual-chrome" aria-hidden="true">
+  <span class="window-dots"><i></i><i></i><i></i></span>
+  <span>compare / Semgrep</span>
+  <span class="visual-status"><i></i>local</span>
+</div>
+  <div class="compare-grid compare-head"><span>Capability</span><strong>Semgrep</strong><strong>owlwarden</strong></div>
+  <div class="compare-grid"><span>Rule breadth</span><span>Thousands</span><strong>Focused</strong></div>
+<div class="compare-grid"><span>Languages</span><span>Many</span><strong>JS / TS</strong></div>
+<div class="compare-grid"><span>Agent config</span><span>No</span><strong>Yes</strong></div>
+<div class="compare-grid"><span>Default run</span><span>Varies</span><strong>Offline</strong></div>
+  <figcaption>Scope and defaults differ. Run both when you need both sets of checks.</figcaption>
+</figure>
+</section>
 
-<p class="lede">
-  These are not the same tool, and the honest recommendation is to run both.
-</p>
-
-<h2>Where Semgrep wins</h2>
+<h2>What Semgrep covers</h2>
 <ul>
-  <li><strong>Rule breadth.</strong> Thousands of rules, many languages. owlwarden has 25 and covers Node web applications. That fight cannot be won and this page will not pretend it can.</li>
-  <li><strong>Custom rules.</strong> A mature pattern language with a large public registry. owlwarden's plugin tier is source-only WASM with a frozen v1 API — deliberately smaller.</li>
+  <li><strong>Rule breadth.</strong> Thousands of rules across many languages. owlwarden has 25 rules for Node applications and agent config.</li>
+  <li><strong>Custom rules.</strong> A mature pattern language with a large public registry. owlwarden's plugin tier is source-only WASM with a fixed v1 API.</li>
   <li><strong>Language coverage.</strong> Python, Go, Java, C#. owlwarden is JavaScript and TypeScript.</li>
 </ul>
 
-<h2>Where owlwarden wins</h2>
+<h2>What owlwarden adds</h2>
 <ul>
-  <li><strong>It scans your agent's configuration.</strong> <code>.claude/settings.json</code>, <code>.vscode/tasks.json</code>, <code>.cursor/hooks.json</code>. <a href="../../agent-config-security/">Nothing else in this comparison reads those files.</a></li>
+  <li><strong>Agent configuration.</strong> <code>.claude/settings.json</code>, <code>.vscode/tasks.json</code>, and <code>.cursor/hooks.json</code>.</li>
   <li><strong>Offline with no account.</strong> No login, no upload, no policy service. The default run constructs no transport at all.</li>
-  <li><strong>The fix is in the finding, per framework.</strong> Not a generic message and a documentation link — the corrected code for the API your project actually uses, enforced by a build that fails on an empty cell.</li>
-  <li><strong>It runs in the agent loop.</strong> <a href="../../claude-code/">A hook that always runs</a>, with a report on a token budget.</li>
+  <li><strong>Framework-specific fixes.</strong> Findings include corrected code for the detected API.</li>
+  <li><strong>Agent hooks.</strong> <a href="../../claude-code/">Host events run checks automatically</a>.</li>
 </ul>
 
 <h2>Running both</h2>
-<pre class="code"><code class="language-bash">semgrep --config auto        # breadth
-owlwarden scan --since origin/main   # the floor, and the agent surface</code></pre>
+<pre class="code"><code class="language-bash">semgrep --config auto        # broad rule coverage
+owlwarden scan --since origin/main   # Node and agent config</code></pre>
 <p>
   Both emit SARIF, so both land in the same code-scanning view.
   <a href="../../ci/">The exit-code contract is here.</a>
 </p>
 <h2>Other comparisons</h2>
 <ul class="cards">
-  <li><a href="../semgrep/"><span class="name">vs Semgrep</span><span class="blurb">Rule breadth against determinism and offline.</span></a></li>
-  <li><a href="../snyk/"><span class="name">vs Snyk</span><span class="blurb">Dependencies against the config nothing scans.</span></a></li>
-  <li><a href="../claude-security/"><span class="name">vs model-based review</span><span class="blurb">Judgement against a floor that always runs.</span></a></li>
-  <li><a href="../eslint-plugin-security/"><span class="name">vs eslint-plugin-security</span><span class="blurb">Lint heuristics against routed, framework-aware rules.</span></a></li>
+  <li><a href="../semgrep/"><span class="name">vs Semgrep</span><span class="blurb">Rule and language coverage, local defaults, and agent config.</span></a></li>
+  <li><a href="../snyk/"><span class="name">vs Snyk</span><span class="blurb">Dependency analysis and repository-controlled agent config.</span></a></li>
+  <li><a href="../claude-security/"><span class="name">vs model-based review</span><span class="blurb">Static checks and review that needs judgement.</span></a></li>
+  <li><a href="../eslint-plugin-security/"><span class="name">vs eslint-plugin-security</span><span class="blurb">Lint patterns and framework-aware checks.</span></a></li>
 </ul>
-<p><a href="../../rules/">All rules</a> · <a href="../../owasp/">Coverage, gaps included</a> · <a href="../../offline/">Offline</a></p>
+<p><a href="../../rules/">All rules</a> / <a href="../../owasp/">Coverage, gaps included</a> / <a href="../../offline/">Offline</a></p>
 </main>
 
 <footer class="site-footer">
-  <p>
-    <strong>owlwarden 1.1.0</strong> — offline security scanner for Node web apps
-    and AI coding agents. No account, no telemetry, no network unless you ask.
-  </p>
+  <div class="footer-brand">
+    <img src="../../favicon.svg" width="36" height="36" alt="">
+    <p><strong>owlwarden 1.1.0</strong><br>Local security checks for Node apps and coding-agent configuration.</p>
+  </div>
   <nav aria-label="Footer">
     <a href="../../rules/">All rules</a>
     <a href="../../owasp/">OWASP coverage</a>
@@ -168,7 +197,7 @@ owlwarden scan --since origin/main   # the floor, and the agent surface</code></
     <a href="https://github.com/suthat/owlwarden/blob/main/RULES.md" rel="noopener">RULES.md</a>
     <a href="https://www.npmjs.com/package/owlwarden" rel="noopener">npm</a>
   </nav>
-  <p class="licence">MIT OR Apache-2.0. <code>npx owlwarden scan</code></p>
+  <p class="licence">No account / no telemetry / MIT OR Apache-2.0 / <code>npx owlwarden scan</code></p>
 </footer>
 </body>
 </html>

@@ -41,6 +41,15 @@ function jsonLd(value) {
  */
 export const problems = [];
 
+/** The one ordered set of destinations used by every generated page. */
+const PRIMARY_NAV_ITEMS = [
+  { section: "Rules", label: "Rules", href: "rules/" },
+  { section: "Agent config", label: "Agent config", href: "agent-config-security/" },
+  { section: "vet", label: "vet", href: "vet/" },
+  { section: "Offline", label: "Offline", href: "offline/" },
+  { section: "Coverage", label: "Coverage", href: "owasp/" },
+];
+
 /**
  * A description that will actually render in a result.
  *
@@ -74,12 +83,14 @@ export function checkTitle(title, where) {
  * @param {string} page.description 110-165 chars, written to be clicked.
  * @param {string} page.heading     The single `<h1>`.
  * @param {string} page.body        Rendered HTML for `<main>`.
+ * @param {object} [page.hero]      Structured product intro for marketing pages.
  * @param {Array}  page.breadcrumbs `[{ label, href }]`, current page last.
  * @param {Array}  page.schema      JSON-LD objects.
  * @param {string} site             Origin, from `site.url`.
- * @param {string} version          Engine version, for the footer and cache key.
+ * @param {string} version          Engine version for the footer.
+ * @param {string} assetVersion     Content hash for immutable browser caching.
  */
-export function renderPage(page, site, version) {
+export function renderPage(page, site, version, assetVersion) {
   const canonical = `${site}/${page.path}`;
   // Directory depth, not path segments: `404.html` sits at the root and needs
   // `./`, while `rules/ssrf/` sits two deep and needs `../../`. Counting
@@ -94,11 +105,19 @@ export function renderPage(page, site, version) {
 
   const description = checkDescription(page.description, page.path || "/");
   const title = checkTitle(
-    page.title.includes("owlwarden") ? page.title : `${page.title} — owlwarden`,
+    page.title.includes("owlwarden") ? page.title : `${page.title}: owlwarden`,
     page.path || "/",
   );
 
   const graph = [
+    {
+      "@type": "WebSite",
+      "@id": `${site}/#website`,
+      name: "owlwarden",
+      url: `${site}/`,
+      description: "Local security scanner for Node apps and coding-agent configuration.",
+      inLanguage: "en",
+    },
     {
       "@type": "BreadcrumbList",
       "@id": `${canonical}#breadcrumbs`,
@@ -111,20 +130,25 @@ export function renderPage(page, site, version) {
     },
     ...(page.schema ?? []),
   ];
+  const robots = page.path === "404.html"
+    ? "noindex,follow"
+    : "index,follow,max-image-preview:large,max-snippet:-1";
 
-  return `<!doctype html>
+  return normalizeSiteCopy(`<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
 
 <title>${esc(title)}</title>
 <meta name="description" content="${esc(description)}">
 <link rel="canonical" href="${esc(canonical)}">
-<meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1">
+<meta name="robots" content="${robots}">
 <meta name="theme-color" content="${THEME.paper}">
 
 <meta property="og:type" content="${page.ogType ?? "article"}">
+<meta property="og:locale" content="en_US">
 <meta property="og:site_name" content="owlwarden">
 <meta property="og:title" content="${esc(page.heading)}">
 <meta property="og:description" content="${esc(page.ogDescription ?? description)}">
@@ -137,12 +161,14 @@ export function renderPage(page, site, version) {
 <meta name="twitter:title" content="${esc(page.heading)}">
 <meta name="twitter:description" content="${esc(page.ogDescription ?? description)}">
 <meta name="twitter:image" content="${site}/og.png">
+<meta name="twitter:image:alt" content="An owlwarden scan showing the exact vulnerable line and its fix">
 
 <link rel="icon" type="image/svg+xml" href="${up}favicon.svg">
-<link rel="alternate icon" type="image/png" href="${up}favicon.png">
-<link rel="apple-touch-icon" href="${up}favicon.png">
+<link rel="alternate icon" type="image/png" sizes="192x192" href="${up}favicon.png">
+<link rel="apple-touch-icon" sizes="180x180" href="${up}apple-touch-icon.png">
+<link rel="manifest" href="${up}manifest.webmanifest">
 <link rel="alternate" type="application/atom+xml" title="owlwarden releases" href="${site}/changelog/feed.xml">
-<link rel="stylesheet" href="${up}styles.css?v=${esc(version)}">
+<link rel="stylesheet" href="${up}styles.css?v=${esc(assetVersion)}">
 
 <script type="application/ld+json">
 ${jsonLd({ "@context": "https://schema.org", "@graph": graph })}
@@ -153,16 +179,12 @@ ${jsonLd({ "@context": "https://schema.org", "@graph": graph })}
 
 <header class="site-header">
   <a class="wordmark" href="${up}">
-    <span aria-hidden="true">◉ᴥ◉</span>
+    <img src="${up}favicon.svg" width="32" height="32" alt="">
     <span>owlwarden</span>
   </a>
   <nav aria-label="Primary">
-    <a href="${up}rules/">Rules</a>
-    <a href="${up}agent-config-security/">Agent config</a>
-    <a href="${up}vet/">vet</a>
-    <a href="${up}offline/">Offline</a>
-    <a href="${up}owasp/">Coverage</a>
-    <a href="https://github.com/suthat/owlwarden" rel="noopener">GitHub</a>
+${renderPrimaryNavigation(page.path, up)}
+    <a class="nav-cta" href="https://github.com/suthat/owlwarden" rel="noopener">GitHub <span aria-hidden="true">↗</span></a>
   </nav>
 </header>
 
@@ -180,16 +202,16 @@ ${page.breadcrumbs
   </ol>
 </nav>
 
-<main id="main-content">
-<h1>${esc(page.heading)}</h1>
+<main id="main-content" class="${page.hero ? "with-hero" : "article-page"}">
+${renderHero(page)}
 ${page.body}
 </main>
 
 <footer class="site-footer">
-  <p>
-    <strong>owlwarden ${esc(version)}</strong> — offline security scanner for Node web apps
-    and AI coding agents. No account, no telemetry, no network unless you ask.
-  </p>
+  <div class="footer-brand">
+    <img src="${up}favicon.svg" width="36" height="36" alt="">
+    <p><strong>owlwarden ${esc(version)}</strong><br>Local security checks for Node apps and coding-agent configuration.</p>
+  </div>
   <nav aria-label="Footer">
     <a href="${up}rules/">All rules</a>
     <a href="${up}owasp/">OWASP coverage</a>
@@ -200,11 +222,65 @@ ${page.body}
     <a href="https://github.com/suthat/owlwarden/blob/main/RULES.md" rel="noopener">RULES.md</a>
     <a href="https://www.npmjs.com/package/owlwarden" rel="noopener">npm</a>
   </nav>
-  <p class="licence">MIT OR Apache-2.0. <code>npx owlwarden scan</code></p>
+  <p class="licence">No account / no telemetry / MIT OR Apache-2.0 / <code>npx owlwarden scan</code></p>
 </footer>
 </body>
 </html>
-`;
+`);
+}
+
+/** Keeps generated copy on plain punctuation across metadata and page text. */
+function normalizeSiteCopy(html) {
+  return html
+    .replaceAll("·", "/")
+    .replaceAll("—", "-")
+    .replaceAll("–", "-");
+}
+
+/** Renders the shared primary navigation with one page-aware current marker. */
+function renderPrimaryNavigation(path, up) {
+  const current = primarySection(path);
+  return PRIMARY_NAV_ITEMS.map((item) => {
+    const marker = item.section === current ? ' aria-current="page"' : "";
+    return `    <a href="${up}${item.href}"${marker}>${esc(item.label)}</a>`;
+  }).join("\n");
+}
+
+/** Maps related product pages to the section readers use to reach them. */
+function primarySection(path) {
+  if (path.startsWith("rules/")) return "Rules";
+  if (
+    path.startsWith("agent-config-security/") ||
+    path.startsWith("claude-code/") ||
+    path.startsWith("cursor/") ||
+    path.startsWith("mcp/")
+  ) return "Agent config";
+  if (path.startsWith("vet/")) return "vet";
+  if (path.startsWith("offline/")) return "Offline";
+  if (path.startsWith("owasp/") || path.startsWith("asi/")) return "Coverage";
+  return undefined;
+}
+
+/** Renders the one product-hero interface used by every marketing page. */
+function renderHero(page) {
+  if (!page.hero) return `<h1>${esc(page.heading)}</h1>`;
+  const actions = page.hero.actions
+    .slice(0, 3)
+    .map(
+      (action) =>
+        `<a class="button button-${esc(action.kind ?? "secondary")}" href="${esc(action.href)}">${esc(action.label)}</a>`,
+    )
+    .join("\n");
+
+  return `<section class="page-hero">
+  <div class="hero-copy">
+    <p class="eyebrow">${esc(page.hero.kicker)}</p>
+    <h1>${esc(page.heading)}</h1>
+    <p class="hero-summary">${page.hero.summary}</p>
+    <div class="hero-actions">${actions}</div>
+  </div>
+  ${page.hero.visual}
+</section>`;
 }
 
 /** A fenced code block with a real language class. */

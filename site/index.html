@@ -3,37 +3,49 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
 
-<title>owlwarden — offline security scanner for Node and AI agents</title>
-<meta name="description" content="Offline security scanner for Node web apps and AI coding agents. OWASP rules with framework-specific fixes, plus the .claude and .vscode config nothing else reads.">
+<title>owlwarden: local security scanner for Node and coding agents</title>
+<meta name="description" content="Local security scanner for Node apps and coding agents. OWASP checks with framework fixes, plus .claude, .cursor, and .vscode configuration.">
 <link rel="canonical" href="https://suthat.github.io/owlwarden/">
 <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1">
 <meta name="theme-color" content="#fbfaf8">
 
 <meta property="og:type" content="website">
+<meta property="og:locale" content="en_US">
 <meta property="og:site_name" content="owlwarden">
-<meta property="og:title" content="The deterministic security floor for code your agent just wrote">
-<meta property="og:description" content="Offline security scanner for Node web apps and AI coding agents. OWASP rules with framework-specific fixes, plus the .claude and .vscode config nothing else reads.">
+<meta property="og:title" content="Security checks for Node apps and coding-agent config">
+<meta property="og:description" content="Local security scanner for Node apps and coding agents. OWASP checks with framework fixes, plus .claude, .cursor, and .vscode configuration.">
 <meta property="og:url" content="https://suthat.github.io/owlwarden/">
 <meta property="og:image" content="https://suthat.github.io/owlwarden/og.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="An owlwarden finding: a SessionStart hook in .claude/settings.json that runs a command when the workspace is opened">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="The deterministic security floor for code your agent just wrote">
-<meta name="twitter:description" content="Offline security scanner for Node web apps and AI coding agents. OWASP rules with framework-specific fixes, plus the .claude and .vscode config nothing else reads.">
+<meta name="twitter:title" content="Security checks for Node apps and coding-agent config">
+<meta name="twitter:description" content="Local security scanner for Node apps and coding agents. OWASP checks with framework fixes, plus .claude, .cursor, and .vscode configuration.">
 <meta name="twitter:image" content="https://suthat.github.io/owlwarden/og.png">
+<meta name="twitter:image:alt" content="An owlwarden scan showing the exact vulnerable line and its fix">
 
 <link rel="icon" type="image/svg+xml" href="./favicon.svg">
-<link rel="alternate icon" type="image/png" href="./favicon.png">
-<link rel="apple-touch-icon" href="./favicon.png">
+<link rel="alternate icon" type="image/png" sizes="192x192" href="./favicon.png">
+<link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png">
+<link rel="manifest" href="./manifest.webmanifest">
 <link rel="alternate" type="application/atom+xml" title="owlwarden releases" href="https://suthat.github.io/owlwarden/changelog/feed.xml">
-<link rel="stylesheet" href="./styles.css?v=1.1.0">
+<link rel="stylesheet" href="./styles.css?v=86e674860125">
 
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
   "@graph": [
+    {
+      "@type": "WebSite",
+      "@id": "https://suthat.github.io/owlwarden/#website",
+      "name": "owlwarden",
+      "url": "https://suthat.github.io/owlwarden/",
+      "description": "Local security scanner for Node apps and coding-agent configuration.",
+      "inLanguage": "en"
+    },
     {
       "@type": "BreadcrumbList",
       "@id": "https://suthat.github.io/owlwarden/#breadcrumbs",
@@ -99,7 +111,7 @@
           "name": "How is it different from a cloud SAST?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "It runs offline with no account, it is deterministic, and it scans your agent and editor configuration as well as your source. It has 25 rules, not thousands — run both if you want breadth."
+            "text": "It runs locally and checks agent and editor configuration as well as application source. It has 25 focused rules. Run it with a broader scanner when you need more language or rule coverage."
           }
         }
       ]
@@ -113,7 +125,7 @@
 
 <header class="site-header">
   <a class="wordmark" href="./">
-    <span aria-hidden="true">◉ᴥ◉</span>
+    <img src="./favicon.svg" width="32" height="32" alt="">
     <span>owlwarden</span>
   </a>
   <nav aria-label="Primary">
@@ -122,7 +134,7 @@
     <a href="./vet/">vet</a>
     <a href="./offline/">Offline</a>
     <a href="./owasp/">Coverage</a>
-    <a href="https://github.com/suthat/owlwarden" rel="noopener">GitHub</a>
+    <a class="nav-cta" href="https://github.com/suthat/owlwarden" rel="noopener">GitHub <span aria-hidden="true">↗</span></a>
   </nav>
 </header>
 
@@ -132,11 +144,22 @@
   </ol>
 </nav>
 
-<main id="main-content">
-<h1>The deterministic security floor for code your agent just wrote</h1>
-
-<div class="hero-transcript">
-<div class="transcript"><span class="sev-high">HIGH</span>  <span class="conf">likely</span>  Stack trace leaked in error response  <span class="dim">A05:2021</span>
+<main id="main-content" class="with-hero">
+<section class="page-hero">
+  <div class="hero-copy">
+    <p class="eyebrow">Node and agent config security</p>
+    <h1>Security checks for Node apps and coding-agent config</h1>
+    <p class="hero-summary"><strong>15 checks cover Node application code and 10 cover coding-agent config.</strong> Each finding includes the line, confidence, and a fix for the detected framework or host.</p>
+    <div class="hero-actions"><a class="button button-primary" href="https://www.npmjs.com/package/owlwarden">Install</a>
+<a class="button button-secondary" href="./rules/">Read 25 rules</a></div>
+  </div>
+  <figure class="product-visual finding-visual" aria-label="Two owlwarden findings from one local scan">
+  <div class="visual-chrome" aria-hidden="true">
+  <span class="window-dots"><i></i><i></i><i></i></span>
+  <span>owlwarden scan</span>
+  <span class="visual-status"><i></i>offline</span>
+</div>
+  <div class="finding-stack"><div class="transcript"><span class="sev-high">HIGH</span>  <span class="conf">likely</span>  Stack trace leaked in error response  <span class="dim">A05:2021</span>
 <span class="dim">app/api/users/route.ts:20:16</span>
 
 <span class="dim">18 │</span>   } catch (err) {
@@ -153,29 +176,23 @@
 <span class="dim">27 │</span>             &quot;command&quot;: &quot;node .claude/setup.mjs&quot;
 <span class="dim">   │ </span>                       <span class="mark">~~~~~~~~~~~~~~~~~~~~~~~~ runs when the workspace opens (SessionStart)</span>
 <span class="dim">28 │</span>           }
-<span class="dim">29 │</span>         ]</div>
-</div>
-
-<p class="lede">
-  Two findings from one scan: an application bug, and a line of configuration
-  that runs a command when anyone opens the folder. Most tools see the first.
-  <a href="./agent-config-security/">Nothing sees the second</a>, because it is
-  not a dependency and it is not source.
-</p>
+<span class="dim">29 │</span>         ]</div></div>
+  <figcaption>Application source and agent workspace in one local scan</figcaption>
+</figure>
+</section>
 
 <pre class="code"><code class="language-bash">npx owlwarden scan          # your app
 npx owlwarden vet .         # your agent&#39;s config</code></pre>
 
-<h2>What it does not look at</h2>
+<h2>Known limits</h2>
 <p>
-  This is the part most scanners leave out, so it goes above the feature list. A
-  clean report you cannot calibrate is worse than no report.
+  Read these before treating a clean result as a clean repository.
 </p>
 <div class="table-wrap">
 <table>
   <thead><tr><th>Limit</th><th>Why</th></tr></thead>
   <tbody>
-    <tr><td>9 of 10 OWASP categories</td><td>A04 (Insecure Design) is out of reach from source, on purpose — <a href="./owasp/">no parser finds a design flaw</a>.</td></tr>
+    <tr><td>9 of 10 OWASP categories</td><td>A04 (Insecure Design) needs design context. <a href="./owasp/">See the full mapping</a>.</td></tr>
     <tr><td>Origin tracking is one hop</td><td>Not a full taint engine. Injection-shaped rules cap their confidence instead of guessing.</td></tr>
     <tr><td>Agent rules cap at <code>likely</code></td><td><code>confirmed</code> means corroborated against a running target, and a config file has none.</td></tr>
     <tr><td>25 rules, not thousands</td><td>Node web applications and agent configuration. <a href="./vs/semgrep/">Run Semgrep too</a>.</td></tr>
@@ -183,67 +200,70 @@ npx owlwarden vet .         # your agent&#39;s config</code></pre>
 </table>
 </div>
 
-<h2>Two surfaces, one exit code</h2>
+<h2>What gets scanned</h2>
 <p>
-  15 rules read the code in your repository.
-  10 read the files your agent loads out of the working tree
-  and executes — <code>.claude/settings.json</code>,
+  <strong>15 rules read application code. 10 read agent config.</strong>
+  Agent rules cover files loaded from the working tree, including
+  <code>.claude/settings.json</code>,
   <code>.vscode/tasks.json</code>, <code>.cursor/hooks.json</code>,
-  <code>CLAUDE.md</code>. Your lockfile does not record those. Your SCA tool
-  does not read them. Your review treats them like a <code>.prettierrc</code>.
+  and <code>CLAUDE.md</code>. These files are not recorded in the lockfile.
 </p>
 <p>
-  Every rule carries a fix written for your framework, or for your agent host.
-  A rule cannot ship without one: <a href="./rules/">the build fails on an empty
-  cell</a>.
+  Each finding includes a fix for the detected framework or agent host.
+  <a href="./rules/">The rule catalogue</a> shows the tested examples.
 </p>
 
-<h2>A control, not a suggestion</h2>
+<h2>Run it from agent hooks</h2>
 <p>
-  A tool the model <em>may</em> call is not a control that <em>always</em> runs.
-  <code>owlwarden gate</code> attaches to the host's lifecycle — after every
-  edit, before a shell command, at the turn boundary — and returns a verdict the
-  prompt cannot reach, because the prompt is not its input.
+  <code>owlwarden gate</code> runs from host lifecycle events after edits,
+  before shell commands, and at the end of a turn. The agent does not need to
+  remember to call it.
 </p>
 <pre class="code"><code class="language-bash">owlwarden init --claude-code   # hooks + MCP entry
 owlwarden init --cursor
 owlwarden init --generic       # any host that can run a process</code></pre>
 <p>
-  <a href="./claude-code/">Claude Code</a> · <a href="./cursor/">Cursor</a> ·
-  <a href="./mcp/">MCP</a> · <a href="./ci/">CI</a> ·
-  <a href="./vet/">vet</a> · <a href="./changelog/">Changelog</a>
+  <a href="./claude-code/">Claude Code</a> / <a href="./cursor/">Cursor</a> /
+  <a href="./mcp/">MCP</a> / <a href="./ci/">CI</a> /
+  <a href="./vet/">vet</a> / <a href="./changelog/">Changelog</a>
 </p>
 
 <h2>Common questions</h2>
-<h3>Does owlwarden send my code anywhere?</h3>
+<details>
+<summary>Does owlwarden send my code anywhere?</summary>
 <p>
   No. There is no telemetry and no opt-in switch, because there is nothing to
   switch on. <a href="./offline/">The threat model is on its own page</a>.
 </p>
-<h3>Is it free?</h3>
+</details>
+<details>
+<summary>Is it free?</summary>
 <p>MIT OR Apache-2.0, at your option. No account, no seat count, no hosted tier.</p>
-<h3>Does it replace my existing scanner?</h3>
+</details>
+<details>
+<summary>Does it replace my existing scanner?</summary>
 <p>
-  No, and it does not try to. <a href="./vs/semgrep/">Here is where it loses</a>,
-  and the same page for <a href="./vs/snyk/">Snyk</a>,
+  No. Compare its scope with <a href="./vs/semgrep/">Semgrep</a>,
+  <a href="./vs/snyk/">Snyk</a>,
   <a href="./vs/claude-security/">model-based review</a>, and
   <a href="./vs/eslint-plugin-security/">eslint-plugin-security</a>.
 </p>
-
-<h3>What changed in the last release?</h3>
+</details>
+<details>
+<summary>What changed in the last release?</summary>
 <p>
-  <a href="./changelog/">The changelog</a> lists every user-visible change with
-  the security notes spelled out, and carries an
-  <a href="./changelog/feed.xml">Atom feed</a> — no account, no mailing list.
+  Read the <a href="./changelog/">changelog</a> or subscribe to its
+  <a href="./changelog/feed.xml">Atom feed</a>.
 </p>
+</details>
 
 </main>
 
 <footer class="site-footer">
-  <p>
-    <strong>owlwarden 1.1.0</strong> — offline security scanner for Node web apps
-    and AI coding agents. No account, no telemetry, no network unless you ask.
-  </p>
+  <div class="footer-brand">
+    <img src="./favicon.svg" width="36" height="36" alt="">
+    <p><strong>owlwarden 1.1.0</strong><br>Local security checks for Node apps and coding-agent configuration.</p>
+  </div>
   <nav aria-label="Footer">
     <a href="./rules/">All rules</a>
     <a href="./owasp/">OWASP coverage</a>
@@ -254,7 +274,7 @@ owlwarden init --generic       # any host that can run a process</code></pre>
     <a href="https://github.com/suthat/owlwarden/blob/main/RULES.md" rel="noopener">RULES.md</a>
     <a href="https://www.npmjs.com/package/owlwarden" rel="noopener">npm</a>
   </nav>
-  <p class="licence">MIT OR Apache-2.0. <code>npx owlwarden scan</code></p>
+  <p class="licence">No account / no telemetry / MIT OR Apache-2.0 / <code>npx owlwarden scan</code></p>
 </footer>
 </body>
 </html>

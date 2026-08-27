@@ -3,17 +3,19 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
 
-<title>owlwarden vs Snyk — dependencies and the config gap</title>
-<meta name="description" content="Snyk is strongest on dependencies. owlwarden reads the agent and editor configuration a lockfile does not record — the gap a 2026 npm worm used for persistence.">
+<title>owlwarden vs Snyk: dependencies and agent config</title>
+<meta name="description" content="Snyk covers dependencies. owlwarden checks application source and agent configuration that lockfiles do not record. Compare their scope and defaults.">
 <link rel="canonical" href="https://suthat.github.io/owlwarden/vs/snyk/">
 <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1">
 <meta name="theme-color" content="#fbfaf8">
 
 <meta property="og:type" content="article">
+<meta property="og:locale" content="en_US">
 <meta property="og:site_name" content="owlwarden">
 <meta property="og:title" content="owlwarden vs Snyk">
-<meta property="og:description" content="Snyk is strongest on dependencies. owlwarden reads the agent and editor configuration a lockfile does not record — the gap a 2026 npm worm used for persistence.">
+<meta property="og:description" content="Snyk covers dependencies. owlwarden checks application source and agent configuration that lockfiles do not record. Compare their scope and defaults.">
 <meta property="og:url" content="https://suthat.github.io/owlwarden/vs/snyk/">
 <meta property="og:image" content="https://suthat.github.io/owlwarden/og.png">
 <meta property="og:image:width" content="1200">
@@ -21,19 +23,29 @@
 <meta property="og:image:alt" content="An owlwarden finding: a SessionStart hook in .claude/settings.json that runs a command when the workspace is opened">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="owlwarden vs Snyk">
-<meta name="twitter:description" content="Snyk is strongest on dependencies. owlwarden reads the agent and editor configuration a lockfile does not record — the gap a 2026 npm worm used for persistence.">
+<meta name="twitter:description" content="Snyk covers dependencies. owlwarden checks application source and agent configuration that lockfiles do not record. Compare their scope and defaults.">
 <meta name="twitter:image" content="https://suthat.github.io/owlwarden/og.png">
+<meta name="twitter:image:alt" content="An owlwarden scan showing the exact vulnerable line and its fix">
 
 <link rel="icon" type="image/svg+xml" href="../../favicon.svg">
-<link rel="alternate icon" type="image/png" href="../../favicon.png">
-<link rel="apple-touch-icon" href="../../favicon.png">
+<link rel="alternate icon" type="image/png" sizes="192x192" href="../../favicon.png">
+<link rel="apple-touch-icon" sizes="180x180" href="../../apple-touch-icon.png">
+<link rel="manifest" href="../../manifest.webmanifest">
 <link rel="alternate" type="application/atom+xml" title="owlwarden releases" href="https://suthat.github.io/owlwarden/changelog/feed.xml">
-<link rel="stylesheet" href="../../styles.css?v=1.1.0">
+<link rel="stylesheet" href="../../styles.css?v=86e674860125">
 
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
   "@graph": [
+    {
+      "@type": "WebSite",
+      "@id": "https://suthat.github.io/owlwarden/#website",
+      "name": "owlwarden",
+      "url": "https://suthat.github.io/owlwarden/",
+      "description": "Local security scanner for Node apps and coding-agent configuration.",
+      "inLanguage": "en"
+    },
     {
       "@type": "BreadcrumbList",
       "@id": "https://suthat.github.io/owlwarden/vs/snyk/#breadcrumbs",
@@ -93,7 +105,7 @@
 
 <header class="site-header">
   <a class="wordmark" href="../../">
-    <span aria-hidden="true">◉ᴥ◉</span>
+    <img src="../../favicon.svg" width="32" height="32" alt="">
     <span>owlwarden</span>
   </a>
   <nav aria-label="Primary">
@@ -102,7 +114,7 @@
     <a href="../../vet/">vet</a>
     <a href="../../offline/">Offline</a>
     <a href="../../owasp/">Coverage</a>
-    <a href="https://github.com/suthat/owlwarden" rel="noopener">GitHub</a>
+    <a class="nav-cta" href="https://github.com/suthat/owlwarden" rel="noopener">GitHub <span aria-hidden="true">↗</span></a>
   </nav>
 </header>
 
@@ -114,50 +126,66 @@
   </ol>
 </nav>
 
-<main id="main-content">
-<h1>owlwarden vs Snyk</h1>
+<main id="main-content" class="with-hero">
+<section class="page-hero">
+  <div class="hero-copy">
+    <p class="eyebrow">owlwarden and Snyk</p>
+    <h1>owlwarden vs Snyk</h1>
+    <p class="hero-summary"><strong>The tools cover different jobs.</strong> The table compares scope and default behavior so you can decide whether to run one or both.</p>
+    <div class="hero-actions"><a class="button button-primary" href="../../rules/">See owlwarden rules</a>
+<a class="button button-secondary" href="../../owasp/">Review the gaps</a></div>
+  </div>
+  <figure class="product-visual comparison-visual" aria-label="owlwarden compared with Snyk">
+  <div class="visual-chrome" aria-hidden="true">
+  <span class="window-dots"><i></i><i></i><i></i></span>
+  <span>compare / Snyk</span>
+  <span class="visual-status"><i></i>local</span>
+</div>
+  <div class="compare-grid compare-head"><span>Capability</span><strong>Snyk</strong><strong>owlwarden</strong></div>
+  <div class="compare-grid"><span>Dependencies</span><span>Deep</span><strong>OSV opt-in</strong></div>
+<div class="compare-grid"><span>Agent config</span><span>No</span><strong>Yes</strong></div>
+<div class="compare-grid"><span>Account</span><span>Product tier</span><strong>None</strong></div>
+<div class="compare-grid"><span>Best together</span><span>SCA</span><strong>Source + config</strong></div>
+  <figcaption>Scope and defaults differ. Run both when you need both sets of checks.</figcaption>
+</figure>
+</section>
 
-<p class="lede">
-  Snyk's dependency database and reachability analysis are better than anything
-  owlwarden does with a lockfile, and owlwarden does not try to compete there.
-</p>
-
-<h2>Where Snyk wins</h2>
+<h2>What Snyk covers</h2>
 <ul>
   <li><strong>Dependency intelligence.</strong> A curated database, reachability, and fix pull requests. owlwarden's <code>--osv</code> is an opt-in lookup against a public database and nothing more.</li>
   <li><strong>Breadth and ecosystem.</strong> Many languages, container and IaC scanning, an organisation-wide policy plane.</li>
   <li><strong>Reporting for a security team.</strong> Dashboards, ownership, trend lines. owlwarden prints a report and sets an exit code.</li>
 </ul>
 
-<h2>Where owlwarden wins</h2>
+<h2>What owlwarden adds</h2>
 <ul>
   <li><strong>The persistence half of a supply-chain incident.</strong> Pulling a poisoned package version does not remove a hook someone wrote into <code>.claude/settings.json</code>. Regenerating the lockfile does not either. <a href="../../agent-config-security/">That file is not a dependency</a>.</li>
   <li><strong>No account, no upload.</strong> Nothing leaves the machine unless you pass a flag that says so.</li>
-  <li><strong>Deterministic and free.</strong> Same input, same output, no seat count.</li>
+  <li><strong>Local static checks.</strong> Same input, same output, no seat count.</li>
 </ul>
 
 <h2>Running both</h2>
 <p>
   Snyk for the dependency tree, owlwarden for the source and the agent
   configuration next to it. One <code>--fail-on</code> each, both in the same
-  pipeline. <a href="../../ci/">CI setup</a> ·
+  pipeline. <a href="../../ci/">CI setup</a> /
   <a href="../../vet/">checking a repository before you open it</a>.
 </p>
 <h2>Other comparisons</h2>
 <ul class="cards">
-  <li><a href="../semgrep/"><span class="name">vs Semgrep</span><span class="blurb">Rule breadth against determinism and offline.</span></a></li>
-  <li><a href="../snyk/"><span class="name">vs Snyk</span><span class="blurb">Dependencies against the config nothing scans.</span></a></li>
-  <li><a href="../claude-security/"><span class="name">vs model-based review</span><span class="blurb">Judgement against a floor that always runs.</span></a></li>
-  <li><a href="../eslint-plugin-security/"><span class="name">vs eslint-plugin-security</span><span class="blurb">Lint heuristics against routed, framework-aware rules.</span></a></li>
+  <li><a href="../semgrep/"><span class="name">vs Semgrep</span><span class="blurb">Rule and language coverage, local defaults, and agent config.</span></a></li>
+  <li><a href="../snyk/"><span class="name">vs Snyk</span><span class="blurb">Dependency analysis and repository-controlled agent config.</span></a></li>
+  <li><a href="../claude-security/"><span class="name">vs model-based review</span><span class="blurb">Static checks and review that needs judgement.</span></a></li>
+  <li><a href="../eslint-plugin-security/"><span class="name">vs eslint-plugin-security</span><span class="blurb">Lint patterns and framework-aware checks.</span></a></li>
 </ul>
-<p><a href="../../rules/">All rules</a> · <a href="../../owasp/">Coverage, gaps included</a> · <a href="../../offline/">Offline</a></p>
+<p><a href="../../rules/">All rules</a> / <a href="../../owasp/">Coverage, gaps included</a> / <a href="../../offline/">Offline</a></p>
 </main>
 
 <footer class="site-footer">
-  <p>
-    <strong>owlwarden 1.1.0</strong> — offline security scanner for Node web apps
-    and AI coding agents. No account, no telemetry, no network unless you ask.
-  </p>
+  <div class="footer-brand">
+    <img src="../../favicon.svg" width="36" height="36" alt="">
+    <p><strong>owlwarden 1.1.0</strong><br>Local security checks for Node apps and coding-agent configuration.</p>
+  </div>
   <nav aria-label="Footer">
     <a href="../../rules/">All rules</a>
     <a href="../../owasp/">OWASP coverage</a>
@@ -168,7 +196,7 @@
     <a href="https://github.com/suthat/owlwarden/blob/main/RULES.md" rel="noopener">RULES.md</a>
     <a href="https://www.npmjs.com/package/owlwarden" rel="noopener">npm</a>
   </nav>
-  <p class="licence">MIT OR Apache-2.0. <code>npx owlwarden scan</code></p>
+  <p class="licence">No account / no telemetry / MIT OR Apache-2.0 / <code>npx owlwarden scan</code></p>
 </footer>
 </body>
 </html>
