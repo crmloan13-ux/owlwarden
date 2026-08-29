@@ -353,7 +353,7 @@ mod tests {
     #![allow(clippy::unwrap_used, clippy::expect_used)]
 
     use super::*;
-    use crate::finding::{Finding, RuleId};
+    use crate::finding::{Exposure, Finding, RuleId};
 
     fn finding(severity: Severity, confidence: Confidence) -> Finding {
         Finding::builder(RuleId::new_static("stack-trace-leak"), severity, "t")
@@ -406,6 +406,91 @@ mod tests {
         let report = report_of(vec![finding(Severity::Low, Confidence::Confirmed)]);
         assert!(!report.should_fail(Severity::High, Confidence::Possible));
         assert!(report.should_fail(Severity::Low, Confidence::Possible));
+    }
+
+    #[test]
+    fn the_exposure_gate_trips_independently_of_the_severity_gate() {
+        // ADR 0029 exit criterion 5. `--fail-on high` alone passes a medium
+        // finding; `--fail-on-exposure internet` alone fails it; together they
+        // behave as an OR rather than an AND.
+        let reachable =
+            Finding::builder(RuleId::new_static("insecure-cookie"), Severity::Medium, "t")
+                .confidence(Confidence::Likely)
+                .exposure(
+                    Exposure::Internet,
+                    crate::finding::ExposureEvidence::default(),
+                )
+                .build();
+        let report = report_of(vec![reachable]);
+
+        assert!(!report.should_fail(Severity::High, Confidence::Possible));
+        assert!(report.should_fail_with(
+            Severity::High,
+            Confidence::Possible,
+            Some(Exposure::Internet)
+        ));
+        assert!(report.should_fail_with(
+            Severity::Medium,
+            Confidence::Possible,
+            Some(Exposure::Internet)
+        ));
+    }
+
+    #[test]
+    fn the_exposure_gate_respects_the_confidence_floor() {
+        // Failing a build on a guess is how a tool gets removed from a
+        // pipeline, and an internet-reachable guess is still a guess.
+        let guess = Finding::builder(RuleId::new_static("ssrf"), Severity::High, "t")
+            .confidence(Confidence::Possible)
+            .exposure(
+                Exposure::Internet,
+                crate::finding::ExposureEvidence::default(),
+            )
+            .build();
+        let report = report_of(vec![guess]);
+        assert!(!report.should_fail_with(
+            Severity::High,
+            Confidence::Possible,
+            Some(Exposure::Internet)
+        ));
+    }
+
+    #[test]
+    fn a_finding_with_no_exposure_never_trips_the_exposure_gate() {
+        // Every agent-surface finding carries no exposure. Tripping the gate on
+        // them would make `--fail-on-exposure internet` mean "fail on
+        // everything" the moment `vet` findings appear in the same report.
+        let agent = Finding::builder(
+            RuleId::new_static("agent-hook-autoexec"),
+            Severity::Low,
+            "t",
+        )
+        .confidence(Confidence::Likely)
+        .build();
+        let report = report_of(vec![agent]);
+        assert!(!report.should_fail_with(
+            Severity::High,
+            Confidence::Possible,
+            Some(Exposure::Internet)
+        ));
+    }
+
+    #[test]
+    fn the_exposure_distribution_counts_absent_values_as_unclassified() {
+        let findings = vec![
+            Finding::builder(RuleId::new_static("ssrf"), Severity::High, "t")
+                .exposure(
+                    Exposure::Internet,
+                    crate::finding::ExposureEvidence::default(),
+                )
+                .build(),
+            Finding::builder(RuleId::new_static("ssrf"), Severity::High, "t").build(),
+        ];
+        let distribution = ExposureSummary::of(&findings);
+        assert_eq!(distribution.internet, 1);
+        assert_eq!(distribution.unknown, 1);
+        assert_eq!(distribution.total(), 2);
+        assert_eq!(distribution.unclassified_percent(), 50);
     }
 
     #[test]

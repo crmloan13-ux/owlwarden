@@ -1,0 +1,8 @@
+{
+  "name": "fixture-exposure-remix",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@remix-run/node": "^2.11.0"
+  }
+}

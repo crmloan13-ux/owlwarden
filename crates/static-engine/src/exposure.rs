@@ -42,7 +42,7 @@ use crate::unit::FileUnit;
 
 mod facts;
 
-pub use facts::{FileFacts, GateRef, RouteMount, collect_facts};
+pub use facts::{FileFacts, GateRef, RouteMount, collect_facts, collect_facts_in};
 
 /// Middleware, bootstrap, and configuration files opened to look for gates.
 ///
@@ -346,13 +346,32 @@ impl<'a> ExposureClassifier<'a> {
     }
 
     fn facts_of_file(&self, file: &SourceFile) -> Option<FileFacts> {
+        self.facts_of_file_in(file, false)
+    }
+
+    /// [`Self::facts_of_file`], told whether the file is declared middleware.
+    fn facts_of_file_in(&self, file: &SourceFile, middleware: bool) -> Option<FileFacts> {
         let resolver = ModuleResolver::new(self.project);
         let profiles: Vec<&FrameworkProfile> = self.applicable_profiles();
         self.project
             .with_parsed_file(file, |unit: &FileUnit<'_>| {
-                collect_facts(unit, &profiles, &resolver)
+                collect_facts_in(unit, &profiles, &resolver, middleware)
             })
             .ok()
+    }
+
+    /// Whether a path is on a framework's declared middleware list.
+    fn is_middleware_path(&self, path: &str) -> bool {
+        self.applicable_profiles().iter().any(|profile| {
+            profile
+                .auth
+                .middleware_files
+                .iter()
+                .any(|candidate| candidate == path)
+                || profile.auth.middleware_dirs.iter().any(|directory| {
+                    path.starts_with(&format!("{}/", directory.trim_end_matches('/')))
+                })
+        })
     }
 
     /// The profiles whose vocabulary applies, falling back to the primary when
@@ -382,13 +401,17 @@ impl<'a> ExposureClassifier<'a> {
             else {
                 continue;
             };
-            let Some(facts) = self.facts_of_file(file) else {
+            let middleware = self.is_middleware_path(path);
+            let Some(facts) = self.facts_of_file_in(file, middleware) else {
                 continue;
             };
             if self.global.is_none() {
                 self.global.clone_from(&facts.global_gate);
             }
             self.mounts.extend(facts.mounts.iter().cloned());
+            if middleware {
+                self.mounts.extend(middleware_mounts(path, &facts));
+            }
             self.facts.insert(path.clone(), Some(facts));
         }
         // Order is by path, then by declaration, so two runs over the same tree
@@ -431,6 +454,39 @@ impl<'a> ExposureClassifier<'a> {
         }
         out
     }
+}
+
+/// The mounts a middleware file contributes.
+///
+/// The file's position on the load path is the mount, so a gate named in it
+/// covers whatever its matcher covers — everything, when there is no matcher.
+///
+/// A matcher that was present and yielded no prefix produces **no mount at
+/// all**. That is the whole reason `matcher_parsed` exists: an unreadable
+/// matcher means we do not know which routes the middleware runs on, and
+/// guessing "all of them" would mark every route in the application as behind
+/// auth on the strength of a file we failed to read.
+fn middleware_mounts(path: &str, facts: &FileFacts) -> Vec<RouteMount> {
+    if facts.declared_gates.is_empty() {
+        return Vec::new();
+    }
+    let gate = facts.declared_gates.first().cloned();
+    if facts.matcher_parsed {
+        return facts
+            .matcher_prefixes
+            .iter()
+            .map(|prefix| RouteMount {
+                prefix: Some(prefix.clone()),
+                gate: gate.clone(),
+                declared_at: format!("{path}:1"),
+            })
+            .collect();
+    }
+    vec![RouteMount {
+        prefix: None,
+        gate,
+        declared_at: format!("{path}:1"),
+    }]
 }
 
 /// Whether a path is somewhere no request reaches.

@@ -521,7 +521,7 @@ fn sails() -> FrameworkProfile {
             middleware_dirs: Vec::new(),
         },
         handlers: vec![HandlerStyle::RouterCall],
-        route_for_path: None,
+        route_for_path: Some(routing::sails),
     }
 }
 
@@ -647,7 +647,7 @@ fn gatsby() -> FrameworkProfile {
             gate_decorators: Vec::new(),
             gate_option_keys: Vec::new(),
             global_gate_calls: Vec::new(),
-            enforcing_calls: Vec::new(),
+            enforcing_calls: strings(&["requireUser", "requireAuth", "requireSession"]),
             session_readers: Vec::new(),
             middleware_files: Vec::new(),
             middleware_dirs: Vec::new(),
@@ -734,6 +734,7 @@ mod tests {
         assert!(by_id(&Framework::ASTRO).route_for_path.is_some());
         assert!(by_id(&Framework::REMIX).route_for_path.is_some());
         assert!(by_id(&Framework::GATSBY).route_for_path.is_some());
+        assert!(by_id(&Framework::SAILS).route_for_path.is_some());
         // These register routes with a call, so a path tells us nothing.
         assert!(by_id(&Framework::EXPRESS).route_for_path.is_none());
         assert!(by_id(&Framework::FASTIFY).route_for_path.is_none());
@@ -741,7 +742,9 @@ mod tests {
         assert!(by_id(&Framework::HONO).route_for_path.is_none());
         assert!(by_id(&Framework::KOA).route_for_path.is_none());
         assert!(by_id(&Framework::HAPI).route_for_path.is_none());
-        assert!(by_id(&Framework::SAILS).route_for_path.is_none());
+        // Sails joined the file-routed set in 1.2: its actions-as-files layout
+        // maps to a route, and exposure classification needs one.
+        assert!(by_id(&Framework::SAILS).route_for_path.is_some());
     }
 
     #[test]

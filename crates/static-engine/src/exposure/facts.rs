@@ -103,6 +103,28 @@ pub struct FileFacts {
     /// Whether it default-exports a `fetch` handler, which is how every
     /// fetch-API runtime spells "this file serves requests".
     pub exports_fetch: bool,
+    /// Every gate identified anywhere in the file, in source order.
+    ///
+    /// Needed because half the frameworks express middleware as *being* a
+    /// module rather than as a call: `middleware.ts` exporting
+    /// `clerkMiddleware()`, `hooks.server.ts` exporting a `handle`, a Sails
+    /// policy file naming a policy in a string. There is no `app.use` to hang a
+    /// mount on, and the file's own position on the load path is the mount.
+    pub declared_gates: Vec<GateRef>,
+    /// Path prefixes from an `export const config = { matcher: [...] }`.
+    ///
+    /// Empty means the middleware runs on everything, which is the framework
+    /// default and the safe reading. A matcher we cannot parse is also empty,
+    /// and that is the *unsafe* direction — so parsing failures narrow to
+    /// nothing rather than widening to everything: see
+    /// [`FileFacts::matcher_parsed`].
+    pub matcher_prefixes: Vec<String>,
+    /// Whether a `matcher` key was present at all.
+    ///
+    /// Distinguishes "runs everywhere" from "we found a matcher and could not
+    /// read it". The second must not be treated as the first, or an
+    /// unparseable matcher would gate every route in the application.
+    pub matcher_parsed: bool,
 }
 
 /// Reads one parsed file.
@@ -112,6 +134,21 @@ pub fn collect_facts(
     profiles: &[&FrameworkProfile],
     resolver: &ModuleResolver,
 ) -> FileFacts {
+    collect_facts_in(unit, profiles, resolver, false)
+}
+
+/// [`collect_facts`] for a file the framework declared as middleware.
+///
+/// The difference is what a bare gate reference means. In an ordinary file it
+/// means nothing on its own; in `middleware.ts` it *is* the mount, because the
+/// framework runs the file in front of the routes its matcher covers.
+#[must_use]
+pub fn collect_facts_in(
+    unit: &FileUnit<'_>,
+    profiles: &[&FrameworkProfile],
+    resolver: &ModuleResolver,
+    middleware: bool,
+) -> FileFacts {
     let mut imports = ImportMap::default();
     imports.read(unit.program);
 
@@ -120,6 +157,7 @@ pub fn collect_facts(
         profiles,
         resolver,
         imports: &imports,
+        middleware,
         facts: FileFacts::default(),
         session_bindings: Vec::new(),
         guarded_bindings: Vec::new(),
@@ -178,6 +216,10 @@ struct FactVisitor<'a, 'p> {
     profiles: &'p [&'p FrameworkProfile],
     resolver: &'p ModuleResolver,
     imports: &'p ImportMap,
+    /// True when this file is one the framework declared as middleware, so a
+    /// bare gate name in it is the mount. Off everywhere else, because a file
+    /// that merely mentions `requireAuth` is not a gate on anything.
+    middleware: bool,
     facts: FileFacts,
     /// Names bound to the result of a session-reading call.
     session_bindings: Vec<(String, String, u32)>,
@@ -187,6 +229,9 @@ struct FactVisitor<'a, 'p> {
 
 impl FactVisitor<'_, '_> {
     fn finish(mut self) -> FileFacts {
+        if self.middleware {
+            self.collect_imported_gates();
+        }
         if self.facts.inline_gate.is_none() {
             // A session read only becomes a gate once something is done about
             // the answer. `const session = await auth()` on its own gates
@@ -207,6 +252,27 @@ impl FactVisitor<'_, '_> {
             }
         }
         self.facts
+    }
+
+    /// Gates a middleware file imports.
+    ///
+    /// The file's position on the load path is the mount, so importing a gate
+    /// into it is declaring one. Only in middleware files: an ordinary module
+    /// that imports `requireAuth` may well not call it.
+    fn collect_imported_gates(&mut self) {
+        for (name, specifier) in &self.imports.bindings {
+            if self.facts.declared_gates.len() >= MAX_ITEMS {
+                return;
+            }
+            if super::imported_name_is_gate(self.resolver, self.unit.path.as_str(), name, specifier)
+            {
+                self.facts.declared_gates.push(GateRef {
+                    name: name.clone(),
+                    location: format!("{}:1", self.unit.path.as_str()),
+                    reason: format!("`{name}` is imported from `{specifier}` by this middleware"),
+                });
+            }
+        }
     }
 
     fn line_of(&self, span: oxc_span::Span) -> u32 {
@@ -271,6 +337,27 @@ impl FactVisitor<'_, '_> {
             });
         }
         None
+    }
+
+    /// Where a name came from, when we can say — and `None` when we cannot.
+    ///
+    /// `None` for an import that does not resolve and for an unimported global.
+    /// A locally declared name resolves to this file, which is the one case
+    /// where "we can see it" is trivially true.
+    fn origin_of(&self, name: Option<&str>) -> Option<String> {
+        let name = name?;
+        match self.imports.specifier(name) {
+            Some(specifier) if auth::is_auth_package(specifier) => {
+                Some(format!("from `{specifier}`"))
+            }
+            Some(specifier) if auth::is_relative_specifier(specifier) => self
+                .resolver
+                .resolves(self.unit.path.as_str(), specifier)
+                .then(|| format!("from `{specifier}`")),
+            // A bare specifier that is not a known auth package.
+            Some(_) => None,
+            None => Some("declared in this file".to_owned()),
+        }
     }
 
     fn gate_of_name(&self, name: &str, span: oxc_span::Span) -> Option<GateRef> {
@@ -374,6 +461,56 @@ impl FactVisitor<'_, '_> {
                 continue;
             };
             if let Some(gate) = self.gate_in_options(options) {
+                self.facts.inline_gate = Some(gate);
+                return;
+            }
+        }
+    }
+
+    /// Hapi's object form: `server.route({ method, path, options: { auth } })`.
+    ///
+    /// Also accepts an array of route objects, which is how Hapi's own
+    /// documentation registers more than one at a time.
+    fn record_route_object(&mut self, call: &CallExpression<'_>) {
+        let Some(first) = call.arguments.first().and_then(Argument::as_expression) else {
+            return;
+        };
+        match first {
+            Expression::ObjectExpression(object) => self.record_one_route_object(object),
+            Expression::ArrayExpression(items) => {
+                for element in items.elements.iter().take(MAX_ITEMS) {
+                    if let Some(Expression::ObjectExpression(object)) = element.as_expression() {
+                        self.record_one_route_object(object);
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+
+    fn record_one_route_object(&mut self, object: &ObjectExpression<'_>) {
+        let Some(path) = object_string(object, "path") else {
+            return;
+        };
+        if !path.starts_with('/') {
+            return;
+        }
+        if self.facts.routes.len() < MAX_ITEMS {
+            self.facts.routes.push(path);
+        }
+        if self.facts.inline_gate.is_some() {
+            return;
+        }
+        // The gate may be on the route object itself or inside `options` /
+        // `config`, which are Hapi's two spellings for the same thing.
+        if let Some(gate) = self.gate_in_options(object) {
+            self.facts.inline_gate = Some(gate);
+            return;
+        }
+        for key in ["options", "config"] {
+            if let Some(Expression::ObjectExpression(nested)) = object_value(object, key)
+                && let Some(gate) = self.gate_in_options(nested)
+            {
                 self.facts.inline_gate = Some(gate);
                 return;
             }
@@ -493,17 +630,24 @@ impl<'a> Visit<'a> for FactVisitor<'_, '_> {
                 });
             }
 
-            // A call that rejects the request by itself.
+            // A call that rejects the request by itself — but only when we can
+            // say where it came from. `requireAuth()` imported from a module
+            // that is not in the tree is a call to something we never saw, and
+            // treating it as a gate would be exactly the reassuring guess §2
+            // forbids.
             if self.facts.inline_gate.is_none()
                 && self
                     .profiles
                     .iter()
                     .any(|profile| profile.auth.is_enforcing_call(&path))
+                && let Some(origin) = self.origin_of(root_identifier(&call.callee))
             {
                 self.facts.inline_gate = Some(GateRef {
                     name: path.clone(),
                     location: self.here(call.span),
-                    reason: format!("`{path}` rejects the request when there is no session"),
+                    reason: format!(
+                        "`{path}` rejects the request when there is no session ({origin})"
+                    ),
                 });
             }
 
@@ -518,6 +662,21 @@ impl<'a> Visit<'a> for FactVisitor<'_, '_> {
                 if crate::ast::router_method(method).is_some() {
                     self.record_route(call);
                 }
+                // Hapi registers routes as objects: `server.route({ method,
+                // path, options: { auth } })`. No verb method to key off, so
+                // the shape of the argument is the signal.
+                if method == "route" {
+                    self.record_route_object(call);
+                }
+            }
+
+            // In a middleware file, a gate the file *calls* is the mount:
+            // `export default clerkMiddleware()` has no `app.use` to hang on.
+            if self.middleware
+                && self.facts.declared_gates.len() < MAX_ITEMS
+                && let Some(gate) = self.gate_of_call(call)
+            {
+                self.facts.declared_gates.push(gate);
             }
 
             // `defineEventHandler(...)` and friends: the file serves requests.
@@ -532,6 +691,29 @@ impl<'a> Visit<'a> for FactVisitor<'_, '_> {
     }
 
     fn visit_variable_declarator(&mut self, declarator: &VariableDeclarator<'a>) {
+        // `export const config = { matcher: ['/admin/:path*'] }` — the Next
+        // and Astro way of saying which routes the middleware runs on.
+        if self.middleware
+            && declarator.id.get_identifier_name().as_deref() == Some("config")
+            && let Some(Expression::ObjectExpression(object)) = declarator.init.as_ref()
+            && let Some(matcher) = object_value(object, "matcher")
+        {
+            self.facts.matcher_parsed = true;
+            match matcher {
+                Expression::StringLiteral(literal) => self
+                    .facts
+                    .matcher_prefixes
+                    .push(mount_prefix(literal.value.as_str())),
+                Expression::ArrayExpression(items) => {
+                    for element in items.elements.iter().take(MAX_ITEMS) {
+                        if let Some(text) = element.as_expression().and_then(string_value) {
+                            self.facts.matcher_prefixes.push(mount_prefix(text));
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
         // `export const POST = async (request) => { ... }`.
         if let Some(name) = declarator.id.get_identifier_name()
             && crate::ast::http_method_export(name.as_str()).is_some()
@@ -572,6 +754,26 @@ impl<'a> Visit<'a> for FactVisitor<'_, '_> {
             collect_tested_names(&statement.test, &mut self.guarded_bindings);
         }
         oxc_ast_visit::walk::walk_if_statement(self, statement);
+    }
+
+    fn visit_string_literal(&mut self, literal: &oxc_ast::ast::StringLiteral<'a>) {
+        // Sails maps a policy to an action by *name*: `{ 'AdminController/*':
+        // 'isLoggedIn' }`. There is no identifier to resolve, and the file is
+        // on the framework's declared policy list, so the name is the evidence.
+        if self.middleware
+            && self.facts.declared_gates.len() < MAX_ITEMS
+            && auth::is_gate_name(literal.value.as_str())
+        {
+            self.facts.declared_gates.push(GateRef {
+                name: literal.value.as_str().to_owned(),
+                location: self.here(literal.span),
+                reason: format!(
+                    "`{}` is declared as a policy in this file",
+                    literal.value.as_str()
+                ),
+            });
+        }
+        oxc_ast_visit::walk::walk_string_literal(self, literal);
     }
 
     fn visit_class(&mut self, class: &Class<'a>) {
@@ -638,14 +840,45 @@ impl<'a> Visit<'a> for FactVisitor<'_, '_> {
     }
 }
 
-/// The prefix a mount covers, normalised so `/api/` and `/api` are one thing.
-fn mount_prefix(path: &str) -> String {
-    let trimmed = path.trim_end_matches('/');
+/// The prefix a mount covers, normalised so `/api/`, `/api/*`, `/api/:path*`
+/// and `/api/(.*)`  are one thing.
+///
+/// Every framework spells "and everything under it" differently, and a prefix
+/// left unnormalised covers nothing at all — which would silently turn every
+/// gated route into `internet`. Wrong in the noisy direction, but wrong.
+pub fn mount_prefix(path: &str) -> String {
+    let mut trimmed = path;
+    for suffix in ["/(.*)", "/:path*", "/:path", "/**", "/*", "(.*)", "*"] {
+        if let Some(rest) = trimmed.strip_suffix(suffix) {
+            trimmed = rest;
+            break;
+        }
+    }
+    let trimmed = trimmed.trim_end_matches('/');
     if trimmed.is_empty() {
         "/".to_owned()
     } else {
         trimmed.to_owned()
     }
+}
+
+/// The string value of one key of an object literal.
+fn object_string(object: &ObjectExpression<'_>, key: &str) -> Option<String> {
+    string_value(object_value(object, key)?).map(std::borrow::ToOwned::to_owned)
+}
+
+/// The value expression of one key of an object literal.
+fn object_value<'a>(object: &'a ObjectExpression<'a>, key: &str) -> Option<&'a Expression<'a>> {
+    object
+        .properties
+        .iter()
+        .take(MAX_ITEMS)
+        .find_map(|property| {
+            let oxc_ast::ast::ObjectPropertyKind::ObjectProperty(entry) = property else {
+                return None;
+            };
+            (property_name(&entry.key)? == key).then_some(&entry.value)
+        })
 }
 
 /// Whether a branch body leaves the handler — a `return` or a `throw`.

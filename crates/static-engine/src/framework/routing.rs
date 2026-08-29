@@ -111,6 +111,42 @@ pub fn nitro(path: &str) -> Option<RouteInfo> {
     })
 }
 
+/// Sails: actions under `api/controllers/`.
+///
+/// Two layouts, both current. An action-per-file
+/// (`api/controllers/user/find.js`) is served at `/user/find` by Sails'
+/// default action routing. A classic controller
+/// (`api/controllers/UserController.js`) holds several actions, so the file
+/// names a prefix and not a route — and the method is never in the path, so it
+/// is always `None`.
+///
+/// Nothing else under `api/` maps: a model or a policy is not a route, and
+/// claiming one would attribute a finding to a request that never reaches it.
+#[must_use]
+pub fn sails(path: &str) -> Option<RouteInfo> {
+    let rest = path.strip_prefix("api/controllers/")?;
+    let stem = strip_extension(rest)?;
+    if stem.is_empty() {
+        return None;
+    }
+
+    let (directory, file) = stem.rsplit_once('/').unwrap_or(("", stem));
+    // `UserController` names a controller, not an action.
+    if let Some(name) = file.strip_suffix("Controller") {
+        let prefix = if directory.is_empty() {
+            String::new()
+        } else {
+            format!("/{}", directory.to_ascii_lowercase())
+        };
+        return Some(RouteInfo::path_only(format!(
+            "{prefix}/{}",
+            name.to_ascii_lowercase()
+        )));
+    }
+
+    Some(RouteInfo::path_only(format!("/{stem}")))
+}
+
 /// Splits a trailing `.get` / `.post` method suffix off a Nitro file stem.
 fn split_nitro_method(stem: &str) -> (&str, Option<String>) {
     let Some((rest, suffix)) = stem.rsplit_once('.') else {
