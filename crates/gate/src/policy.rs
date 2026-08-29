@@ -389,7 +389,9 @@ mod tests {
 
     use super::*;
     use owlwarden_core::finding::{Fix, FixSafety, Location, RuleId, SourceLocation};
-    use owlwarden_core::report::{ReportSummary, ScanTarget, ToolInfo, now_rfc3339};
+    use owlwarden_core::report::{
+        ExposureSummary, ReportSummary, ScanTarget, ToolInfo, now_rfc3339,
+    };
 
     fn finding(severity: Severity, confidence: Confidence) -> Finding {
         Finding::builder(
@@ -425,6 +427,7 @@ mod tests {
                 ..ScanTarget::default()
             },
             summary: ReportSummary::of(&findings),
+            exposure_summary: ExposureSummary::default(),
             findings,
             suppressed_count: 0,
             suppressions: Vec::new(),

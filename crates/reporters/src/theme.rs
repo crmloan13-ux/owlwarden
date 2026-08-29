@@ -2,7 +2,7 @@
 //! readable.
 
 use anstyle::{AnsiColor, Color, Style};
-use owlwarden_core::finding::{Confidence, Severity};
+use owlwarden_core::finding::{Confidence, Exposure, Severity};
 
 /// Characters used to draw the report.
 ///
@@ -82,6 +82,22 @@ pub fn confidence_style(confidence: Confidence) -> Style {
         Confidence::Confirmed => AnsiColor::Green,
         Confidence::Likely => AnsiColor::Cyan,
         Confidence::Possible => AnsiColor::BrightBlack,
+    };
+    Style::new().fg_color(Some(Color::Ansi(colour)))
+}
+
+/// Colour for an [`Exposure`].
+///
+/// Red for `internet` and grey for everything else, deliberately flatter than
+/// the severity palette. Exposure orders the report; it does not compete with
+/// severity for the reader's alarm, and giving it a second full colour ramp
+/// would make every finding shout in two dimensions at once.
+#[must_use]
+pub fn exposure_style(exposure: Exposure) -> Style {
+    let colour = match exposure {
+        Exposure::Internet => AnsiColor::Red,
+        Exposure::Authenticated => AnsiColor::Cyan,
+        Exposure::Internal | Exposure::Unknown => AnsiColor::BrightBlack,
     };
     Style::new().fg_color(Some(Color::Ansi(colour)))
 }

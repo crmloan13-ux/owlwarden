@@ -344,7 +344,8 @@ fn finish_scan_report(args: &ScanArgs, report: &Report, color: bool) -> (i32, Op
     if args.report_suppressions {
         write_suppressions(report);
     }
-    let exit = if report.should_fail(args.fail_on, args.min_confidence) {
+    let exit = if report.should_fail_with(args.fail_on, args.min_confidence, args.fail_on_exposure)
+    {
         EXIT_FINDINGS
     } else {
         EXIT_CLEAN
@@ -581,6 +582,7 @@ fn run_watch(args: &ScanArgs) -> i32 {
         preset: args.preset.clone(),
         format: args.format.clone(),
         fail_on: args.fail_on,
+        fail_on_exposure: args.fail_on_exposure,
         min_confidence: args.min_confidence,
         out: args.out.clone(),
         baseline: args.baseline.clone(),

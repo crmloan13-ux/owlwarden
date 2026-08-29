@@ -119,6 +119,42 @@ export const runtimeScopeSchema = z.enum([
   "documentation",
 ]);
 
+/**
+ * Whether anything outside the process can reach the code a finding sits in.
+ *
+ * The third axis, orthogonal to severity, confidence, and `runtimeScope`.
+ *
+ * **It fails loud.** `authenticated` is set only when a gate was positively
+ * identified; absence of evidence yields `internet`. Everywhere else in
+ * owlwarden uncertainty resolves downward, because a false `likely` costs an
+ * hour. Here it resolves upward, because a finding wrongly marked as behind
+ * auth is a finding somebody deprioritises — and the tool would have reassured
+ * them about something it never checked.
+ *
+ * Do not treat `unknown` as a quiet `internal`. It means the question was not
+ * answered.
+ */
+export const exposureSchema = z.enum([
+  "internet",
+  "authenticated",
+  "internal",
+  "unknown",
+]);
+
+/**
+ * Why a finding carries the exposure it does.
+ *
+ * `gate` and `gateLocation` are present only on `authenticated`, and naming
+ * them is the point: a classification the reader cannot check is one they will
+ * not believe.
+ */
+export const exposureEvidenceSchema = z.object({
+  route: z.string().optional(),
+  gate: z.string().optional(),
+  gateLocation: z.string().optional(),
+  reason: z.string().optional(),
+});
+
 /** Whether a fix can be applied automatically. */
 export const fixSafetySchema = z.enum(["safe", "unsafe", "manual"]);
 
@@ -203,6 +239,12 @@ export const findingSchema = z.object({
   cwe: z.number().int().optional(),
   /** Present on agent-surface findings; absent where the question does not arise. */
   runtimeScope: runtimeScopeSchema.optional(),
+  /**
+   * Present on application findings. Absent on the agent surface, where "is
+   * this reachable from a request" is not a question about a `settings.json`.
+   */
+  exposure: exposureSchema.optional(),
+  exposureEvidence: exposureEvidenceSchema.optional(),
   title: z.string(),
   why: z.string(),
   location: locationSchema,
@@ -242,6 +284,20 @@ export const reportSummarySchema = z.object({
   info: z.number().int().nonnegative(),
 });
 
+/**
+ * Counts by exposure.
+ *
+ * `unknown` counts findings carrying no exposure at all — every agent-surface
+ * finding — as well as those explicitly unclassified, because to a reader of
+ * the distribution the two are the same statement.
+ */
+export const exposureSummarySchema = z.object({
+  internet: z.number().int().nonnegative(),
+  authenticated: z.number().int().nonnegative(),
+  internal: z.number().int().nonnegative(),
+  unknown: z.number().int().nonnegative(),
+});
+
 /** What was scanned. */
 export const scanTargetSchema = z.object({
   project: z.string(),
@@ -270,6 +326,16 @@ export const reportSchema = z.object({
   durationMs: z.number().int().nonnegative(),
   target: scanTargetSchema,
   summary: reportSummarySchema,
+  /**
+   * Counts by exposure. Defaulted rather than required, so a report written by
+   * a 1.1 engine still parses — the field is additive, not a schema break.
+   */
+  exposureSummary: exposureSummarySchema.default({
+    internet: 0,
+    authenticated: 0,
+    internal: 0,
+    unknown: 0,
+  }),
   findings: z.array(findingSchema),
   /**
    * Findings hidden by a suppression. Present so that "0 findings" is never
@@ -391,6 +457,15 @@ export type FindingContext = z.infer<typeof findingContextSchema>;
 export type Fix = z.infer<typeof fixSchema>;
 export type Reference = z.infer<typeof referenceSchema>;
 export type Finding = z.infer<typeof findingSchema>;
+
+/** Whether anything outside the process can reach the code. */
+export type Exposure = z.infer<typeof exposureSchema>;
+
+/** Why a finding carries the exposure it does. */
+export type ExposureEvidence = z.infer<typeof exposureEvidenceSchema>;
+
+/** Counts by exposure. */
+export type ExposureSummary = z.infer<typeof exposureSummarySchema>;
 export type DetectorFailure = z.infer<typeof detectorFailureSchema>;
 export type SuppressionRecord = z.infer<typeof suppressionRecordSchema>;
 export type ReportSummary = z.infer<typeof reportSummarySchema>;
@@ -434,14 +509,48 @@ export function shouldFail(
   report: Report,
   failOn: Severity,
   minConfidence: Confidence,
+  failOnExposure?: Exposure,
 ): boolean {
   if (report.truncated) {
     return true;
   }
-  return report.findings.some(
-    (finding) =>
-      severityAtLeast(finding.severity, failOn) &&
-      confidenceAtLeast(finding.confidence, minConfidence) &&
-      finding.confidence !== "possible",
-  );
+  return report.findings.some((finding) => {
+    if (
+      !confidenceAtLeast(finding.confidence, minConfidence) ||
+      finding.confidence === "possible"
+    ) {
+      return false;
+    }
+    // An OR, not an AND: the two thresholds express different policies —
+    // *nothing worse than medium* and *nothing an anonymous caller can reach* —
+    // and a team should be able to hold both.
+    const bySeverity = severityAtLeast(finding.severity, failOn);
+    const byExposure =
+      failOnExposure !== undefined &&
+      finding.exposure !== undefined &&
+      exposureAtLeast(finding.exposure, failOnExposure);
+    return bySeverity || byExposure;
+  });
+}
+
+/** Exposure order, most reachable first — the report's own sort order. */
+const EXPOSURE_ORDER: readonly Exposure[] = [
+  "internet",
+  "authenticated",
+  "internal",
+  "unknown",
+];
+
+/**
+ * Whether `value` is at least as reachable as `threshold`.
+ *
+ * Ordered `internet > authenticated > internal > unknown`, matching the engine.
+ */
+export function exposureAtLeast(value: Exposure, threshold: Exposure): boolean {
+  const left = EXPOSURE_ORDER.indexOf(value);
+  const right = EXPOSURE_ORDER.indexOf(threshold);
+  if (left < 0 || right < 0) {
+    return false;
+  }
+  return left <= right;
 }

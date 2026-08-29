@@ -156,6 +156,7 @@ impl Scheduler {
             scanned_at: crate::report::now_rfc3339(),
             duration_ms: u64::try_from(ctx.budget().elapsed().as_millis()).unwrap_or(u64::MAX),
             summary: ReportSummary::of(&findings),
+            exposure_summary: crate::report::ExposureSummary::of(&findings),
             target,
             findings,
             suppressed_count: 0,

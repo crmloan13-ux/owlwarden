@@ -272,7 +272,9 @@ describe("owlwarden scan", () => {
       expect(code).toBe(EXIT.FINDINGS);
       const body = await readFile(out, "utf8");
       expect(body).toMatch(/^# owlwarden report —/);
-      expect(body).toContain("## High");
+      // Grouped by exposure since 1.2 (ADR 0029 §5), so the reachable findings
+      // are the first thing a pull-request comment shows.
+      expect(body).toContain("## Internet-reachable");
       expect(body).toContain("**Fix");
     } finally {
       await rm(dir, { recursive: true, force: true });

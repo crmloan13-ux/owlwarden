@@ -83,6 +83,10 @@ ${presetLines(native)}
   --allow-suppressions  Under --ci, honour inline suppressions (off by default)
   --allow-baseline      Under --ci, permit --baseline (off by default)
   --fail-on <LEVEL>     Exit 1 at this severity or above. Default: info
+  --fail-on-exposure <REACH>
+                        Exit 1 at this reachability or above: internet,
+                        authenticated, internal, unknown. Composes with
+                        --fail-on as an OR.
   --min-confidence <L>  Drop findings below this confidence. Default: possible
   --target <URL>        Probe this URL (passive GET/HEAD). Operator-only —
                         never read from project config

@@ -44,6 +44,7 @@
 pub mod agentws;
 pub mod ast;
 pub mod engine;
+pub mod exposure;
 pub mod framework;
 pub mod fs_source;
 pub mod http;
@@ -59,6 +60,7 @@ pub mod taint;
 pub mod unit;
 
 pub use engine::StaticEngine;
+pub use exposure::ExposureClassifier;
 pub use framework::{
     FrameworkProfile, FrameworkRegistry, FrameworkSet, HandlerStyle, HttpVocabulary, RouteInfo,
 };

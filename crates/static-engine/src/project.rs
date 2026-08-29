@@ -137,6 +137,15 @@ impl<'a> Project<'a> {
         &self.frameworks
     }
 
+    /// The detected set as the shared handle every `FileUnit` holds.
+    ///
+    /// The exposure classifier outlives any one file and needs the set without
+    /// borrowing the project, which is what the `Arc` is already for.
+    #[must_use]
+    pub fn frameworks_arc(&self) -> &Arc<FrameworkSet> {
+        &self.frameworks
+    }
+
     /// The parsed `package.json`.
     #[must_use]
     pub fn manifest(&self) -> &PackageManifest {

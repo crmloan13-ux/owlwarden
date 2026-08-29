@@ -10,7 +10,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::finding::{Confidence, Finding, Severity};
+use crate::finding::{Confidence, Exposure, Finding, Severity};
 use crate::suppression::SuppressionRecord;
 
 /// Version of the JSON report format. Bumped on any breaking change to the
@@ -129,6 +129,81 @@ impl ReportSummary {
     }
 }
 
+/// Finding counts by [`Exposure`]. Present even when zero, for the same reason
+/// [`ReportSummary`] is: a consumer renders the distribution without
+/// special-casing, and a zero is a statement rather than an absence.
+///
+/// This is the line that changes how the tool feels on a legacy repository.
+/// "23 findings" is a backlog; "3 internet-reachable" is an afternoon.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExposureSummary {
+    /// On a request path with no gate identified.
+    pub internet: u32,
+    /// On a request path behind an identified gate.
+    pub authenticated: u32,
+    /// Not on a request path.
+    pub internal: u32,
+    /// Could not be placed. Counts findings that carry no exposure at all —
+    /// the agent surface — as well as those explicitly classified `unknown`,
+    /// because to a reader of the distribution they are the same statement.
+    pub unknown: u32,
+}
+
+impl ExposureSummary {
+    /// Counts findings by exposure.
+    #[must_use]
+    pub fn of(findings: &[Finding]) -> Self {
+        let mut summary = Self::default();
+        for finding in findings {
+            let slot = match finding.exposure {
+                Some(Exposure::Internet) => &mut summary.internet,
+                Some(Exposure::Authenticated) => &mut summary.authenticated,
+                Some(Exposure::Internal) => &mut summary.internal,
+                Some(Exposure::Unknown) | None => &mut summary.unknown,
+            };
+            *slot = slot.saturating_add(1);
+        }
+        summary
+    }
+
+    /// The count for one value.
+    #[must_use]
+    pub const fn count(&self, exposure: Exposure) -> u32 {
+        match exposure {
+            Exposure::Internet => self.internet,
+            Exposure::Authenticated => self.authenticated,
+            Exposure::Internal => self.internal,
+            Exposure::Unknown => self.unknown,
+        }
+    }
+
+    /// Total across all values.
+    #[must_use]
+    pub fn total(&self) -> u32 {
+        self.internet
+            .saturating_add(self.authenticated)
+            .saturating_add(self.internal)
+            .saturating_add(self.unknown)
+    }
+
+    /// The share of findings that could not be placed, as a percentage
+    /// rounded to the nearest whole number. Reported by `coverage`, because an
+    /// unclassified rate that is only felt is one nobody fixes.
+    #[must_use]
+    pub fn unclassified_percent(&self) -> u32 {
+        let total = self.total();
+        if total == 0 {
+            return 0;
+        }
+        // `u64` so a report at the findings cap cannot overflow the numerator.
+        let scaled = u64::from(self.unknown)
+            .saturating_mul(100)
+            .saturating_add(u64::from(total) / 2);
+        u32::try_from(scaled / u64::from(total)).unwrap_or(100)
+    }
+}
+
 /// A detector that failed. Surfaced rather than swallowed: a scan that silently
 /// skipped half its rules and printed "no findings" is worse than no scan.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -156,6 +231,11 @@ pub struct Report {
     pub target: ScanTarget,
     /// Counts by severity.
     pub summary: ReportSummary,
+    /// Counts by exposure. Added in 1.2; a consumer written against the 1.1
+    /// shape sees a new object and is unaffected, which is why this is a
+    /// minor-version change rather than a schema break.
+    #[serde(default)]
+    pub exposure_summary: ExposureSummary,
     /// The findings, already sorted and filtered.
     pub findings: Vec<Finding>,
     /// How many findings an inline suppression hid.
@@ -193,13 +273,39 @@ impl Report {
     /// cannot prove the project is clean — exiting 0 would hide the rest.
     #[must_use]
     pub fn should_fail(&self, fail_on: Severity, min_confidence: Confidence) -> bool {
+        self.should_fail_with(fail_on, min_confidence, None)
+    }
+
+    /// [`Self::should_fail`] with the independent exposure gate from
+    /// [ADR 0029](../../../docs/adr/0029-exposure-model.md) §4.
+    ///
+    /// The two thresholds compose as an **OR**, because they express different
+    /// policies — *nothing worse than medium* and *nothing an anonymous caller
+    /// can reach* — and a team should be able to hold both. The confidence
+    /// floor applies to each: a `possible` finding on an internet-reachable
+    /// route is still a guess, and failing a build on a guess is how a tool
+    /// gets removed from a pipeline.
+    #[must_use]
+    pub fn should_fail_with(
+        &self,
+        fail_on: Severity,
+        min_confidence: Confidence,
+        fail_on_exposure: Option<Exposure>,
+    ) -> bool {
         if self.truncated {
             return true;
         }
         self.findings.iter().any(|finding| {
-            finding.severity >= fail_on
-                && finding.confidence >= min_confidence
-                && finding.confidence > Confidence::Possible
+            if finding.confidence < min_confidence || finding.confidence <= Confidence::Possible {
+                return false;
+            }
+            let by_severity = finding.severity >= fail_on;
+            let by_exposure = fail_on_exposure.is_some_and(|threshold| {
+                finding
+                    .exposure
+                    .is_some_and(|exposure| exposure >= threshold)
+            });
+            by_severity || by_exposure
         })
     }
 
@@ -210,7 +316,17 @@ impl Report {
     pub fn apply_min_confidence(&mut self, min_confidence: Confidence) {
         self.findings
             .retain(|finding| finding.confidence >= min_confidence);
+        self.recount();
+    }
+
+    /// Recomputes both summaries from the current findings.
+    ///
+    /// One call rather than two so a pass that filters findings cannot update
+    /// the severity distribution and forget the exposure one — which would
+    /// leave the summary line contradicting the list underneath it.
+    pub fn recount(&mut self) {
         self.summary = ReportSummary::of(&self.findings);
+        self.exposure_summary = ExposureSummary::of(&self.findings);
     }
 }
 
@@ -253,6 +369,7 @@ mod tests {
             duration_ms: 0,
             target: ScanTarget::default(),
             summary: ReportSummary::of(&findings),
+            exposure_summary: ExposureSummary::default(),
             findings,
             suppressed_count: 0,
             suppressions: Vec::new(),

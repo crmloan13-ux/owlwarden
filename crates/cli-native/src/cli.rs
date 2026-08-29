@@ -5,7 +5,7 @@
 //! dependency its users have to trust. If the surface grows past what fits in
 //! this file, that trade-off should be revisited in a PR, not stretched.
 
-use owlwarden_core::finding::{Confidence, Severity};
+use owlwarden_core::finding::{Confidence, Exposure, Severity};
 
 /// What the user asked us to do.
 #[derive(Debug, PartialEq, Eq)]
@@ -86,6 +86,9 @@ pub struct ScanArgs {
     pub format: String,
     /// Severity at which findings fail the run.
     pub fail_on: Severity,
+    /// Exposure at or above which findings fail the run, independently of
+    /// [`Self::fail_on`]. `None` leaves the gate off.
+    pub fail_on_exposure: Option<Exposure>,
     /// Findings below this confidence are dropped.
     pub min_confidence: Confidence,
     /// Write the report here instead of stdout.
@@ -154,6 +157,11 @@ impl Default for ScanArgs {
             // keeps that from being unusable, since `Possible` findings never
             // fail on their own.
             fail_on: Severity::Info,
+            // Off by default. `--fail-on info` already fails on everything the
+            // confidence floor lets through, so switching this on by default
+            // would change nothing except for teams who *raised* `--fail-on`,
+            // for whom it would silently undo the choice they made.
+            fail_on_exposure: None,
             min_confidence: Confidence::Possible,
             out: None,
             baseline: None,
@@ -318,6 +326,7 @@ struct RawScan {
     baseline: Option<String>,
     write_baseline: Option<String>,
     fail_on: Option<Severity>,
+    fail_on_exposure: Option<Exposure>,
     min_confidence: Option<Confidence>,
     report_suppressions: bool,
     ci: bool,
@@ -492,6 +501,24 @@ fn parse_gate<'a>(args: impl Iterator<Item = &'a String>) -> Result<Command, Arg
 }
 
 /// Parses the flags of `scan`.
+/// Parses a closed-set flag value, or reports the set it should have been in.
+///
+/// One helper for the three severity-shaped flags rather than three copies of
+/// the same six lines: the shape they share is "a word from a fixed list", and
+/// a user who mistypes one should get the same message whichever it was.
+fn enumerated<T>(
+    option: &'static str,
+    text: &str,
+    parse: impl Fn(&str) -> Option<T>,
+    expected: &'static str,
+) -> Result<T, ArgError> {
+    parse(text).ok_or_else(|| ArgError::InvalidValue {
+        option,
+        value: text.to_owned(),
+        expected,
+    })
+}
+
 fn parse_scan<'a>(args: impl Iterator<Item = &'a String>) -> Result<ScanArgs, ArgError> {
     let mut raw = RawScan::default();
     let mut args = args.peekable();
@@ -537,22 +564,28 @@ fn parse_scan<'a>(args: impl Iterator<Item = &'a String>) -> Result<ScanArgs, Ar
                 apply_scoping_flag(&mut raw, arg, taken)?;
             }
             "--fail-on" => {
-                let text = value("--fail-on")?;
-                let level = Severity::from_str_opt(&text).ok_or(ArgError::InvalidValue {
-                    option: "--fail-on",
-                    value: text,
-                    expected: "high, medium, low, info",
-                })?;
-                raw.fail_on = Some(level);
+                raw.fail_on = Some(enumerated(
+                    "--fail-on",
+                    &value("--fail-on")?,
+                    Severity::from_str_opt,
+                    "high, medium, low, info",
+                )?);
+            }
+            "--fail-on-exposure" => {
+                raw.fail_on_exposure = Some(enumerated(
+                    "--fail-on-exposure",
+                    &value("--fail-on-exposure")?,
+                    Exposure::from_str_opt,
+                    "internet, authenticated, internal, unknown",
+                )?);
             }
             "--min-confidence" => {
-                let text = value("--min-confidence")?;
-                let level = Confidence::from_str_opt(&text).ok_or(ArgError::InvalidValue {
-                    option: "--min-confidence",
-                    value: text,
-                    expected: "confirmed, likely, possible",
-                })?;
-                raw.min_confidence = Some(level);
+                raw.min_confidence = Some(enumerated(
+                    "--min-confidence",
+                    &value("--min-confidence")?,
+                    Confidence::from_str_opt,
+                    "confirmed, likely, possible",
+                )?);
             }
             "--no-color" => raw.no_color = true,
             "--ascii" => raw.ascii = true,
@@ -569,6 +602,16 @@ fn parse_scan<'a>(args: impl Iterator<Item = &'a String>) -> Result<ScanArgs, Ar
         }
     }
 
+    check_scan_combinations(&raw)?;
+    Ok(raw.into_scan_args())
+}
+
+/// Flag combinations that parse individually and contradict each other.
+///
+/// Split out of [`parse_scan`] so the match arms and the coherence rules do not
+/// share a screen: the arms answer "what did the user type", these answer "can
+/// they mean it together".
+fn check_scan_combinations(raw: &RawScan) -> Result<(), ArgError> {
     if raw.allow_active && raw.target.is_none() {
         return Err(ArgError::InvalidValue {
             option: "--allow-active",
@@ -593,8 +636,7 @@ fn parse_scan<'a>(args: impl Iterator<Item = &'a String>) -> Result<ScanArgs, Ar
             expected: "requires --osv-db",
         });
     }
-
-    Ok(raw.into_scan_args())
+    Ok(())
 }
 
 impl RawScan {
@@ -611,6 +653,7 @@ impl RawScan {
                 }
             }),
             fail_on: self.fail_on.unwrap_or(defaults.fail_on),
+            fail_on_exposure: self.fail_on_exposure,
             min_confidence: self.min_confidence.unwrap_or(defaults.min_confidence),
             out: self.out,
             baseline: self.baseline,
@@ -701,6 +744,10 @@ SCAN OPTIONS
   --allow-suppressions Under --ci, honour inline suppressions (off by default)
   --allow-baseline     Under --ci, permit --baseline (off by default)
   --fail-on <LEVEL>    Exit 1 at this severity or above. Default: info
+  --fail-on-exposure <REACH>
+                       Exit 1 at this reachability or above: internet,
+                       authenticated, internal, unknown. Composes with
+                       --fail-on as an OR — either one trips the exit code.
   --min-confidence <L> Drop findings below this confidence. Default: possible
   --target <URL>       Probe this URL (passive GET/HEAD). Operator-only —
                        never read from project config

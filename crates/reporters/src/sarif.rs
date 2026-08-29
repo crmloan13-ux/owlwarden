@@ -135,6 +135,31 @@ fn finding_to_result(finding: &Finding) -> Value {
     if let Some(host) = finding.context.host.as_ref() {
         properties.insert("agentHost".into(), json!(host.as_str()));
     }
+    // Exposure rides in properties for the same reason `runtimeScope` does: it
+    // is a fourth axis, and mapping it onto `level` would make "error" mean two
+    // different things in the same file and break comparability between runs
+    // ([ADR 0029](../../../docs/adr/0029-exposure-model.md) §4).
+    if let Some(exposure) = finding.exposure {
+        properties.insert("exposure".into(), json!(exposure.as_str()));
+    }
+    if let Some(evidence) = finding.exposure_evidence.as_ref() {
+        let mut detail = Map::new();
+        if let Some(route) = evidence.route.as_ref() {
+            detail.insert("route".into(), json!(route));
+        }
+        if let Some(gate) = evidence.gate.as_ref() {
+            detail.insert("gate".into(), json!(gate));
+        }
+        if let Some(at) = evidence.gate_location.as_ref() {
+            detail.insert("gateLocation".into(), json!(at));
+        }
+        if let Some(reason) = evidence.reason.as_ref() {
+            detail.insert("reason".into(), json!(reason));
+        }
+        if !detail.is_empty() {
+            properties.insert("exposureEvidence".into(), Value::Object(detail));
+        }
+    }
 
     let mut result = Map::new();
     result.insert("ruleId".into(), json!(finding.id.as_str()));

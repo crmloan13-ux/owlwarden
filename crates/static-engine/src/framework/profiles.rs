@@ -19,6 +19,7 @@
 
 use owlwarden_core::finding::Framework;
 
+use super::auth::AuthVocabulary;
 use super::{FrameworkProfile, HandlerStyle, HttpVocabulary, routing};
 
 /// Every profile owlwarden ships with.
@@ -84,6 +85,17 @@ pub fn generic() -> FrameworkProfile {
             response_objects: strings(&["res", "response", "ctx", "reply"]),
             ..node_baseline()
         },
+        auth: AuthVocabulary {
+            mount_methods: strings(&["use"]),
+            pre_handler_hooks: Vec::new(),
+            gate_decorators: Vec::new(),
+            gate_option_keys: Vec::new(),
+            global_gate_calls: Vec::new(),
+            enforcing_calls: Vec::new(),
+            session_readers: Vec::new(),
+            middleware_files: Vec::new(),
+            middleware_dirs: Vec::new(),
+        },
         handlers: vec![HandlerStyle::RouterCall],
         route_for_path: None,
     }
@@ -119,6 +131,38 @@ fn next() -> FrameworkProfile {
             router_objects: Vec::new(),
             ..baseline
         },
+        auth: AuthVocabulary {
+            mount_methods: Vec::new(),
+            pre_handler_hooks: Vec::new(),
+            gate_decorators: Vec::new(),
+            gate_option_keys: Vec::new(),
+            global_gate_calls: Vec::new(),
+            enforcing_calls: strings(&[
+                "withApiAuthRequired",
+                "withPageAuthRequired",
+                "auth.protect",
+                "protect",
+                "requireUser",
+                "requireSession",
+            ]),
+            session_readers: strings(&[
+                "getServerSession",
+                "auth",
+                "currentUser",
+                "getSession",
+                "getKindeServerSession",
+                "getUser",
+            ]),
+            middleware_files: strings(&[
+                "middleware.ts",
+                "middleware.js",
+                "middleware.mjs",
+                "src/middleware.ts",
+                "src/middleware.js",
+                "src/middleware.mjs",
+            ]),
+            middleware_dirs: Vec::new(),
+        },
         handlers: vec![HandlerStyle::ExportedVerb],
         route_for_path: Some(routing::next),
     }
@@ -152,6 +196,21 @@ fn nuxt() -> FrameworkProfile {
             cookie_setters: strings(&["setCookie"]),
             router_objects: strings(&["router", "app"]),
             cors_enablers: strings(&["cors", "handleCors"]),
+        },
+        auth: AuthVocabulary {
+            mount_methods: strings(&["use"]),
+            pre_handler_hooks: Vec::new(),
+            gate_decorators: Vec::new(),
+            gate_option_keys: Vec::new(),
+            global_gate_calls: Vec::new(),
+            enforcing_calls: strings(&["requireUserSession", "requireAuthSession"]),
+            session_readers: strings(&[
+                "getServerSession",
+                "getUserSession",
+                "getServerAuthSession",
+            ]),
+            middleware_files: Vec::new(),
+            middleware_dirs: strings(&["server/middleware"]),
         },
         handlers: vec![HandlerStyle::FileSuffixVerb],
         route_for_path: Some(routing::nitro),
@@ -190,6 +249,17 @@ fn nest() -> FrameworkProfile {
             cors_enablers: strings(&["enableCors", "cors"]),
             ..baseline
         },
+        auth: AuthVocabulary {
+            mount_methods: strings(&["use"]),
+            pre_handler_hooks: Vec::new(),
+            gate_decorators: strings(&["UseGuards", "Auth", "Authorized", "RequireAuth"]),
+            gate_option_keys: Vec::new(),
+            global_gate_calls: strings(&["useGlobalGuards"]),
+            enforcing_calls: Vec::new(),
+            session_readers: Vec::new(),
+            middleware_files: Vec::new(),
+            middleware_dirs: Vec::new(),
+        },
         handlers: vec![HandlerStyle::MethodDecorator],
         route_for_path: None,
     }
@@ -222,6 +292,17 @@ fn express() -> FrameworkProfile {
             ]),
             cookie_setters: strings(&["res.cookie", "response.cookie"]),
             ..baseline
+        },
+        auth: AuthVocabulary {
+            mount_methods: strings(&["use"]),
+            pre_handler_hooks: Vec::new(),
+            gate_decorators: Vec::new(),
+            gate_option_keys: Vec::new(),
+            global_gate_calls: Vec::new(),
+            enforcing_calls: Vec::new(),
+            session_readers: Vec::new(),
+            middleware_files: Vec::new(),
+            middleware_dirs: Vec::new(),
         },
         handlers: vec![HandlerStyle::RouterCall],
         route_for_path: None,
@@ -259,6 +340,17 @@ fn fastify() -> FrameworkProfile {
             cors_enablers: strings(&["cors", "fastifyCors"]),
             ..baseline
         },
+        auth: AuthVocabulary {
+            mount_methods: strings(&["addHook", "register", "use"]),
+            pre_handler_hooks: strings(&["onRequest", "preHandler", "preValidation", "preParsing"]),
+            gate_decorators: Vec::new(),
+            gate_option_keys: strings(&["onRequest", "preHandler", "preValidation"]),
+            global_gate_calls: Vec::new(),
+            enforcing_calls: Vec::new(),
+            session_readers: Vec::new(),
+            middleware_files: Vec::new(),
+            middleware_dirs: Vec::new(),
+        },
         handlers: vec![HandlerStyle::RouterCall],
         route_for_path: None,
     }
@@ -290,6 +382,17 @@ fn hono() -> FrameworkProfile {
             cookie_setters: strings(&["setCookie"]),
             router_objects: strings(&["app", "hono", "api", "router"]),
             cors_enablers: strings(&["cors"]),
+        },
+        auth: AuthVocabulary {
+            mount_methods: strings(&["use"]),
+            pre_handler_hooks: Vec::new(),
+            gate_decorators: Vec::new(),
+            gate_option_keys: Vec::new(),
+            global_gate_calls: Vec::new(),
+            enforcing_calls: Vec::new(),
+            session_readers: strings(&["getAuth"]),
+            middleware_files: Vec::new(),
+            middleware_dirs: Vec::new(),
         },
         handlers: vec![HandlerStyle::RouterCall],
         route_for_path: None,
@@ -324,6 +427,17 @@ fn koa() -> FrameworkProfile {
             cors_enablers: strings(&["cors"]),
             ..baseline
         },
+        auth: AuthVocabulary {
+            mount_methods: strings(&["use"]),
+            pre_handler_hooks: Vec::new(),
+            gate_decorators: Vec::new(),
+            gate_option_keys: Vec::new(),
+            global_gate_calls: Vec::new(),
+            enforcing_calls: Vec::new(),
+            session_readers: Vec::new(),
+            middleware_files: Vec::new(),
+            middleware_dirs: Vec::new(),
+        },
         handlers: vec![HandlerStyle::RouterCall],
         route_for_path: None,
     }
@@ -355,6 +469,17 @@ fn hapi() -> FrameworkProfile {
             router_objects: strings(&["server", "app"]),
             cors_enablers: strings(&["cors"]),
         },
+        auth: AuthVocabulary {
+            mount_methods: strings(&["ext"]),
+            pre_handler_hooks: strings(&["onPreAuth", "onPreHandler", "onCredentials"]),
+            gate_decorators: Vec::new(),
+            gate_option_keys: strings(&["auth"]),
+            global_gate_calls: strings(&["auth.default"]),
+            enforcing_calls: Vec::new(),
+            session_readers: Vec::new(),
+            middleware_files: Vec::new(),
+            middleware_dirs: Vec::new(),
+        },
         handlers: vec![HandlerStyle::RouterCall],
         route_for_path: None,
     }
@@ -384,6 +509,17 @@ fn sails() -> FrameworkProfile {
             cors_enablers: strings(&["cors"]),
             ..baseline
         },
+        auth: AuthVocabulary {
+            mount_methods: strings(&["use"]),
+            pre_handler_hooks: Vec::new(),
+            gate_decorators: Vec::new(),
+            gate_option_keys: Vec::new(),
+            global_gate_calls: Vec::new(),
+            enforcing_calls: Vec::new(),
+            session_readers: Vec::new(),
+            middleware_files: strings(&["config/policies.js", "config/policies.ts"]),
+            middleware_dirs: Vec::new(),
+        },
         handlers: vec![HandlerStyle::RouterCall],
         route_for_path: None,
     }
@@ -410,6 +546,22 @@ fn astro() -> FrameworkProfile {
             router_objects: Vec::new(),
             cors_enablers: strings(&["cors"]),
             ..baseline
+        },
+        auth: AuthVocabulary {
+            mount_methods: Vec::new(),
+            pre_handler_hooks: Vec::new(),
+            gate_decorators: Vec::new(),
+            gate_option_keys: Vec::new(),
+            global_gate_calls: Vec::new(),
+            enforcing_calls: Vec::new(),
+            session_readers: Vec::new(),
+            middleware_files: strings(&[
+                "src/middleware.ts",
+                "src/middleware.js",
+                "src/middleware/index.ts",
+                "src/middleware/index.js",
+            ]),
+            middleware_dirs: Vec::new(),
         },
         handlers: vec![HandlerStyle::ExportedVerb],
         route_for_path: Some(routing::astro),
@@ -446,6 +598,24 @@ fn remix() -> FrameworkProfile {
             router_objects: Vec::new(),
             cors_enablers: strings(&["cors"]),
         },
+        auth: AuthVocabulary {
+            mount_methods: Vec::new(),
+            pre_handler_hooks: Vec::new(),
+            gate_decorators: Vec::new(),
+            gate_option_keys: Vec::new(),
+            global_gate_calls: Vec::new(),
+            enforcing_calls: strings(&[
+                "requireUserId",
+                "requireUser",
+                "requireUserSession",
+                "requireAuth",
+                "requireAdmin",
+                "authenticator.isAuthenticated",
+            ]),
+            session_readers: strings(&["getUserId", "getUser", "getSession", "getAuth"]),
+            middleware_files: Vec::new(),
+            middleware_dirs: Vec::new(),
+        },
         handlers: vec![HandlerStyle::ExportedVerb],
         route_for_path: Some(routing::remix),
     }
@@ -470,6 +640,17 @@ fn gatsby() -> FrameworkProfile {
             router_objects: Vec::new(),
             cors_enablers: strings(&["cors"]),
             ..baseline
+        },
+        auth: AuthVocabulary {
+            mount_methods: strings(&["use"]),
+            pre_handler_hooks: Vec::new(),
+            gate_decorators: Vec::new(),
+            gate_option_keys: Vec::new(),
+            global_gate_calls: Vec::new(),
+            enforcing_calls: Vec::new(),
+            session_readers: Vec::new(),
+            middleware_files: Vec::new(),
+            middleware_dirs: Vec::new(),
         },
         handlers: vec![HandlerStyle::ExportedVerb, HandlerStyle::RouterCall],
         route_for_path: Some(routing::gatsby),

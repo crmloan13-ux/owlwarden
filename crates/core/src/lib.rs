@@ -58,11 +58,11 @@ pub use budget::Budget;
 pub use context::{ScanContext, ScanSettings};
 pub use detector::{Capabilities, Detector, DetectorError, DetectorKind, DetectorMeta};
 pub use finding::{
-    AgentHost, AsiRef, CodeFrame, Confidence, Finding, FindingContext, Fix, FixSafety, Framework,
-    Highlight, Location, OwaspRef, Reference, ReferenceKind, RuleId, RuntimeScope, Severity,
-    SourceLocation,
+    AgentHost, AsiRef, CodeFrame, Confidence, Exposure, ExposureEvidence, Finding, FindingContext,
+    Fix, FixSafety, Framework, Highlight, Location, OwaspRef, Reference, ReferenceKind, RuleId,
+    RuntimeScope, Severity, SourceLocation,
 };
-pub use report::{Report, ReportSummary, ScanTarget, ToolInfo};
+pub use report::{ExposureSummary, Report, ReportSummary, ScanTarget, ToolInfo};
 pub use reporter::{ReportError, Reporter};
 pub use scheduler::{ScanError, Scheduler};
 pub use scope::{

@@ -1,6 +1,13 @@
 import { parseArgs, type ParseArgsConfig } from "node:util";
 
-import { confidenceSchema, severitySchema, type Confidence, type Severity } from "@dointhai/owlwarden-sdk";
+import {
+  confidenceSchema,
+  exposureSchema,
+  severitySchema,
+  type Confidence,
+  type Exposure,
+  type Severity,
+} from "@dointhai/owlwarden-sdk";
 
 /**
  * Argument parsing, on top of Node's own `parseArgs`.
@@ -84,6 +91,11 @@ export interface ScanOptions {
   /** Stacked `--format` values from the CLI (deduped, order preserved). */
   formats?: ReportFormat[];
   failOn?: Severity;
+  /**
+   * Exposure at or above which findings fail the run, independently of
+   * {@link failOn}. Unset leaves the gate off.
+   */
+  failOnExposure?: Exposure;
   minConfidence?: Confidence;
   out?: string;
   /** Path to a baseline file; only new findings are reported. */
@@ -218,6 +230,7 @@ const OPTIONS = {
   baseline: { type: "string" },
   "write-baseline": { type: "string" },
   "fail-on": { type: "string" },
+  "fail-on-exposure": { type: "string" },
   "min-confidence": { type: "string" },
   "report-suppressions": { type: "boolean", default: false },
   "allow-config-js": { type: "boolean", default: false },
@@ -495,6 +508,14 @@ function scanOptions(values: Values, positionals: string[]): ScanOptions {
       "info",
     ]);
   }
+  if (values["fail-on-exposure"] !== undefined) {
+    options.failOnExposure = parseWith(
+      exposureSchema,
+      "--fail-on-exposure",
+      values["fail-on-exposure"],
+      ["internet", "authenticated", "internal", "unknown"],
+    );
+  }
   if (values["min-confidence"] !== undefined) {
     options.minConfidence = parseWith(
       confidenceSchema,
@@ -592,6 +613,14 @@ function vetOptions(values: Values, positionals: string[]): ScanOptions {
       "low",
       "info",
     ]);
+  }
+  if (values["fail-on-exposure"] !== undefined) {
+    options.failOnExposure = parseWith(
+      exposureSchema,
+      "--fail-on-exposure",
+      values["fail-on-exposure"],
+      ["internet", "authenticated", "internal", "unknown"],
+    );
   }
   return options;
 }

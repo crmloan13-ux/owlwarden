@@ -144,14 +144,37 @@ async fn junit_output_has_one_failure_per_finding() {
 }
 
 #[tokio::test]
-async fn md_output_groups_by_severity_and_carries_the_fix() {
+async fn md_output_groups_by_exposure_and_carries_the_fix() {
     let report = stable_report("vulnerable/next-api").await;
     let encoded = MdReporter::to_string(&report).unwrap();
     assert!(encoded.starts_with("# owlwarden report —"));
-    assert!(encoded.contains("## High"));
+    // Grouped by exposure since 1.2: a pull-request comment is read top-down,
+    // and the top is where the reachable findings belong (ADR 0029 §5).
+    assert!(encoded.contains("## Internet-reachable"));
+    assert!(
+        encoded.find("## Internet-reachable") < encoded.find("## Unclassified")
+            || !encoded.contains("## Unclassified"),
+        "the reachable group must come first"
+    );
     assert!(encoded.contains("**Fix"));
+    assert!(encoded.contains("**Exposure:**"));
     assert!(encoded.contains("stack-trace-leak") || encoded.contains("Stack trace"));
     insta::assert_snapshot!("md_next", encoded);
+}
+
+#[tokio::test]
+async fn md_falls_back_to_severity_headings_when_nothing_is_classified() {
+    // `vet` over agent configuration classifies nothing, and a report whose
+    // only heading was "Unclassified" would be worse than the 1.1 shape.
+    let mut report = stable_report("vulnerable/next-api").await;
+    for finding in &mut report.findings {
+        finding.exposure = None;
+        finding.exposure_evidence = None;
+    }
+    report.recount();
+    let encoded = MdReporter::to_string(&report).unwrap();
+    assert!(encoded.contains("## High"));
+    assert!(!encoded.contains("## Unclassified"));
 }
 
 #[tokio::test]

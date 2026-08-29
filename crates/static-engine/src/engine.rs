@@ -301,6 +301,19 @@ impl Detector for StaticEngine {
             finding.apply_runtime_scope_ceiling();
         }
 
+        // Exposure, for the same reason and with a stronger one behind it: a
+        // rule that classified its own reachability could claim `authenticated`
+        // without having looked for a gate, and that is the one new way 1.2
+        // could make a reader less safe
+        // ([ADR 0029](../../../docs/adr/0029-exposure-model.md) §2).
+        //
+        // After truncation would be cheaper. Before it is correct: the
+        // classifier's per-file budget should be spent on the findings the
+        // reader will actually see, and those are chosen by the sort that
+        // happens downstream of this.
+        let mut classifier = crate::exposure::ExposureClassifier::build(&project);
+        classifier.classify_all(&mut findings);
+
         if findings.len() > limits::scan::MAX_FINDINGS {
             findings.truncate(limits::scan::MAX_FINDINGS);
             self.mark_truncated();

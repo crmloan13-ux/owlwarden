@@ -15,7 +15,7 @@
 use owlwarden_core::finding::{
     Confidence, Finding, Fix, FixSafety, Location, RuleId, RuntimeScope, Severity, SourceLocation,
 };
-use owlwarden_core::report::{Report, ReportSummary, ScanTarget, ToolInfo};
+use owlwarden_core::report::{ExposureSummary, Report, ReportSummary, ScanTarget, ToolInfo};
 use owlwarden_gate::{GateOutcome, GatePolicy, adapter_for, decide};
 
 /// A report with everything that varies between runs pinned.
@@ -36,6 +36,7 @@ fn report(findings: Vec<Finding>) -> Box<Report> {
             ..ScanTarget::default()
         },
         summary: ReportSummary::of(&findings),
+        exposure_summary: ExposureSummary::default(),
         findings,
         suppressed_count: 0,
         suppressions: Vec::new(),

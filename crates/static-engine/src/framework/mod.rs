@@ -33,6 +33,7 @@
 //! Pretending otherwise with a callback that a WASM plugin cannot supply would
 //! be a worse lie than the honest limit.
 
+pub mod auth;
 pub mod profiles;
 pub mod routing;
 
@@ -42,6 +43,7 @@ use owlwarden_core::finding::Framework;
 
 use crate::project::PackageManifest;
 
+pub use auth::AuthVocabulary;
 pub use routing::RouteInfo;
 
 /// The identifiers and method names one framework uses to speak HTTP.
@@ -151,6 +153,13 @@ pub struct FrameworkProfile {
     pub bootstrap_files: Vec<String>,
     /// The framework's HTTP vocabulary.
     pub http: HttpVocabulary,
+    /// How this framework says "check the caller before running the handler".
+    ///
+    /// Consumed only by [`crate::exposure`]. It sits in the profile rather than
+    /// in the classifier for the same reason routing does: adding a framework
+    /// should add exposure support by construction, not as a second edit
+    /// somebody forgets.
+    pub auth: AuthVocabulary,
     /// How its handlers are recognised.
     pub handlers: Vec<HandlerStyle>,
     /// Maps a project-relative source path to the route it serves, for
@@ -480,6 +489,7 @@ mod tests {
                 response_objects: vec!["reply".to_owned()],
                 ..HttpVocabulary::default()
             },
+            auth: AuthVocabulary::default(),
             handlers: Vec::new(),
             route_for_path: None,
         });
@@ -509,6 +519,7 @@ mod tests {
                 body_methods: vec!["json".to_owned(), "text".to_owned()],
                 ..HttpVocabulary::default()
             },
+            auth: AuthVocabulary::default(),
             handlers: vec![HandlerStyle::RouterCall],
             route_for_path: None,
         });
