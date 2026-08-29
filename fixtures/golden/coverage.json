@@ -308,6 +308,8 @@
     ".codex/**",
     ".mcp.json",
     "mcp.json",
+    ".owlwarden/surface.lock",
+    ".owlwarden/surface.lock.sig",
     "CLAUDE.md",
     "AGENTS.md"
   ],

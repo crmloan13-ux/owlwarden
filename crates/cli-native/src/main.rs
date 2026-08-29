@@ -13,6 +13,7 @@
 
 mod cli;
 mod git;
+mod seal_cmd;
 
 use std::io::{IsTerminal, Write};
 
@@ -77,7 +78,20 @@ fn main() -> std::process::ExitCode {
             fail_on,
             min_confidence,
             since,
-        } => run_gate(&host, &path, fail_on, min_confidence, since.as_deref()),
+            seal,
+            seal_trust,
+            require_signed_seal,
+        } => run_gate(&GateInvocation {
+            host: &host,
+            path: &path,
+            fail_on,
+            min_confidence,
+            since: since.as_deref(),
+            seal,
+            seal_trust: seal_trust.as_deref(),
+            require_signed_seal,
+        }),
+        Command::Seal(args) => seal_cmd::run(&args),
         Command::Watch(args) => run_watch(&args),
         Command::OsvUpdate { path, out } => run_osv_update(&path, out.as_deref()),
     };
@@ -113,14 +127,30 @@ fn run_scan(args: &ScanArgs) -> i32 {
 /// shows the developer a stack trace mid-session and leaves the host with no
 /// verdict; the failure posture — `ask` before execution, `allow` after — is
 /// the answer, and it is chosen in `owlwarden_gate::decide` rather than here.
-fn run_gate(
-    host: &str,
-    path: &str,
+struct GateInvocation<'a> {
+    host: &'a str,
+    path: &'a str,
     fail_on: Option<owlwarden_core::finding::Severity>,
     min_confidence: Option<owlwarden_core::finding::Confidence>,
-    since: Option<&str>,
-) -> i32 {
+    since: Option<&'a str>,
+    seal: owlwarden_gate::SealPosture,
+    seal_trust: Option<&'a str>,
+    require_signed_seal: bool,
+}
+
+fn run_gate(invocation: &GateInvocation<'_>) -> i32 {
     use std::io::Read as _;
+
+    let GateInvocation {
+        host,
+        path,
+        fail_on,
+        min_confidence,
+        since,
+        seal,
+        seal_trust,
+        require_signed_seal,
+    } = *invocation;
 
     let Some(adapter) = owlwarden_gate::adapter_for(host) else {
         return fail(&format!(
@@ -171,6 +201,7 @@ fn run_gate(
         // Off by default: the default should be the one that keeps people from
         // removing the hook.
         fail_closed: std::env::var("OWLWARDEN_GATE_FAIL").is_ok_and(|value| value == "closed"),
+        seal,
     };
 
     let decision =
@@ -185,6 +216,8 @@ fn run_gate(
             // rule: nothing in the tree can move the threshold in either
             // direction.
             project_posture: owlwarden_gate::ProjectPosture::default(),
+            seal_trust_file: seal_trust.map(std::path::Path::new),
+            require_signed_seal,
         })) {
             Ok(decision) => decision,
             Err(error) => owlwarden_gate::GateDecision::new(

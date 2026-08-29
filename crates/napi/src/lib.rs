@@ -844,6 +844,16 @@ struct GateRequestJson {
     /// As above, for confidence.
     #[serde(default)]
     project_min_confidence: Option<String>,
+    /// How hard to react to agent-surface drift: `off`, `advisory`, `strict`.
+    #[serde(default)]
+    seal: Option<String>,
+    /// A trust root file for the seal's signature. Operator-supplied, and never
+    /// a path inside the scanned tree.
+    #[serde(default)]
+    seal_trust_file: Option<String>,
+    /// Whether an unsigned or badly-signed seal is a failure.
+    #[serde(default)]
+    require_signed_seal: bool,
 }
 
 /// What the gate hands back to the CLI.
@@ -936,6 +946,11 @@ fn gate_blocking(request_json: &str) -> String {
             .and_then(Confidence::from_str_opt)
             .unwrap_or(Confidence::Likely),
         fail_closed: request.fail_closed,
+        seal: request
+            .seal
+            .as_deref()
+            .and_then(owlwarden_gate::SealPosture::from_str_opt)
+            .unwrap_or_default(),
     };
     let posture = owlwarden_gate::ProjectPosture {
         fail_on: request
@@ -958,6 +973,8 @@ fn gate_blocking(request_json: &str) -> String {
         session_paths: request.session_paths.clone(),
         policy,
         project_posture: posture,
+        seal_trust_file: request.seal_trust_file.as_deref().map(std::path::Path::new),
+        require_signed_seal: request.require_signed_seal,
     }));
 
     let encoded = adapter.encode(&event, &decision);

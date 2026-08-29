@@ -158,6 +158,13 @@ pub struct HookEntry<'a> {
     pub trigger: String,
     /// Where the trigger is declared.
     pub trigger_span: Span,
+    /// The tool matcher the declaration narrows to, when the host has one.
+    ///
+    /// Part of a hook's identity rather than of its payload: `PostToolUse` on
+    /// `Edit|Write` and `PostToolUse` on `Bash` are two hooks, and a record
+    /// that conflated them would report one being replaced by the other as no
+    /// change at all.
+    pub matcher: Option<String>,
     /// The command, when the declaration carries one.
     pub command: Option<String>,
     /// Where the command string is.
@@ -255,12 +262,14 @@ fn collect_hook_events<'a>(
             // ships.
             || normalised.contains("startup");
 
+        let matcher = matcher_of(&event.value);
         let commands = commands_under(&event.value);
         if commands.is_empty() {
             entries.push(HookEntry {
                 file,
                 trigger: event.key.clone(),
                 trigger_span: event.key_span,
+                matcher: matcher.clone(),
                 command: None,
                 command_span: None,
                 automatic,
@@ -272,12 +281,29 @@ fn collect_hook_events<'a>(
                 file,
                 trigger: event.key.clone(),
                 trigger_span: event.key_span,
+                matcher: matcher.clone(),
                 command: Some(command),
                 command_span: Some(span),
                 automatic,
             });
         }
     }
+}
+
+/// The first `matcher` string at any depth below an event's value.
+///
+/// One rather than all: a host narrows a hook with one matcher, and a config
+/// that somehow declares two is a config whose first one we should report
+/// rather than a shape to invent semantics for.
+fn matcher_of(node: &JsonNode) -> Option<String> {
+    node.strings()
+        .into_iter()
+        .find(|hit| {
+            hit.path
+                .last()
+                .is_some_and(|key| key.eq_ignore_ascii_case("matcher"))
+        })
+        .map(|hit| hit.value.to_owned())
 }
 
 /// Every `command` string at any depth below `node`.
@@ -341,6 +367,7 @@ fn collect_vscode_tasks<'a>(
             file,
             trigger: format!("runOn: {run_on}"),
             trigger_span,
+            matcher: None,
             command: command.map(|text| {
                 if arguments.is_empty() {
                     text.to_owned()
@@ -386,6 +413,7 @@ fn collect_devcontainer<'a>(
                 file,
                 trigger: member.key.clone(),
                 trigger_span: member.key_span,
+                matcher: None,
                 command: Some(command),
                 command_span: Some(span),
                 automatic: true,

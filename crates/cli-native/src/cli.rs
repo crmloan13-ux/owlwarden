@@ -33,6 +33,12 @@ pub enum Command {
         min_confidence: Option<Confidence>,
         /// At a turn boundary, scan what changed since this ref.
         since: Option<String>,
+        /// How hard to react to agent-surface drift.
+        seal: owlwarden_gate::SealPosture,
+        /// A trust root file for the seal's signature. Never inside the tree.
+        seal_trust: Option<String>,
+        /// Refuse an unsigned or badly-signed seal.
+        require_signed_seal: bool,
     },
     /// Re-scan on change (static only).
     Watch(Box<ScanArgs>),
@@ -50,6 +56,8 @@ pub enum Command {
         /// Restrict output to ASCII.
         ascii: bool,
     },
+    /// Record or verify the agent execution surface.
+    Seal(Box<SealArgs>),
     /// Print the long-form write-up for one rule.
     Explain {
         /// Rule id.
@@ -68,6 +76,77 @@ pub enum Command {
         /// Output path (default `.owlwarden/osv-index.json` under the project).
         out: Option<String>,
     },
+}
+
+/// What `owlwarden seal` should do.
+///
+/// Four verbs and one file. Deliberately not four commands: they all operate on
+/// the same lockfile, and a reader who knows `seal` should not have to learn
+/// `seal-verify` as a separate thing.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum SealMode {
+    /// Write or update the lockfile. Interactive; requires a TTY or `--yes`.
+    #[default]
+    Write,
+    /// Exit 0 if unchanged, 1 on drift, 2 if it could not run.
+    Verify,
+    /// Show what changed without writing.
+    Diff,
+    /// Record a finding as deliberately accepted.
+    Accept,
+}
+
+/// Options for `owlwarden seal`.
+///
+/// Independent presentation and policy switches, the same shape and for the
+/// same reason as [`ScanArgs`]: folding them into an enum would mean inventing
+/// combinations the user cannot express on a command line.
+#[allow(clippy::struct_excessive_bools)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SealArgs {
+    /// Project root.
+    pub path: String,
+    /// What to do.
+    pub mode: SealMode,
+    /// Emit JSON instead of text.
+    pub json: bool,
+    /// Proceed without a TTY.
+    ///
+    /// Sealing is never unattended: this is the whole defence against the
+    /// obvious objection that whatever wrote the drift can also run `seal`. It
+    /// is a partial defence, and `SECURITY.md` says so.
+    pub yes: bool,
+    /// `--accept <fingerprint> --reason <text>` pairs, in the order given.
+    ///
+    /// Repeatable, because a first seal on a real repository often has more
+    /// than one deliberate finding in it, and a flag that could only accept one
+    /// per invocation would deadlock: `seal` refuses while any high finding is
+    /// unaccepted, so there would be no seal to accept the second into.
+    pub accept: Vec<(String, String)>,
+    /// A trust root file for signature verification.
+    pub trust: Option<String>,
+    /// Refuse an unsigned or badly-signed seal.
+    pub require_signed: bool,
+    /// Force colour off.
+    pub no_color: bool,
+    /// Restrict output to ASCII.
+    pub ascii: bool,
+}
+
+impl Default for SealArgs {
+    fn default() -> Self {
+        Self {
+            path: ".".to_owned(),
+            mode: SealMode::Write,
+            json: false,
+            yes: false,
+            accept: Vec::new(),
+            trust: None,
+            require_signed: false,
+            no_color: false,
+            ascii: false,
+        }
+    }
 }
 
 /// Options for `owlwarden scan`.
@@ -238,6 +317,7 @@ pub fn parse(args: &[String]) -> Result<Command, ArgError> {
         "scan" => parse_scan(rest).map(|args| Command::Scan(Box::new(args))),
         "vet" => parse_vet(rest).map(|args| Command::Vet(Box::new(args))),
         "gate" => parse_gate(rest),
+        "seal" => parse_seal(rest).map(|args| Command::Seal(Box::new(args))),
         "watch" => parse_scan(rest).map(|args| Command::Watch(Box::new(args))),
         "rules" => Ok(Command::Rules {
             json: rest.any(|arg| arg == "--json"),
@@ -448,6 +528,9 @@ fn parse_gate<'a>(args: impl Iterator<Item = &'a String>) -> Result<Command, Arg
     let mut fail_on: Option<Severity> = None;
     let mut min_confidence: Option<Confidence> = None;
     let mut since: Option<String> = None;
+    let mut seal = owlwarden_gate::SealPosture::Off;
+    let mut seal_trust: Option<String> = None;
+    let mut require_signed_seal = false;
     let mut args = args.peekable();
 
     while let Some(arg) = args.next() {
@@ -456,6 +539,23 @@ fn parse_gate<'a>(args: impl Iterator<Item = &'a String>) -> Result<Command, Arg
         match arg.as_str() {
             "--host" => host = Some(value("--host")?),
             "--since" => since = Some(value("--since")?),
+            "--seal" => {
+                seal = enumerated(
+                    "--seal",
+                    &value("--seal")?,
+                    owlwarden_gate::SealPosture::from_str_opt,
+                    "off, advisory, strict",
+                )?;
+            }
+            "--seal-trust" => seal_trust = Some(value("--seal-trust")?),
+            "--require-signed-seal" => {
+                require_signed_seal = true;
+                if seal == owlwarden_gate::SealPosture::Off {
+                    // Asking for a signature and not asking for verification is
+                    // a contradiction, and the useful reading is the strict one.
+                    seal = owlwarden_gate::SealPosture::Advisory;
+                }
+            }
             "--fail-on" => {
                 let text = value("--fail-on")?;
                 fail_on = Some(Severity::from_str_opt(&text).ok_or(ArgError::InvalidValue {
@@ -497,7 +597,80 @@ fn parse_gate<'a>(args: impl Iterator<Item = &'a String>) -> Result<Command, Arg
         fail_on,
         min_confidence,
         since,
+        seal,
+        seal_trust,
+        require_signed_seal,
     })
+}
+
+/// Parses the flags of `seal`.
+fn parse_seal<'a>(args: impl Iterator<Item = &'a String>) -> Result<SealArgs, ArgError> {
+    let mut parsed = SealArgs::default();
+    let mut path: Option<String> = None;
+    let mut modes: Vec<SealMode> = Vec::new();
+    let mut accepted: Vec<(String, String)> = Vec::new();
+    let mut args = args.peekable();
+
+    while let Some(arg) = args.next() {
+        let mut value =
+            |option: &'static str| args.next().cloned().ok_or(ArgError::MissingValue(option));
+        match arg.as_str() {
+            "--verify" => modes.push(SealMode::Verify),
+            "--diff" => modes.push(SealMode::Diff),
+            "--accept" => {
+                if !modes.contains(&SealMode::Accept) {
+                    modes.push(SealMode::Accept);
+                }
+                accepted.push((value("--accept")?, String::new()));
+            }
+            "--reason" => {
+                let reason = value("--reason")?;
+                let Some(last) = accepted.last_mut() else {
+                    return Err(ArgError::InvalidValue {
+                        option: "--reason",
+                        value: reason,
+                        expected: "--accept <fingerprint> before --reason",
+                    });
+                };
+                last.1 = reason;
+            }
+            "--trust" => parsed.trust = Some(value("--trust")?),
+            "--require-signed-seal" => parsed.require_signed = true,
+            "--json" => parsed.json = true,
+            "--yes" | "-y" => parsed.yes = true,
+            "--no-color" => parsed.no_color = true,
+            "--ascii" => parsed.ascii = true,
+            other if other.starts_with('-') => {
+                return Err(ArgError::UnknownOption(other.to_owned()));
+            }
+            candidate if path.is_none() => path = Some(candidate.to_owned()),
+            extra => return Err(ArgError::UnknownOption(extra.to_owned())),
+        }
+    }
+
+    if modes.len() > 1 {
+        return Err(ArgError::InvalidValue {
+            option: "seal",
+            value: "more than one mode".to_owned(),
+            expected: "at most one of --verify, --diff, --accept",
+        });
+    }
+    parsed.mode = modes.first().copied().unwrap_or(SealMode::Write);
+    // The same rule suppressions live under. An acceptance nobody can explain
+    // is an acceptance nobody decided, and a seal is precisely where the
+    // decision is supposed to be written down.
+    if let Some((fingerprint, _)) = accepted.iter().find(|(_, reason)| reason.trim().is_empty()) {
+        return Err(ArgError::InvalidValue {
+            option: "--accept",
+            value: fingerprint.clone(),
+            expected: "--reason \"why this is deliberate\"",
+        });
+    }
+    parsed.accept = accepted;
+    if let Some(path) = path {
+        parsed.path = path;
+    }
+    Ok(parsed)
 }
 
 /// Parses the flags of `scan`.
@@ -688,17 +861,11 @@ impl RawScan {
 /// The help text.
 #[must_use]
 pub fn help_text() -> String {
-    let presets = owlwarden_detectors::PRESETS
-        .iter()
-        .map(|preset| {
-            format!(
-                "                     {:<14} {}",
-                preset.name, preset.description
-            )
-        })
-        .collect::<Vec<_>>()
-        .join("\n");
+    format!("{}{}", commands_help(), options_help())
+}
 
+/// The commands, and one paragraph each on what they are for.
+fn commands_help() -> String {
     format!(
         "owlwarden {version} — security scanner for Node apps
 
@@ -706,6 +873,7 @@ USAGE
   owlwarden scan [PATH] [OPTIONS]
   owlwarden vet [PATH]                 check a repo before you open it
   owlwarden gate --host <HOST> [PATH]  hook entry point; event JSON on stdin
+  owlwarden seal [PATH] [OPTIONS]      lock the agent's execution surface
   owlwarden watch [PATH] [OPTIONS]
   owlwarden osv update [PATH] [--out FILE]
   owlwarden rules [--json]
@@ -727,7 +895,41 @@ USAGE
         Exit codes with --host generic: 0 allow, 1 deny, 2 ask.
         Set OWLWARDEN_GATE_FAIL=closed to deny on a gate failure after an edit;
         before a command it always asks, and that is not configurable.
+        --seal off | advisory | strict  react to agent-surface drift
+        --seal-trust <FILE>             trust roots for the seal's signature
+        --require-signed-seal           refuse an unsigned or untrusted seal
+  seal — records .owlwarden/surface.lock: every file the agent loads out of the
+        working tree, by semantic digest, with its hooks, MCP servers, and
+        permission set extracted so a diff reads as a sentence.
+        --verify   exit 0 if unchanged, 1 on drift, 2 if it could not run
+        --diff     show what changed without writing, and never exit non-zero
+        --accept <FINGERPRINT> --reason <TEXT>  repeatable; both required
+        --trust <FILE>            trust roots for the detached signature
+        --require-signed-seal     an unsigned or untrusted seal fails --verify
+        --yes      proceed without a terminal
+        Sealing is never unattended: without a TTY it refuses unless --yes is
+        passed. That raises the cost for whatever wrote the drift; it does not
+        close the hole, and SECURITY.md says so.
+",
+        version = owlwarden_core::ENGINE_VERSION,
+    )
+}
 
+/// The option tables.
+fn options_help() -> String {
+    let presets = owlwarden_detectors::PRESETS
+        .iter()
+        .map(|preset| {
+            format!(
+                "                     {:<14} {}",
+                preset.name, preset.description
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    format!(
+        "
 SCAN OPTIONS
   --preset <NAME>      Rule bundle to run. Default: {default_preset}
 {presets}
@@ -778,7 +980,6 @@ Without --target / --osv, scans are static-only and never touch the network.
 With --target, only passive methods are used unless --allow-active; scope is
 deny-by-default. --osv talks only to api.osv.dev (package names/versions).
 ",
-        version = owlwarden_core::ENGINE_VERSION,
         default_preset = owlwarden_detectors::DEFAULT_PRESET,
     )
 }

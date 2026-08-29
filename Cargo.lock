@@ -559,6 +559,7 @@ checksum = "70e796c081cee67dc755e1a36a0a172b897fab85fc3f6bc48307991f64e4eca9"
 dependencies = [
  "curve25519-dalek",
  "ed25519",
+ "rand_core 0.6.4",
  "serde",
  "sha2",
  "subtle",
@@ -1324,6 +1325,7 @@ dependencies = [
  "owlwarden-gate",
  "owlwarden-plugin-host",
  "owlwarden-reporters",
+ "owlwarden-seal",
  "owlwarden-static",
  "owlwarden-transport",
  "serde_json",
@@ -1383,6 +1385,7 @@ dependencies = [
  "insta",
  "owlwarden-core",
  "owlwarden-detectors",
+ "owlwarden-seal",
  "owlwarden-static",
  "serde",
  "serde_json",
@@ -1442,6 +1445,22 @@ dependencies = [
  "serde",
  "serde_json",
  "tokio",
+]
+
+[[package]]
+name = "owlwarden-seal"
+version = "1.1.0"
+dependencies = [
+ "ed25519-dalek",
+ "owlwarden-core",
+ "owlwarden-detectors",
+ "owlwarden-static",
+ "rand_core 0.6.4",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tempfile",
+ "thiserror",
 ]
 
 [[package]]
