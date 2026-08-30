@@ -226,33 +226,66 @@ fn the_runtimes_this_machine_can_execute_are_reported_rather_than_assumed() {
     // The honesty half. A local run that skipped Bun, Deno, and workerd in
     // silence would let "the tests pass" mean something different on a laptop
     // and in CI, which is the one thing an execution invariant cannot afford.
+    //
+    // `OWLWARDEN_REQUIRE_RUNTIMES` names the runtimes that **must** be
+    // installed, comma-separated — not a boolean. A boolean could only mean
+    // "all of them", and workerd has no standalone interpreter to install on a
+    // runner, so the list is how CI says which runtimes it actually checked by
+    // execution and which it checked another way. Naming them makes the
+    // exclusion reviewable in the workflow instead of true by accident.
     let mut missing: Vec<&str> = Vec::new();
     for runtime in Runtime::all() {
         let Some(command) = runtime.probe_command() else {
             continue;
         };
-        let available = Command::new(command)
-            .arg("--version")
-            .output()
-            .is_ok_and(|output| output.status.success());
-        if !available {
+        if !is_installed(command) {
             missing.push(command);
         }
     }
 
-    if std::env::var_os("OWLWARDEN_REQUIRE_RUNTIMES").is_some() {
+    let required = std::env::var("OWLWARDEN_REQUIRE_RUNTIMES").unwrap_or_default();
+    let required: Vec<&str> = required
+        .split(',')
+        .map(str::trim)
+        .filter(|name| !name.is_empty())
+        .collect();
+
+    // An unrecognised name is a typo in the workflow, and a typo that silently
+    // required nothing would make this whole assertion decorative.
+    for name in &required {
         assert!(
-            missing.is_empty(),
-            "OWLWARDEN_REQUIRE_RUNTIMES is set and these are not installed: {}. \
-             The execution invariant is only meaningful where the runtimes exist.",
-            missing.join(", ")
+            Runtime::all()
+                .into_iter()
+                .any(|runtime| runtime.probe_command() == Some(*name)),
+            "OWLWARDEN_REQUIRE_RUNTIMES names {name:?}, which is not a runtime this build knows"
         );
-    } else if !missing.is_empty() {
-        // Not a failure locally, and not silent either.
+    }
+
+    let absent: Vec<&&str> = required
+        .iter()
+        .filter(|name| missing.contains(*name))
+        .collect();
+    assert!(
+        absent.is_empty(),
+        "OWLWARDEN_REQUIRE_RUNTIMES asks for {absent:?} and they are not installed. \
+         The execution invariant is only meaningful where the runtimes exist."
+    );
+
+    if !missing.is_empty() {
+        // Never silent, whether or not it is a failure. A reader of the log has
+        // to be able to tell which runtimes the grid executed on.
         eprintln!(
             "note: {} not installed; the API-availability grid still ran, but no snippet was \
-             executed on them. CI sets OWLWARDEN_REQUIRE_RUNTIMES=1.",
+             executed on them.",
             missing.join(", ")
         );
     }
+}
+
+/// Whether a runtime's interpreter is on `PATH`.
+fn is_installed(command: &str) -> bool {
+    Command::new(command)
+        .arg("--version")
+        .output()
+        .is_ok_and(|output| output.status.success())
 }

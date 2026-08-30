@@ -22,6 +22,9 @@ const CROSS = (up = "") => `
   <li><a href="${up}rules/"><span class="name">Rules</span><span class="blurb">Trigger, confidence, and framework-specific fix.</span></a></li>
   <li><a href="${up}agent-config-security/"><span class="name">Agent config</span><span class="blurb">Hooks, MCP servers, instructions, and editor tasks.</span></a></li>
   <li><a href="${up}vet/"><span class="name">owlwarden vet</span><span class="blurb">Check a repository before you open it.</span></a></li>
+  <li><a href="${up}seal/"><span class="name">owlwarden seal</span><span class="blurb">Notice when your agent's execution surface moves.</span></a></li>
+  <li><a href="${up}exposure/"><span class="name">Exposure</span><span class="blurb">Which of these findings do I fix first?</span></a></li>
+  <li><a href="${up}runtimes/"><span class="name">Runtimes</span><span class="blurb">Does this fix run on Bun, Deno, or Workers?</span></a></li>
   <li><a href="${up}owasp/"><span class="name">Coverage</span><span class="blurb">Mapped rules and categories static analysis cannot cover.</span></a></li>
 </ul>`;
 
@@ -36,6 +39,10 @@ export function staticPages({ rules, coverage, samples, version }) {
     { path: "", page: home({ rules, webRules, agentRules, coverage, leak, hook, version }) },
     { path: "agent-config-security/", page: agentConfigSecurity({ agentRules, hook }) },
     { path: "vet/", page: vet({ agentRules }) },
+    { path: "seal/", page: seal() },
+    { path: "exposure/", page: exposure() },
+    { path: "runtimes/", page: runtimes() },
+    { path: "benchmark/", page: benchmark() },
     { path: "claude-code/", page: claudeCode() },
     { path: "cursor/", page: cursor() },
     { path: "mcp/", page: mcp() },
@@ -153,7 +160,9 @@ ${code("bash", "owlwarden init --claude-code   # hooks + MCP entry\nowlwarden in
 <p>
   <a href="./claude-code/">Claude Code</a> · <a href="./cursor/">Cursor</a> ·
   <a href="./mcp/">MCP</a> · <a href="./ci/">CI</a> ·
-  <a href="./vet/">vet</a> · <a href="./changelog/">Changelog</a>
+  <a href="./vet/">vet</a> · <a href="./seal/">seal</a> ·
+  <a href="./exposure/">exposure</a> · <a href="./runtimes/">runtimes</a> ·
+  <a href="./benchmark/">benchmark</a> · <a href="./changelog/">Changelog</a>
 </p>
 
 <h2>Common questions</h2>
@@ -1013,4 +1022,417 @@ function vsEslint() {
   examples</a>.
 </p>`,
   }).page;
+}
+
+// ---------------------------------------------------------------------------
+
+function seal() {
+  return {
+    title: "owlwarden seal: lock your agent's execution surface",
+    heading: "Notice when .claude/settings.json moves",
+    description:
+      "owlwarden seal records every file your agent loads out of the working tree, with hooks " +
+      "and MCP servers extracted, so a change reads as a sentence.",
+    breadcrumbs: [
+      { label: "owlwarden", href: "" },
+      { label: "seal", href: "seal/" },
+    ],
+    schema: [
+      {
+        "@type": "HowTo",
+        name: "Detect a change to your agent's configuration",
+        totalTime: "PT1M",
+        step: [
+          { "@type": "HowToStep", name: "Record the surface", text: "npx owlwarden seal" },
+          { "@type": "HowToStep", name: "Commit it", text: "git add .owlwarden/surface.lock" },
+          { "@type": "HowToStep", name: "Check it in CI", text: "npx owlwarden seal --verify" },
+        ],
+      },
+    ],
+    body: `
+${code("bash", "npx owlwarden seal          # record it\nnpx owlwarden seal --verify # …and notice when it moves")}
+
+<h2>Your dependencies have a lockfile. Your agent's execution surface does not.</h2>
+<p>
+  <code>package-lock.json</code> does not judge whether a package is malicious.
+  It records what was resolved and makes a change loud, and it works because the
+  diff is reviewable even when the content is not.
+</p>
+<p>
+  Nothing does that for the set of files an agent loads and executes out of your
+  working tree. A <code>SessionStart</code> hook running
+  <code>node ./scripts/warm-cache.mjs</code> is indistinguishable from a
+  legitimate one by inspection. What is <em>not</em> ambiguous is that it was not
+  there yesterday.
+</p>
+
+<h2>The diff is in the surface's own vocabulary</h2>
+<p>
+  Hooks, MCP servers, and permissions are extracted, not merely hashed. A file
+  digest tells you something changed. This tells you what.
+</p>
+${code(
+  "text",
+  `◉ᴥ◉ surface drift · 2 changes
+
+  + hook          claude-code SessionStart  node .claude/setup.mjs · not present in the seal
+                  .claude/settings.json:4
+
+  ~ mcp server    claude-code docs  pin: exact npx -y some-mcp@2.4.1 → unpinned npx -y some-mcp
+                  .claude/settings.json:31
+
+  seal taken 2026-08-27T09:14:02Z by engine 1.2.0 · no signature beside the seal`,
+)}
+<p>
+  <code>surface.lock changed</code> is a line people learn to re-run past. <em>A
+  <code>SessionStart</code> hook was added</em> is not.
+</p>
+
+<h2>Reformatting does not break it</h2>
+<p>
+  Every file carries two digests: one over the bytes, one over the parsed and
+  canonicalised structure. Comparison uses the second, so running
+  <code>prettier</code> over your dot-directory is reported and is not drift.
+  Changing one character of a hook command is.
+</p>
+<p>
+  Instruction files are the exception and seal byte-for-byte. In a file whose
+  whole purpose is to be read by a model, whitespace is content: a reordered
+  paragraph in <code>CLAUDE.md</code> is a different instruction.
+</p>
+
+<h2>What it does not protect against</h2>
+<p>
+  This is a detection and review control, not a containment control, and the
+  difference decides whether you deploy it correctly.
+</p>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Setup</th><th>What it stops</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>Unsigned seal</td>
+      <td>Accident, drift, and opportunistic malware. <strong>Not</strong> an
+      attacker with code execution who can run <code>owlwarden seal --yes</code>
+      before you next look.</td>
+    </tr>
+    <tr>
+      <td>Signed, key outside the repository</td>
+      <td>Raises the bar substantially: CI verifies a signature a process writing
+      files in your working tree cannot forge. A targeted attacker who
+      compromises the signing key defeats it, as they defeat every signing
+      scheme.</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+<p>
+  Sealing is never unattended — without a terminal it refuses unless
+  <code>--yes</code> is passed. That raises the cost for whatever wrote the
+  drift. It does not close the hole, and this page says so rather than
+  footnoting it.
+</p>
+<p>
+  It also says nothing about whether your configuration is <em>safe</em>. It says
+  whether it is the configuration you sealed.
+  <a href="../vet/">The ten agent rules</a> answer the other question, and both
+  are needed. How often those rules are wrong is
+  <a href="../benchmark/">its own page</a>.
+</p>
+
+<h2>In the gate and in CI</h2>
+${code(
+  "bash",
+  `# Drift at session start asks; mid-session it always denies, because
+# configuration that changes while an agent is running was written by
+# something in the session.
+npx owlwarden gate --host claude-code --seal advisory
+
+# In CI: exit 1 on drift, and refuse a seal nobody you trust vouched for.
+npx owlwarden seal --verify --require-signed-seal --trust ./trust.json`,
+)}
+<p>
+  <a href="../agent-config-security/">What is on the surface</a> ·
+  <a href="../claude-code/">Claude Code setup</a> ·
+  <a href="../ci/">Wiring it into CI</a>
+</p>
+${CROSS("../")}
+`,
+  };
+}
+
+// ---------------------------------------------------------------------------
+
+function exposure() {
+  return {
+    title: "owlwarden exposure: which finding do I fix first",
+    heading: "Which of these findings do I fix first?",
+    description:
+      "Every finding carries internet, authenticated, internal, or unknown — computed from route " +
+      "resolution and auth-gate recognition, and it fails toward internet.",
+    breadcrumbs: [
+      { label: "owlwarden", href: "" },
+      { label: "exposure", href: "exposure/" },
+    ],
+    body: `
+${code(
+  "text",
+  `◉ᴥ◉ 412 files · quick · node (detected) · 1.4s
+23 findings (10 high, 11 medium, 2 low)
+3 internet-reachable, 8 behind auth, 9 internal, 3 unclassified`,
+)}
+<p>
+  Three findings is an afternoon. Twenty-three is a backlog. Same scan.
+</p>
+
+<h2>Severity does not answer the question</h2>
+<p>
+  Severity is a property of the <em>rule</em>. <code>insecure-cookie</code> is
+  medium on the public login route and medium on the internal admin tool behind
+  a VPN. Confidence is a property of the <em>evidence</em>. Neither says whether
+  an attacker can reach the code, which is what every experienced reviewer
+  triages on before anything else.
+</p>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Value</th><th>Meaning</th></tr></thead>
+  <tbody>
+    <tr><td><code>internet</code></td><td>on a request-handling path, and no authentication gate was identified on it</td></tr>
+    <tr><td><code>authenticated</code></td><td>on a request-handling path with a positively identified gate</td></tr>
+    <tr><td><code>internal</code></td><td>not on a request path — a build script, a worker, a CLI, a migration</td></tr>
+    <tr><td><code>unknown</code></td><td>the framework profile could not place it</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h2>Absence of evidence yields <code>internet</code></h2>
+<p>
+  This is the one thing about the design that is not negotiable, and it runs
+  against the grain of everything else in the tool.
+</p>
+<p>
+  Everywhere else, uncertainty resolves downward: a rule that cannot prove a
+  value came from the request reports <code>possible</code> rather than guessing,
+  because the cost of a false <code>likely</code> is a wasted hour.
+</p>
+<p>
+  Exposure inverts that cost. A finding wrongly marked <code>authenticated</code>
+  is a finding somebody deprioritises — and the tool would have reassured them
+  about something it never checked. So:
+</p>
+<ul>
+  <li>A middleware module that does not resolve to a file in your tree
+    <strong>is not a gate</strong>. <code>import { requireAuth } from
+    './middleware/auth'</code> gates nothing if that file was deleted.</li>
+  <li>A name that does not read as an authentication check
+    <strong>is not a gate</strong>. <code>app.use(logger)</code> mounts
+    something; it does not gate anything.</li>
+  <li>A session call whose result is never checked
+    <strong>is not a gate</strong>. <code>const session = await
+    getServerSession()</code> with nothing done about the answer gates nothing.</li>
+  <li>A <code>config.matcher</code> we could not parse covers
+    <strong>nothing</strong>, rather than everything.</li>
+</ul>
+<p>
+  The fixtures assert the <em>direction</em>, not only the value: for every
+  framework, deleting the gate and re-running must never produce
+  <code>authenticated</code>.
+</p>
+
+<h2>What it does not claim</h2>
+<p>
+  <strong>It does not judge whether the gate is correct.</strong> A broken auth
+  check classifies as <code>authenticated</code>. Verifying authentication logic
+  is a different tool.
+</p>
+<p>
+  <strong>It is not reachability analysis.</strong> There is no call graph. A
+  finding in a library called only from a guarded handler classifies as
+  <code>unknown</code>, not <code>authenticated</code>.
+</p>
+<p>
+  <strong><code>unknown</code> is not a quiet <code>internal</code>.</strong>
+  <code>internal</code> is a claim that nothing reaches the file;
+  <code>unknown</code> means the question was not answered. They are counted
+  separately, and <code>coverage</code> reports the unclassified rate.
+</p>
+
+<h2>Gating on it</h2>
+${code(
+  "bash",
+  `npx owlwarden scan --fail-on-exposure internet
+
+# Composes with --fail-on as an OR, because they are different policies:
+# "nothing worse than medium" and "nothing an anonymous caller can reach".
+npx owlwarden scan --fail-on medium --fail-on-exposure internet`,
+)}
+<p>
+  Exposure never raises severity. A medium on an internet-reachable route is
+  still a medium — it sorts first and can trip its own gate, and that is all.
+  Severity has to keep meaning <em>how bad is this class of bug</em>, or SARIF
+  output stops being comparable between versions.
+</p>
+${CROSS("../")}
+`,
+  };
+}
+
+// ---------------------------------------------------------------------------
+
+function runtimes() {
+  return {
+    title: "owlwarden: does this fix run on Bun, Deno, or Workers?",
+    heading: "Does this fix actually run on my runtime?",
+    description:
+      "owlwarden resolves the runtime per file and patches remediation where it genuinely " +
+      "differs. The build asserts that un-patched fixes do not name an absent API.",
+    breadcrumbs: [
+      { label: "owlwarden", href: "" },
+      { label: "runtimes", href: "runtimes/" },
+    ],
+    body: `
+<p>
+  <code>weak-crypto</code> tells a Hono user to
+  <code>import { randomBytes } from 'node:crypto'</code>. On Cloudflare Workers
+  there is no <code>node:crypto</code> to import. The advice is not merely less
+  good on that runtime — <strong>it does not run</strong>.
+</p>
+<p>
+  A fix that throws at import time is not a fix. It is a catalogue cell that
+  satisfies a test.
+</p>
+
+<h2>Five rules change with the runtime. Twenty do not.</h2>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Rule</th><th>What changes</th></tr></thead>
+  <tbody>
+    <tr><td><code>weak-crypto</code></td><td><code>node:crypto</code> vs Web Crypto; <code>scrypt</code> unavailable on edge</td></tr>
+    <tr><td><code>insecure-cookie</code></td><td><code>Set-Cookie</code> construction differs between the Node and fetch-API adapters</td></tr>
+    <tr><td><code>security-headers-missing</code></td><td>headers set in edge middleware, not in a Node config block</td></tr>
+    <tr><td><code>hardcoded-secret</code></td><td><code>process.env</code> vs <code>c.env</code> vs <code>Deno.env.get</code></td></tr>
+    <tr><td><code>ssrf</code></td><td><code>fetch</code> redirect semantics and the availability of <code>redirect: 'error'</code></td></tr>
+  </tbody>
+</table>
+</div>
+<p>
+  Making runtime a second dimension would turn a 25 × 16 matrix into 25 × 16 × 4
+  — about 1 600 cells, most of them identical, because
+  <code>sql-injection</code> does not care whether the process is Bun or Node.
+  Instead a rule may declare a <em>delta</em> that patches the framework fix only
+  where the runtime genuinely changes it. Roughly 60 informative cells instead of
+  1 200 empty ones.
+</p>
+
+<h2>The absence of a delta is a positive claim</h2>
+<p>
+  The naive version of this design lets a rule silently claim its base fix works
+  everywhere. The build does not allow that: for every framework × runtime pair a
+  profile declares, a rule either has a delta, or its base fix is checked against
+  that runtime's available APIs — and CI installs Bun and Deno and names them, so
+  a green build means the grid ran rather than quietly skipped three of four.
+</p>
+<p>
+  A delta that reintroduces the API it exists to avoid — a Workers fix still
+  saying <code>process.env</code> because it was copied from the Node one and
+  edited in one place — fails the build too.
+</p>
+
+<h2>The summary line says what it inferred</h2>
+${code("text", "◉ᴥ◉ 41 files · next · node (detected) · quick · 0.3s")}
+<p>
+  Runtime detection is inference, and inference is sometimes wrong. A fix chosen
+  from an inferred runtime should say what it inferred, so the word is
+  <code>detected</code> when there was evidence — a <code>wrangler.toml</code>, a
+  <code>deno.json</code>, a Nitro preset, an adapter in the config — and
+  <code>defaulted</code> when it came from the framework's default. It is
+  resolved <em>per file</em>, because a Next application with three edge routes
+  is normal.
+</p>
+<p>
+  Every rule's page shows the fix for your framework, and the delta where the
+  runtime changes it: <a href="../rules/">the rule catalogue</a>. The axis that
+  decides which of those fixes to apply first is
+  <a href="../exposure/">exposure</a>.
+</p>
+${CROSS("../")}
+`,
+  };
+}
+
+// ---------------------------------------------------------------------------
+
+function benchmark() {
+  return {
+    title: "owlwarden benchmark: how noisy is it?",
+    heading: "How noisy is it?",
+    description:
+      "Every scanner claims low noise. owlwarden ships the harness, the corpus discipline, and " +
+      "the build gate — and publishes the state of the corpus, flattering or not.",
+    breadcrumbs: [
+      { label: "owlwarden", href: "" },
+      { label: "benchmark", href: "benchmark/" },
+    ],
+    body: `
+<div class="callout">
+  <p>
+    <strong>There is no number on this page yet, and that is the honest state.</strong>
+    The harness, the corpus format, and the build gate ship in 1.2 and are tested.
+    <strong>No repository has been labelled.</strong> <code>owlwarden bench</code>
+    exits 2 saying so rather than printing a figure.
+  </p>
+</div>
+
+<h2>Why not score against our own fixtures</h2>
+<p>
+  The should-not-fire corpus is a pass/fail gate: it is silent, or the build is
+  red. It does not produce a number, it was written by the same people who wrote
+  the rules, and it therefore measures internal consistency rather than
+  real-world behaviour.
+</p>
+<p>
+  Publishing a precision figure derived from it would be measuring the rule
+  authors' model of the world against itself and calling the result evidence.
+  A dishonest benchmark on a project whose entire positioning is honesty is not
+  a marketing risk — it is a category error.
+</p>
+
+<h2>What the corpus will have to satisfy</h2>
+<p>
+  A corpus is only worth what its discipline is worth, so the rules are enforced
+  when the file loads rather than trusted:
+</p>
+<ul>
+  <li><strong>Two named reviewers per repository.</strong> A single-reviewer
+    label is not a label.</li>
+  <li><strong>Disagreements are recorded, not resolved.</strong> They are
+    excluded from both the numerator and the denominator. A corpus that quietly
+    resolves its hard cases has optimised away exactly the cases that matter.</li>
+  <li><strong>Pinned by commit SHA, with the licence recorded</strong>, so a
+    result is reproducible in five years and offline.</li>
+  <li><strong>Every label carries a note.</strong> A verdict nobody explained is
+    a verdict nobody can check.</li>
+  <li><strong>Repositories are added in their own pull request</strong>, never
+    alongside a rule change. That is how a benchmark becomes a rubber stamp.</li>
+</ul>
+
+<h2>What it will publish</h2>
+<p>
+  Precision and recall per rule and overall; the false positives listed with path
+  and line, because a number nobody can inspect is a number nobody trusts;
+  <code>authenticated</code> precision as its own figure, because it is the
+  metric most likely to be embarrassing; and the corpus size, repository count,
+  label count, and disagreement count next to the numbers — a precision figure
+  without a denominator is marketing.
+</p>
+<p>
+  Precision is a build invariant: a change that drops it below the threshold in
+  <code>bench/thresholds.toml</code> fails. Raising a threshold is a normal
+  change; <strong>lowering one without a note explaining what was traded fails
+  the build.</strong>
+</p>
+${code("bash", "npx owlwarden bench                    # the full corpus\nnpx owlwarden bench --rule sql-injection\nnpx owlwarden bench --format json --out bench/latest.json")}
+${CROSS("../")}
+`,
+  };
 }

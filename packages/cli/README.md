@@ -4,14 +4,19 @@
 
 Security scanner for Node web apps and AI coding agents. Finds OWASP Top 10
 issues in Next.js, Nuxt, NestJS, Express, Fastify, Hono, Koa, Hapi, Sails.js,
-Astro, Remix, and Gatsby — and scans the agent configuration in your repository
-(`.claude/`, `.cursor/`, `.vscode/`, `CLAUDE.md`) that no dependency scanner
-reads. Runs entirely on your machine. No account, no telemetry, no network
+Astro, Remix, Gatsby, SvelteKit, TanStack Start, SolidStart, and Elysia — and
+scans the agent configuration in your repository (`.claude/`, `.cursor/`,
+`.vscode/`, `CLAUDE.md`) that no dependency scanner reads.
+
+It also tells you **what changed**, **what is reachable**, and **how often it is
+wrong**. Runs entirely on your machine. No account, no telemetry, no network
 unless you ask.
 
 ```bash
 npx owlwarden scan          # your app
 npx owlwarden vet .         # your agent's config
+npx owlwarden seal          # lock the agent's execution surface
+npx owlwarden seal --verify # …and notice when it moves
 ```
 
 ## Install
@@ -51,8 +56,52 @@ unpinned MCP servers, hidden text in instruction files, and more.
 
 Every rule carries a fix written for your framework — or, on the agent surface,
 for your host. A rule cannot ship without one: the build fails on an empty cell.
+Where a fix would not *execute* on your runtime — `node:crypto` on Cloudflare
+Workers — the rule carries a delta, and the build asserts that the un-deltaed
+fixes do not name an absent API.
 
 `owlwarden coverage` prints what it does **not** look at, next to what it does.
+
+## Which finding do I fix first
+
+Every application finding carries an `exposure` value alongside severity and
+confidence:
+
+```
+◉ᴥ◉ 412 files · quick · node (detected) · 1.4s
+23 findings (10 high, 11 medium, 2 low)
+3 internet-reachable, 8 behind auth, 9 internal, 3 unclassified
+```
+
+Three findings is an afternoon. Twenty-three is a backlog. Same scan.
+
+It fails loud: `authenticated` is set only when an authentication gate is
+positively identified, and **absence of evidence yields `internet`**. A
+middleware module that does not resolve is not a gate. Gate it in CI with
+`--fail-on-exposure internet`, which composes with `--fail-on` as an OR.
+
+## Notice when your agent's config moves
+
+`owlwarden seal` writes `.owlwarden/surface.lock` — every file the agent loads
+out of your working tree, by semantic digest, with hooks, MCP servers and their
+resolved pins, and the permission set extracted rather than merely hashed.
+
+```
+◉ᴥ◉ surface drift · 1 change
+
+  + hook          claude-code SessionStart  node .claude/setup.mjs · not present in the seal
+                  .claude/settings.json:4
+```
+
+`surface.lock changed` is a line people learn to re-run past. *A `SessionStart`
+hook was added* is not. Reformatting a config does not break the seal; changing
+one character of a hook command does.
+
+It is a detection and review control, not a containment one. An unsigned seal
+catches accident, drift, and opportunistic malware — not an attacker with code
+execution who can re-seal before you look. A signed seal with the key outside the
+repository raises the bar considerably. The threat model says so in the document
+rather than in a footnote.
 
 Full catalogue: https://github.com/suthat/owlwarden/blob/main/RULES.md
 
