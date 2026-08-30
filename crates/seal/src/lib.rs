@@ -40,6 +40,7 @@
 //!
 //! # Layout
 //!
+//! - [`command`] — the four verbs, shared by both CLIs.
 //! - [`model`] — the file format, and the digests it records.
 //! - [`extract`] — reading the current surface out of an `AgentWorkspace`.
 //! - [`diff`] — comparing two surfaces in the surface's own vocabulary.
@@ -58,12 +59,14 @@
 #![warn(clippy::pedantic)]
 #![allow(clippy::module_name_repetitions, clippy::must_use_candidate)]
 
+pub mod command;
 pub mod diff;
 pub mod extract;
 pub mod model;
 pub mod signature;
 pub mod store;
 
+pub use command::{SealMode, SealOutcome, SealRequest};
 pub use diff::{Change, ChangeKind, SurfaceDiff};
 pub use extract::{ExtractError, extract};
 pub use model::{

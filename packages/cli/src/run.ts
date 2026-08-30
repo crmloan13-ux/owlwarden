@@ -9,6 +9,7 @@ import { runPluginScaffold } from "./commands/plugin-scaffold.js";
 import { runRules } from "./commands/rules.js";
 import { runGate } from "./commands/gate.js";
 import { runScan } from "./commands/scan.js";
+import { runSeal } from "./commands/seal.js";
 import { runVerify } from "./commands/verify.js";
 import { runWatch } from "./commands/watch.js";
 import { EXIT } from "./exit.js";
@@ -82,6 +83,8 @@ export async function run(argv: string[], streams: Streams): Promise<number> {
         stdout,
         stderr,
       });
+    case "seal":
+      return runSeal(mustLoad(native), cli.options, stdout, stderr);
     case "verify":
       return runVerify(mustLoad(native), cli.options, stdout, stderr);
     case "mcp":

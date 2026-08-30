@@ -16,6 +16,7 @@ USAGE
   owlwarden scan [PATH] [OPTIONS]
   owlwarden vet [PATH]                 check a repo before you open it
   owlwarden gate --host <HOST> [PATH]  hook entry point; event JSON on stdin
+  owlwarden seal [PATH] [OPTIONS]      lock the agent's execution surface
   owlwarden verify --patch <FILE>      did this fix actually fix it?
   owlwarden mcp [PATH]
   owlwarden init [--claude-code|--cursor|--generic] [--force]
@@ -41,6 +42,19 @@ USAGE
         control that *always* runs.
         --host claude-code | cursor | generic. \`generic\` is owlwarden's own
         event and decision JSON and works with anything that runs a process.
+  seal — records .owlwarden/surface.lock: every file the agent loads out of the
+        working tree, by semantic digest, with its hooks, MCP servers, and
+        permission set extracted so the diff reads as a sentence rather than as
+        "settings.json changed". Your dependencies have a lockfile; your agent's
+        execution surface did not.
+        --verify   exit 0 if unchanged, 1 on drift, 2 if it could not run
+        --diff     show what changed without writing, and never exit non-zero
+        --accept <FINGERPRINT> --reason <TEXT>   repeatable, in pairs
+        --trust <FILE>          trust roots for the detached signature
+        --require-signed-seal   an unsigned or untrusted seal fails --verify
+        --yes      proceed without a terminal
+        Sealing is never unattended, and that raises the cost for whatever wrote
+        the drift rather than closing the hole. SECURITY.md says which.
   verify — apply a patch to a scratch copy, re-scan, and exit 0 only if the
         finding is gone AND nothing new appeared at or above the threshold.
         A fix that trades a stack-trace-leak for an open-redirect fails.

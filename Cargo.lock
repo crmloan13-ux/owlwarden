@@ -1408,6 +1408,7 @@ dependencies = [
  "owlwarden-gate",
  "owlwarden-plugin-host",
  "owlwarden-reporters",
+ "owlwarden-seal",
  "owlwarden-static",
  "owlwarden-transport",
  "serde",

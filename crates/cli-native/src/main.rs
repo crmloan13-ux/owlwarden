@@ -13,7 +13,6 @@
 
 mod cli;
 mod git;
-mod seal_cmd;
 
 use std::io::{IsTerminal, Write};
 
@@ -91,7 +90,7 @@ fn main() -> std::process::ExitCode {
             seal_trust: seal_trust.as_deref(),
             require_signed_seal,
         }),
-        Command::Seal(args) => seal_cmd::run(&args),
+        Command::Seal(args) => run_seal(&args),
         Command::Watch(args) => run_watch(&args),
         Command::OsvUpdate { path, out } => run_osv_update(&path, out.as_deref()),
     };
@@ -228,6 +227,79 @@ fn run_gate(invocation: &GateInvocation<'_>) -> i32 {
         };
 
     emit_gate(&*adapter, &event, &decision)
+}
+
+/// Runs `owlwarden seal`.
+///
+/// The decision logic lives in `owlwarden_seal::command` so the npm CLI and
+/// this binary cannot answer differently. What is left here is the two things
+/// this process owns: whether a human is present, and how to run a scan.
+fn run_seal(args: &cli::SealArgs) -> i32 {
+    let request = owlwarden_seal::SealRequest {
+        mode: match args.mode {
+            cli::SealMode::Write => owlwarden_seal::SealMode::Write,
+            cli::SealMode::Verify => owlwarden_seal::SealMode::Verify,
+            cli::SealMode::Diff => owlwarden_seal::SealMode::Diff,
+            cli::SealMode::Accept => owlwarden_seal::SealMode::Accept,
+        },
+        json: args.json,
+        // `--yes` or a real terminal. Nothing else counts as a human.
+        attended: args.yes || std::io::stdin().is_terminal(),
+        accept: args.accept.clone(),
+        trust: args.trust.as_ref().map(std::path::PathBuf::from),
+        require_signed: args.require_signed,
+        ascii: args.ascii,
+    };
+    let outcome = owlwarden_seal::command::run(
+        &request,
+        std::path::Path::new(&args.path),
+        &scan_agent_surface,
+    );
+    if !outcome.stdout.is_empty() {
+        let _ = write!(std::io::stdout(), "{}", outcome.stdout);
+    }
+    if !outcome.stderr.is_empty() {
+        let _ = write!(std::io::stderr(), "{}", outcome.stderr);
+    }
+    outcome.exit_code
+}
+
+/// One agent-surface scan, for the seal's "look behind the door" check.
+///
+/// `ReportOnly` suppressions: a repository must not be able to comment its way
+/// to a clean seal.
+fn scan_agent_surface(root: &std::path::Path) -> Result<Report, String> {
+    let (file_rules, project_rules) = owlwarden_detectors::rules_for_preset("agent-surface");
+    let outcome = owlwarden_dynamic::block_on(owlwarden_static::runner::scan_project_with(
+        root.to_path_buf(),
+        file_rules,
+        project_rules,
+        owlwarden_static::runner::ScanRequest {
+            settings: ScanSettings {
+                allow_active: false,
+                min_confidence: owlwarden_core::finding::Confidence::Possible,
+                min_severity: owlwarden_core::finding::Severity::Info,
+                preset: "agent-surface".to_owned(),
+                dirty_paths: None,
+                scoped_paths: None,
+            },
+            baseline: None,
+            write_baseline: None,
+            suppressions: owlwarden_core::suppression::SuppressionPolicy::ReportOnly,
+            extra_detectors: Vec::new(),
+            network: None,
+            advisory: None,
+            correlate: None,
+            dirty_paths: None,
+            diff_scope: None,
+            previous_report: None,
+        },
+    ));
+    match outcome {
+        Ok(Ok(report)) => Ok(report),
+        Ok(Err(error)) => Err(format!("could not scan the agent surface: {error}")),
+        Err(error) => Err(format!("could not scan the agent surface: {error}")),
+    }
 }
 
 /// Writes an encoded decision and returns the host's exit code.

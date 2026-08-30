@@ -66,8 +66,33 @@ inputs:
     description: Pass --osv (opt-in Google OSV lockfile lookup). Off by default.
     required: false
     default: "false"
+  fail-on-exposure:
+    description: >
+      Also fail at this reachability or above (`internet` / `authenticated` /
+      `internal` / `unknown`). Composes with fail-on as an OR: either one trips
+      the exit code. Empty leaves the gate off.
+    required: false
+    default: ""
+  seal:
+    description: >
+      Verify `.owlwarden/surface.lock` after the scan. `off` (default) skips it;
+      `verify` fails the job on drift; `report` writes the surface diff to the
+      step summary and never changes the exit code. Silent when the surface has
+      not moved — a comment that appears on every pull request is a comment
+      nobody reads.
+    required: false
+    default: "off"
+  require-signed-seal:
+    description: >
+      Refuse an unsigned seal, or one whose signature does not verify against
+      OWLWARDEN_SEAL_TRUST. Meaningful only with seal set.
+    required: false
+    default: "false"
 
 outputs:
+  seal-diff:
+    description: The surface diff, when `seal` was enabled and the surface moved.
+    value: ${{ steps.scan.outputs.seal-diff }}
   report-path:
     description: Absolute path of the written report.
     value: ${{ steps.scan.outputs.report-path }}
@@ -101,6 +126,9 @@ runs:
         INPUT_ALLOW_SUPPRESSIONS: ${{ inputs.allow-suppressions }}
         INPUT_ALLOW_PROJECT_CONFIG: ${{ inputs.allow-project-config }}
         INPUT_OSV: ${{ inputs.osv }}
+        INPUT_FAIL_ON_EXPOSURE: ${{ inputs.fail-on-exposure }}
+        INPUT_SEAL: ${{ inputs.seal }}
+        INPUT_REQUIRE_SIGNED_SEAL: ${{ inputs.require-signed-seal }}
       run: |
         set -euo pipefail
 
@@ -148,6 +176,8 @@ runs:
         reject_meta format "${INPUT_FORMAT}"
         reject_meta out "${INPUT_OUT}"
         reject_meta baseline "${INPUT_BASELINE}"
+        reject_meta fail-on-exposure "${INPUT_FAIL_ON_EXPOSURE:-}"
+        reject_meta seal "${INPUT_SEAL:-}"
 
         reject_dash path "${INPUT_PATH}"
         reject_dash out "${INPUT_OUT}"
@@ -179,6 +209,19 @@ runs:
         case "${INPUT_FORMAT}" in
           json|sarif|junit|md) ;;
           *) echo "error: format must be json|sarif|junit|md" >&2; exit 2 ;;
+        esac
+        case "${INPUT_FAIL_ON_EXPOSURE:-}" in
+          ""|internet|authenticated|internal|unknown) ;;
+          *) echo "error: fail-on-exposure must be internet|authenticated|internal|unknown" >&2; exit 2 ;;
+        esac
+        # Normalised once. An empty value means the caller is pinned to a
+        # version of this Action that predates the input, and the answer for
+        # them is the 1.1 behaviour rather than an error.
+        seal_mode="${INPUT_SEAL:-off}"
+        [[ -z "${seal_mode}" ]] && seal_mode="off"
+        case "${seal_mode}" in
+          off|verify|report) ;;
+          *) echo "error: seal must be off|verify|report" >&2; exit 2 ;;
         esac
         # Semver, prerelease, or a simple npm dist-tag — never shell metacharacters.
         if [[ ! "${INPUT_VERSION}" =~ ^[A-Za-z0-9][A-Za-z0-9._+-]*$ ]]; then
@@ -221,6 +264,9 @@ runs:
         if [[ -n "${INPUT_SINCE}" ]]; then
           cmd+=(--since "${INPUT_SINCE}")
         fi
+        if [[ -n "${INPUT_FAIL_ON_EXPOSURE:-}" ]]; then
+          cmd+=(--fail-on-exposure "${INPUT_FAIL_ON_EXPOSURE:-}")
+        fi
 
         # Everything after `--` is a positional, whatever it looks like. This has
         # to come after the conditional flags above, which is why the path is
@@ -232,11 +278,56 @@ runs:
         code=$?
         set -e
 
+        # The seal is verified after the scan, not instead of it. They answer
+        # different questions — "is this configuration dangerous" and "is this
+        # the configuration you agreed to" — and a job that ran only one of them
+        # would report the other as clean.
+        seal_diff=""
+        if [[ "${seal_mode}" != "off" ]]; then
+          seal_cmd=(npx --yes "owlwarden@${INPUT_VERSION}" seal --verify --ascii)
+          if [[ "${INPUT_REQUIRE_SIGNED_SEAL:-}" == "true" ]]; then
+            seal_cmd+=(--require-signed-seal)
+          fi
+          seal_cmd+=(-- "${INPUT_PATH}")
+          set +e
+          seal_diff="$("${seal_cmd[@]}" 2>&1)"
+          seal_code=$?
+          set -e
+
+          if [[ "${seal_code}" -ne 0 ]]; then
+            printf '%s\n' "${seal_diff}"
+            # The step summary rather than a comment: writing a comment needs a
+            # token with `pull-requests: write`, and an Action that asks for one
+            # to report a security finding has widened the caller's blast radius
+            # to say something it could say without it. A workflow that wants a
+            # comment reads `seal-diff` and posts it with its own permissions.
+            if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
+              {
+                echo "### owlwarden — the agent execution surface moved"
+                echo
+                echo '```'
+                printf '%s\n' "${seal_diff}"
+                echo '```'
+              } >> "$GITHUB_STEP_SUMMARY"
+            fi
+            if [[ "${seal_mode}" == "verify" && "${code}" -eq 0 ]]; then
+              code="${seal_code}"
+            fi
+          else
+            # Silent when the surface has not moved. A comment that appears on
+            # every pull request is a comment nobody reads.
+            seal_diff=""
+          fi
+        fi
+
         # Multiline-safe GITHUB_OUTPUT — never interpolate untrusted paths into a
         # single echo key=value line (CR/LF would invent extra keys).
         {
           echo "report-path<<OWLWARDEN_EOF"
           echo "${GITHUB_WORKSPACE}/${out_path}"
+          echo "OWLWARDEN_EOF"
+          echo "seal-diff<<OWLWARDEN_EOF"
+          printf '%s\n' "${seal_diff}"
           echo "OWLWARDEN_EOF"
           echo "exit-code=${code}"
         } >> "$GITHUB_OUTPUT"

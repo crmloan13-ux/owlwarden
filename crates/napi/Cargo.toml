@@ -17,6 +17,7 @@ crate-type = ["cdylib"]
 owlwarden-core.workspace = true
 owlwarden-detectors.workspace = true
 owlwarden-gate.workspace = true
+owlwarden-seal.workspace = true
 owlwarden-dynamic.workspace = true
 owlwarden-plugin-host.workspace = true
 owlwarden-reporters.workspace = true

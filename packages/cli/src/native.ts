@@ -26,6 +26,15 @@ export interface NativeEngine {
   gate(requestJson: string): Promise<string>;
 
   /**
+   * Runs one `owlwarden seal` invocation: write, verify, diff, or accept.
+   *
+   * Takes a JSON seal request and returns `{ ok, stdout, stderr, exitCode }`.
+   * The decision logic is shared with the standalone binary, so the two cannot
+   * disagree about what counts as drift.
+   */
+  seal(requestJson: string): Promise<string>;
+
+  /**
    * Builds a lockfile-scoped OSV index JSON string for `owlwarden osv update`.
    * Queries api.osv.dev (online).
    */
@@ -62,6 +71,7 @@ export class NativeLoadError extends Error {
 const REQUIRED_EXPORTS = [
   "scan",
   "gate",
+  "seal",
   "buildOsvIndex",
   "render",
   "listRules",
