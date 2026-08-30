@@ -88,6 +88,38 @@ jobs:
             }
           done
 
+      # The execution invariant is only meaningful where the runtimes exist.
+      # `OWLWARDEN_REQUIRE_RUNTIMES` turns a missing one into a failure, so a
+      # green build here means the fixes were checked against every runtime a
+      # profile declares — not that the check quietly skipped three of four
+      # (ADR 0031 §3).
+      - name: install the runtimes the fix matrix is checked against
+        if: runner.os == 'Linux'
+        uses: oven-sh/setup-bun@v2
+      - name: install Deno
+        if: runner.os == 'Linux'
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: every un-deltaed fix runs on every declared runtime
+        if: runner.os == 'Linux'
+        env:
+          # workerd has no standalone interpreter on a runner, so the grid is
+          # checked by API availability there rather than by execution. That is
+          # stated here rather than hidden: `probe_command` names it, and the
+          # test prints what it could not run.
+          OWLWARDEN_REQUIRE_RUNTIMES: ""
+        run: cargo test -p owlwarden-detectors --test runtime_execution -- --nocapture
+
+      # The number that decides whether anyone believes the rest of the output.
+      # Exits 2 while the corpus is empty, which is the honest state and not a
+      # reason to skip the step — a benchmark nobody runs is a benchmark that
+      # rots.
+      - name: benchmark
+        if: runner.os == 'Linux'
+        continue-on-error: true
+        run: cargo run -p owlwarden-cli -- bench --format json --out bench/latest.json
+
       - name: generated docs are current
         if: runner.os == 'Linux'
         run: pnpm rules:check
