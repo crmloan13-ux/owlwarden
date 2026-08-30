@@ -182,6 +182,8 @@
   return redirect(safeRedirect(next, new URL(request.url).origin))
 }</code></pre>
 
+
+
 <h3>If you are not using Astro</h3>
 <p>Resolve the target against your own origin and refuse anything that lands elsewhere. Do not use a startsWith(&#39;/&#39;) check: &#39;//evil.com&#39; passes it and leaves the site.</p>
 

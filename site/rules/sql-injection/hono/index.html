@@ -179,6 +179,8 @@
 <p>Bind the value; keep the SQL text constant.</p>
 <pre class="code"><code class="language-ts">await db.query(&#39;SELECT * FROM users WHERE id = $1&#39;, [c.req.param(&#39;id&#39;)])</code></pre>
 
+
+
 <h3>If you are not using Hono</h3>
 <p>Pass the values as query parameters instead of interpolating them. Every driver supports it, and the binding is not optional formatting - it is what stops the value being parsed as SQL.</p>
 

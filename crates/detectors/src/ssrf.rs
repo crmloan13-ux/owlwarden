@@ -42,6 +42,7 @@ use owlwarden_core::finding::{
     Confidence, Finding, Framework, OwaspRef, Reference, RuleId, Severity,
 };
 use owlwarden_core::remediation::Remediation;
+use owlwarden_core::runtime::Runtime;
 use owlwarden_core::source::RelPath;
 use owlwarden_core::surface::Surface;
 use owlwarden_static::ast::{root_identifier, static_property};
@@ -263,7 +264,7 @@ fn build_finding(unit: &FileUnit<'_>, hit: &Hit) -> Finding {
         .location(unit.location(hit.span))
         .snippet(unit.code_frame(hit.span, "destination chosen by the caller"))
         .context(unit.context(None, Some(evidence.to_owned())))
-        .fixes(remediation().select(unit.framework()))
+        .fixes(remediation().select_for_runtime(unit.framework(), unit.runtime().runtime))
         .reference(Reference::rule_page(&meta.id))
         .build()
 }
@@ -282,7 +283,7 @@ const ALLOWLIST_HELPER: &str = "// lib/safe-fetch.ts\n\
 
 /// Every framework's fix.
 fn remediation() -> Remediation {
-    Remediation::new(
+    let table = Remediation::new(
         "Check the destination against an allowlist of hosts before fetching it. Blocklists do \
          not work here: DNS rebinding, redirects, and IPv6-mapped addresses all defeat them.",
     )
@@ -364,6 +365,59 @@ fn remediation() -> Remediation {
         "Validate in the Function handler before fetching, and refuse redirects.",
         "const target = assertAllowedUrl(req.body.url)\n\
          const upstream = await fetch(target, { redirect: 'error' })",
+    );
+    // `redirect: 'error'` is the load-bearing half of the base fix, and the
+    // fetch-API runtimes do not all implement it: Workers follows redirects
+    // regardless, so the check has to be made manually with `redirect: 'manual'`.;
+    fixes_added_in_1_2(table)
+}
+
+/// The four frameworks added in 1.2, and the runtime deltas.
+///
+/// A continuation rather than more of the same function. Sixteen profiles plus
+/// the deltas is past what fits on a screen, and a table nobody scrolls to the
+/// end of is a table with a hole in it.
+fn fixes_added_in_1_2(table: Remediation) -> Remediation {
+    table    .delta_each(
+        &[
+            Framework::NEXT,
+            Framework::NUXT,
+            Framework::HONO,
+            Framework::ASTRO,
+            Framework::REMIX,
+            Framework::SVELTEKIT,
+            Framework::TANSTACK_START,
+            Framework::SOLIDSTART,
+            Framework::ELYSIA,
+        ],
+        Runtime::WebWorker,
+        "redirect: 'error' is not honoured on this runtime. Use redirect: 'manual' and refuse \
+         the response yourself, or an allowlisted host can redirect you to one that is not.",
+        "const url = assertAllowedUrl(input)\n\
+         const upstream = await fetch(url, { redirect: 'manual' })\n\
+         if (upstream.status >= 300 && upstream.status < 400) {\n  \
+         throw new Error('refusing to follow a redirect from an allowlisted host')\n\
+         }",
+    )
+    .manual(
+        Framework::SVELTEKIT,
+        "Validate the URL in the endpoint before fetching, and refuse redirects.",
+        "const url = assertAllowedUrl(body.url)\nconst upstream = await fetch(url, { redirect: 'error' })",
+    )
+    .manual(
+        Framework::TANSTACK_START,
+        "Validate the URL inside the server function; a client-side check is not one.",
+        "const url = assertAllowedUrl(body.url)\nconst upstream = await fetch(url, { redirect: 'error' })",
+    )
+    .manual(
+        Framework::SOLIDSTART,
+        "Validate the URL in the API route before fetching, and refuse redirects.",
+        "const url = assertAllowedUrl(body.url)\nconst upstream = await fetch(url, { redirect: 'error' })",
+    )
+    .manual(
+        Framework::ELYSIA,
+        "Validate the URL in the handler. Bun's fetch follows redirects by default, so say otherwise.",
+        "const url = assertAllowedUrl(body.url)\nconst upstream = await fetch(url, { redirect: 'error' })",
     )
 }
 

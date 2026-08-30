@@ -58,6 +58,15 @@ pub struct ScanTarget {
     pub routes_probed: u32,
     /// Preset in force.
     pub preset: String,
+    /// The runtime the project resolved to, and whether that was detected or
+    /// inferred, as `"node"` / `"edge (defaulted)"`.
+    ///
+    /// On the summary line in every non-machine format, and **not droppable in
+    /// quiet modes**: runtime detection is inference, and a fix chosen from an
+    /// inferred runtime has to say what it inferred
+    /// ([ADR 0031](../../../docs/adr/0031-runtime-overlay.md) §1).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub runtime: Option<String>,
     /// What the scan was narrowed to, when it was: `"since origin/main"`,
     /// `"staged"`, `"3 paths"`.
     ///

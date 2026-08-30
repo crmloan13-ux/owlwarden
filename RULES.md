@@ -18,7 +18,7 @@ checked against the other's list, and a missing cell fails the build either way.
 
 | Surface | Rules | Profiles it must cover |
 | --- | --- | --- |
-| `webApp` | 15 | 12 frameworks |
+| `webApp` | 15 | 16 frameworks |
 | `agentWorkspace` | 10 | 7 agent hosts |
 
 ## Presets
@@ -104,6 +104,10 @@ fails the build, so this column cannot silently drift to zero.
 | `astro` | 15 of 15 |
 | `remix` | 15 of 15 |
 | `gatsby` | 15 of 15 |
+| `sveltekit` | 15 of 15 |
+| `tanstack-start` | 15 of 15 |
+| `solidstart` | 15 of 15 |
+| `elysia` | 15 of 15 |
 
 ## Agent host support
 
@@ -792,6 +796,26 @@ A workflow references a GitHub Action by a branch or version tag. Tags move; a c
   ```ts
   uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
   ```
+- *sveltekit* — Pin the action to a full commit SHA (keep the tag in a comment for humans).
+
+  ```ts
+  uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+  ```
+- *tanstack-start* — Pin the action to a full commit SHA (keep the tag in a comment for humans).
+
+  ```ts
+  uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+  ```
+- *solidstart* — Pin the action to a full commit SHA (keep the tag in a comment for humans).
+
+  ```ts
+  uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+  ```
+- *elysia* — Pin the action to a full commit SHA (keep the tag in a comment for humans).
+
+  ```ts
+  uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+  ```
 - *any profile* — Pin the action to a full commit SHA (keep the tag in a comment for humans).
 
 `owlwarden explain ci-unpinned-action` prints this in the terminal.
@@ -945,6 +969,48 @@ The CORS configuration accepts requests from any origin. Combined with credentia
     res.json({ ok: true })
   }
   ```
+- *sveltekit* — Name the origins in `hooks.server.ts`. A wildcard with credentials is refused by the browser anyway.
+
+  ```ts
+  const ALLOWED = new Set(['https://app.example.com'])
+  
+  export const handle: Handle = async ({ event, resolve }) => {
+    const response = await resolve(event)
+    const origin = event.request.headers.get('origin') ?? ''
+    if (ALLOWED.has(origin)) {
+      response.headers.set('Access-Control-Allow-Origin', origin)
+      response.headers.append('Vary', 'Origin')
+    }
+    return response
+  }
+  ```
+- *tanstack-start* — Name the origins where you set the header, and vary on Origin so a cache cannot serve one caller's response to another.
+
+  ```ts
+  const ALLOWED = new Set(['https://app.example.com'])
+  const origin = request.headers.get('origin') ?? ''
+  if (ALLOWED.has(origin)) {
+    headers.set('Access-Control-Allow-Origin', origin)
+    headers.append('Vary', 'Origin')
+  }
+  ```
+- *solidstart* — Name the origins in middleware rather than reflecting whatever arrived.
+
+  ```ts
+  const ALLOWED = new Set(['https://app.example.com'])
+  const origin = event.request.headers.get('origin') ?? ''
+  if (ALLOWED.has(origin)) {
+    event.response.headers.set('Access-Control-Allow-Origin', origin)
+    event.response.headers.append('Vary', 'Origin')
+  }
+  ```
+- *elysia* — Pass an explicit origin list to @elysiajs/cors.
+
+  ```ts
+  import { cors } from '@elysiajs/cors'
+  
+  app.use(cors({ origin: ['https://app.example.com'], credentials: true }))
+  ```
 - *any profile* — Replace the wildcard with the origins that actually need access, and only send credentials to those.
 
 `owlwarden explain cors-permissive` prints this in the terminal.
@@ -1048,6 +1114,38 @@ With `--allow-active`, owlwarden POSTs a canary body to `--target` using Origin 
   // Or set session cookies with SameSite=Strict / Lax and verify Origin.
   ```
 - *gatsby* — Require a CSRF synchroniser token (or SameSite=Strict session cookies plus Origin checks) before accepting state-changing requests from browsers.
+
+  ```ts
+  // Reject cross-site state-changing requests without a CSRF token.
+  // Example (Express):
+  // app.use(csrfProtection)
+  // Or set session cookies with SameSite=Strict / Lax and verify Origin.
+  ```
+- *sveltekit* — Require a CSRF synchroniser token (or SameSite=Strict session cookies plus Origin checks) before accepting state-changing requests from browsers.
+
+  ```ts
+  // Reject cross-site state-changing requests without a CSRF token.
+  // Example (Express):
+  // app.use(csrfProtection)
+  // Or set session cookies with SameSite=Strict / Lax and verify Origin.
+  ```
+- *tanstack-start* — Require a CSRF synchroniser token (or SameSite=Strict session cookies plus Origin checks) before accepting state-changing requests from browsers.
+
+  ```ts
+  // Reject cross-site state-changing requests without a CSRF token.
+  // Example (Express):
+  // app.use(csrfProtection)
+  // Or set session cookies with SameSite=Strict / Lax and verify Origin.
+  ```
+- *solidstart* — Require a CSRF synchroniser token (or SameSite=Strict session cookies plus Origin checks) before accepting state-changing requests from browsers.
+
+  ```ts
+  // Reject cross-site state-changing requests without a CSRF token.
+  // Example (Express):
+  // app.use(csrfProtection)
+  // Or set session cookies with SameSite=Strict / Lax and verify Origin.
+  ```
+- *elysia* — Require a CSRF synchroniser token (or SameSite=Strict session cookies plus Origin checks) before accepting state-changing requests from browsers.
 
   ```ts
   // Reject cross-site state-changing requests without a CSRF token.
@@ -1162,6 +1260,146 @@ A credential appears as a literal in source. Anything committed is in the reposi
   ```ts
   const apiKey = process.env.API_KEY
   if (!apiKey) throw new Error('API_KEY is not set')
+  ```
+- *sveltekit* — Read it from `$env/dynamic/private`, which SvelteKit refuses to import into client code — that refusal is the point.
+
+  ```ts
+  import { env } from '$env/dynamic/private'
+  
+  const stripeKey = env.STRIPE_KEY
+  if (!stripeKey) throw new Error('STRIPE_KEY is not set')
+  ```
+- *tanstack-start* — Read it from the environment inside the server function, and rotate the committed value.
+
+  ```ts
+  const stripeKey = process.env.STRIPE_KEY
+  if (!stripeKey) throw new Error('STRIPE_KEY is not set')
+  ```
+- *solidstart* — Read it from the environment in server-only code. A `VITE_`-prefixed variable is bundled into the client; this one must not be.
+
+  ```ts
+  const stripeKey = process.env.STRIPE_KEY
+  if (!stripeKey) throw new Error('STRIPE_KEY is not set')
+  ```
+- *elysia* — Read it from the environment at startup so a missing value fails the boot rather than the first request.
+
+  ```ts
+  const stripeKey = process.env.STRIPE_KEY
+  if (!stripeKey) throw new Error('STRIPE_KEY is not set')
+  ```
+- *next · webWorker* — There is no process.env on this runtime. Read the value from the binding the host passes the handler, and declare it as a secret rather than a plaintext var.
+
+  ```ts
+  // wrangler.toml / .dev.vars declare it; the handler receives it.
+  export default {
+    async fetch(request: Request, env: { API_KEY: string }) {
+      const key = env.API_KEY
+      if (!key) throw new Error('API_KEY is not bound')
+      return handle(request, key)
+    },
+  }
+  ```
+- *nuxt · webWorker* — There is no process.env on this runtime. Read the value from the binding the host passes the handler, and declare it as a secret rather than a plaintext var.
+
+  ```ts
+  // wrangler.toml / .dev.vars declare it; the handler receives it.
+  export default {
+    async fetch(request: Request, env: { API_KEY: string }) {
+      const key = env.API_KEY
+      if (!key) throw new Error('API_KEY is not bound')
+      return handle(request, key)
+    },
+  }
+  ```
+- *hono · webWorker* — There is no process.env on this runtime. Read the value from the binding the host passes the handler, and declare it as a secret rather than a plaintext var.
+
+  ```ts
+  // wrangler.toml / .dev.vars declare it; the handler receives it.
+  export default {
+    async fetch(request: Request, env: { API_KEY: string }) {
+      const key = env.API_KEY
+      if (!key) throw new Error('API_KEY is not bound')
+      return handle(request, key)
+    },
+  }
+  ```
+- *astro · webWorker* — There is no process.env on this runtime. Read the value from the binding the host passes the handler, and declare it as a secret rather than a plaintext var.
+
+  ```ts
+  // wrangler.toml / .dev.vars declare it; the handler receives it.
+  export default {
+    async fetch(request: Request, env: { API_KEY: string }) {
+      const key = env.API_KEY
+      if (!key) throw new Error('API_KEY is not bound')
+      return handle(request, key)
+    },
+  }
+  ```
+- *remix · webWorker* — There is no process.env on this runtime. Read the value from the binding the host passes the handler, and declare it as a secret rather than a plaintext var.
+
+  ```ts
+  // wrangler.toml / .dev.vars declare it; the handler receives it.
+  export default {
+    async fetch(request: Request, env: { API_KEY: string }) {
+      const key = env.API_KEY
+      if (!key) throw new Error('API_KEY is not bound')
+      return handle(request, key)
+    },
+  }
+  ```
+- *sveltekit · webWorker* — There is no process.env on this runtime. Read the value from the binding the host passes the handler, and declare it as a secret rather than a plaintext var.
+
+  ```ts
+  // wrangler.toml / .dev.vars declare it; the handler receives it.
+  export default {
+    async fetch(request: Request, env: { API_KEY: string }) {
+      const key = env.API_KEY
+      if (!key) throw new Error('API_KEY is not bound')
+      return handle(request, key)
+    },
+  }
+  ```
+- *tanstack-start · webWorker* — There is no process.env on this runtime. Read the value from the binding the host passes the handler, and declare it as a secret rather than a plaintext var.
+
+  ```ts
+  // wrangler.toml / .dev.vars declare it; the handler receives it.
+  export default {
+    async fetch(request: Request, env: { API_KEY: string }) {
+      const key = env.API_KEY
+      if (!key) throw new Error('API_KEY is not bound')
+      return handle(request, key)
+    },
+  }
+  ```
+- *solidstart · webWorker* — There is no process.env on this runtime. Read the value from the binding the host passes the handler, and declare it as a secret rather than a plaintext var.
+
+  ```ts
+  // wrangler.toml / .dev.vars declare it; the handler receives it.
+  export default {
+    async fetch(request: Request, env: { API_KEY: string }) {
+      const key = env.API_KEY
+      if (!key) throw new Error('API_KEY is not bound')
+      return handle(request, key)
+    },
+  }
+  ```
+- *elysia · webWorker* — There is no process.env on this runtime. Read the value from the binding the host passes the handler, and declare it as a secret rather than a plaintext var.
+
+  ```ts
+  // wrangler.toml / .dev.vars declare it; the handler receives it.
+  export default {
+    async fetch(request: Request, env: { API_KEY: string }) {
+      const key = env.API_KEY
+      if (!key) throw new Error('API_KEY is not bound')
+      return handle(request, key)
+    },
+  }
+  ```
+- *hono · deno* — There is no process.env on Deno. Use Deno.env.get, and run with an explicit --allow-env list so the process cannot read variables it was never meant to see.
+
+  ```ts
+  const key = Deno.env.get('API_KEY')
+  if (!key) throw new Error('API_KEY is not set')
   ```
 - *any profile* — Move the value into an environment variable or a secret manager, and rotate it — once committed it is in the history and in every clone, so removing the line does not revoke it.
 
@@ -1298,6 +1536,119 @@ A cookie is written without `httpOnly`, `secure`, or `sameSite`. Missing `httpOn
     path: '/',
   })
   ```
+- *sveltekit* — Pass the attributes to `cookies.set`. SvelteKit requires `path`, so the only thing to add is the protection.
+
+  ```ts
+  cookies.set('session', token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/',
+  })
+  ```
+- *tanstack-start* — Pass the attributes to setCookie in the server function.
+
+  ```ts
+  setCookie('session', token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/',
+  })
+  ```
+- *solidstart* — Pass the attributes when writing the session cookie.
+
+  ```ts
+  setCookie(event, 'session', token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/',
+  })
+  ```
+- *elysia* — Set the attributes on the cookie proxy; assigning `.value` alone leaves the defaults.
+
+  ```ts
+  cookie.session.set({
+    value: token,
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/',
+  })
+  ```
+- *next · webWorker* — Build the Set-Cookie header yourself: there is no process.env here, and Headers.set replaces rather than appends — use append, or a second cookie silently disappears.
+
+  ```ts
+  const attributes = ['HttpOnly', 'Secure', 'SameSite=Lax', 'Path=/'].join('; ')
+  const headers = new Headers()
+  headers.append('Set-Cookie', `session=${token}; ${attributes}`)
+  return new Response(body, { headers })
+  ```
+- *nuxt · webWorker* — Build the Set-Cookie header yourself: there is no process.env here, and Headers.set replaces rather than appends — use append, or a second cookie silently disappears.
+
+  ```ts
+  const attributes = ['HttpOnly', 'Secure', 'SameSite=Lax', 'Path=/'].join('; ')
+  const headers = new Headers()
+  headers.append('Set-Cookie', `session=${token}; ${attributes}`)
+  return new Response(body, { headers })
+  ```
+- *hono · webWorker* — Build the Set-Cookie header yourself: there is no process.env here, and Headers.set replaces rather than appends — use append, or a second cookie silently disappears.
+
+  ```ts
+  const attributes = ['HttpOnly', 'Secure', 'SameSite=Lax', 'Path=/'].join('; ')
+  const headers = new Headers()
+  headers.append('Set-Cookie', `session=${token}; ${attributes}`)
+  return new Response(body, { headers })
+  ```
+- *astro · webWorker* — Build the Set-Cookie header yourself: there is no process.env here, and Headers.set replaces rather than appends — use append, or a second cookie silently disappears.
+
+  ```ts
+  const attributes = ['HttpOnly', 'Secure', 'SameSite=Lax', 'Path=/'].join('; ')
+  const headers = new Headers()
+  headers.append('Set-Cookie', `session=${token}; ${attributes}`)
+  return new Response(body, { headers })
+  ```
+- *remix · webWorker* — Build the Set-Cookie header yourself: there is no process.env here, and Headers.set replaces rather than appends — use append, or a second cookie silently disappears.
+
+  ```ts
+  const attributes = ['HttpOnly', 'Secure', 'SameSite=Lax', 'Path=/'].join('; ')
+  const headers = new Headers()
+  headers.append('Set-Cookie', `session=${token}; ${attributes}`)
+  return new Response(body, { headers })
+  ```
+- *sveltekit · webWorker* — Build the Set-Cookie header yourself: there is no process.env here, and Headers.set replaces rather than appends — use append, or a second cookie silently disappears.
+
+  ```ts
+  const attributes = ['HttpOnly', 'Secure', 'SameSite=Lax', 'Path=/'].join('; ')
+  const headers = new Headers()
+  headers.append('Set-Cookie', `session=${token}; ${attributes}`)
+  return new Response(body, { headers })
+  ```
+- *tanstack-start · webWorker* — Build the Set-Cookie header yourself: there is no process.env here, and Headers.set replaces rather than appends — use append, or a second cookie silently disappears.
+
+  ```ts
+  const attributes = ['HttpOnly', 'Secure', 'SameSite=Lax', 'Path=/'].join('; ')
+  const headers = new Headers()
+  headers.append('Set-Cookie', `session=${token}; ${attributes}`)
+  return new Response(body, { headers })
+  ```
+- *solidstart · webWorker* — Build the Set-Cookie header yourself: there is no process.env here, and Headers.set replaces rather than appends — use append, or a second cookie silently disappears.
+
+  ```ts
+  const attributes = ['HttpOnly', 'Secure', 'SameSite=Lax', 'Path=/'].join('; ')
+  const headers = new Headers()
+  headers.append('Set-Cookie', `session=${token}; ${attributes}`)
+  return new Response(body, { headers })
+  ```
+- *elysia · webWorker* — Build the Set-Cookie header yourself: there is no process.env here, and Headers.set replaces rather than appends — use append, or a second cookie silently disappears.
+
+  ```ts
+  const attributes = ['HttpOnly', 'Secure', 'SameSite=Lax', 'Path=/'].join('; ')
+  const headers = new Headers()
+  headers.append('Set-Cookie', `session=${token}; ${attributes}`)
+  return new Response(body, { headers })
+  ```
 - *any profile* — Set httpOnly, secure, and sameSite when writing a cookie that carries anything the user would not want read or replayed.
 
 `owlwarden explain insecure-cookie` prints this in the terminal.
@@ -1384,6 +1735,31 @@ This project's own `package.json` declares `preinstall`, `install`, or `postinst
   ```ts
   // package.json
   "scripts": { "build": "gatsby build" }
+  ```
+- *sveltekit* — Move the work into an explicit script the developer runs (`pnpm setup`), or into the build step. If it genuinely has to run at install time — a native addon — say so in the README and keep the script to the build tool, with no network fetch and no run-time package resolve.
+
+  ```ts
+  // package.json
+  "scripts": { "build": "vite build" }
+  ```
+- *tanstack-start* — Move the work into an explicit script the developer runs (`pnpm setup`), or into the build step. If it genuinely has to run at install time — a native addon — say so in the README and keep the script to the build tool, with no network fetch and no run-time package resolve.
+
+  ```ts
+  // package.json
+  "scripts": { "build": "vinxi build" }
+  ```
+- *solidstart* — Move the work into an explicit script the developer runs (`pnpm setup`), or into the build step. If it genuinely has to run at install time — a native addon — say so in the README and keep the script to the build tool, with no network fetch and no run-time package resolve.
+
+  ```ts
+  // package.json
+  "scripts": { "build": "vinxi build" }
+  ```
+- *elysia* — Move the work into an explicit script the developer runs (`pnpm setup`), or into the build step. If it genuinely has to run at install time — a native addon — say so in the README and keep the script to the build tool, with no network fetch and no run-time package resolve.
+
+  ```ts
+  // package.json
+  "scripts": { "build": "tsc --outDir dist" }
+  // and install with --ignore-scripts so a dependency cannot do this either
   ```
 - *any profile* — Move the work into an explicit script the developer runs (`pnpm setup`), or into the build step. If it genuinely has to run at install time — a native addon — say so in the README and keep the script to the build tool, with no network fetch and no run-time package resolve.
 
@@ -1511,6 +1887,42 @@ A lockfile pins a package version that Google OSV reports as vulnerable. Require
     }
   }
   ```
+- *sveltekit* — Bump the dependency in package.json (or override it), reinstall, and re-run `owlwarden scan --osv` to confirm the advisory is gone.
+
+  ```ts
+  {
+    "dependencies": {
+      "vulnerable-package": "^FIXED.VERSION"
+    }
+  }
+  ```
+- *tanstack-start* — Bump the dependency in package.json (or override it), reinstall, and re-run `owlwarden scan --osv` to confirm the advisory is gone.
+
+  ```ts
+  {
+    "dependencies": {
+      "vulnerable-package": "^FIXED.VERSION"
+    }
+  }
+  ```
+- *solidstart* — Bump the dependency in package.json (or override it), reinstall, and re-run `owlwarden scan --osv` to confirm the advisory is gone.
+
+  ```ts
+  {
+    "dependencies": {
+      "vulnerable-package": "^FIXED.VERSION"
+    }
+  }
+  ```
+- *elysia* — Bump the dependency in package.json (or override it), reinstall, and re-run `owlwarden scan --osv` to confirm the advisory is gone.
+
+  ```ts
+  {
+    "dependencies": {
+      "vulnerable-package": "^FIXED.VERSION"
+    }
+  }
+  ```
 - *any profile* — Upgrade the package to a version that OSV (or the advisory) marks as fixed, then regenerate the lockfile. Confirm the new version still satisfies your app's API requirements before deploying.
 
 `owlwarden explain known-vulnerable-dependency` prints this in the terminal.
@@ -1610,6 +2022,27 @@ The destination of a redirect is taken from the request without being checked. A
   ```ts
   const base = `${req.headers['x-forwarded-proto'] ?? 'https'}://${req.headers.host}`
   res.redirect(safeRedirect(req.query.next, base))
+  ```
+- *sveltekit* — Resolve the target against your own origin before redirecting. `redirect()` throws, so the check has to come first.
+
+  ```ts
+  redirect(302, safeRedirect(url.searchParams.get('next'), 'https://app.example.com'))
+  ```
+- *tanstack-start* — Resolve the target against your own origin before redirecting.
+
+  ```ts
+  return Response.redirect(safeRedirect(next, 'https://app.example.com'), 302)
+  ```
+- *solidstart* — Resolve the target against your own origin before redirecting.
+
+  ```ts
+  return redirect(safeRedirect(next, 'https://app.example.com'))
+  ```
+- *elysia* — Resolve the target against your own origin, then set Location.
+
+  ```ts
+  set.status = 302
+  set.headers.Location = safeRedirect(query.next, 'https://app.example.com')
   ```
 - *any profile* — Resolve the target against your own origin and refuse anything that lands elsewhere. Do not use a startsWith('/') check: '//evil.com' passes it and leaves the site.
 
@@ -1784,6 +2217,201 @@ The application does not set the baseline security response headers. Without the
     })
   }
   ```
+- *sveltekit* — Set them once in `hooks.server.ts`, which runs in front of every response.
+
+  ```ts
+  export const handle: Handle = async ({ event, resolve }) => {
+    const response = await resolve(event)
+    response.headers.set('strict-transport-security', 'max-age=63072000; includeSubDomains')
+    response.headers.set('content-security-policy', "default-src 'self'")
+    response.headers.set('x-content-type-options', 'nosniff')
+    response.headers.set('x-frame-options', 'DENY')
+    response.headers.set('referrer-policy', 'strict-origin-when-cross-origin')
+    return response
+  }
+  ```
+- *tanstack-start* — Set them on the response your server entry returns, so every route inherits them.
+
+  ```ts
+  const headers = new Headers(response.headers)
+  headers.set('strict-transport-security', 'max-age=63072000; includeSubDomains')
+  headers.set('content-security-policy', "default-src 'self'")
+  headers.set('x-content-type-options', 'nosniff')
+  headers.set('x-frame-options', 'DENY')
+  headers.set('referrer-policy', 'strict-origin-when-cross-origin')
+  return new Response(response.body, { status: response.status, headers })
+  ```
+- *solidstart* — Set them in `src/middleware.ts`, registered in `app.config.ts`.
+
+  ```ts
+  export default createMiddleware({
+    onBeforeResponse: [
+      (event) => {
+        const headers = event.response.headers
+        headers.set('strict-transport-security', 'max-age=63072000; includeSubDomains')
+        headers.set('content-security-policy', "default-src 'self'")
+        headers.set('x-content-type-options', 'nosniff')
+        headers.set('x-frame-options', 'DENY')
+        headers.set('referrer-policy', 'strict-origin-when-cross-origin')
+      },
+    ],
+  })
+  ```
+- *elysia* — Set them in an `onAfterHandle` hook so every route is covered by one edit.
+
+  ```ts
+  app.onAfterHandle(({ set }) => {
+    set.headers['strict-transport-security'] = 'max-age=63072000; includeSubDomains'
+    set.headers['content-security-policy'] = "default-src 'self'"
+    set.headers['x-content-type-options'] = 'nosniff'
+    set.headers['x-frame-options'] = 'DENY'
+    set.headers['referrer-policy'] = 'strict-origin-when-cross-origin'
+  })
+  ```
+- *next · webWorker* — Set them on the response in middleware. A config block the Node build reads is not evaluated on this runtime.
+
+  ```ts
+  export default {
+    async fetch(request: Request) {
+      const response = await handle(request)
+      const headers = new Headers(response.headers)
+      headers.set('strict-transport-security', 'max-age=63072000; includeSubDomains')
+      headers.set('content-security-policy', "default-src 'self'")
+      headers.set('x-content-type-options', 'nosniff')
+      headers.set('x-frame-options', 'DENY')
+      headers.set('referrer-policy', 'strict-origin-when-cross-origin')
+      return new Response(response.body, { status: response.status, headers })
+    },
+  }
+  ```
+- *nuxt · webWorker* — Set them on the response in middleware. A config block the Node build reads is not evaluated on this runtime.
+
+  ```ts
+  export default {
+    async fetch(request: Request) {
+      const response = await handle(request)
+      const headers = new Headers(response.headers)
+      headers.set('strict-transport-security', 'max-age=63072000; includeSubDomains')
+      headers.set('content-security-policy', "default-src 'self'")
+      headers.set('x-content-type-options', 'nosniff')
+      headers.set('x-frame-options', 'DENY')
+      headers.set('referrer-policy', 'strict-origin-when-cross-origin')
+      return new Response(response.body, { status: response.status, headers })
+    },
+  }
+  ```
+- *hono · webWorker* — Set them on the response in middleware. A config block the Node build reads is not evaluated on this runtime.
+
+  ```ts
+  export default {
+    async fetch(request: Request) {
+      const response = await handle(request)
+      const headers = new Headers(response.headers)
+      headers.set('strict-transport-security', 'max-age=63072000; includeSubDomains')
+      headers.set('content-security-policy', "default-src 'self'")
+      headers.set('x-content-type-options', 'nosniff')
+      headers.set('x-frame-options', 'DENY')
+      headers.set('referrer-policy', 'strict-origin-when-cross-origin')
+      return new Response(response.body, { status: response.status, headers })
+    },
+  }
+  ```
+- *astro · webWorker* — Set them on the response in middleware. A config block the Node build reads is not evaluated on this runtime.
+
+  ```ts
+  export default {
+    async fetch(request: Request) {
+      const response = await handle(request)
+      const headers = new Headers(response.headers)
+      headers.set('strict-transport-security', 'max-age=63072000; includeSubDomains')
+      headers.set('content-security-policy', "default-src 'self'")
+      headers.set('x-content-type-options', 'nosniff')
+      headers.set('x-frame-options', 'DENY')
+      headers.set('referrer-policy', 'strict-origin-when-cross-origin')
+      return new Response(response.body, { status: response.status, headers })
+    },
+  }
+  ```
+- *remix · webWorker* — Set them on the response in middleware. A config block the Node build reads is not evaluated on this runtime.
+
+  ```ts
+  export default {
+    async fetch(request: Request) {
+      const response = await handle(request)
+      const headers = new Headers(response.headers)
+      headers.set('strict-transport-security', 'max-age=63072000; includeSubDomains')
+      headers.set('content-security-policy', "default-src 'self'")
+      headers.set('x-content-type-options', 'nosniff')
+      headers.set('x-frame-options', 'DENY')
+      headers.set('referrer-policy', 'strict-origin-when-cross-origin')
+      return new Response(response.body, { status: response.status, headers })
+    },
+  }
+  ```
+- *sveltekit · webWorker* — Set them on the response in middleware. A config block the Node build reads is not evaluated on this runtime.
+
+  ```ts
+  export default {
+    async fetch(request: Request) {
+      const response = await handle(request)
+      const headers = new Headers(response.headers)
+      headers.set('strict-transport-security', 'max-age=63072000; includeSubDomains')
+      headers.set('content-security-policy', "default-src 'self'")
+      headers.set('x-content-type-options', 'nosniff')
+      headers.set('x-frame-options', 'DENY')
+      headers.set('referrer-policy', 'strict-origin-when-cross-origin')
+      return new Response(response.body, { status: response.status, headers })
+    },
+  }
+  ```
+- *tanstack-start · webWorker* — Set them on the response in middleware. A config block the Node build reads is not evaluated on this runtime.
+
+  ```ts
+  export default {
+    async fetch(request: Request) {
+      const response = await handle(request)
+      const headers = new Headers(response.headers)
+      headers.set('strict-transport-security', 'max-age=63072000; includeSubDomains')
+      headers.set('content-security-policy', "default-src 'self'")
+      headers.set('x-content-type-options', 'nosniff')
+      headers.set('x-frame-options', 'DENY')
+      headers.set('referrer-policy', 'strict-origin-when-cross-origin')
+      return new Response(response.body, { status: response.status, headers })
+    },
+  }
+  ```
+- *solidstart · webWorker* — Set them on the response in middleware. A config block the Node build reads is not evaluated on this runtime.
+
+  ```ts
+  export default {
+    async fetch(request: Request) {
+      const response = await handle(request)
+      const headers = new Headers(response.headers)
+      headers.set('strict-transport-security', 'max-age=63072000; includeSubDomains')
+      headers.set('content-security-policy', "default-src 'self'")
+      headers.set('x-content-type-options', 'nosniff')
+      headers.set('x-frame-options', 'DENY')
+      headers.set('referrer-policy', 'strict-origin-when-cross-origin')
+      return new Response(response.body, { status: response.status, headers })
+    },
+  }
+  ```
+- *elysia · webWorker* — Set them on the response in middleware. A config block the Node build reads is not evaluated on this runtime.
+
+  ```ts
+  export default {
+    async fetch(request: Request) {
+      const response = await handle(request)
+      const headers = new Headers(response.headers)
+      headers.set('strict-transport-security', 'max-age=63072000; includeSubDomains')
+      headers.set('content-security-policy', "default-src 'self'")
+      headers.set('x-content-type-options', 'nosniff')
+      headers.set('x-frame-options', 'DENY')
+      headers.set('referrer-policy', 'strict-origin-when-cross-origin')
+      return new Response(response.body, { status: response.status, headers })
+    },
+  }
+  ```
 - *any profile* — Set these response headers at the edge or in the app: strict-transport-security, content-security-policy, x-content-type-options, x-frame-options, referrer-policy.
 
 `owlwarden explain security-headers-missing` prints this in the terminal.
@@ -1870,6 +2498,26 @@ A password, token, cookie, or similar value is passed to a log sink. Centralised
   console.info({ event: 'login_attempt', userId })
   // never: console.info({ password: req.body.password })
   ```
+- *sveltekit* — Log that a field was present, not the field.
+
+  ```ts
+  console.info({ hasPassword: Boolean(body.password) })
+  ```
+- *tanstack-start* — Log that a field was present, not the field.
+
+  ```ts
+  console.info({ hasPassword: Boolean(body.password) })
+  ```
+- *solidstart* — Log that a field was present, not the field.
+
+  ```ts
+  console.info({ hasPassword: Boolean(body.password) })
+  ```
+- *elysia* — Log that a field was present, not the field. Elysia's request logger sees the same object.
+
+  ```ts
+  console.info({ hasPassword: Boolean(body.password) })
+  ```
 - *any profile* — Log a redacted shape — an id, a boolean, a length — never the secret itself.
 
 `owlwarden explain sensitive-data-logged` prints this in the terminal.
@@ -1953,6 +2601,26 @@ A SQL string is assembled with a template literal or concatenation and passed to
 
   ```ts
   await pool.query('SELECT * FROM users WHERE id = $1', [req.query.id])
+  ```
+- *sveltekit* — Bind the value as a parameter in the endpoint; never build the statement by interpolation.
+
+  ```ts
+  const rows = await pool.query('SELECT id, role FROM users WHERE email = $1', [body.email])
+  ```
+- *tanstack-start* — Bind the value as a parameter in the server function.
+
+  ```ts
+  const rows = await pool.query('SELECT id, role FROM users WHERE email = $1', [body.email])
+  ```
+- *solidstart* — Bind the value as a parameter in the API route.
+
+  ```ts
+  const rows = await pool.query('SELECT id, role FROM users WHERE email = $1', [body.email])
+  ```
+- *elysia* — Bind the value as a parameter. Elysia's `t` schema validates the shape; it does not make a string safe to concatenate.
+
+  ```ts
+  const rows = await pool.query('SELECT id, role FROM users WHERE email = $1', [body.email])
   ```
 - *any profile* — Pass the values as query parameters instead of interpolating them. Every driver supports it, and the binding is not optional formatting — it is what stops the value being parsed as SQL.
 
@@ -2045,6 +2713,111 @@ An outbound HTTP request is made to a URL that came from the caller. The server 
   ```ts
   const target = assertAllowedUrl(req.body.url)
   const upstream = await fetch(target, { redirect: 'error' })
+  ```
+- *sveltekit* — Validate the URL in the endpoint before fetching, and refuse redirects.
+
+  ```ts
+  const url = assertAllowedUrl(body.url)
+  const upstream = await fetch(url, { redirect: 'error' })
+  ```
+- *tanstack-start* — Validate the URL inside the server function; a client-side check is not one.
+
+  ```ts
+  const url = assertAllowedUrl(body.url)
+  const upstream = await fetch(url, { redirect: 'error' })
+  ```
+- *solidstart* — Validate the URL in the API route before fetching, and refuse redirects.
+
+  ```ts
+  const url = assertAllowedUrl(body.url)
+  const upstream = await fetch(url, { redirect: 'error' })
+  ```
+- *elysia* — Validate the URL in the handler. Bun's fetch follows redirects by default, so say otherwise.
+
+  ```ts
+  const url = assertAllowedUrl(body.url)
+  const upstream = await fetch(url, { redirect: 'error' })
+  ```
+- *next · webWorker* — redirect: 'error' is not honoured on this runtime. Use redirect: 'manual' and refuse the response yourself, or an allowlisted host can redirect you to one that is not.
+
+  ```ts
+  const url = assertAllowedUrl(input)
+  const upstream = await fetch(url, { redirect: 'manual' })
+  if (upstream.status >= 300 && upstream.status < 400) {
+    throw new Error('refusing to follow a redirect from an allowlisted host')
+  }
+  ```
+- *nuxt · webWorker* — redirect: 'error' is not honoured on this runtime. Use redirect: 'manual' and refuse the response yourself, or an allowlisted host can redirect you to one that is not.
+
+  ```ts
+  const url = assertAllowedUrl(input)
+  const upstream = await fetch(url, { redirect: 'manual' })
+  if (upstream.status >= 300 && upstream.status < 400) {
+    throw new Error('refusing to follow a redirect from an allowlisted host')
+  }
+  ```
+- *hono · webWorker* — redirect: 'error' is not honoured on this runtime. Use redirect: 'manual' and refuse the response yourself, or an allowlisted host can redirect you to one that is not.
+
+  ```ts
+  const url = assertAllowedUrl(input)
+  const upstream = await fetch(url, { redirect: 'manual' })
+  if (upstream.status >= 300 && upstream.status < 400) {
+    throw new Error('refusing to follow a redirect from an allowlisted host')
+  }
+  ```
+- *astro · webWorker* — redirect: 'error' is not honoured on this runtime. Use redirect: 'manual' and refuse the response yourself, or an allowlisted host can redirect you to one that is not.
+
+  ```ts
+  const url = assertAllowedUrl(input)
+  const upstream = await fetch(url, { redirect: 'manual' })
+  if (upstream.status >= 300 && upstream.status < 400) {
+    throw new Error('refusing to follow a redirect from an allowlisted host')
+  }
+  ```
+- *remix · webWorker* — redirect: 'error' is not honoured on this runtime. Use redirect: 'manual' and refuse the response yourself, or an allowlisted host can redirect you to one that is not.
+
+  ```ts
+  const url = assertAllowedUrl(input)
+  const upstream = await fetch(url, { redirect: 'manual' })
+  if (upstream.status >= 300 && upstream.status < 400) {
+    throw new Error('refusing to follow a redirect from an allowlisted host')
+  }
+  ```
+- *sveltekit · webWorker* — redirect: 'error' is not honoured on this runtime. Use redirect: 'manual' and refuse the response yourself, or an allowlisted host can redirect you to one that is not.
+
+  ```ts
+  const url = assertAllowedUrl(input)
+  const upstream = await fetch(url, { redirect: 'manual' })
+  if (upstream.status >= 300 && upstream.status < 400) {
+    throw new Error('refusing to follow a redirect from an allowlisted host')
+  }
+  ```
+- *tanstack-start · webWorker* — redirect: 'error' is not honoured on this runtime. Use redirect: 'manual' and refuse the response yourself, or an allowlisted host can redirect you to one that is not.
+
+  ```ts
+  const url = assertAllowedUrl(input)
+  const upstream = await fetch(url, { redirect: 'manual' })
+  if (upstream.status >= 300 && upstream.status < 400) {
+    throw new Error('refusing to follow a redirect from an allowlisted host')
+  }
+  ```
+- *solidstart · webWorker* — redirect: 'error' is not honoured on this runtime. Use redirect: 'manual' and refuse the response yourself, or an allowlisted host can redirect you to one that is not.
+
+  ```ts
+  const url = assertAllowedUrl(input)
+  const upstream = await fetch(url, { redirect: 'manual' })
+  if (upstream.status >= 300 && upstream.status < 400) {
+    throw new Error('refusing to follow a redirect from an allowlisted host')
+  }
+  ```
+- *elysia · webWorker* — redirect: 'error' is not honoured on this runtime. Use redirect: 'manual' and refuse the response yourself, or an allowlisted host can redirect you to one that is not.
+
+  ```ts
+  const url = assertAllowedUrl(input)
+  const upstream = await fetch(url, { redirect: 'manual' })
+  if (upstream.status >= 300 && upstream.status < 400) {
+    throw new Error('refusing to follow a redirect from an allowlisted host')
+  }
   ```
 - *any profile* — Check the destination against an allowlist of hosts before fetching it. Blocklists do not work here: DNS rebinding, redirects, and IPv6-mapped addresses all defeat them.
 
@@ -2155,6 +2928,36 @@ Returning an error's `.stack` to the client exposes absolute file paths, depende
   ```ts
   console.error(err)
   res.status(500).json({ error: 'Internal Server Error' })
+  ```
+- *sveltekit* — Log server-side and return a generic body from the endpoint. SvelteKit's `handleError` hook is where the detail belongs.
+
+  ```ts
+  console.error(err)
+  return json({ error: 'Internal Server Error' }, { status: 500 })
+  ```
+- *tanstack-start* — Log server-side and return a generic body from the server function.
+
+  ```ts
+  console.error(err)
+  return new Response(JSON.stringify({ error: 'Internal Server Error' }), {
+    status: 500,
+    headers: { 'content-type': 'application/json' },
+  })
+  ```
+- *solidstart* — Log server-side and return a generic body from the API route.
+
+  ```ts
+  console.error(err)
+  return json({ error: 'Internal Server Error' }, { status: 500 })
+  ```
+- *elysia* — Use `onError` so every route answers the same way, and keep the detail in the log.
+
+  ```ts
+  app.onError(({ error, set }) => {
+    console.error(error)
+    set.status = 500
+    return { error: 'Internal Server Error' }
+  })
   ```
 - *any profile* — Log the error server-side and return a generic message to the client.
 
@@ -2282,6 +3085,42 @@ A package.json dependency uses '*' or 'latest', so every install can pull a diff
     }
   }
   ```
+- *sveltekit* — Pin the range in package.json and commit the lockfile.
+
+  ```ts
+  {
+    "dependencies": {
+      "@sveltejs/kit": "^2.5.0"
+    }
+  }
+  ```
+- *tanstack-start* — Pin the range in package.json and commit the lockfile.
+
+  ```ts
+  {
+    "dependencies": {
+      "@tanstack/start": "^1.0.0"
+    }
+  }
+  ```
+- *solidstart* — Pin the range in package.json and commit the lockfile.
+
+  ```ts
+  {
+    "dependencies": {
+      "@solidjs/start": "^1.0.0"
+    }
+  }
+  ```
+- *elysia* — Pin the range in package.json and commit bun.lockb.
+
+  ```ts
+  {
+    "dependencies": {
+      "elysia": "^1.1.0"
+    }
+  }
+  ```
 - *any profile* — Replace '*' or 'latest' with a lower-bounded range (or an exact version), then regenerate the lockfile.
 
 `owlwarden explain unpinned-dependency` prints this in the terminal.
@@ -2296,7 +3135,7 @@ A hash, cipher, or random source that cannot carry the weight it has been given:
 
 **Fixes**
 
-- *next* — Use node:crypto in the route handler. Note that the edge runtime has no node:crypto — use globalThis.crypto.randomUUID() and Web Crypto there, or pin the route to nodejs.
+- *next* — Use node:crypto in the route handler.
 
   ```ts
   import { randomBytes, randomUUID, scrypt } from 'node:crypto'
@@ -2312,7 +3151,7 @@ A hash, cipher, or random source that cannot carry the weight it has been given:
     scrypt(password, salt, 64, (error, key) => (error ? reject(error) : resolve(key))),
   )
   ```
-- *nuxt* — node:crypto works inside Nitro on the node preset. On a worker preset use the Web Crypto API, which Nitro exposes globally as `crypto`.
+- *nuxt* — node:crypto works inside Nitro on the node preset.
 
   ```ts
   import { randomBytes, randomUUID, scrypt } from 'node:crypto'
@@ -2373,7 +3212,7 @@ A hash, cipher, or random source that cannot carry the weight it has been given:
     scrypt(password, salt, 64, (error, key) => (error ? reject(error) : resolve(key))),
   )
   ```
-- *hono* — Use node:crypto when running on Node; on Workers/Deno use the Web Crypto API instead.
+- *hono* — Use node:crypto when running on Node.
 
   ```ts
   import { randomBytes, randomUUID, scrypt } from 'node:crypto'
@@ -2437,7 +3276,7 @@ A hash, cipher, or random source that cannot carry the weight it has been given:
     scrypt(password, salt, 64, (error, key) => (error ? reject(error) : resolve(key))),
   )
   ```
-- *astro* — Use node:crypto in server endpoints; on edge/Workers adapters use the Web Crypto API instead.
+- *astro* — Use node:crypto in server endpoints.
 
   ```ts
   import { randomBytes, randomUUID, scrypt } from 'node:crypto'
@@ -2453,7 +3292,7 @@ A hash, cipher, or random source that cannot carry the weight it has been given:
     scrypt(password, salt, 64, (error, key) => (error ? reject(error) : resolve(key))),
   )
   ```
-- *remix* — Use node:crypto in loaders/actions on the Node runtime; on Workers/Deno use the Web Crypto API instead.
+- *remix* — Use node:crypto in loaders/actions on the Node runtime.
 
   ```ts
   import { randomBytes, randomUUID, scrypt } from 'node:crypto'
@@ -2483,6 +3322,257 @@ A hash, cipher, or random source that cannot carry the weight it has been given:
   const salt = randomBytes(16)
   const hash = await new Promise<Buffer>((resolve, reject) =>
     scrypt(password, salt, 64, (error, key) => (error ? reject(error) : resolve(key))),
+  )
+  ```
+- *sveltekit* — Replace the primitive in the server module; there is no hook for this.
+
+  ```ts
+  import { randomBytes, randomUUID, scrypt } from 'node:crypto'
+  
+  // Tokens and session ids: unpredictable, not merely random-looking.
+  const sessionId = randomUUID()
+  const resetToken = randomBytes(32).toString('base64url')
+  
+  // Passwords: a slow hash with a per-password salt. bcrypt and argon2 are
+  // equally correct; scrypt needs no dependency.
+  const salt = randomBytes(16)
+  const hash = await new Promise<Buffer>((resolve, reject) =>
+    scrypt(password, salt, 64, (error, key) => (error ? reject(error) : resolve(key))),
+  )
+  ```
+- *tanstack-start* — Replace the primitive inside the server function.
+
+  ```ts
+  import { randomBytes, randomUUID, scrypt } from 'node:crypto'
+  
+  // Tokens and session ids: unpredictable, not merely random-looking.
+  const sessionId = randomUUID()
+  const resetToken = randomBytes(32).toString('base64url')
+  
+  // Passwords: a slow hash with a per-password salt. bcrypt and argon2 are
+  // equally correct; scrypt needs no dependency.
+  const salt = randomBytes(16)
+  const hash = await new Promise<Buffer>((resolve, reject) =>
+    scrypt(password, salt, 64, (error, key) => (error ? reject(error) : resolve(key))),
+  )
+  ```
+- *solidstart* — Replace the primitive in server-only code.
+
+  ```ts
+  import { randomBytes, randomUUID, scrypt } from 'node:crypto'
+  
+  // Tokens and session ids: unpredictable, not merely random-looking.
+  const sessionId = randomUUID()
+  const resetToken = randomBytes(32).toString('base64url')
+  
+  // Passwords: a slow hash with a per-password salt. bcrypt and argon2 are
+  // equally correct; scrypt needs no dependency.
+  const salt = randomBytes(16)
+  const hash = await new Promise<Buffer>((resolve, reject) =>
+    scrypt(password, salt, 64, (error, key) => (error ? reject(error) : resolve(key))),
+  )
+  ```
+- *elysia* — Replace the primitive at the point of use; there is no plugin for this.
+
+  ```ts
+  import { randomBytes, randomUUID, scrypt } from 'node:crypto'
+  
+  // Tokens and session ids: unpredictable, not merely random-looking.
+  const sessionId = randomUUID()
+  const resetToken = randomBytes(32).toString('base64url')
+  
+  // Passwords: a slow hash with a per-password salt. bcrypt and argon2 are
+  // equally correct; scrypt needs no dependency.
+  const salt = randomBytes(16)
+  const hash = await new Promise<Buffer>((resolve, reject) =>
+    scrypt(password, salt, 64, (error, key) => (error ? reject(error) : resolve(key))),
+  )
+  ```
+- *elysia · bun* — Use Bun's password hashing rather than a hand-rolled digest: it picks argon2 and manages the salt for you.
+
+  ```ts
+  const passwordHash = await Bun.password.hash(password)
+  const ok = await Bun.password.verify(password, passwordHash)
+  const sessionId = crypto.randomUUID()
+  ```
+- *next · webWorker* — There is no node:crypto on this runtime. Use the Web Crypto API, which is global. scrypt has no equivalent; PBKDF2 with a high iteration count is the replacement.
+
+  ```ts
+  // No node:crypto here — this is the Web Crypto API, which every
+  // fetch-API runtime exposes globally as `crypto`.
+  
+  // Tokens and session ids.
+  const sessionId = crypto.randomUUID()
+  const resetToken = btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(32))))
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+  
+  // Passwords: scrypt is not available. PBKDF2 is, and needs a high
+  // iteration count to be worth anything.
+  const salt = crypto.getRandomValues(new Uint8Array(16))
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(password),
+    'PBKDF2', false, ['deriveBits'])
+  const hash = await crypto.subtle.deriveBits(
+    { name: 'PBKDF2', salt, iterations: 600_000, hash: 'SHA-256' }, key, 256,
+  )
+  ```
+- *nuxt · webWorker* — There is no node:crypto on this runtime. Use the Web Crypto API, which is global. scrypt has no equivalent; PBKDF2 with a high iteration count is the replacement.
+
+  ```ts
+  // No node:crypto here — this is the Web Crypto API, which every
+  // fetch-API runtime exposes globally as `crypto`.
+  
+  // Tokens and session ids.
+  const sessionId = crypto.randomUUID()
+  const resetToken = btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(32))))
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+  
+  // Passwords: scrypt is not available. PBKDF2 is, and needs a high
+  // iteration count to be worth anything.
+  const salt = crypto.getRandomValues(new Uint8Array(16))
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(password),
+    'PBKDF2', false, ['deriveBits'])
+  const hash = await crypto.subtle.deriveBits(
+    { name: 'PBKDF2', salt, iterations: 600_000, hash: 'SHA-256' }, key, 256,
+  )
+  ```
+- *hono · webWorker* — There is no node:crypto on this runtime. Use the Web Crypto API, which is global. scrypt has no equivalent; PBKDF2 with a high iteration count is the replacement.
+
+  ```ts
+  // No node:crypto here — this is the Web Crypto API, which every
+  // fetch-API runtime exposes globally as `crypto`.
+  
+  // Tokens and session ids.
+  const sessionId = crypto.randomUUID()
+  const resetToken = btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(32))))
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+  
+  // Passwords: scrypt is not available. PBKDF2 is, and needs a high
+  // iteration count to be worth anything.
+  const salt = crypto.getRandomValues(new Uint8Array(16))
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(password),
+    'PBKDF2', false, ['deriveBits'])
+  const hash = await crypto.subtle.deriveBits(
+    { name: 'PBKDF2', salt, iterations: 600_000, hash: 'SHA-256' }, key, 256,
+  )
+  ```
+- *astro · webWorker* — There is no node:crypto on this runtime. Use the Web Crypto API, which is global. scrypt has no equivalent; PBKDF2 with a high iteration count is the replacement.
+
+  ```ts
+  // No node:crypto here — this is the Web Crypto API, which every
+  // fetch-API runtime exposes globally as `crypto`.
+  
+  // Tokens and session ids.
+  const sessionId = crypto.randomUUID()
+  const resetToken = btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(32))))
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+  
+  // Passwords: scrypt is not available. PBKDF2 is, and needs a high
+  // iteration count to be worth anything.
+  const salt = crypto.getRandomValues(new Uint8Array(16))
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(password),
+    'PBKDF2', false, ['deriveBits'])
+  const hash = await crypto.subtle.deriveBits(
+    { name: 'PBKDF2', salt, iterations: 600_000, hash: 'SHA-256' }, key, 256,
+  )
+  ```
+- *remix · webWorker* — There is no node:crypto on this runtime. Use the Web Crypto API, which is global. scrypt has no equivalent; PBKDF2 with a high iteration count is the replacement.
+
+  ```ts
+  // No node:crypto here — this is the Web Crypto API, which every
+  // fetch-API runtime exposes globally as `crypto`.
+  
+  // Tokens and session ids.
+  const sessionId = crypto.randomUUID()
+  const resetToken = btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(32))))
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+  
+  // Passwords: scrypt is not available. PBKDF2 is, and needs a high
+  // iteration count to be worth anything.
+  const salt = crypto.getRandomValues(new Uint8Array(16))
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(password),
+    'PBKDF2', false, ['deriveBits'])
+  const hash = await crypto.subtle.deriveBits(
+    { name: 'PBKDF2', salt, iterations: 600_000, hash: 'SHA-256' }, key, 256,
+  )
+  ```
+- *sveltekit · webWorker* — There is no node:crypto on this runtime. Use the Web Crypto API, which is global. scrypt has no equivalent; PBKDF2 with a high iteration count is the replacement.
+
+  ```ts
+  // No node:crypto here — this is the Web Crypto API, which every
+  // fetch-API runtime exposes globally as `crypto`.
+  
+  // Tokens and session ids.
+  const sessionId = crypto.randomUUID()
+  const resetToken = btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(32))))
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+  
+  // Passwords: scrypt is not available. PBKDF2 is, and needs a high
+  // iteration count to be worth anything.
+  const salt = crypto.getRandomValues(new Uint8Array(16))
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(password),
+    'PBKDF2', false, ['deriveBits'])
+  const hash = await crypto.subtle.deriveBits(
+    { name: 'PBKDF2', salt, iterations: 600_000, hash: 'SHA-256' }, key, 256,
+  )
+  ```
+- *tanstack-start · webWorker* — There is no node:crypto on this runtime. Use the Web Crypto API, which is global. scrypt has no equivalent; PBKDF2 with a high iteration count is the replacement.
+
+  ```ts
+  // No node:crypto here — this is the Web Crypto API, which every
+  // fetch-API runtime exposes globally as `crypto`.
+  
+  // Tokens and session ids.
+  const sessionId = crypto.randomUUID()
+  const resetToken = btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(32))))
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+  
+  // Passwords: scrypt is not available. PBKDF2 is, and needs a high
+  // iteration count to be worth anything.
+  const salt = crypto.getRandomValues(new Uint8Array(16))
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(password),
+    'PBKDF2', false, ['deriveBits'])
+  const hash = await crypto.subtle.deriveBits(
+    { name: 'PBKDF2', salt, iterations: 600_000, hash: 'SHA-256' }, key, 256,
+  )
+  ```
+- *solidstart · webWorker* — There is no node:crypto on this runtime. Use the Web Crypto API, which is global. scrypt has no equivalent; PBKDF2 with a high iteration count is the replacement.
+
+  ```ts
+  // No node:crypto here — this is the Web Crypto API, which every
+  // fetch-API runtime exposes globally as `crypto`.
+  
+  // Tokens and session ids.
+  const sessionId = crypto.randomUUID()
+  const resetToken = btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(32))))
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+  
+  // Passwords: scrypt is not available. PBKDF2 is, and needs a high
+  // iteration count to be worth anything.
+  const salt = crypto.getRandomValues(new Uint8Array(16))
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(password),
+    'PBKDF2', false, ['deriveBits'])
+  const hash = await crypto.subtle.deriveBits(
+    { name: 'PBKDF2', salt, iterations: 600_000, hash: 'SHA-256' }, key, 256,
+  )
+  ```
+- *elysia · webWorker* — There is no node:crypto on this runtime. Use the Web Crypto API, which is global. scrypt has no equivalent; PBKDF2 with a high iteration count is the replacement.
+
+  ```ts
+  // No node:crypto here — this is the Web Crypto API, which every
+  // fetch-API runtime exposes globally as `crypto`.
+  
+  // Tokens and session ids.
+  const sessionId = crypto.randomUUID()
+  const resetToken = btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(32))))
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+  
+  // Passwords: scrypt is not available. PBKDF2 is, and needs a high
+  // iteration count to be worth anything.
+  const salt = crypto.getRandomValues(new Uint8Array(16))
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(password),
+    'PBKDF2', false, ['deriveBits'])
+  const hash = await crypto.subtle.deriveBits(
+    { name: 'PBKDF2', salt, iterations: 600_000, hash: 'SHA-256' }, key, 256,
   )
   ```
 - *any profile* — Use a slow, salted hash for passwords and a cryptographic random source for tokens. Both are in the Node standard library; neither needs a dependency.

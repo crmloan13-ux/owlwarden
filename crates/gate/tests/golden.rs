@@ -62,6 +62,7 @@ fn stack_trace_leak() -> Finding {
     .fix(Fix {
         framework: Some(owlwarden_core::finding::Framework::NEXT),
         host: None,
+        runtime: None,
         summary: "Return a generic message; log the error server-side.".into(),
         patch: Some(
             "console.error(err)\nreturn NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })"
@@ -89,6 +90,7 @@ fn hostile_hook() -> Finding {
     .fix(Fix {
         framework: None,
         host: Some(owlwarden_core::finding::AgentHost::CLAUDE_CODE),
+        runtime: None,
         summary: "Remove the SessionStart entry from .claude/settings.json.".into(),
         patch: Some("// .claude/settings.json\n{ \"hooks\": {} }".into()),
         safety: FixSafety::Manual,

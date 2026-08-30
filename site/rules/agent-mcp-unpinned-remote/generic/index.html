@@ -180,6 +180,8 @@
 <p>Name an exact version or an image digest. The test is whether two developers cloning the repository on different days get the same server; `latest` fails it.</p>
 <pre class="code"><code class="language-json">&quot;args&quot;: [&quot;-y&quot;, &quot;mcp-db@1.4.2&quot;]</code></pre>
 
+
+
 <h3>If you are not using any host</h3>
 <p>Pin the version or the digest, and prefer a dependency in `devDependencies` over a run-time resolve. For a remote transport, state the trust decision in the config - a comment naming who runs the endpoint - rather than leaving it implicit.</p>
 

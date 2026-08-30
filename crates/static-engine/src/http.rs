@@ -272,6 +272,9 @@ mod tests {
         let meta = UnitMeta {
             frameworks: std::sync::Arc::new(set),
             route: None,
+            runtime: crate::runtime::ResolvedRuntime::defaulted(
+                owlwarden_core::runtime::Runtime::Node,
+            ),
         };
         with_parsed(&path, source, meta, |unit| {
             let mut probe = Probe {
@@ -399,6 +402,9 @@ mod tests {
         let meta = UnitMeta {
             frameworks: std::sync::Arc::new(set),
             route: None,
+            runtime: crate::runtime::ResolvedRuntime::defaulted(
+                owlwarden_core::runtime::Runtime::Node,
+            ),
         };
         let sinks = with_parsed(&path, "res.jsonp({ a: 1 })", meta, |unit| {
             let mut probe = Probe {

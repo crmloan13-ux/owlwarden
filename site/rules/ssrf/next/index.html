@@ -181,6 +181,20 @@
 <pre class="code"><code class="language-ts">const url = assertAllowedUrl(body.url)
 const upstream = await fetch(url, { redirect: &#39;error&#39; })</code></pre>
 
+<h2>On a different runtime</h2>
+<p>
+  The fix above is written for the runtime Next.js usually runs on. These
+  are the runtimes where it would not run at all - an import that does not
+  exist, or an API the host does not have - and what to write instead.
+</p>
+<h3>Workers and other fetch-API runtimes</h3>
+<p>redirect: &#39;error&#39; is not honoured on this runtime. Use redirect: &#39;manual&#39; and refuse the response yourself, or an allowlisted host can redirect you to one that is not.</p>
+<pre class="code"><code class="language-ts">const url = assertAllowedUrl(input)
+const upstream = await fetch(url, { redirect: &#39;manual&#39; })
+if (upstream.status &gt;= 300 &amp;&amp; upstream.status &lt; 400) {
+  throw new Error(&#39;refusing to follow a redirect from an allowlisted host&#39;)
+}</code></pre>
+
 <h3>If you are not using Next.js</h3>
 <p>Check the destination against an allowlist of hosts before fetching it. Blocklists do not work here: DNS rebinding, redirects, and IPv6-mapped addresses all defeat them.</p>
 

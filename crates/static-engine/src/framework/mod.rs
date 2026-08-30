@@ -40,6 +40,7 @@ pub mod routing;
 use std::sync::Arc;
 
 use owlwarden_core::finding::Framework;
+use owlwarden_core::runtime::Runtime;
 
 use crate::project::PackageManifest;
 
@@ -153,6 +154,17 @@ pub struct FrameworkProfile {
     pub bootstrap_files: Vec<String>,
     /// The framework's HTTP vocabulary.
     pub http: HttpVocabulary,
+    /// The runtimes this framework can be deployed on.
+    ///
+    /// Several are polymorphic by design: Hono targets Node, Bun, Deno, and
+    /// Workers, and Nuxt's Nitro has presets for all of them. The framework is
+    /// therefore not enough information to write a fix that executes, which is
+    /// what the runtime overlay exists to fix
+    /// ([ADR 0031](../../../../docs/adr/0031-runtime-overlay.md) §1).
+    ///
+    /// The first entry is the default — what a project with no explicit
+    /// declaration gets, disclosed on the summary line as an inference.
+    pub runtimes: Vec<Runtime>,
     /// How this framework says "check the caller before running the handler".
     ///
     /// Consumed only by [`crate::exposure`]. It sits in the profile rather than
@@ -176,6 +188,23 @@ pub struct FrameworkProfile {
 }
 
 impl FrameworkProfile {
+    /// The runtime a project on this framework gets when nothing declares one.
+    ///
+    /// Node unless the profile says otherwise, which is the honest default:
+    /// the overwhelming majority of projects on every one of these frameworks
+    /// run on Node, and refusing to advise until something declares a runtime
+    /// would degrade the common case in service of the rare one.
+    #[must_use]
+    pub fn default_runtime(&self) -> Runtime {
+        self.runtimes.first().copied().unwrap_or_default()
+    }
+
+    /// Whether this framework can be deployed on a runtime.
+    #[must_use]
+    pub fn supports(&self, runtime: Runtime) -> bool {
+        self.runtimes.contains(&runtime)
+    }
+
     /// Whether this profile handles a given handler style.
     #[must_use]
     pub fn uses(&self, style: HandlerStyle) -> bool {
@@ -490,6 +519,7 @@ mod tests {
                 ..HttpVocabulary::default()
             },
             auth: AuthVocabulary::default(),
+            runtimes: vec![Runtime::Node],
             handlers: Vec::new(),
             route_for_path: None,
         });
@@ -520,6 +550,12 @@ mod tests {
                 ..HttpVocabulary::default()
             },
             auth: AuthVocabulary::default(),
+            runtimes: vec![
+                Runtime::Node,
+                Runtime::Bun,
+                Runtime::Deno,
+                Runtime::WebWorker,
+            ],
             handlers: vec![HandlerStyle::RouterCall],
             route_for_path: None,
         });

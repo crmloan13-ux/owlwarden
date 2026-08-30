@@ -223,6 +223,26 @@ fn remediation() -> Remediation {
         "Pin the dependency in package.json and reinstall so the lockfile records it.",
         "{\n  \"dependencies\": {\n    \"gatsby\": \"^5.13.0\"\n  }\n}",
     )
+    .manual(
+        Framework::SVELTEKIT,
+        "Pin the range in package.json and commit the lockfile.",
+        "{\n  \"dependencies\": {\n    \"@sveltejs/kit\": \"^2.5.0\"\n  }\n}",
+    )
+    .manual(
+        Framework::TANSTACK_START,
+        "Pin the range in package.json and commit the lockfile.",
+        "{\n  \"dependencies\": {\n    \"@tanstack/start\": \"^1.0.0\"\n  }\n}",
+    )
+    .manual(
+        Framework::SOLIDSTART,
+        "Pin the range in package.json and commit the lockfile.",
+        "{\n  \"dependencies\": {\n    \"@solidjs/start\": \"^1.0.0\"\n  }\n}",
+    )
+    .manual(
+        Framework::ELYSIA,
+        "Pin the range in package.json and commit bun.lockb.",
+        "{\n  \"dependencies\": {\n    \"elysia\": \"^1.1.0\"\n  }\n}",
+    )
 }
 
 /// Every framework's fix, for `owlwarden explain`.

@@ -615,6 +615,7 @@ mod tests {
         .fix(Fix {
             framework: None,
             host: None,
+            runtime: None,
             summary: "Return a generic message; log the error server-side.".into(),
             patch: Some("return NextResponse.json({ error: 'Internal Server Error' })".into()),
             safety: FixSafety::Manual,

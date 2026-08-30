@@ -181,6 +181,27 @@
 <pre class="code"><code class="language-ts">const apiKey = process.env.API_KEY ?? c.env?.API_KEY
 if (!apiKey) throw new Error(&#39;API_KEY is not set&#39;)</code></pre>
 
+<h2>On a different runtime</h2>
+<p>
+  The fix above is written for the runtime Hono usually runs on. These
+  are the runtimes where it would not run at all - an import that does not
+  exist, or an API the host does not have - and what to write instead.
+</p>
+<h3>Workers and other fetch-API runtimes</h3>
+<p>There is no process.env on this runtime. Read the value from the binding the host passes the handler, and declare it as a secret rather than a plaintext var.</p>
+<pre class="code"><code class="language-ts">// wrangler.toml / .dev.vars declare it; the handler receives it.
+export default {
+  async fetch(request: Request, env: { API_KEY: string }) {
+    const key = env.API_KEY
+    if (!key) throw new Error(&#39;API_KEY is not bound&#39;)
+    return handle(request, key)
+  },
+}</code></pre>
+<h3>Deno</h3>
+<p>There is no process.env on Deno. Use Deno.env.get, and run with an explicit --allow-env list so the process cannot read variables it was never meant to see.</p>
+<pre class="code"><code class="language-ts">const key = Deno.env.get(&#39;API_KEY&#39;)
+if (!key) throw new Error(&#39;API_KEY is not set&#39;)</code></pre>
+
 <h3>If you are not using Hono</h3>
 <p>Move the value into an environment variable or a secret manager, and rotate it - once committed it is in the history and in every clone, so removing the line does not revoke it.</p>
 

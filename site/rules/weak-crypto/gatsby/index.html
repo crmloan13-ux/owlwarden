@@ -191,6 +191,8 @@ const hash = await new Promise&lt;Buffer&gt;((resolve, reject) =&gt;
   scrypt(password, salt, 64, (error, key) =&gt; (error ? reject(error) : resolve(key))),
 )</code></pre>
 
+
+
 <h3>If you are not using Gatsby</h3>
 <p>Use a slow, salted hash for passwords and a cryptographic random source for tokens. Both are in the Node standard library; neither needs a dependency.</p>
 

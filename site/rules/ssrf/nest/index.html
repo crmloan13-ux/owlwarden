@@ -181,6 +181,8 @@
 <pre class="code"><code class="language-ts">const target = assertAllowedUrl(dto.url)
 return firstValueFrom(this.http.get(target.toString(), { maxRedirects: 0 }))</code></pre>
 
+
+
 <h3>If you are not using NestJS</h3>
 <p>Check the destination against an allowlist of hosts before fetching it. Blocklists do not work here: DNS rebinding, redirects, and IPv6-mapped addresses all defeat them.</p>
 

@@ -35,6 +35,7 @@ use owlwarden_core::finding::{
     Confidence, Finding, Framework, OwaspRef, Reference, RuleId, Severity,
 };
 use owlwarden_core::remediation::Remediation;
+use owlwarden_core::runtime::Runtime;
 use owlwarden_core::source::RelPath;
 use owlwarden_core::surface::Surface;
 use owlwarden_static::ast::{root_identifier, static_property, string_value};
@@ -404,22 +405,37 @@ fn build_finding(unit: &FileUnit<'_>, hit: &Hit) -> Finding {
         .location(unit.location(hit.span))
         .snippet(unit.code_frame(hit.span, label))
         .context(unit.context(None, Some(evidence)))
-        .fixes(fixes_for(hit.weakness, unit.framework()))
+        .fixes(fixes_for(
+            hit.weakness,
+            unit.framework(),
+            unit.runtime().runtime,
+        ))
         .reference(Reference::rule_page(&meta.id))
         .build()
 }
 
 /// `GuessableToken` and password-shaped broken hashes get Safe highlight
 /// replacements; broken ciphers stay Manual (mode changes are not drop-ins).
-fn fixes_for(weakness: Weakness, framework: &Framework) -> Vec<owlwarden_core::finding::Fix> {
+///
+/// The runtime selects the delta where there is one. It matters most here: on a
+/// fetch-API host `node:crypto` does not exist, so the base fix would not run
+/// at all.
+fn fixes_for(
+    weakness: Weakness,
+    framework: &Framework,
+    runtime: Runtime,
+) -> Vec<owlwarden_core::finding::Fix> {
     match weakness {
+        // The single-literal replacements are runtime-independent: `'md5'` →
+        // `'sha256'` is the same edit wherever it runs, and the algorithm names
+        // are the same in Web Crypto.
         Weakness::GuessableToken => safe_random_remediation().select(framework),
         Weakness::HashedSecret => {
             let mut fixes = safe_hash_remediation().select(framework);
-            fixes.extend(remediation().select(framework));
+            fixes.extend(remediation().select_for_runtime(framework, runtime));
             fixes
         }
-        Weakness::BrokenCipher => remediation().select(framework),
+        Weakness::BrokenCipher => remediation().select_for_runtime(framework, runtime),
     }
 }
 
@@ -493,6 +509,34 @@ const NODE_PATCH: &str = "import { randomBytes, randomUUID, scrypt } from 'node:
      scrypt(password, salt, 64, (error, key) => (error ? reject(error) : resolve(key))),\n\
      )";
 
+/// The same fix, on a runtime with no `node:` builtins.
+///
+/// Not a nicety. On Workers, Deno Deploy, and every other fetch-API host there
+/// is no `node:crypto` import to make, so the base patch above does not run —
+/// and a fix that throws at import time is not a fix, it is a cell that
+/// satisfies a test
+/// ([ADR 0031](../../../docs/adr/0031-runtime-overlay.md) §1).
+///
+/// `scrypt` is the interesting absence. It has no Web Crypto equivalent, so the
+/// delta does not pretend otherwise: it names PBKDF2, which `subtle` does
+/// implement, and says what the trade is.
+const WEB_CRYPTO_PATCH: &str = "// No node:crypto here — this is the Web Crypto API, which every\n\
+     // fetch-API runtime exposes globally as `crypto`.\n\
+     \n\
+     // Tokens and session ids.\n\
+     const sessionId = crypto.randomUUID()\n\
+     const resetToken = btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(32))))\n  \
+     .replace(/\\+/g, '-').replace(/\\//g, '_').replace(/=+$/, '')\n\
+     \n\
+     // Passwords: scrypt is not available. PBKDF2 is, and needs a high\n\
+     // iteration count to be worth anything.\n\
+     const salt = crypto.getRandomValues(new Uint8Array(16))\n\
+     const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(password),\n  \
+     'PBKDF2', false, ['deriveBits'])\n\
+     const hash = await crypto.subtle.deriveBits(\n  \
+     { name: 'PBKDF2', salt, iterations: 600_000, hash: 'SHA-256' }, key, 256,\n\
+     )";
+
 /// Every framework's fix.
 ///
 /// The advice barely varies, because the problem is the primitive rather than
@@ -500,21 +544,19 @@ const NODE_PATCH: &str = "import { randomBytes, randomUUID, scrypt } from 'node:
 /// "use node:crypto" wants to know it works inside Nitro, and the runtime note
 /// is the part they cannot guess.
 fn remediation() -> Remediation {
-    Remediation::new(
+    let table = Remediation::new(
         "Use a slow, salted hash for passwords and a cryptographic random source for tokens. \
          Both are in the Node standard library; neither needs a dependency.",
     )
     .generic_patch(NODE_PATCH)
     .manual(
         Framework::NEXT,
-        "Use node:crypto in the route handler. Note that the edge runtime has no node:crypto — \
-         use globalThis.crypto.randomUUID() and Web Crypto there, or pin the route to nodejs.",
+        "Use node:crypto in the route handler.",
         NODE_PATCH,
     )
     .manual(
         Framework::NUXT,
-        "node:crypto works inside Nitro on the node preset. On a worker preset use the Web \
-         Crypto API, which Nitro exposes globally as `crypto`.",
+        "node:crypto works inside Nitro on the node preset.",
         NODE_PATCH,
     )
     .manual(
@@ -543,7 +585,7 @@ fn remediation() -> Remediation {
     )
     .manual(
         Framework::HONO,
-        "Use node:crypto when running on Node; on Workers/Deno use the Web Crypto API instead.",
+        "Use node:crypto when running on Node.",
         NODE_PATCH,
     )
     .manual(
@@ -563,14 +605,12 @@ fn remediation() -> Remediation {
     )
     .manual(
         Framework::ASTRO,
-        "Use node:crypto in server endpoints; on edge/Workers adapters use the Web Crypto API \
-         instead.",
+        "Use node:crypto in server endpoints.",
         NODE_PATCH,
     )
     .manual(
         Framework::REMIX,
-        "Use node:crypto in loaders/actions on the Node runtime; on Workers/Deno use the Web \
-         Crypto API instead.",
+        "Use node:crypto in loaders/actions on the Node runtime.",
         NODE_PATCH,
     )
     .manual(
@@ -578,6 +618,69 @@ fn remediation() -> Remediation {
         "Replace the primitive at the point of use in the Function handler.",
         NODE_PATCH,
     )
+    // The delta, on every framework whose profile declares the fetch-API tier.
+    // The prose above used to hedge — "on a worker preset use the Web Crypto
+    // API" — which was the honest workaround for a model that could not express
+    // this, and it was a paragraph rather than a fix.
+    // Bun ships a password primitive that picks argon2 and handles the salt,
+    // which is strictly better than hand-rolling scrypt — and it exists only
+    // there, so it cannot be the base fix.
+    .delta(
+        Framework::ELYSIA,
+        Runtime::Bun,
+        "Use Bun's password hashing rather than a hand-rolled digest: it picks argon2 and \
+         manages the salt for you.",
+        "const passwordHash = await Bun.password.hash(password)\n\
+         const ok = await Bun.password.verify(password, passwordHash)\n\
+         const sessionId = crypto.randomUUID()",
+    );
+    fixes_added_in_1_2(table)
+}
+
+/// The four frameworks added in 1.2, and the runtime deltas.
+///
+/// A continuation rather than more of the same function. Sixteen profiles plus
+/// the deltas is past what fits on a screen, and a table nobody scrolls to the
+/// end of is a table with a hole in it.
+fn fixes_added_in_1_2(table: Remediation) -> Remediation {
+    table
+        .delta_each(
+            &[
+                Framework::NEXT,
+                Framework::NUXT,
+                Framework::HONO,
+                Framework::ASTRO,
+                Framework::REMIX,
+                Framework::SVELTEKIT,
+                Framework::TANSTACK_START,
+                Framework::SOLIDSTART,
+                Framework::ELYSIA,
+            ],
+            Runtime::WebWorker,
+            "There is no node:crypto on this runtime. Use the Web Crypto API, which is global. \
+         scrypt has no equivalent; PBKDF2 with a high iteration count is the replacement.",
+            WEB_CRYPTO_PATCH,
+        )
+        .manual(
+            Framework::SVELTEKIT,
+            "Replace the primitive in the server module; there is no hook for this.",
+            NODE_PATCH,
+        )
+        .manual(
+            Framework::TANSTACK_START,
+            "Replace the primitive inside the server function.",
+            NODE_PATCH,
+        )
+        .manual(
+            Framework::SOLIDSTART,
+            "Replace the primitive in server-only code.",
+            NODE_PATCH,
+        )
+        .manual(
+            Framework::ELYSIA,
+            "Replace the primitive at the point of use; there is no plugin for this.",
+            NODE_PATCH,
+        )
 }
 
 /// Every framework's fix, for `owlwarden explain`.

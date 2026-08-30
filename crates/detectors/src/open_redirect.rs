@@ -151,6 +151,53 @@ impl<'a> Visit<'a> for RedirectVisitor {
         }
         oxc_ast_visit::walk::walk_call_expression(self, call);
     }
+
+    fn visit_assignment_expression(&mut self, assignment: &oxc_ast::ast::AssignmentExpression<'a>) {
+        // `set.headers.Location = next` — Elysia's canonical redirect, and the
+        // same shape in any framework that exposes headers as an object rather
+        // than a setter. A rule that only understood `setHeader('Location', …)`
+        // would be structurally blind to a whole framework's idiom.
+        if self.hits.len() < MAX_PER_FILE
+            && let Some(property) = assignment_property(&assignment.left)
+            && property.eq_ignore_ascii_case(LOCATION_HEADER)
+            && let Some(whole) = self.control_over(&assignment.right)
+        {
+            self.hits.push(Hit {
+                span: assignment.span,
+                whole,
+            });
+        }
+        oxc_ast_visit::walk::walk_assignment_expression(self, assignment);
+    }
+}
+
+/// The property an assignment target names, for both `a.b` and `a['b']`.
+///
+/// The computed form matters: `set.headers['location'] = url` is the spelling a
+/// lowercase header name forces, and it is as much a redirect as the dotted one.
+fn assignment_property<'a>(target: &'a oxc_ast::ast::AssignmentTarget<'a>) -> Option<&'a str> {
+    match target {
+        oxc_ast::ast::AssignmentTarget::StaticMemberExpression(member) => {
+            Some(member.property.name.as_str())
+        }
+        oxc_ast::ast::AssignmentTarget::ComputedMemberExpression(member) => {
+            owlwarden_static::ast::string_value(&member.expression)
+        }
+        _ => None,
+    }
+}
+
+/// Whether an argument is an HTTP status code rather than a destination.
+///
+/// Only a bare numeric literal in the 3xx range counts. A variable holding a
+/// status is not skipped, because a variable holding a *destination* is the
+/// case that matters and the two are indistinguishable here — and skipping one
+/// too many arguments would mean silently not firing.
+fn is_status_literal(expression: &Expression<'_>) -> bool {
+    matches!(
+        expression,
+        Expression::NumericLiteral(literal) if literal.value >= 300.0 && literal.value < 400.0
+    )
 }
 
 impl RedirectVisitor {
@@ -166,19 +213,35 @@ impl RedirectVisitor {
         if let Expression::Identifier(identifier) = &call.callee
             && REDIRECT_FUNCTIONS.contains(&identifier.name.as_str())
         {
-            // `sendRedirect(event, to)` puts the event first; `redirect(to)`
-            // does not. Take the first argument that is not the event object.
+            // Three shapes share this name and none of them agree on argument
+            // order: `redirect(to)`, `sendRedirect(event, to)` puts the event
+            // first, and SvelteKit's `redirect(302, to)` puts the status first.
+            //
+            // So skip both — the first argument that is neither the event nor a
+            // bare status number is the destination. Taking the *last* argument
+            // instead, as the method arm does, would read `navigateTo(to, opts)`
+            // as redirecting to an options object and quietly stop firing.
             return arguments
                 .iter()
-                .find(|argument| root_identifier(argument) != Some("event"))
+                .find(|argument| {
+                    root_identifier(argument) != Some("event") && !is_status_literal(argument)
+                })
                 .copied();
         }
 
         let method = static_property(&call.callee)?;
 
         if REDIRECT_METHODS.contains(&method) {
-            // `res.redirect(url)` and `res.redirect(302, url)`.
-            return arguments.last().copied();
+            // Three orders again, and this time they disagree in both
+            // directions: `res.redirect(url)`, Express's `res.redirect(302,
+            // url)`, and the fetch API's `Response.redirect(url, 302)`. The
+            // last argument that is not a status number is the destination in
+            // all three.
+            return arguments
+                .iter()
+                .rev()
+                .find(|argument| !is_status_literal(argument))
+                .copied();
         }
 
         // `res.setHeader('Location', url)` — the hand-rolled form, and the one
@@ -271,7 +334,7 @@ const SAFE_REDIRECT_HELPER: &str = "// lib/safe-redirect.ts\n\
 
 /// Every framework's fix.
 fn remediation() -> Remediation {
-    Remediation::new(
+    let table = Remediation::new(
         "Resolve the target against your own origin and refuse anything that lands elsewhere. Do \
          not use a startsWith('/') check: '//evil.com' passes it and leaves the site.",
     )
@@ -359,6 +422,35 @@ fn remediation() -> Remediation {
         "Validate before res.redirect() in the Function handler.",
         "const base = `${req.headers['x-forwarded-proto'] ?? 'https'}://${req.headers.host}`\n\
          res.redirect(safeRedirect(req.query.next, base))",
+    );
+    fixes_added_in_1_2(table)
+}
+
+/// The four frameworks added in 1.2, and the runtime deltas.
+///
+/// A continuation rather than more of the same function. Sixteen profiles plus
+/// the deltas is past what fits on a screen, and a table nobody scrolls to the
+/// end of is a table with a hole in it.
+fn fixes_added_in_1_2(table: Remediation) -> Remediation {
+    table    .manual(
+        Framework::SVELTEKIT,
+        "Resolve the target against your own origin before redirecting. `redirect()` throws, so the check has to come first.",
+        "redirect(302, safeRedirect(url.searchParams.get('next'), 'https://app.example.com'))",
+    )
+    .manual(
+        Framework::TANSTACK_START,
+        "Resolve the target against your own origin before redirecting.",
+        "return Response.redirect(safeRedirect(next, 'https://app.example.com'), 302)",
+    )
+    .manual(
+        Framework::SOLIDSTART,
+        "Resolve the target against your own origin before redirecting.",
+        "return redirect(safeRedirect(next, 'https://app.example.com'))",
+    )
+    .manual(
+        Framework::ELYSIA,
+        "Resolve the target against your own origin, then set Location.",
+        "set.status = 302\nset.headers.Location = safeRedirect(query.next, 'https://app.example.com')",
     )
 }
 

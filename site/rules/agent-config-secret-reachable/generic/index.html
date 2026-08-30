@@ -180,6 +180,8 @@
 <p>Pass an explicit allowlist of environment variables to anything the repository can define, and keep credentials out of command strings, where they are one `echo` away from a log.</p>
 <pre class="code"><code class="language-json">&quot;env&quot;: { &quot;SERVICE_TOKEN&quot;: &quot;${SERVICE_TOKEN}&quot; }</code></pre>
 
+
+
 <h3>If you are not using any host</h3>
 <p>Stop passing the credential to a repository-defined command. Give the subprocess an explicit environment allowlist holding only what it needs, and keep everything else out of its reach.</p>
 

@@ -187,6 +187,19 @@ setCookie(c, &#39;session&#39;, token, {
   path: &#39;/&#39;,
 })</code></pre>
 
+<h2>On a different runtime</h2>
+<p>
+  The fix above is written for the runtime Hono usually runs on. These
+  are the runtimes where it would not run at all - an import that does not
+  exist, or an API the host does not have - and what to write instead.
+</p>
+<h3>Workers and other fetch-API runtimes</h3>
+<p>Build the Set-Cookie header yourself: there is no process.env here, and Headers.set replaces rather than appends - use append, or a second cookie silently disappears.</p>
+<pre class="code"><code class="language-ts">const attributes = [&#39;HttpOnly&#39;, &#39;Secure&#39;, &#39;SameSite=Lax&#39;, &#39;Path=/&#39;].join(&#39;; &#39;)
+const headers = new Headers()
+headers.append(&#39;Set-Cookie&#39;, `session=${token}; ${attributes}`)
+return new Response(body, { headers })</code></pre>
+
 <h3>If you are not using Hono</h3>
 <p>Set httpOnly, secure, and sameSite when writing a cookie that carries anything the user would not want read or replayed.</p>
 

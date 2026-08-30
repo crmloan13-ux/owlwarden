@@ -193,6 +193,27 @@ export default defineNuxtConfig({
   },
 })</code></pre>
 
+<h2>On a different runtime</h2>
+<p>
+  The fix above is written for the runtime Nuxt usually runs on. These
+  are the runtimes where it would not run at all - an import that does not
+  exist, or an API the host does not have - and what to write instead.
+</p>
+<h3>Workers and other fetch-API runtimes</h3>
+<p>Set them on the response in middleware. A config block the Node build reads is not evaluated on this runtime.</p>
+<pre class="code"><code class="language-ts">export default {
+  async fetch(request: Request) {
+    const response = await handle(request)
+    const headers = new Headers(response.headers)
+    headers.set(&#39;strict-transport-security&#39;, &#39;max-age=63072000; includeSubDomains&#39;)
+    headers.set(&#39;content-security-policy&#39;, &quot;default-src &#39;self&#39;&quot;)
+    headers.set(&#39;x-content-type-options&#39;, &#39;nosniff&#39;)
+    headers.set(&#39;x-frame-options&#39;, &#39;DENY&#39;)
+    headers.set(&#39;referrer-policy&#39;, &#39;strict-origin-when-cross-origin&#39;)
+    return new Response(response.body, { status: response.status, headers })
+  },
+}</code></pre>
+
 <h3>If you are not using Nuxt</h3>
 <p>Set these response headers at the edge or in the app: strict-transport-security, content-security-policy, x-content-type-options, x-frame-options, referrer-policy.</p>
 

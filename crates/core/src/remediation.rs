@@ -29,6 +29,7 @@
 //! problem and given nothing to do, so it invents something.
 
 use crate::finding::{AgentHost, Fix, FixSafety, Framework};
+use crate::runtime::Runtime;
 use crate::surface::Profile;
 
 /// Every fix one rule can offer, keyed by profile.
@@ -41,6 +42,14 @@ use crate::surface::Profile;
 pub struct Remediation {
     specific: Vec<Fix>,
     host_specific: Vec<Fix>,
+    /// Fixes that exist only because the framework's base advice does not run
+    /// on a particular runtime. Keyed by `(framework, runtime)`.
+    ///
+    /// A separate list rather than more entries in `specific`, so that "does
+    /// this rule have a delta here?" is a question with an answer — which is
+    /// what the build's execution invariant asks
+    /// ([ADR 0031](../../../docs/adr/0031-runtime-overlay.md) §3).
+    deltas: Vec<Fix>,
     generic: Fix,
 }
 
@@ -51,9 +60,11 @@ impl Remediation {
         Self {
             specific: Vec::new(),
             host_specific: Vec::new(),
+            deltas: Vec::new(),
             generic: Fix {
                 framework: None,
                 host: None,
+                runtime: None,
                 summary: summary.into(),
                 patch: None,
                 safety: FixSafety::Manual,
@@ -90,6 +101,7 @@ impl Remediation {
         self.specific.push(Fix {
             framework: Some(framework),
             host: None,
+            runtime: None,
             summary: summary.into(),
             patch,
             safety,
@@ -115,6 +127,7 @@ impl Remediation {
         self.host_specific.push(Fix {
             framework: None,
             host: Some(host),
+            runtime: None,
             summary: summary.into(),
             patch,
             safety,
@@ -220,6 +233,71 @@ impl Remediation {
         self
     }
 
+    /// Adds a fix that replaces the framework's advice on one runtime.
+    ///
+    /// **Only where the base fix genuinely does not run, or is genuinely
+    /// wrong.** A delta added because it reads better is the padding this design
+    /// exists to avoid, and the build has no way to tell the two apart — the
+    /// discipline is the reviewer's
+    /// ([ADR 0031](../../../docs/adr/0031-runtime-overlay.md) §2).
+    #[must_use]
+    pub fn delta(
+        mut self,
+        framework: Framework,
+        runtime: Runtime,
+        summary: impl Into<String>,
+        patch: impl Into<String>,
+    ) -> Self {
+        self.deltas.push(Fix {
+            framework: Some(framework),
+            host: None,
+            runtime: Some(runtime),
+            summary: summary.into(),
+            patch: Some(patch.into()),
+            safety: FixSafety::Manual,
+        });
+        self
+    }
+
+    /// Adds the same delta for several frameworks on one runtime.
+    ///
+    /// The common shape: `node:crypto` is absent on the fetch-API tier for
+    /// every framework that targets it, and the replacement is the same Web
+    /// Crypto call in each.
+    #[must_use]
+    pub fn delta_each(
+        mut self,
+        frameworks: &[Framework],
+        runtime: Runtime,
+        summary: impl Into<String>,
+        patch: impl Into<String>,
+    ) -> Self {
+        let summary = summary.into();
+        let patch = patch.into();
+        for framework in frameworks {
+            self = self.delta(framework.clone(), runtime, summary.clone(), patch.clone());
+        }
+        self
+    }
+
+    /// Whether this rule patches `framework` on `runtime`.
+    ///
+    /// The predicate the execution invariant asks: a rule with no delta here is
+    /// asserting that its base fix runs on that runtime, and the fixture suite
+    /// then has to prove it.
+    #[must_use]
+    pub fn has_delta(&self, framework: &Framework, runtime: Runtime) -> bool {
+        self.deltas
+            .iter()
+            .any(|fix| fix.framework.as_ref() == Some(framework) && fix.runtime == Some(runtime))
+    }
+
+    /// Every delta, for the catalogue and the execution test.
+    #[must_use]
+    pub fn deltas(&self) -> &[Fix] {
+        &self.deltas
+    }
+
     /// The fixes to attach to a finding in a project using `framework`: the
     /// specific one if there is one, then the fallback.
     ///
@@ -231,6 +309,22 @@ impl Remediation {
             .filter(|fix| fix.framework.as_ref() == Some(framework))
             .cloned()
             .chain(std::iter::once(self.generic.clone()))
+            .collect()
+    }
+
+    /// [`Self::select`], with the runtime delta first when there is one.
+    ///
+    /// The delta leads because it exists precisely where the base fix does not
+    /// run. The base fix is still included below it: a reader who is *not* on
+    /// the inferred runtime — and the summary line tells them when it was
+    /// inferred — needs the one they can actually use.
+    #[must_use]
+    pub fn select_for_runtime(&self, framework: &Framework, runtime: Runtime) -> Vec<Fix> {
+        self.deltas
+            .iter()
+            .filter(|fix| fix.framework.as_ref() == Some(framework) && fix.runtime == Some(runtime))
+            .cloned()
+            .chain(self.select(framework))
             .collect()
     }
 
@@ -266,6 +360,7 @@ impl Remediation {
         self.specific
             .iter()
             .chain(self.host_specific.iter())
+            .chain(self.deltas.iter())
             .cloned()
             .chain(std::iter::once(self.generic.clone()))
             .collect()
@@ -380,6 +475,62 @@ mod tests {
 
         let hosts = Remediation::new("g").host(AgentHost::GENERIC, "s", "p");
         assert!(!hosts.covers(&Framework::NEXT));
+    }
+
+    #[test]
+    fn a_runtime_delta_leads_and_the_base_fix_still_follows() {
+        // The delta first because the base does not run there; the base still
+        // present because a reader on a different runtime — and the summary
+        // line says when the runtime was inferred — needs the one they can use.
+        let table = Remediation::new("Use a CSPRNG.")
+            .manual(Framework::HONO, "Node advice", "randomBytes(32)")
+            .delta(
+                Framework::HONO,
+                Runtime::WebWorker,
+                "Workers advice",
+                "crypto.getRandomValues(new Uint8Array(32))",
+            );
+
+        let selected = table.select_for_runtime(&Framework::HONO, Runtime::WebWorker);
+        assert_eq!(selected.len(), 3, "delta, framework fix, fallback");
+        assert_eq!(
+            selected.first().and_then(|fix| fix.runtime),
+            Some(Runtime::WebWorker)
+        );
+        assert_eq!(selected.get(1).and_then(|fix| fix.runtime), None);
+    }
+
+    #[test]
+    fn a_runtime_with_no_delta_gets_the_base_fix_unchanged() {
+        // Twenty of twenty-five rules are in this shape, and the build asserts
+        // their base fix actually runs there rather than assuming it.
+        let table = Remediation::new("Use a CSPRNG.").manual(
+            Framework::HONO,
+            "Node advice",
+            "randomBytes(32)",
+        );
+        assert_eq!(
+            table.select_for_runtime(&Framework::HONO, Runtime::Bun),
+            table.select(&Framework::HONO)
+        );
+        assert!(!table.has_delta(&Framework::HONO, Runtime::Bun));
+    }
+
+    #[test]
+    fn explain_lists_deltas_too() {
+        // A delta `explain` did not print would be advice that exists and
+        // cannot be found, which is the failure the whole declared-table design
+        // was built to remove.
+        let table = Remediation::new("generic")
+            .manual(Framework::HONO, "n", "np")
+            .delta(Framework::HONO, Runtime::Deno, "d", "dp");
+        assert_eq!(table.all().len(), 3);
+        assert!(
+            table
+                .all()
+                .iter()
+                .any(|fix| fix.runtime == Some(Runtime::Deno))
+        );
     }
 
     #[test]

@@ -94,6 +94,7 @@ describe("coverage schema", () => {
     const coverage = coverageReportSchema.parse(golden("coverage.json"));
     expect(coverage.frameworks.map((framework) => framework.id).sort()).toEqual([
       "astro",
+      "elysia",
       "express",
       "fastify",
       "gatsby",
@@ -105,6 +106,12 @@ describe("coverage schema", () => {
       "nuxt",
       "remix",
       "sails",
+      // Added in 1.2 alongside the runtime overlay: the four frameworks most
+      // likely to be on a non-Node runtime, so the overlay and the new profiles
+      // exercise each other (ADR 0031 §5).
+      "solidstart",
+      "sveltekit",
+      "tanstack-start",
     ]);
     for (const framework of coverage.frameworks) {
       expect(framework.rulesFallingBack, `${framework.id} falls back`).toBe(0);

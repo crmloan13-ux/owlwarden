@@ -183,6 +183,8 @@ await db.query(&#39;SELECT * FROM users WHERE id = $1&#39;, [id])
 // Prisma: the tagged form binds; $queryRawUnsafe does not
 await prisma.$queryRaw`SELECT * FROM users WHERE id = ${id}`</code></pre>
 
+
+
 <h3>If you are not using Next.js</h3>
 <p>Pass the values as query parameters instead of interpolating them. Every driver supports it, and the binding is not optional formatting - it is what stops the value being parsed as SQL.</p>
 

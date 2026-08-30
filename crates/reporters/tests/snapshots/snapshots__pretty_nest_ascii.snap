@@ -3,7 +3,7 @@ source: crates/reporters/tests/snapshots.rs
 expression: rendered
 ---
 
-(o.o) 5 files · owasp-top10 · 0.12s
+(o.o) 5 files · owasp-top10 · node (defaulted) · 0.12s
 21 findings (11 high, 10 medium)
 12 internet-reachable, 3 internal, 6 unclassified
 

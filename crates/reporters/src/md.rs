@@ -113,9 +113,15 @@ fn append_heading(out: &mut String, report: &Report) {
     let _ = writeln!(out, "# owlwarden report — {project}");
     let seconds = report.duration_ms / 1000;
     let millis = report.duration_ms % 1000;
+    let runtime = report
+        .target
+        .runtime
+        .as_ref()
+        .map(|runtime| format!(" · {}", md_escape(runtime)))
+        .unwrap_or_default();
     let _ = writeln!(
         out,
-        "_{} files · {seconds}.{millis:03}s · {}_",
+        "_{} files{runtime} · {seconds}.{millis:03}s · {}_",
         report.target.files_scanned,
         summary_line(&report.summary)
     );

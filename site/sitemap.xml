@@ -321,6 +321,11 @@
     <priority>0.5</priority>
   </url>
   <url>
+    <loc>https://suthat.github.io/owlwarden/rules/cors-permissive/elysia/</loc>
+    <lastmod>2026-08-26</lastmod>
+    <priority>0.5</priority>
+  </url>
+  <url>
     <loc>https://suthat.github.io/owlwarden/rules/cors-permissive/express/</loc>
     <lastmod>2026-08-26</lastmod>
     <priority>0.5</priority>
@@ -376,6 +381,21 @@
     <priority>0.5</priority>
   </url>
   <url>
+    <loc>https://suthat.github.io/owlwarden/rules/cors-permissive/solidstart/</loc>
+    <lastmod>2026-08-26</lastmod>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://suthat.github.io/owlwarden/rules/cors-permissive/sveltekit/</loc>
+    <lastmod>2026-08-26</lastmod>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://suthat.github.io/owlwarden/rules/cors-permissive/tanstack-start/</loc>
+    <lastmod>2026-08-26</lastmod>
+    <priority>0.5</priority>
+  </url>
+  <url>
     <loc>https://suthat.github.io/owlwarden/rules/csrf-cross-origin-post/</loc>
     <lastmod>2026-08-26</lastmod>
     <priority>0.8</priority>
@@ -387,6 +407,11 @@
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/hardcoded-secret/astro/</loc>
+    <lastmod>2026-08-26</lastmod>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://suthat.github.io/owlwarden/rules/hardcoded-secret/elysia/</loc>
     <lastmod>2026-08-26</lastmod>
     <priority>0.5</priority>
   </url>
@@ -446,12 +471,32 @@
     <priority>0.5</priority>
   </url>
   <url>
+    <loc>https://suthat.github.io/owlwarden/rules/hardcoded-secret/solidstart/</loc>
+    <lastmod>2026-08-26</lastmod>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://suthat.github.io/owlwarden/rules/hardcoded-secret/sveltekit/</loc>
+    <lastmod>2026-08-26</lastmod>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://suthat.github.io/owlwarden/rules/hardcoded-secret/tanstack-start/</loc>
+    <lastmod>2026-08-26</lastmod>
+    <priority>0.5</priority>
+  </url>
+  <url>
     <loc>https://suthat.github.io/owlwarden/rules/insecure-cookie/</loc>
     <lastmod>2026-08-26</lastmod>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/insecure-cookie/astro/</loc>
+    <lastmod>2026-08-26</lastmod>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://suthat.github.io/owlwarden/rules/insecure-cookie/elysia/</loc>
     <lastmod>2026-08-26</lastmod>
     <priority>0.5</priority>
   </url>
@@ -511,12 +556,32 @@
     <priority>0.5</priority>
   </url>
   <url>
+    <loc>https://suthat.github.io/owlwarden/rules/insecure-cookie/solidstart/</loc>
+    <lastmod>2026-08-26</lastmod>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://suthat.github.io/owlwarden/rules/insecure-cookie/sveltekit/</loc>
+    <lastmod>2026-08-26</lastmod>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://suthat.github.io/owlwarden/rules/insecure-cookie/tanstack-start/</loc>
+    <lastmod>2026-08-26</lastmod>
+    <priority>0.5</priority>
+  </url>
+  <url>
     <loc>https://suthat.github.io/owlwarden/rules/install-lifecycle-script/</loc>
     <lastmod>2026-08-26</lastmod>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/install-lifecycle-script/astro/</loc>
+    <lastmod>2026-08-26</lastmod>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://suthat.github.io/owlwarden/rules/install-lifecycle-script/elysia/</loc>
     <lastmod>2026-08-26</lastmod>
     <priority>0.5</priority>
   </url>
@@ -576,6 +641,21 @@
     <priority>0.5</priority>
   </url>
   <url>
+    <loc>https://suthat.github.io/owlwarden/rules/install-lifecycle-script/solidstart/</loc>
+    <lastmod>2026-08-26</lastmod>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://suthat.github.io/owlwarden/rules/install-lifecycle-script/sveltekit/</loc>
+    <lastmod>2026-08-26</lastmod>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://suthat.github.io/owlwarden/rules/install-lifecycle-script/tanstack-start/</loc>
+    <lastmod>2026-08-26</lastmod>
+    <priority>0.5</priority>
+  </url>
+  <url>
     <loc>https://suthat.github.io/owlwarden/rules/known-vulnerable-dependency/</loc>
     <lastmod>2026-08-26</lastmod>
     <priority>0.8</priority>
@@ -587,6 +667,11 @@
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/open-redirect/astro/</loc>
+    <lastmod>2026-08-26</lastmod>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://suthat.github.io/owlwarden/rules/open-redirect/elysia/</loc>
     <lastmod>2026-08-26</lastmod>
     <priority>0.5</priority>
   </url>
@@ -646,12 +731,32 @@
     <priority>0.5</priority>
   </url>
   <url>
+    <loc>https://suthat.github.io/owlwarden/rules/open-redirect/solidstart/</loc>
+    <lastmod>2026-08-26</lastmod>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://suthat.github.io/owlwarden/rules/open-redirect/sveltekit/</loc>
+    <lastmod>2026-08-26</lastmod>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://suthat.github.io/owlwarden/rules/open-redirect/tanstack-start/</loc>
+    <lastmod>2026-08-26</lastmod>
+    <priority>0.5</priority>
+  </url>
+  <url>
     <loc>https://suthat.github.io/owlwarden/rules/security-headers-missing/</loc>
     <lastmod>2026-08-26</lastmod>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/security-headers-missing/astro/</loc>
+    <lastmod>2026-08-26</lastmod>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://suthat.github.io/owlwarden/rules/security-headers-missing/elysia/</loc>
     <lastmod>2026-08-26</lastmod>
     <priority>0.5</priority>
   </url>
@@ -706,12 +811,27 @@
     <priority>0.5</priority>
   </url>
   <url>
+    <loc>https://suthat.github.io/owlwarden/rules/security-headers-missing/solidstart/</loc>
+    <lastmod>2026-08-26</lastmod>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://suthat.github.io/owlwarden/rules/security-headers-missing/sveltekit/</loc>
+    <lastmod>2026-08-26</lastmod>
+    <priority>0.5</priority>
+  </url>
+  <url>
     <loc>https://suthat.github.io/owlwarden/rules/sensitive-data-logged/</loc>
     <lastmod>2026-08-26</lastmod>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/sensitive-data-logged/astro/</loc>
+    <lastmod>2026-08-26</lastmod>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://suthat.github.io/owlwarden/rules/sensitive-data-logged/elysia/</loc>
     <lastmod>2026-08-26</lastmod>
     <priority>0.5</priority>
   </url>
@@ -771,12 +891,32 @@
     <priority>0.5</priority>
   </url>
   <url>
+    <loc>https://suthat.github.io/owlwarden/rules/sensitive-data-logged/solidstart/</loc>
+    <lastmod>2026-08-26</lastmod>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://suthat.github.io/owlwarden/rules/sensitive-data-logged/sveltekit/</loc>
+    <lastmod>2026-08-26</lastmod>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://suthat.github.io/owlwarden/rules/sensitive-data-logged/tanstack-start/</loc>
+    <lastmod>2026-08-26</lastmod>
+    <priority>0.5</priority>
+  </url>
+  <url>
     <loc>https://suthat.github.io/owlwarden/rules/sql-injection/</loc>
     <lastmod>2026-08-26</lastmod>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/sql-injection/astro/</loc>
+    <lastmod>2026-08-26</lastmod>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://suthat.github.io/owlwarden/rules/sql-injection/elysia/</loc>
     <lastmod>2026-08-26</lastmod>
     <priority>0.5</priority>
   </url>
@@ -836,12 +976,32 @@
     <priority>0.5</priority>
   </url>
   <url>
+    <loc>https://suthat.github.io/owlwarden/rules/sql-injection/solidstart/</loc>
+    <lastmod>2026-08-26</lastmod>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://suthat.github.io/owlwarden/rules/sql-injection/sveltekit/</loc>
+    <lastmod>2026-08-26</lastmod>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://suthat.github.io/owlwarden/rules/sql-injection/tanstack-start/</loc>
+    <lastmod>2026-08-26</lastmod>
+    <priority>0.5</priority>
+  </url>
+  <url>
     <loc>https://suthat.github.io/owlwarden/rules/ssrf/</loc>
     <lastmod>2026-08-26</lastmod>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/ssrf/astro/</loc>
+    <lastmod>2026-08-26</lastmod>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://suthat.github.io/owlwarden/rules/ssrf/elysia/</loc>
     <lastmod>2026-08-26</lastmod>
     <priority>0.5</priority>
   </url>
@@ -901,12 +1061,32 @@
     <priority>0.5</priority>
   </url>
   <url>
+    <loc>https://suthat.github.io/owlwarden/rules/ssrf/solidstart/</loc>
+    <lastmod>2026-08-26</lastmod>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://suthat.github.io/owlwarden/rules/ssrf/sveltekit/</loc>
+    <lastmod>2026-08-26</lastmod>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://suthat.github.io/owlwarden/rules/ssrf/tanstack-start/</loc>
+    <lastmod>2026-08-26</lastmod>
+    <priority>0.5</priority>
+  </url>
+  <url>
     <loc>https://suthat.github.io/owlwarden/rules/stack-trace-leak/</loc>
     <lastmod>2026-08-26</lastmod>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/stack-trace-leak/astro/</loc>
+    <lastmod>2026-08-26</lastmod>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://suthat.github.io/owlwarden/rules/stack-trace-leak/elysia/</loc>
     <lastmod>2026-08-26</lastmod>
     <priority>0.5</priority>
   </url>
@@ -966,6 +1146,21 @@
     <priority>0.5</priority>
   </url>
   <url>
+    <loc>https://suthat.github.io/owlwarden/rules/stack-trace-leak/solidstart/</loc>
+    <lastmod>2026-08-26</lastmod>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://suthat.github.io/owlwarden/rules/stack-trace-leak/sveltekit/</loc>
+    <lastmod>2026-08-26</lastmod>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://suthat.github.io/owlwarden/rules/stack-trace-leak/tanstack-start/</loc>
+    <lastmod>2026-08-26</lastmod>
+    <priority>0.5</priority>
+  </url>
+  <url>
     <loc>https://suthat.github.io/owlwarden/rules/unpinned-dependency/</loc>
     <lastmod>2026-08-26</lastmod>
     <priority>0.8</priority>
@@ -977,6 +1172,11 @@
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/weak-crypto/astro/</loc>
+    <lastmod>2026-08-26</lastmod>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://suthat.github.io/owlwarden/rules/weak-crypto/elysia/</loc>
     <lastmod>2026-08-26</lastmod>
     <priority>0.5</priority>
   </url>
@@ -1032,6 +1232,21 @@
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/weak-crypto/sails/</loc>
+    <lastmod>2026-08-26</lastmod>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://suthat.github.io/owlwarden/rules/weak-crypto/solidstart/</loc>
+    <lastmod>2026-08-26</lastmod>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://suthat.github.io/owlwarden/rules/weak-crypto/sveltekit/</loc>
+    <lastmod>2026-08-26</lastmod>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://suthat.github.io/owlwarden/rules/weak-crypto/tanstack-start/</loc>
     <lastmod>2026-08-26</lastmod>
     <priority>0.5</priority>
   </url>

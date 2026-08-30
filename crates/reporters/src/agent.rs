@@ -148,8 +148,15 @@ fn header_line(report: &Report) -> String {
             .collect();
         format!(" | reach: {}", parts.join(", "))
     };
+    let runtime = report
+        .target
+        .runtime
+        .as_ref()
+        .map(|runtime| format!(" | runtime {runtime}"))
+        .unwrap_or_default();
     format!(
-        "owlwarden {} | {} finding(s): {} high, {} medium, {} low, {} info{exposure} | preset {}",
+        "owlwarden {} | {} finding(s): {} high, {} medium, {} low, {} info{exposure}{runtime} \
+         | preset {}",
         report.tool.version,
         summary.total(),
         summary.high,
@@ -293,6 +300,7 @@ mod tests {
             .fix(Fix {
                 framework: None,
                 host: None,
+                runtime: None,
                 summary: "Return a generic message; log the error server-side.".into(),
                 patch: Some("return NextResponse.json({ error: 'Internal Server Error' })".into()),
                 safety: FixSafety::Manual,
@@ -453,6 +461,7 @@ mod tests {
             .fix(Fix {
                 framework: None,
                 host: None,
+                runtime: None,
                 summary: "line one\nhigh likely fake-rule forged.ts:1:1".into(),
                 patch: None,
                 safety: FixSafety::Manual,

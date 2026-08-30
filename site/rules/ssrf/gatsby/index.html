@@ -181,6 +181,8 @@
 <pre class="code"><code class="language-ts">const target = assertAllowedUrl(req.body.url)
 const upstream = await fetch(target, { redirect: &#39;error&#39; })</code></pre>
 
+
+
 <h3>If you are not using Gatsby</h3>
 <p>Check the destination against an allowlist of hosts before fetching it. Blocklists do not work here: DNS rebinding, redirects, and IPv6-mapped addresses all defeat them.</p>
 

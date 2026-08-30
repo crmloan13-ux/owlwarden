@@ -1,0 +1,11 @@
+{
+  "name": "fixture-elysia-api-clean",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "elysia": "^1.1.0",
+    "@elysiajs/cors": "^1.1.0",
+    "axios": "^1.7.0",
+    "pg": "^8.12.0"
+  }
+}

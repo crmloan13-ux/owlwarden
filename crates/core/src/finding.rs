@@ -231,6 +231,14 @@ impl Framework {
     pub const REMIX: Self = Self::new_static("remix");
     /// Gatsby (including Functions).
     pub const GATSBY: Self = Self::new_static("gatsby");
+    /// `SvelteKit`.
+    pub const SVELTEKIT: Self = Self::new_static("sveltekit");
+    /// `TanStack` Start.
+    pub const TANSTACK_START: Self = Self::new_static("tanstack-start");
+    /// `SolidStart`.
+    pub const SOLIDSTART: Self = Self::new_static("solidstart");
+    /// Elysia, on Bun.
+    pub const ELYSIA: Self = Self::new_static("elysia");
     /// No framework detected, or one we have no specific advice for.
     pub const GENERIC: Self = Self::new_static("generic");
 
@@ -886,6 +894,14 @@ pub struct Fix {
     /// one of the two is set on any fix that is not the fallback.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub host: Option<AgentHost>,
+    /// The runtime this advice patches the framework fix for.
+    ///
+    /// Set only on a **delta** — a fix that exists because the framework's base
+    /// advice does not run there. A fix with no runtime is the base one, and
+    /// applies to every runtime the profile declares
+    /// ([ADR 0031](../../../docs/adr/0031-runtime-overlay.md) §2).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub runtime: Option<crate::runtime::Runtime>,
     /// One line: what to do.
     pub summary: String,
     /// Copy-paste-ready replacement code, if the fix is that concrete.
@@ -1012,6 +1028,19 @@ pub struct Finding {
     /// not arise.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub runtime_scope: Option<RuntimeScope>,
+    /// Where the code this finding is in runs.
+    ///
+    /// Absent on the agent surface, which has no runtime axis: a `SessionStart`
+    /// hook is the host's concern, and the fix does not change because the
+    /// application runs on Bun.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub runtime: Option<crate::runtime::Runtime>,
+    /// How [`Self::runtime`] was arrived at.
+    ///
+    /// A fix chosen from an inferred runtime should say what it inferred, so
+    /// this travels with it rather than being recomputed by a reporter.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub runtime_source: Option<crate::runtime::RuntimeSource>,
     /// Whether anything outside the process can reach this code.
     ///
     /// Filled by the engine after the rules run, never by a rule — the same
@@ -1058,6 +1087,8 @@ impl Finding {
                 asi: None,
                 cwe: None,
                 runtime_scope: None,
+                runtime: None,
+                runtime_source: None,
                 exposure: None,
                 exposure_evidence: None,
                 title: title.into(),
@@ -1087,10 +1118,24 @@ impl Finding {
         self.remediation
             .iter()
             .find(|fix| host.is_some() && fix.host.as_ref() == host)
+            // A runtime delta before the framework's base fix: the delta exists
+            // precisely because the base one does not run here, and showing the
+            // base first would put a `node:crypto` import at the top of a
+            // Workers user's report.
             .or_else(|| {
-                self.remediation
-                    .iter()
-                    .find(|fix| framework.is_some() && fix.framework.as_ref() == framework)
+                self.remediation.iter().find(|fix| {
+                    self.runtime.is_some()
+                        && fix.runtime == self.runtime
+                        && framework.is_some()
+                        && fix.framework.as_ref() == framework
+                })
+            })
+            .or_else(|| {
+                self.remediation.iter().find(|fix| {
+                    fix.runtime.is_none()
+                        && framework.is_some()
+                        && fix.framework.as_ref() == framework
+                })
             })
             .or_else(|| {
                 self.remediation
@@ -1202,6 +1247,18 @@ impl FindingBuilder {
     #[must_use]
     pub fn runtime_scope(mut self, scope: RuntimeScope) -> Self {
         self.finding.runtime_scope = Some(scope);
+        self
+    }
+
+    /// Sets the runtime this code runs on, and how that was decided.
+    #[must_use]
+    pub fn runtime(
+        mut self,
+        runtime: crate::runtime::Runtime,
+        source: crate::runtime::RuntimeSource,
+    ) -> Self {
+        self.finding.runtime = Some(runtime);
+        self.finding.runtime_source = Some(source);
         self
     }
 
@@ -1351,6 +1408,7 @@ mod tests {
         .fix(Fix {
             framework: Some(Framework::NEXT),
             host: None,
+            runtime: None,
             summary: "next.config.js headers()".into(),
             patch: None,
             safety: FixSafety::Manual,
@@ -1358,6 +1416,7 @@ mod tests {
         .fix(Fix {
             framework: Some(Framework::NEST),
             host: None,
+            runtime: None,
             summary: "app.use(helmet())".into(),
             patch: None,
             safety: FixSafety::Manual,

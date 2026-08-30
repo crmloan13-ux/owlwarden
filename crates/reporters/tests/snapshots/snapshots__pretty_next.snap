@@ -3,7 +3,7 @@ source: crates/reporters/tests/snapshots.rs
 expression: rendered
 ---
 
-◉ᴥ◉ 7 files · owasp-top10 · 0.12s
+◉ᴥ◉ 7 files · owasp-top10 · node (defaulted) · 0.12s
 21 findings (10 high, 11 medium)
 12 internet-reachable, 4 internal, 5 unclassified
 
@@ -477,10 +477,7 @@ HIGH  likely  unknown  Broken cryptographic primitive protecting a secret  A02:2
   21 │   return Buffer.concat([cipher.update(pan, 'utf8'), cipher.final()])
   22 │ }
 
- ↳  fix (Next.js)  Use node:crypto in the route handler. Note that the
-                   edge runtime has no node:crypto — use
-                   globalThis.crypto.randomUUID() and Web Crypto there,
-                   or pin the route to nodejs.
+ ↳  fix (Next.js)  Use node:crypto in the route handler.
                    import { randomBytes, randomUUID, scrypt } from 'node:crypto'
                    
                    // Tokens and session ids: unpredictable, not merely random-looking.

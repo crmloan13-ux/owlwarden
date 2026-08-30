@@ -30,6 +30,7 @@ use owlwarden_core::finding::{
     Confidence, Finding, Framework, OwaspRef, Reference, RuleId, Severity,
 };
 use owlwarden_core::remediation::Remediation;
+use owlwarden_core::runtime::Runtime;
 use owlwarden_core::source::RelPath;
 use owlwarden_core::surface::Surface;
 use owlwarden_static::ast::{
@@ -355,17 +356,23 @@ fn build_finding(unit: &FileUnit<'_>, hit: &Hit) -> Finding {
         .location(unit.location(highlight_span))
         .snippet(unit.code_frame(highlight_span, label))
         .context(unit.context(None, Some(evidence)))
-        .fixes(fixes_for(unit.framework(), hit))
+        .fixes(fixes_for(unit.framework(), unit.runtime().runtime, hit))
         .reference(Reference::rule_page(&meta.id))
         .build()
 }
 
-fn fixes_for(framework: &Framework, hit: &Hit) -> Vec<owlwarden_core::finding::Fix> {
+fn fixes_for(
+    framework: &Framework,
+    runtime: Runtime,
+    hit: &Hit,
+) -> Vec<owlwarden_core::finding::Fix> {
     let mut fixes = Vec::new();
     if hit.safe_options_span.is_some() {
+        // A drop-in options object is the same object on every runtime: the
+        // cookie *attributes* do not change, only the API that sets them.
         fixes.extend(safe_options_remediation(hit.hapi_spelling).select(framework));
     }
-    fixes.extend(remediation().select(framework));
+    fixes.extend(remediation().select_for_runtime(framework, runtime));
     fixes
 }
 
@@ -462,7 +469,7 @@ fn remediation() -> Remediation {
 /// stay under the function-length lint — the table itself is one continuous
 /// declaration either way.
 fn newer_framework_fixes(table: Remediation) -> Remediation {
-    table
+    let table = table
         .manual(
             Framework::HONO,
             "Pass the attributes to setCookie.",
@@ -533,7 +540,61 @@ fn newer_framework_fixes(table: Remediation) -> Remediation {
          sameSite: 'lax',\n  \
          path: '/',\n\
          })",
+        );
+    // Two things break on a fetch-API runtime, and the second is the one
+    // that bites: `process.env` does not exist, and there is no response
+    // object to hang a cookie helper off — the header is set on a `Headers`
+    // instance, and `set` replaces rather than appends, which silently
+    // drops every cookie but the last.;
+    fixes_added_in_1_2(table)
+}
+
+/// The four frameworks added in 1.2, and the runtime deltas.
+///
+/// A continuation rather than more of the same function. Sixteen profiles plus
+/// the deltas is past what fits on a screen, and a table nobody scrolls to the
+/// end of is a table with a hole in it.
+fn fixes_added_in_1_2(table: Remediation) -> Remediation {
+    table        .delta_each(
+            &[
+                Framework::NEXT,
+                Framework::NUXT,
+                Framework::HONO,
+                Framework::ASTRO,
+                Framework::REMIX,
+                Framework::SVELTEKIT,
+                Framework::TANSTACK_START,
+                Framework::SOLIDSTART,
+                Framework::ELYSIA,
+            ],
+            Runtime::WebWorker,
+            "Build the Set-Cookie header yourself: there is no process.env here, and Headers.set \
+             replaces rather than appends — use append, or a second cookie silently disappears.",
+            "const attributes = ['HttpOnly', 'Secure', 'SameSite=Lax', 'Path=/'].join('; ')\n\
+         const headers = new Headers()\n\
+         headers.append('Set-Cookie', `session=${token}; ${attributes}`)\n\
+         return new Response(body, { headers })",
         )
+    .manual(
+        Framework::SVELTEKIT,
+        "Pass the attributes to `cookies.set`. SvelteKit requires `path`, so the only thing to add is the protection.",
+        "cookies.set('session', token, {\n  httpOnly: true,\n  secure: process.env.NODE_ENV === 'production',\n  sameSite: 'lax',\n  path: '/',\n})",
+    )
+    .manual(
+        Framework::TANSTACK_START,
+        "Pass the attributes to setCookie in the server function.",
+        "setCookie('session', token, {\n  httpOnly: true,\n  secure: process.env.NODE_ENV === 'production',\n  sameSite: 'lax',\n  path: '/',\n})",
+    )
+    .manual(
+        Framework::SOLIDSTART,
+        "Pass the attributes when writing the session cookie.",
+        "setCookie(event, 'session', token, {\n  httpOnly: true,\n  secure: process.env.NODE_ENV === 'production',\n  sameSite: 'lax',\n  path: '/',\n})",
+    )
+    .manual(
+        Framework::ELYSIA,
+        "Set the attributes on the cookie proxy; assigning `.value` alone leaves the defaults.",
+        "cookie.session.set({\n  value: token,\n  httpOnly: true,\n  secure: process.env.NODE_ENV === 'production',\n  sameSite: 'lax',\n  path: '/',\n})",
+    )
 }
 
 /// Every framework's fix, for `owlwarden explain`.

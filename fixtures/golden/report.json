@@ -12,7 +12,8 @@
     "filesScanned": 7,
     "configFilesScanned": 0,
     "routesProbed": 0,
-    "preset": "deep"
+    "preset": "deep",
+    "runtime": "node (defaulted)"
   },
   "summary": {
     "high": 10,
@@ -33,6 +34,8 @@
       "confidence": "likely",
       "owasp": "A03:2021",
       "cwe": 89,
+      "runtime": "node",
+      "runtimeSource": "default",
       "exposure": "internet",
       "exposureEvidence": {
         "route": "/api/login",
@@ -102,6 +105,8 @@
       "confidence": "likely",
       "owasp": "A10:2021",
       "cwe": 918,
+      "runtime": "node",
+      "runtimeSource": "default",
       "exposure": "internet",
       "exposureEvidence": {
         "route": "/api/proxy",
@@ -173,6 +178,8 @@
       "confidence": "likely",
       "owasp": "A10:2021",
       "cwe": 918,
+      "runtime": "node",
+      "runtimeSource": "default",
       "exposure": "internet",
       "exposureEvidence": {
         "route": "/api/proxy",
@@ -244,6 +251,8 @@
       "confidence": "likely",
       "owasp": "A10:2021",
       "cwe": 918,
+      "runtime": "node",
+      "runtimeSource": "default",
       "exposure": "internet",
       "exposureEvidence": {
         "route": "/api/proxy",
@@ -315,6 +324,8 @@
       "confidence": "likely",
       "owasp": "A10:2021",
       "cwe": 918,
+      "runtime": "node",
+      "runtimeSource": "default",
       "exposure": "internet",
       "exposureEvidence": {
         "route": "/api/proxy",
@@ -386,6 +397,8 @@
       "confidence": "likely",
       "owasp": "A05:2021",
       "cwe": 209,
+      "runtime": "node",
+      "runtimeSource": "default",
       "exposure": "internet",
       "exposureEvidence": {
         "route": "/api/users",
@@ -458,6 +471,8 @@
       "confidence": "likely",
       "owasp": "A01:2021",
       "cwe": 601,
+      "runtime": "node",
+      "runtimeSource": "default",
       "exposure": "internet",
       "exposureEvidence": {
         "route": "/api/proxy",
@@ -528,6 +543,8 @@
       "confidence": "likely",
       "owasp": "A01:2021",
       "cwe": 601,
+      "runtime": "node",
+      "runtimeSource": "default",
       "exposure": "internet",
       "exposureEvidence": {
         "route": "/api/proxy",
@@ -598,6 +615,8 @@
       "confidence": "likely",
       "owasp": "A01:2021",
       "cwe": 601,
+      "runtime": "node",
+      "runtimeSource": "default",
       "exposure": "internet",
       "exposureEvidence": {
         "route": "/api/proxy",
@@ -669,6 +688,8 @@
       "confidence": "likely",
       "owasp": "A09:2021",
       "cwe": 532,
+      "runtime": "node",
+      "runtimeSource": "default",
       "exposure": "internet",
       "exposureEvidence": {
         "route": "/api/users",
@@ -739,6 +760,8 @@
       "confidence": "likely",
       "owasp": "A09:2021",
       "cwe": 532,
+      "runtime": "node",
+      "runtimeSource": "default",
       "exposure": "internet",
       "exposureEvidence": {
         "route": "/api/users",
@@ -809,6 +832,8 @@
       "confidence": "possible",
       "owasp": "A05:2021",
       "cwe": 614,
+      "runtime": "node",
+      "runtimeSource": "default",
       "exposure": "internet",
       "exposureEvidence": {
         "route": "/api/login",
@@ -879,6 +904,8 @@
       "confidence": "likely",
       "owasp": "A08:2021",
       "cwe": 829,
+      "runtime": "node",
+      "runtimeSource": "default",
       "exposure": "internal",
       "exposureEvidence": {
         "reason": "not on a request-handling path"
@@ -931,6 +958,8 @@
       "owasp": "A08:2021",
       "asi": "ASI04",
       "cwe": 829,
+      "runtime": "node",
+      "runtimeSource": "default",
       "exposure": "internal",
       "exposureEvidence": {
         "reason": "not on a request-handling path"
@@ -1000,6 +1029,8 @@
       "confidence": "likely",
       "owasp": "A06:2021",
       "cwe": 1104,
+      "runtime": "node",
+      "runtimeSource": "default",
       "exposure": "internal",
       "exposureEvidence": {
         "reason": "not on a request-handling path"
@@ -1051,6 +1082,8 @@
       "confidence": "possible",
       "owasp": "A05:2021",
       "cwe": 693,
+      "runtime": "node",
+      "runtimeSource": "default",
       "exposure": "internal",
       "exposureEvidence": {
         "reason": "not on a request-handling path"
@@ -1102,6 +1135,8 @@
       "confidence": "likely",
       "owasp": "A07:2021",
       "cwe": 798,
+      "runtime": "node",
+      "runtimeSource": "default",
       "exposure": "unknown",
       "exposureEvidence": {
         "reason": "no route resolved for this file, and its path is not a recognised non-request location"
@@ -1170,6 +1205,8 @@
       "confidence": "likely",
       "owasp": "A02:2021",
       "cwe": 327,
+      "runtime": "node",
+      "runtimeSource": "default",
       "exposure": "unknown",
       "exposureEvidence": {
         "reason": "no route resolved for this file, and its path is not a recognised non-request location"
@@ -1216,7 +1253,7 @@
         },
         {
           "framework": "next",
-          "summary": "Use node:crypto in the route handler. Note that the edge runtime has no node:crypto — use globalThis.crypto.randomUUID() and Web Crypto there, or pin the route to nodejs.",
+          "summary": "Use node:crypto in the route handler.",
           "patch": "import { randomBytes, randomUUID, scrypt } from 'node:crypto'\n\n// Tokens and session ids: unpredictable, not merely random-looking.\nconst sessionId = randomUUID()\nconst resetToken = randomBytes(32).toString('base64url')\n\n// Passwords: a slow hash with a per-password salt. bcrypt and argon2 are\n// equally correct; scrypt needs no dependency.\nconst salt = randomBytes(16)\nconst hash = await new Promise<Buffer>((resolve, reject) =>\n  scrypt(password, salt, 64, (error, key) => (error ? reject(error) : resolve(key))),\n)",
           "safety": "manual"
         },
@@ -1250,6 +1287,8 @@
       "confidence": "likely",
       "owasp": "A02:2021",
       "cwe": 327,
+      "runtime": "node",
+      "runtimeSource": "default",
       "exposure": "unknown",
       "exposureEvidence": {
         "reason": "no route resolved for this file, and its path is not a recognised non-request location"
@@ -1319,6 +1358,8 @@
       "confidence": "likely",
       "owasp": "A02:2021",
       "cwe": 327,
+      "runtime": "node",
+      "runtimeSource": "default",
       "exposure": "unknown",
       "exposureEvidence": {
         "reason": "no route resolved for this file, and its path is not a recognised non-request location"
@@ -1354,7 +1395,7 @@
       "remediation": [
         {
           "framework": "next",
-          "summary": "Use node:crypto in the route handler. Note that the edge runtime has no node:crypto — use globalThis.crypto.randomUUID() and Web Crypto there, or pin the route to nodejs.",
+          "summary": "Use node:crypto in the route handler.",
           "patch": "import { randomBytes, randomUUID, scrypt } from 'node:crypto'\n\n// Tokens and session ids: unpredictable, not merely random-looking.\nconst sessionId = randomUUID()\nconst resetToken = randomBytes(32).toString('base64url')\n\n// Passwords: a slow hash with a per-password salt. bcrypt and argon2 are\n// equally correct; scrypt needs no dependency.\nconst salt = randomBytes(16)\nconst hash = await new Promise<Buffer>((resolve, reject) =>\n  scrypt(password, salt, 64, (error, key) => (error ? reject(error) : resolve(key))),\n)",
           "safety": "manual"
         },
@@ -1388,6 +1429,8 @@
       "confidence": "likely",
       "owasp": "A05:2021",
       "cwe": 942,
+      "runtime": "node",
+      "runtimeSource": "default",
       "exposure": "unknown",
       "exposureEvidence": {
         "reason": "no route resolved for this file, and its path is not a recognised non-request location"

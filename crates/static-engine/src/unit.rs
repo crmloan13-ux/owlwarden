@@ -26,6 +26,13 @@ pub struct UnitMeta {
     pub frameworks: Arc<FrameworkSet>,
     /// Route the file serves, when the framework routes by file layout.
     pub route: Option<RouteInfo>,
+    /// Where this file runs, and how that was decided.
+    ///
+    /// Per file rather than per project, because mixed-runtime repositories are
+    /// normal — a Next application with three edge routes, a monorepo with a
+    /// Workers API next to a Node worker
+    /// ([ADR 0031](../../../docs/adr/0031-runtime-overlay.md) §1).
+    pub runtime: crate::runtime::ResolvedRuntime,
 }
 
 impl UnitMeta {
@@ -35,6 +42,9 @@ impl UnitMeta {
         Self {
             frameworks: Arc::new(FrameworkSet::generic_only()),
             route: None,
+            runtime: crate::runtime::ResolvedRuntime::defaulted(
+                owlwarden_core::runtime::Runtime::Node,
+            ),
         }
     }
 
@@ -57,9 +67,11 @@ impl UnitMeta {
                 FrameworkSet::new(vec![profile], registry.generic())
             });
         let route = set.route(path.as_str());
+        let runtime = crate::runtime::ResolvedRuntime::defaulted(set.primary().default_runtime());
         Self {
             frameworks: Arc::new(set),
             route,
+            runtime,
         }
     }
 }
@@ -89,6 +101,12 @@ impl FileUnit<'_> {
     #[must_use]
     pub fn framework(&self) -> &Framework {
         self.meta.frameworks.id()
+    }
+
+    /// Where this file runs, and how that was decided.
+    #[must_use]
+    pub fn runtime(&self) -> crate::runtime::ResolvedRuntime {
+        self.meta.runtime
     }
 
     /// The route this file serves, if the framework routes by file layout.

@@ -290,6 +290,27 @@ fn remediation() -> Remediation {
             summary,
             "// package.json\n\"scripts\": { \"build\": \"gatsby build\" }",
         )
+        .manual(
+            Framework::SVELTEKIT,
+            summary,
+            "// package.json\n\"scripts\": { \"build\": \"vite build\" }",
+        )
+        .manual(
+            Framework::TANSTACK_START,
+            summary,
+            "// package.json\n\"scripts\": { \"build\": \"vinxi build\" }",
+        )
+        .manual(
+            Framework::SOLIDSTART,
+            summary,
+            "// package.json\n\"scripts\": { \"build\": \"vinxi build\" }",
+        )
+        .manual(
+            Framework::ELYSIA,
+            summary,
+            "// package.json\n\"scripts\": { \"build\": \"tsc --outDir dist\" }\n\
+             // and install with --ignore-scripts so a dependency cannot do this either",
+        )
 }
 
 /// Every framework's fix, for `owlwarden explain`.

@@ -345,7 +345,7 @@ fn remediation() -> Remediation {
 /// stay under the function-length lint — the table itself is one continuous
 /// declaration either way.
 fn newer_framework_fixes(table: Remediation) -> Remediation {
-    table
+    let table = table
     .manual(
         Framework::HONO,
         "Use hono/cors with an explicit origin list.",
@@ -434,6 +434,35 @@ fn newer_framework_fixes(table: Remediation) -> Remediation {
          }\n  \
          res.json({ ok: true })\n\
          }",
+    );
+    fixes_added_in_1_2(table)
+}
+
+/// The four frameworks added in 1.2, and the runtime deltas.
+///
+/// A continuation rather than more of the same function. Sixteen profiles plus
+/// the deltas is past what fits on a screen, and a table nobody scrolls to the
+/// end of is a table with a hole in it.
+fn fixes_added_in_1_2(table: Remediation) -> Remediation {
+    table    .manual(
+        Framework::SVELTEKIT,
+        "Name the origins in `hooks.server.ts`. A wildcard with credentials is refused by the browser anyway.",
+        "const ALLOWED = new Set(['https://app.example.com'])\n\nexport const handle: Handle = async ({ event, resolve }) => {\n  const response = await resolve(event)\n  const origin = event.request.headers.get('origin') ?? ''\n  if (ALLOWED.has(origin)) {\n    response.headers.set('Access-Control-Allow-Origin', origin)\n    response.headers.append('Vary', 'Origin')\n  }\n  return response\n}",
+    )
+    .manual(
+        Framework::TANSTACK_START,
+        "Name the origins where you set the header, and vary on Origin so a cache cannot serve one caller's response to another.",
+        "const ALLOWED = new Set(['https://app.example.com'])\nconst origin = request.headers.get('origin') ?? ''\nif (ALLOWED.has(origin)) {\n  headers.set('Access-Control-Allow-Origin', origin)\n  headers.append('Vary', 'Origin')\n}",
+    )
+    .manual(
+        Framework::SOLIDSTART,
+        "Name the origins in middleware rather than reflecting whatever arrived.",
+        "const ALLOWED = new Set(['https://app.example.com'])\nconst origin = event.request.headers.get('origin') ?? ''\nif (ALLOWED.has(origin)) {\n  event.response.headers.set('Access-Control-Allow-Origin', origin)\n  event.response.headers.append('Vary', 'Origin')\n}",
+    )
+    .manual(
+        Framework::ELYSIA,
+        "Pass an explicit origin list to @elysiajs/cors.",
+        "import { cors } from '@elysiajs/cors'\n\napp.use(cors({ origin: ['https://app.example.com'], credentials: true }))",
     )
 }
 

@@ -122,7 +122,7 @@ Fix: Use Web Crypto (or node:crypto) instead of Math.random() for tokens.</failu
     <failure type="weak-crypto" message="[high] Broken cryptographic primitive protecting a secret (likely)">This cipher or mode is broken independently of the key. DES has a keyspace small enough to search, RC4 has biased output, and ECB encrypts identical plaintext blocks to identical ciphertext blocks — the structure of the data survives encryption.
 OWASP: A02:2021
 CWE-327
-Fix: Use node:crypto in the route handler. Note that the edge runtime has no node:crypto — use globalThis.crypto.randomUUID() and Web Crypto there, or pin the route to nodejs.</failure>
+Fix: Use node:crypto in the route handler.</failure>
   </testcase>
   <testcase classname="cors-permissive" name="app/lib/cors.ts:7:3" time="0">
     <failure type="cors-permissive" message="[medium] Cross-origin policy accepts any origin (likely)">Any origin may call this API and read the response. That is a deliberate choice for a public endpoint and a mistake for anything behind a session — nothing in the source says which this is, so it is reported for you to decide.

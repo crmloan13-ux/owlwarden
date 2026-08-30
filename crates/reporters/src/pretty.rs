@@ -122,8 +122,17 @@ impl<'w> PrettyReporter<'w> {
             .map(|scope| format!(" · {scope}"))
             .unwrap_or_default();
 
+        // The runtime is on the summary line and cannot be dropped in a quiet
+        // mode: detection is inference, and a report whose fixes were chosen
+        // from an inferred runtime has to say what it inferred.
+        let runtime = report
+            .target
+            .runtime
+            .as_ref()
+            .map(|runtime| format!(" · {runtime}"))
+            .unwrap_or_default();
         let header = format!(
-            "{} {scanned} · {}{scope} · {}.{:02}s",
+            "{} {scanned} · {}{runtime}{scope} · {}.{:02}s",
             crate::banner::owl_mark(self.options.unicode),
             report.target.preset,
             report.duration_ms / 1000,
@@ -352,9 +361,16 @@ impl<'w> PrettyReporter<'w> {
             // pasted in.
             let label = fix.host.as_ref().map_or_else(
                 || {
-                    fix.framework
-                        .as_ref()
-                        .map_or_else(|| "fix".to_owned(), |profile| format!("fix ({profile})"))
+                    fix.framework.as_ref().map_or_else(
+                        || "fix".to_owned(),
+                        |profile| match fix.runtime {
+                            // A delta names the runtime as well as the
+                            // framework, because *that* is why this advice
+                            // differs from the paragraph in the docs.
+                            Some(runtime) => format!("fix ({profile} · {})", runtime.label()),
+                            None => format!("fix ({profile})"),
+                        },
+                    )
                 },
                 |host| format!("fix ({host})"),
             );
