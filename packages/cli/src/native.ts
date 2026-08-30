@@ -35,6 +35,15 @@ export interface NativeEngine {
   seal(requestJson: string): Promise<string>;
 
   /**
+   * Resolves one host's agent configuration with provenance per key.
+   *
+   * `git config --show-origin` for your agent. Values that won from outside the
+   * scan root come back as a placeholder: the privacy rule lives at one choke
+   * point in the engine, so no caller can render one by accident.
+   */
+  effective(requestJson: string): string;
+
+  /**
    * Builds a lockfile-scoped OSV index JSON string for `owlwarden osv update`.
    * Queries api.osv.dev (online).
    */
@@ -72,6 +81,7 @@ const REQUIRED_EXPORTS = [
   "scan",
   "gate",
   "seal",
+  "effective",
   "buildOsvIndex",
   "render",
   "listRules",

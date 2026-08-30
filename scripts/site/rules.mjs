@@ -398,7 +398,7 @@ function profilePage({ rule, profile, fix, generic, finding, siblings }) {
 ${renderFrame(finding, esc)}
 <p>
   This finding comes from the ${esc(label)} fixture in the owlwarden test
-  suite${finding?.context?.route ? `, in <code>${esc(finding.context.method ?? "")} ${esc(finding.context.route)}</code>` : ""}.
+  suite${finding?.context?.route ? `, in <code>${esc([finding.context.method, finding.context.route].filter(Boolean).join(" "))}</code>` : ""}.
   ${esc(finding?.why ?? "")}
 </p>
 

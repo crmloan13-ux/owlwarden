@@ -5,7 +5,7 @@
 //! dependency its users have to trust. If the surface grows past what fits in
 //! this file, that trade-off should be revisited in a PR, not stretched.
 
-use owlwarden_core::finding::{Confidence, Exposure, Severity};
+use owlwarden_core::finding::{AgentHost, Confidence, Exposure, Severity};
 
 /// What the user asked us to do.
 #[derive(Debug, PartialEq, Eq)]
@@ -58,6 +58,21 @@ pub enum Command {
     },
     /// Record or verify the agent execution surface.
     Seal(Box<SealArgs>),
+    /// Print the agent configuration a host would actually resolve.
+    Effective {
+        /// Project root.
+        path: String,
+        /// Which host's resolution order to follow.
+        host: String,
+        /// Restrict output to one key.
+        key: Option<String>,
+        /// Emit JSON instead of text.
+        json: bool,
+        /// Also read the user and managed tiers.
+        include_user_config: bool,
+        /// Restrict output to ASCII.
+        ascii: bool,
+    },
     /// Print the long-form write-up for one rule.
     Explain {
         /// Rule id.
@@ -221,6 +236,13 @@ pub struct ScanArgs {
     pub budget: Option<usize>,
     /// `--format agent`: hard cap on findings.
     pub max_findings: Option<usize>,
+    /// Read the user- and managed-configuration tiers so a project key
+    /// overridden by a higher one reports `shadowed`.
+    ///
+    /// Off by default. Without it nothing outside the project root is opened,
+    /// and the flag's documentation has to be blunt about that, because a flag
+    /// that changes what a scanner *reads* is a flag people misunderstand.
+    pub include_user_config: bool,
     /// True for `vet`: the target is not yours, so nothing in it may influence
     /// the answer.
     pub vet: bool,
@@ -267,6 +289,7 @@ impl Default for ScanArgs {
             paths: Vec::new(),
             budget: None,
             max_findings: None,
+            include_user_config: false,
             vet: false,
         }
     }
@@ -318,6 +341,7 @@ pub fn parse(args: &[String]) -> Result<Command, ArgError> {
         "vet" => parse_vet(rest).map(|args| Command::Vet(Box::new(args))),
         "gate" => parse_gate(rest),
         "seal" => parse_seal(rest).map(|args| Command::Seal(Box::new(args))),
+        "effective" => parse_effective(rest),
         "watch" => parse_scan(rest).map(|args| Command::Watch(Box::new(args))),
         "rules" => Ok(Command::Rules {
             json: rest.any(|arg| arg == "--json"),
@@ -407,6 +431,7 @@ struct RawScan {
     write_baseline: Option<String>,
     fail_on: Option<Severity>,
     fail_on_exposure: Option<Exposure>,
+    include_user_config: bool,
     min_confidence: Option<Confidence>,
     report_suppressions: bool,
     ci: bool,
@@ -499,6 +524,13 @@ fn parse_vet<'a>(args: impl Iterator<Item = &'a String>) -> Result<ScanArgs, Arg
         ("--osv", parsed.osv),
         ("--baseline", parsed.baseline.is_some()),
         ("--allow-suppressions", parsed.allow_suppressions),
+        // Not for a privacy reason — tier contents never reach any output —
+        // but because the answer would be wrong in the reassuring direction.
+        // `vet` reads a repository somebody else wrote. Downgrading its
+        // dangerous hook to `shadowed` because *your* settings happen to
+        // override it says nothing about the next reader, who is the person
+        // `vet` exists to warn.
+        ("--include-user-config", parsed.include_user_config),
     ] {
         if set {
             return Err(ArgError::InvalidValue {
@@ -600,6 +632,65 @@ fn parse_gate<'a>(args: impl Iterator<Item = &'a String>) -> Result<Command, Arg
         seal,
         seal_trust,
         require_signed_seal,
+    })
+}
+
+/// Parses the flags of `effective`.
+fn parse_effective<'a>(args: impl Iterator<Item = &'a String>) -> Result<Command, ArgError> {
+    let mut path: Option<String> = None;
+    let mut host = AgentHost::CLAUDE_CODE.as_str().to_owned();
+    let mut key: Option<String> = None;
+    let mut json = false;
+    let mut include_user_config = false;
+    let mut ascii = false;
+    let mut args = args.peekable();
+
+    while let Some(arg) = args.next() {
+        let mut value =
+            |option: &'static str| args.next().cloned().ok_or(ArgError::MissingValue(option));
+        match arg.as_str() {
+            "--host" => host = value("--host")?,
+            "--key" => key = Some(value("--key")?),
+            "--format" => {
+                let format = value("--format")?;
+                match format.as_str() {
+                    "json" => json = true,
+                    "pretty" | "text" => json = false,
+                    _ => {
+                        return Err(ArgError::InvalidValue {
+                            option: "--format",
+                            value: format,
+                            expected: "pretty or json",
+                        });
+                    }
+                }
+            }
+            "--json" => json = true,
+            "--include-user-config" => include_user_config = true,
+            "--ascii" => ascii = true,
+            other if other.starts_with('-') => {
+                return Err(ArgError::UnknownOption(other.to_owned()));
+            }
+            candidate if path.is_none() => path = Some(candidate.to_owned()),
+            extra => return Err(ArgError::UnknownOption(extra.to_owned())),
+        }
+    }
+
+    if AgentHost::parse(&host).is_err() {
+        return Err(ArgError::InvalidValue {
+            option: "--host",
+            value: host,
+            expected: "claude-code, cursor, vscode, copilot, codex, gemini-cli, generic",
+        });
+    }
+
+    Ok(Command::Effective {
+        path: path.unwrap_or_else(|| ".".to_owned()),
+        host,
+        key,
+        json,
+        include_user_config,
+        ascii,
     })
 }
 
@@ -760,6 +851,7 @@ fn parse_scan<'a>(args: impl Iterator<Item = &'a String>) -> Result<ScanArgs, Ar
                     "confirmed, likely, possible",
                 )?);
             }
+            "--include-user-config" => raw.include_user_config = true,
             "--no-color" => raw.no_color = true,
             "--ascii" => raw.ascii = true,
             "--quiet" | "-q" => raw.quiet = true,
@@ -853,6 +945,7 @@ impl RawScan {
             paths: self.paths,
             budget: self.budget,
             max_findings: self.max_findings,
+            include_user_config: self.include_user_config,
             vet: false,
         }
     }
@@ -874,6 +967,7 @@ USAGE
   owlwarden vet [PATH]                 check a repo before you open it
   owlwarden gate --host <HOST> [PATH]  hook entry point; event JSON on stdin
   owlwarden seal [PATH] [OPTIONS]      lock the agent's execution surface
+  owlwarden effective [PATH] --host <HOST>   which file is deciding this?
   owlwarden watch [PATH] [OPTIONS]
   owlwarden osv update [PATH] [--out FILE]
   owlwarden rules [--json]
@@ -930,6 +1024,14 @@ fn options_help() -> String {
 
     format!(
         "
+  effective — `git config --show-origin` for your agent. Prints the resolved
+        configuration with provenance per key: which file won, and which lost.
+        --host <HOST>            whose resolution order to follow
+        --key <KEY>              one key rather than all of them
+        --include-user-config    also read the user and managed tiers
+        A value that won from outside the project root renders as
+        `(set by user settings)`. It is never printed.
+
 SCAN OPTIONS
   --preset <NAME>      Rule bundle to run. Default: {default_preset}
 {presets}
@@ -942,6 +1044,10 @@ SCAN OPTIONS
   --out <FILE>         Write the report to a file instead of stdout
   --baseline <FILE>    Report only findings new since this baseline
   --write-baseline <F> Write current findings to a baseline file
+  --include-user-config  Resolve agent config against the user and managed
+                       tiers, so a project key a higher tier overrides reports
+                       `shadowed`. Without it NOTHING outside the project root
+                       is opened. Their contents never enter any output.
   --report-suppressions  List every inline suppression; flag stale ones
   --allow-suppressions Under --ci, honour inline suppressions (off by default)
   --allow-baseline     Under --ci, permit --baseline (off by default)

@@ -172,7 +172,7 @@
 <span class="dim">16 │</span>       headers: { &#39;Content-Type&#39;: &#39;application/json&#39; },</div>
 <p>
   This finding comes from the Astro fixture in the owlwarden test
-  suite, in <code> /api/proxy</code>.
+  suite, in <code>/api/proxy</code>.
   The destination of this request comes from the caller, so they choose which host the server connects to. That includes hosts they cannot reach themselves: the cloud metadata endpoint that hands out IAM credentials, internal services that skip authentication because they are &#39;not exposed&#39;, and anything bound to localhost.
 </p>
 

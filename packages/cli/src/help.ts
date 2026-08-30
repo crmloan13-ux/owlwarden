@@ -17,6 +17,7 @@ USAGE
   owlwarden vet [PATH]                 check a repo before you open it
   owlwarden gate --host <HOST> [PATH]  hook entry point; event JSON on stdin
   owlwarden seal [PATH] [OPTIONS]      lock the agent's execution surface
+  owlwarden effective [PATH] --host <HOST>   which file is deciding this?
   owlwarden verify --patch <FILE>      did this fix actually fix it?
   owlwarden mcp [PATH]
   owlwarden init [--claude-code|--cursor|--generic] [--force]
@@ -55,6 +56,12 @@ USAGE
         --yes      proceed without a terminal
         Sealing is never unattended, and that raises the cost for whatever wrote
         the drift rather than closing the hole. SECURITY.md says which.
+  effective — \`git config --show-origin\` for your agent. Prints the resolved
+        configuration with provenance per key: which file won, and which lost.
+        --host <HOST>  --key <KEY>  --include-user-config
+        A value that won from outside the project root renders as
+        \`(set by user settings)\`; it is never printed. Nor are the names of
+        keys only a higher tier sets — a key name is contents too.
   verify — apply a patch to a scratch copy, re-scan, and exit 0 only if the
         finding is gone AND nothing new appeared at or above the threshold.
         A fix that trades a stack-trace-leak for an open-redirect fails.

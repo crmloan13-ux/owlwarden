@@ -263,7 +263,13 @@ impl Detector for StaticEngine {
             *stats = EngineStats::default();
         }
 
-        let project = Project::discover(ctx.source())?;
+        let project = Project::discover(ctx.source())?
+            .with_tier_policy(if ctx.settings().include_user_config {
+                crate::agentws::tiers::TierPolicy::IncludeUserConfig
+            } else {
+                crate::agentws::tiers::TierPolicy::ProjectOnly
+            })
+            .with_home(ctx.settings().home_override.clone());
         let mut findings = Vec::new();
 
         let scoped_paths = ctx

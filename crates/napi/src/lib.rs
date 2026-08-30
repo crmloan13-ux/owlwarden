@@ -113,6 +113,12 @@ struct ScanRequest {
     /// Previous report JSON for incremental merge in watch mode.
     #[serde(default)]
     previous_report_json: Option<String>,
+    /// Read the user- and managed-configuration tiers (`--include-user-config`).
+    ///
+    /// Off by default, which is what keeps "reads stay inside the project root"
+    /// true for every scan nobody explicitly opted out of it for.
+    #[serde(default)]
+    include_user_config: bool,
 }
 
 fn default_honor_suppressions() -> bool {
@@ -341,6 +347,8 @@ fn settings_from_request(request: &ScanRequest) -> ScanSettings {
         } else {
             Some(request.scoped_paths.clone())
         },
+        include_user_config: request.include_user_config,
+        home_override: None,
     }
 }
 
@@ -875,6 +883,108 @@ struct GateResponse {
     error: Option<EngineError>,
 }
 
+/// Resolves one host's agent configuration, with provenance per key.
+///
+/// The engine side of `owlwarden effective`. Values that won from outside the
+/// scan root are rendered as a placeholder here exactly as they are in the
+/// binary — the privacy rule lives at one choke point in the resolver, not in
+/// each caller.
+///
+/// # Errors
+/// Throws only when `request_json` is not valid JSON matching the request
+/// shape, which is a programming error in the caller.
+#[napi]
+pub fn effective(request_json: String) -> napi::Result<String> {
+    let request: EffectiveRequestJson = serde_json::from_str(&request_json)
+        .map_err(|error| napi::Error::from_reason(format!("invalid effective request: {error}")))?;
+
+    let Ok(host) = owlwarden_core::finding::AgentHost::parse(&request.host) else {
+        return Ok(encode_effective_error("unknown host"));
+    };
+    let policy = if request.include_user_config {
+        owlwarden_static::agentws::tiers::TierPolicy::IncludeUserConfig
+    } else {
+        owlwarden_static::agentws::tiers::TierPolicy::ProjectOnly
+    };
+    let config = owlwarden_static::agentws::tiers::resolve(
+        std::path::Path::new(&request.project_root),
+        &host,
+        policy,
+    );
+    let profile = owlwarden_static::agentws::tiers::profile_for(&host);
+
+    let keys: Vec<serde_json::Value> = config
+        .keys
+        .iter()
+        .filter(|entry| {
+            request
+                .key
+                .as_deref()
+                .is_none_or(|wanted| entry.key == wanted)
+        })
+        .map(|entry| {
+            serde_json::json!({
+                "key": entry.key,
+                "value": entry.rendered_value(),
+                "winner": entry.winner.as_str(),
+                "winnerSource": entry.winner_source,
+                "shadowsProject": entry.shadows_project(),
+                "losers": entry
+                    .losers
+                    .iter()
+                    .map(|(kind, source)| serde_json::json!({
+                        "tier": kind.as_str(),
+                        "source": source,
+                    }))
+                    .collect::<Vec<_>>(),
+            })
+        })
+        .collect();
+
+    let body = serde_json::json!({
+        "ok": true,
+        "host": host.as_str(),
+        "verifiedAgainst": profile.verified_against,
+        "includeUserConfig": request.include_user_config,
+        "keys": keys,
+        "keysOnlyAboveRoot": config.keys_only_above_root,
+        "tiersRead": config
+            .tiers_read
+            .iter()
+            .map(|(kind, source)| serde_json::json!({
+                "tier": kind.as_str(),
+                "source": source,
+            }))
+            .collect::<Vec<_>>(),
+        "tiersSkipped": config
+            .tiers_skipped
+            .iter()
+            .map(|kind| kind.as_str())
+            .collect::<Vec<_>>(),
+    });
+    Ok(serde_json::to_string(&body).unwrap_or_else(|_| encode_effective_error("could not encode")))
+}
+
+/// The JSON shape `effective` accepts.
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct EffectiveRequestJson {
+    /// Project root.
+    project_root: String,
+    /// Which host's resolution order to follow.
+    host: String,
+    /// Restrict the answer to one key.
+    #[serde(default)]
+    key: Option<String>,
+    /// Also read the user and managed tiers.
+    #[serde(default)]
+    include_user_config: bool,
+}
+
+fn encode_effective_error(message: &str) -> String {
+    serde_json::json!({ "ok": false, "error": message }).to_string()
+}
+
 /// Runs one `owlwarden seal` invocation.
 ///
 /// The decision logic is `owlwarden_seal::command`, shared with the standalone
@@ -1002,6 +1112,11 @@ fn seal_scan(root: &std::path::Path) -> Result<owlwarden_core::report::Report, S
                 preset: "agent-surface".to_owned(),
                 dirty_paths: None,
                 scoped_paths: None,
+                // The seal records the repository's surface, not the
+                // developer's: a seal that varied by whose laptop wrote it
+                // would not be a shared record of anything.
+                include_user_config: false,
+                home_override: None,
             },
             baseline: None,
             write_baseline: None,

@@ -51,6 +51,7 @@ pub struct WorkspaceFile {
     pub lines: LineIndex,
     doc: Option<JsonNode>,
     fences: Vec<(u32, u32)>,
+    shadowed_keys: Vec<String>,
 }
 
 impl WorkspaceFile {
@@ -94,7 +95,25 @@ impl WorkspaceFile {
         {
             return RuntimeScope::Documentation;
         }
+        // A key a higher tier overrides is present and inert. Only ever
+        // non-empty with `--include-user-config`: without it nothing above the
+        // project was opened, so the question was not asked and is not guessed
+        // at ([ADR 0028](../../../../docs/adr/0028-effective-configuration.md) §4).
+        if !self.shadowed_keys.is_empty()
+            && self.runtime_scope == RuntimeScope::Active
+            && let Some(doc) = &self.doc
+            && let Some(key) = doc.top_level_key_at(offset)
+            && self.shadowed_keys.iter().any(|shadowed| shadowed == key)
+        {
+            return RuntimeScope::Shadowed;
+        }
         self.runtime_scope
+    }
+
+    /// The top-level keys a higher configuration tier makes inert here.
+    #[must_use]
+    pub fn shadowed_keys(&self) -> &[String] {
+        &self.shadowed_keys
     }
 
     /// Whether this file is inside a fenced block anywhere (i.e. is prose).
@@ -140,6 +159,38 @@ impl AgentWorkspace {
     /// [`UnreadableFile`], not a failed scan: one broken config must not hide
     /// the other nine.
     pub fn load(source: &dyn SourceProvider) -> Result<Self, SourceError> {
+        Self::load_with(source, super::tiers::TierPolicy::ProjectOnly)
+    }
+
+    /// [`Self::load`], told which configuration tiers it may resolve against.
+    ///
+    /// Under [`TierPolicy::ProjectOnly`](super::tiers::TierPolicy::ProjectOnly)
+    /// this is byte-for-byte the 1.1 loader: nothing outside the project root is
+    /// opened, and no file carries a shadowed key. That equivalence is asserted
+    /// by a test rather than asserted here.
+    ///
+    /// # Errors
+    /// [`SourceError`] only when the tree itself cannot be walked.
+    pub fn load_with(
+        source: &dyn SourceProvider,
+        policy: super::tiers::TierPolicy,
+    ) -> Result<Self, SourceError> {
+        Self::load_with_home(source, policy, None)
+    }
+
+    /// [`Self::load_with`] with the home directory supplied.
+    ///
+    /// The seam the privacy test drives: the property it proves — no user-tier
+    /// content in any output, at any verbosity — must be provable without
+    /// mutating process environment.
+    ///
+    /// # Errors
+    /// [`SourceError`] only when the tree itself cannot be walked.
+    pub fn load_with_home(
+        source: &dyn SourceProvider,
+        policy: super::tiers::TierPolicy,
+        home: Option<&std::path::Path>,
+    ) -> Result<Self, SourceError> {
         let globs = paths::allowlist_globs();
         let listed = source.agent_workspace_files(&globs)?;
 
@@ -162,7 +213,45 @@ impl AgentWorkspace {
         workspace
             .files
             .sort_by(|left, right| left.path.cmp(&right.path));
+        workspace.resolve_tiers(source.root(), home, policy);
         Ok(workspace)
+    }
+
+    /// Marks the keys a higher tier makes inert.
+    ///
+    /// Resolved once per host rather than once per file: the resolution is a
+    /// property of the host's tier order, and doing it per file would open the
+    /// same user settings four times.
+    fn resolve_tiers(
+        &mut self,
+        root: &std::path::Path,
+        home: Option<&std::path::Path>,
+        policy: super::tiers::TierPolicy,
+    ) {
+        if policy == super::tiers::TierPolicy::ProjectOnly {
+            return;
+        }
+        // `None` from the caller means "use the environment's", not "there is
+        // no home". Passing it straight through resolved every `~/` path to
+        // nothing, which made every real run silently find no higher tier while
+        // the tests — which always supply one — passed.
+        let from_env = super::tiers::home_dir();
+        let home = home.or(from_env.as_deref());
+        let mut by_host: std::collections::BTreeMap<String, Vec<String>> =
+            std::collections::BTreeMap::new();
+        for file in &self.files {
+            let host = file.host.as_str().to_owned();
+            if by_host.contains_key(&host) {
+                continue;
+            }
+            let resolved = super::tiers::resolve_with_home(root, home, &file.host, policy);
+            by_host.insert(host, resolved.shadowed_keys());
+        }
+        for file in &mut self.files {
+            if let Some(keys) = by_host.get(file.host.as_str()) {
+                file.shadowed_keys.clone_from(keys);
+            }
+        }
     }
 
     fn ingest(
@@ -221,6 +310,7 @@ impl AgentWorkspace {
             text,
             doc,
             fences,
+            shadowed_keys: Vec::new(),
         });
     }
 
@@ -508,5 +598,24 @@ mod tests {
         let (_dir, workspace) = workspace_of(|_| {});
         assert!(workspace.is_empty());
         assert!(!workspace.truncated());
+    }
+
+    #[test]
+    fn an_absent_home_override_means_the_environment_not_no_home() {
+        // The bug this exists for: `resolve_tiers` passed the caller's
+        // `Option` straight through, so a real run — which supplies `None` —
+        // resolved every `~/` path to nothing and silently found no higher
+        // tier, while every test, which always supplies a home, passed.
+        //
+        // Asserted on the helper rather than through a scan, because the
+        // property is exactly "the fallback happens", and a scan would only
+        // prove it on a machine where the environment has a home.
+        assert_eq!(
+            super::super::tiers::home_dir(),
+            std::env::var_os("HOME")
+                .or_else(|| std::env::var_os("USERPROFILE"))
+                .filter(|value| !value.is_empty())
+                .map(std::path::PathBuf::from)
+        );
     }
 }

@@ -172,7 +172,7 @@
 <span class="dim">32 │</span>     // cors-permissive: hand-rolled wildcard + credentials.</div>
 <p>
   This finding comes from the Gatsby fixture in the owlwarden test
-  suite, in <code> /api/users</code>.
+  suite, in <code>/api/users</code>.
   This cookie is missing protections: httpOnly keeps the cookie out of reach of JavaScript, so a cross-site scripting bug cannot read the session; secure stops the cookie being sent over plain HTTP; sameSite stops the browser attaching the cookie to cross-site requests.
 </p>
 

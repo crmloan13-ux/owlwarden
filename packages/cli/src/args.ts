@@ -49,11 +49,28 @@ export type Cli =
   | { command: "plugin-inspect"; path: string }
   | { command: "osv-update"; path: string; out?: string }
   | { command: "seal"; options: SealCliOptions }
+  | { command: "effective"; options: EffectiveCliOptions }
   | { command: "help" }
   | { command: "version" };
 
 /** A scan report rendering target. */
 export type ReportFormat = "pretty" | "json" | "sarif" | "junit" | "md" | "agent";
+
+/** Everything `owlwarden effective` needs. */
+export interface EffectiveCliOptions {
+  /** Project root. */
+  path: string;
+  /** Which host's resolution order to follow. */
+  host: string;
+  /** Restrict the answer to one key. */
+  key?: string;
+  /** Emit JSON instead of text. */
+  json: boolean;
+  /** Also read the user and managed tiers. */
+  includeUserConfig: boolean;
+  /** Use box-drawing characters. */
+  unicode: boolean;
+}
 
 /** What `owlwarden seal` should do. */
 export type SealMode = "write" | "verify" | "diff" | "accept";
@@ -262,6 +279,8 @@ const OPTIONS = {
   trust: { type: "string" },
   "require-signed-seal": { type: "boolean", default: false },
   yes: { type: "boolean", default: false },
+  key: { type: "string" },
+  "include-user-config": { type: "boolean", default: false },
   "min-confidence": { type: "string" },
   "report-suppressions": { type: "boolean", default: false },
   "allow-config-js": { type: "boolean", default: false },
@@ -416,6 +435,21 @@ export function parse(argv: string[]): Cli {
     }
     case "seal":
       return { command: "seal", options: sealOptions(values, rest) };
+    case "effective": {
+      if (rest.length > 1) {
+        throw new ArgError(`effective takes at most one path, got ${rest.length}`);
+      }
+      const host = values.host ?? "claude-code";
+      const options: EffectiveCliOptions = {
+        path: rest[0] ?? ".",
+        host,
+        json: values.json,
+        includeUserConfig: values["include-user-config"],
+        unicode: !values.ascii,
+      };
+      if (values.key !== undefined) options.key = values.key;
+      return { command: "effective", options };
+    }
     case "osv": {
       if (rest[0] !== "update") {
         throw new ArgError("usage: owlwarden osv update [PATH] [--out FILE]");

@@ -471,6 +471,18 @@ pub enum RuntimeScope {
     Documentation,
     /// Under a template, example, or fixture path.
     Template,
+    /// Present in a file the host loads, and overridden by a higher tier — a
+    /// managed policy, or the developer's own settings.
+    ///
+    /// Reported, never suppressed. A repository that ships a dangerous hook
+    /// which happens to be inert on *your* machine is still shipping it to the
+    /// next person, whose tiers differ
+    /// ([ADR 0028](../../../docs/adr/0028-effective-configuration.md) §2).
+    ///
+    /// Only produced with `--include-user-config`. Without that flag nothing
+    /// outside the project root is opened, so the question cannot be answered
+    /// and is not guessed at.
+    Shadowed,
     /// Loadable, but not on the host's default resolution path.
     ProjectOptional,
     /// In a path the host actually loads.
@@ -484,6 +496,7 @@ impl RuntimeScope {
         match self {
             Self::Documentation => "documentation",
             Self::Template => "template",
+            Self::Shadowed => "shadowed",
             Self::ProjectOptional => "project-optional",
             Self::Active => "active",
         }
@@ -497,7 +510,11 @@ impl RuntimeScope {
     #[must_use]
     pub const fn confidence_ceiling(self) -> Confidence {
         match self {
-            Self::Documentation | Self::Template => Confidence::Possible,
+            // `shadowed` caps for the same reason `template` does: the key is
+            // present and something else decides. What it is *not* is
+            // suppressed — the finding still ships, because the next reader's
+            // tiers are not this reader's.
+            Self::Documentation | Self::Template | Self::Shadowed => Confidence::Possible,
             Self::ProjectOptional | Self::Active => Confidence::Likely,
         }
     }
@@ -509,6 +526,7 @@ impl RuntimeScope {
         match self {
             Self::Active => "this file is on the host's load path",
             Self::ProjectOptional => "this file is loadable, but not the default resolution path",
+            Self::Shadowed => "this key is overridden by a higher configuration tier",
             Self::Template => "this file is under a template or fixture path, not a live config",
             Self::Documentation => "this is a fenced example inside a Markdown file",
         }
@@ -520,6 +538,7 @@ impl RuntimeScope {
         match s.to_ascii_lowercase().as_str() {
             "active" => Some(Self::Active),
             "project-optional" => Some(Self::ProjectOptional),
+            "shadowed" => Some(Self::Shadowed),
             "template" => Some(Self::Template),
             "documentation" => Some(Self::Documentation),
             _ => None,

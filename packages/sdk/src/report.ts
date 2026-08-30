@@ -115,6 +115,14 @@ export const surfaceSchema = z.enum(["webApp", "agentWorkspace"]);
 export const runtimeScopeSchema = z.enum([
   "active",
   "project-optional",
+  /**
+   * Present in a file the host loads, and overridden by a higher tier.
+   *
+   * Reported rather than suppressed: a repository shipping a dangerous key that
+   * happens to be inert on *your* machine is still shipping it to the next
+   * person, whose tiers differ. Only produced with `--include-user-config`.
+   */
+  "shadowed",
   "template",
   "documentation",
 ]);

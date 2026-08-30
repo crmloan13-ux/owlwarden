@@ -41,6 +41,25 @@ pub struct ScanSettings {
     /// the list, whatever else changed — a `package.json` edit alone must still
     /// fire `unpinned-dependency`.
     pub scoped_paths: Option<Vec<String>>,
+    /// Whether the user- and managed-configuration tiers may be read.
+    ///
+    /// Off everywhere by default, which keeps the invariant the project sells:
+    /// **reads stay inside the project root**. Turning it on lets the engine
+    /// resolve a project key as `shadowed` when a higher tier overrides it, at
+    /// the cost of opening a closed allowlist of paths in the user's home
+    /// directory — read-only, never executed, and with their contents excluded
+    /// from every output
+    /// ([ADR 0028](../../../docs/adr/0028-effective-configuration.md) §4).
+    pub include_user_config: bool,
+    /// The home directory tier resolution expands `~` against.
+    ///
+    /// `None` reads the environment, which is what every real run does. It is a
+    /// setting rather than an environment read so that resolution is a pure
+    /// function of its inputs: the test that proves *no user-tier content
+    /// reaches any output* has to be able to plant a home directory without
+    /// mutating process environment, and a property proved only under a mutated
+    /// global is a property proved for one test at a time.
+    pub home_override: Option<std::path::PathBuf>,
 }
 
 impl Default for ScanSettings {
@@ -52,6 +71,8 @@ impl Default for ScanSettings {
             preset: "quick".to_owned(),
             dirty_paths: None,
             scoped_paths: None,
+            include_user_config: false,
+            home_override: None,
         }
     }
 }

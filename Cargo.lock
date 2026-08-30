@@ -1445,6 +1445,7 @@ dependencies = [
  "owlwarden-static",
  "serde",
  "serde_json",
+ "tempfile",
  "tokio",
 ]
 

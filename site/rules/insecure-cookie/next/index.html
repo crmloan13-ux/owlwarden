@@ -172,7 +172,7 @@
 <span class="dim">22 │</span>   return NextResponse.json({ ok: true })</div>
 <p>
   This finding comes from the Next.js fixture in the owlwarden test
-  suite, in <code> /api/login</code>.
+  suite, in <code>/api/login</code>.
   This cookie is missing protections: httpOnly keeps the cookie out of reach of JavaScript, so a cross-site scripting bug cannot read the session; secure stops the cookie being sent over plain HTTP; sameSite stops the browser attaching the cookie to cross-site requests.
 </p>
 

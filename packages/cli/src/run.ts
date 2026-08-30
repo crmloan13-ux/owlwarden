@@ -1,5 +1,6 @@
 import { ArgError, parse } from "./args.js";
 import { runCoverage } from "./commands/coverage.js";
+import { runEffective } from "./commands/effective.js";
 import { runExplain } from "./commands/explain.js";
 import { runInit } from "./commands/init.js";
 import { runMcp } from "./commands/mcp.js";
@@ -85,6 +86,8 @@ export async function run(argv: string[], streams: Streams): Promise<number> {
       });
     case "seal":
       return runSeal(mustLoad(native), cli.options, stdout, stderr);
+    case "effective":
+      return runEffective(mustLoad(native), cli.options, stdout, stderr);
     case "verify":
       return runVerify(mustLoad(native), cli.options, stdout, stderr);
     case "mcp":

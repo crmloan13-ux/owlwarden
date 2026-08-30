@@ -91,6 +91,21 @@ fn main() -> std::process::ExitCode {
             require_signed_seal,
         }),
         Command::Seal(args) => run_seal(&args),
+        Command::Effective {
+            path,
+            host,
+            key,
+            json,
+            include_user_config,
+            ascii,
+        } => run_effective(
+            &path,
+            &host,
+            key.as_deref(),
+            json,
+            include_user_config,
+            ascii,
+        ),
         Command::Watch(args) => run_watch(&args),
         Command::OsvUpdate { path, out } => run_osv_update(&path, out.as_deref()),
     };
@@ -282,6 +297,12 @@ fn scan_agent_surface(root: &std::path::Path) -> Result<Report, String> {
                 preset: "agent-surface".to_owned(),
                 dirty_paths: None,
                 scoped_paths: None,
+                // The seal records the repository's surface, not the
+                // developer's. A key shadowed on this machine is still shipped
+                // to the next reader, and a seal that varied by whose laptop
+                // wrote it would not be a shared record of anything.
+                include_user_config: false,
+                home_override: None,
             },
             baseline: None,
             write_baseline: None,
@@ -300,6 +321,175 @@ fn scan_agent_surface(root: &std::path::Path) -> Result<Report, String> {
         Ok(Err(error)) => Err(format!("could not scan the agent surface: {error}")),
         Err(error) => Err(format!("could not scan the agent surface: {error}")),
     }
+}
+
+/// Runs `owlwarden effective`.
+///
+/// A diagnostic, not a check: it always exits 0 when it could run at all.
+/// "Which of these four files is deciding my agent's behaviour" has no good
+/// answer in any tool today — developers debug it by deleting files — and the
+/// answer is not a pass or a fail.
+fn run_effective(
+    path: &str,
+    host: &str,
+    key: Option<&str>,
+    json: bool,
+    include_user_config: bool,
+    ascii: bool,
+) -> i32 {
+    use owlwarden_static::agentws::tiers::{self, TierPolicy};
+
+    let Ok(host) = owlwarden_core::finding::AgentHost::parse(host) else {
+        return fail("unknown --host");
+    };
+    let policy = if include_user_config {
+        TierPolicy::IncludeUserConfig
+    } else {
+        TierPolicy::ProjectOnly
+    };
+    let config = tiers::resolve(std::path::Path::new(path), &host, policy);
+    let profile = tiers::profile_for(&host);
+    let selected: Vec<&tiers::ResolvedKey> = config
+        .keys
+        .iter()
+        .filter(|entry| key.is_none_or(|wanted| entry.key == wanted))
+        .collect();
+
+    let rendered = if json {
+        match serde_json::to_string_pretty(&effective_json(
+            &host,
+            &profile,
+            &config,
+            &selected,
+            include_user_config,
+        )) {
+            Ok(text) => text,
+            Err(error) => return fail(&error.to_string()),
+        }
+    } else {
+        effective_text(&host, &profile, &config, &selected, ascii)
+    };
+    let _ = writeln!(std::io::stdout(), "{rendered}");
+    0
+}
+
+/// The machine-readable rendering.
+fn effective_json(
+    host: &owlwarden_core::finding::AgentHost,
+    profile: &owlwarden_static::agentws::tiers::AgentHostProfile,
+    config: &owlwarden_static::agentws::tiers::EffectiveConfig,
+    selected: &[&owlwarden_static::agentws::tiers::ResolvedKey],
+    include_user_config: bool,
+) -> serde_json::Value {
+    serde_json::json!({
+        "host": host.as_str(),
+        "verifiedAgainst": profile.verified_against,
+        "includeUserConfig": include_user_config,
+        "tiersRead": config
+            .tiers_read
+            .iter()
+            .map(|(kind, source)| serde_json::json!({
+                "tier": kind.as_str(),
+                "source": source,
+            }))
+            .collect::<Vec<_>>(),
+        "tiersSkipped": config
+            .tiers_skipped
+            .iter()
+            .map(|kind| kind.as_str())
+            .collect::<Vec<_>>(),
+        // Counted, never named: a key only a tier above the root sets is a line
+        // of the developer's own configuration.
+        "keysOnlyAboveRoot": config.keys_only_above_root,
+        "keys": selected
+            .iter()
+            .map(|entry| serde_json::json!({
+                "key": entry.key,
+                // The single choke point for the privacy rule: a value that won
+                // from outside the root renders as a placeholder here exactly
+                // as it does in the text output.
+                "value": entry.rendered_value(),
+                "winner": entry.winner.as_str(),
+                "winnerSource": entry.winner_source,
+                "shadowsProject": entry.shadows_project(),
+                "losers": entry
+                    .losers
+                    .iter()
+                    .map(|(kind, source)| serde_json::json!({
+                        "tier": kind.as_str(),
+                        "source": source,
+                    }))
+                    .collect::<Vec<_>>(),
+            }))
+            .collect::<Vec<_>>(),
+    })
+}
+
+/// The provenance table a human reads.
+fn effective_text(
+    host: &owlwarden_core::finding::AgentHost,
+    profile: &owlwarden_static::agentws::tiers::AgentHostProfile,
+    config: &owlwarden_static::agentws::tiers::EffectiveConfig,
+    selected: &[&owlwarden_static::agentws::tiers::ResolvedKey],
+    ascii: bool,
+) -> String {
+    use owlwarden_static::agentws::tiers::TierKind;
+    use std::fmt::Write as _;
+
+    let mut out = format!(
+        "\n{} effective configuration · {}  (order verified against {})\n\n",
+        owlwarden_reporters::banner::owl_mark(!ascii),
+        host.as_str(),
+        profile.verified_against
+    );
+    if selected.is_empty() {
+        out.push_str("  (nothing resolved)\n");
+    }
+    for entry in selected {
+        let _ = writeln!(
+            out,
+            "  {:<28}{}",
+            untrusted_text::one_line(&entry.key, 26),
+            entry.rendered_value()
+        );
+        let _ = writeln!(
+            out,
+            "  {:<28}✓ {}  ({})",
+            "",
+            entry.winner_source,
+            entry.winner.as_str()
+        );
+        for (kind, source) in &entry.losers {
+            let note = if entry.shadows_project() && *kind == TierKind::Project {
+                "shadowed"
+            } else {
+                "lost"
+            };
+            let _ = writeln!(out, "  {:<28}✗ {source}  ({}, {note})", "", kind.as_str());
+        }
+        out.push('\n');
+    }
+    if config.keys_only_above_root > 0 {
+        let _ = writeln!(
+            out,
+            "  {} key(s) set only above this project, not listed — their names are the \
+             developer's configuration, not this repository's",
+            config.keys_only_above_root
+        );
+    }
+    if !config.tiers_skipped.is_empty() {
+        let skipped: Vec<&str> = config
+            .tiers_skipped
+            .iter()
+            .map(|kind| kind.as_str())
+            .collect();
+        let _ = writeln!(
+            out,
+            "  not opened: {} — pass --include-user-config to resolve against them",
+            skipped.join(", ")
+        );
+    }
+    out
 }
 
 /// Writes an encoded decision and returns the host's exit code.
@@ -405,6 +595,8 @@ fn build_scan_request(
             preset: args.preset.clone(),
             dirty_paths: None,
             scoped_paths: scope.as_ref().map(|scope| scope.paths.clone()),
+            include_user_config: args.include_user_config,
+            home_override: None,
         },
         baseline,
         write_baseline: args.write_baseline.as_ref().map(std::path::PathBuf::from),
@@ -682,6 +874,7 @@ fn run_watch(args: &ScanArgs) -> i32 {
         paths: Vec::new(),
         budget: args.budget,
         max_findings: args.max_findings,
+        include_user_config: args.include_user_config,
         vet: args.vet,
         path: args.path.clone(),
         preset: args.preset.clone(),

@@ -81,6 +81,8 @@ pub struct Project<'a> {
     frameworks: Arc<FrameworkSet>,
     files: Vec<SourceFile>,
     workspace: OnceLock<AgentWorkspace>,
+    tier_policy: crate::agentws::tiers::TierPolicy,
+    home: Option<std::path::PathBuf>,
 }
 
 impl<'a> Project<'a> {
@@ -122,7 +124,34 @@ impl<'a> Project<'a> {
             frameworks,
             files,
             workspace: OnceLock::new(),
+            tier_policy: crate::agentws::tiers::TierPolicy::ProjectOnly,
+            home: None,
         })
+    }
+
+    /// Lets the agent workspace resolve against tiers above the project.
+    ///
+    /// Off unless the operator asked for it. Set before
+    /// [`Self::agent_workspace`] is first called, which the engine does at
+    /// discovery time — the workspace is cached on first use, and a policy that
+    /// arrived after that would silently not apply.
+    #[must_use]
+    pub fn with_tier_policy(mut self, policy: crate::agentws::tiers::TierPolicy) -> Self {
+        self.tier_policy = policy;
+        self
+    }
+
+    /// Supplies the home directory tier resolution expands `~` against.
+    ///
+    /// `None`, the default, reads the environment. Passing it explicitly makes
+    /// resolution a pure function of its inputs, which is what lets the
+    /// user-tier privacy test prove its property without mutating process
+    /// environment — the same seam `expand_with` and `verify_detached_with`
+    /// have, for the same reason.
+    #[must_use]
+    pub fn with_home(mut self, home: Option<std::path::PathBuf>) -> Self {
+        self.home = home;
+        self
     }
 
     /// The framework remediation is written for.
@@ -179,7 +208,7 @@ impl<'a> Project<'a> {
     #[must_use]
     pub fn agent_workspace(&self) -> &AgentWorkspace {
         self.workspace.get_or_init(|| {
-            AgentWorkspace::load(self.source)
+            AgentWorkspace::load_with_home(self.source, self.tier_policy, self.home.as_deref())
                 .unwrap_or_else(|error| AgentWorkspace::unwalkable(&error))
         })
     }

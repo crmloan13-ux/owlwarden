@@ -111,6 +111,11 @@ async fn scan(
             preset: GATE_PRESET.to_owned(),
             dirty_paths: None,
             scoped_paths: scoped,
+            // A gate never reads outside the project root. `--include-user-config`
+            // is an operator's decision about their own machine, and the gate
+            // runs on a keystroke path against a tree that may not be theirs.
+            include_user_config: false,
+            home_override: None,
         },
         // A gate that honoured a baseline would be a gate the repository can
         // pre-approve its own findings into.
