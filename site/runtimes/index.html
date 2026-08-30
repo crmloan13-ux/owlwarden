@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+
+<title>owlwarden: does this fix run on Bun, Deno, or Workers?</title>
+<meta name="description" content="owlwarden resolves the runtime per file and patches remediation where it genuinely differs. The build asserts that un-patched fixes do not name an absent API.">
+<link rel="canonical" href="https://suthat.github.io/owlwarden/runtimes/">
+<meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1">
+<meta name="theme-color" content="#fbfaf8">
+
+<meta property="og:type" content="article">
+<meta property="og:locale" content="en_US">
+<meta property="og:site_name" content="owlwarden">
+<meta property="og:title" content="Does this fix actually run on my runtime?">
+<meta property="og:description" content="owlwarden resolves the runtime per file and patches remediation where it genuinely differs. The build asserts that un-patched fixes do not name an absent API.">
+<meta property="og:url" content="https://suthat.github.io/owlwarden/runtimes/">
+<meta property="og:image" content="https://suthat.github.io/owlwarden/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="An owlwarden finding: a SessionStart hook in .claude/settings.json that runs a command when the workspace is opened">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Does this fix actually run on my runtime?">
+<meta name="twitter:description" content="owlwarden resolves the runtime per file and patches remediation where it genuinely differs. The build asserts that un-patched fixes do not name an absent API.">
+<meta name="twitter:image" content="https://suthat.github.io/owlwarden/og.png">
+<meta name="twitter:image:alt" content="An owlwarden scan showing the exact vulnerable line and its fix">
+
+<link rel="icon" type="image/svg+xml" href="../favicon.svg">
+<link rel="alternate icon" type="image/png" sizes="192x192" href="../favicon.png">
+<link rel="apple-touch-icon" sizes="180x180" href="../apple-touch-icon.png">
+<link rel="manifest" href="../manifest.webmanifest">
+<link rel="alternate" type="application/atom+xml" title="owlwarden releases" href="https://suthat.github.io/owlwarden/changelog/feed.xml">
+<link rel="stylesheet" href="../styles.css?v=86e674860125">
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebSite",
+      "@id": "https://suthat.github.io/owlwarden/#website",
+      "name": "owlwarden",
+      "url": "https://suthat.github.io/owlwarden/",
+      "description": "Local security scanner for Node apps and coding-agent configuration.",
+      "inLanguage": "en"
+    },
+    {
+      "@type": "BreadcrumbList",
+      "@id": "https://suthat.github.io/owlwarden/runtimes/#breadcrumbs",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "owlwarden",
+          "item": "https://suthat.github.io/owlwarden/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "runtimes",
+          "item": "https://suthat.github.io/owlwarden/runtimes/"
+        }
+      ]
+    }
+  ]
+}
+</script>
+</head>
+<body>
+<a class="skip-link" href="#main-content">Skip to content</a>
+
+<header class="site-header">
+  <a class="wordmark" href="../">
+    <img src="../favicon.svg" width="32" height="32" alt="">
+    <span>owlwarden</span>
+  </a>
+  <nav aria-label="Primary">
+    <a href="../rules/">Rules</a>
+    <a href="../agent-config-security/">Agent config</a>
+    <a href="../vet/">vet</a>
+    <a href="../offline/">Offline</a>
+    <a href="../owasp/">Coverage</a>
+    <a class="nav-cta" href="https://github.com/suthat/owlwarden" rel="noopener">GitHub <span aria-hidden="true">↗</span></a>
+  </nav>
+</header>
+
+<nav class="breadcrumbs" aria-label="Breadcrumb">
+  <ol>
+    <li><a href="../">owlwarden</a></li>
+    <li aria-current="page">runtimes</li>
+  </ol>
+</nav>
+
+<main id="main-content" class="article-page">
+<h1>Does this fix actually run on my runtime?</h1>
+
+<p>
+  <code>weak-crypto</code> tells a Hono user to
+  <code>import { randomBytes } from 'node:crypto'</code>. On Cloudflare Workers
+  there is no <code>node:crypto</code> to import. The advice is not merely less
+  good on that runtime - <strong>it does not run</strong>.
+</p>
+<p>
+  A fix that throws at import time is not a fix. It is a catalogue cell that
+  satisfies a test.
+</p>
+
+<h2>Five rules change with the runtime. Twenty do not.</h2>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Rule</th><th>What changes</th></tr></thead>
+  <tbody>
+    <tr><td><code>weak-crypto</code></td><td><code>node:crypto</code> vs Web Crypto; <code>scrypt</code> unavailable on edge</td></tr>
+    <tr><td><code>insecure-cookie</code></td><td><code>Set-Cookie</code> construction differs between the Node and fetch-API adapters</td></tr>
+    <tr><td><code>security-headers-missing</code></td><td>headers set in edge middleware, not in a Node config block</td></tr>
+    <tr><td><code>hardcoded-secret</code></td><td><code>process.env</code> vs <code>c.env</code> vs <code>Deno.env.get</code></td></tr>
+    <tr><td><code>ssrf</code></td><td><code>fetch</code> redirect semantics and the availability of <code>redirect: 'error'</code></td></tr>
+  </tbody>
+</table>
+</div>
+<p>
+  Making runtime a second dimension would turn a 25 × 16 matrix into 25 × 16 × 4
+  - about 1 600 cells, most of them identical, because
+  <code>sql-injection</code> does not care whether the process is Bun or Node.
+  Instead a rule may declare a <em>delta</em> that patches the framework fix only
+  where the runtime genuinely changes it. Roughly 60 informative cells instead of
+  1 200 empty ones.
+</p>
+
+<h2>The absence of a delta is a positive claim</h2>
+<p>
+  The naive version of this design lets a rule silently claim its base fix works
+  everywhere. The build does not allow that: for every framework × runtime pair a
+  profile declares, a rule either has a delta, or its base fix is checked against
+  that runtime's available APIs - and CI installs Bun and Deno and names them, so
+  a green build means the grid ran rather than quietly skipped three of four.
+</p>
+<p>
+  A delta that reintroduces the API it exists to avoid - a Workers fix still
+  saying <code>process.env</code> because it was copied from the Node one and
+  edited in one place - fails the build too.
+</p>
+
+<h2>The summary line says what it inferred</h2>
+<pre class="code"><code class="language-text">◉ᴥ◉ 41 files / next / node (detected) / quick / 0.3s</code></pre>
+<p>
+  Runtime detection is inference, and inference is sometimes wrong. A fix chosen
+  from an inferred runtime should say what it inferred, so the word is
+  <code>detected</code> when there was evidence - a <code>wrangler.toml</code>, a
+  <code>deno.json</code>, a Nitro preset, an adapter in the config - and
+  <code>defaulted</code> when it came from the framework's default. It is
+  resolved <em>per file</em>, because a Next application with three edge routes
+  is normal.
+</p>
+<p>
+  Every rule's page shows the fix for your framework, and the delta where the
+  runtime changes it: <a href="../rules/">the rule catalogue</a>. The axis that
+  decides which of those fixes to apply first is
+  <a href="../exposure/">exposure</a>.
+</p>
+
+<h2>Keep reading</h2>
+<ul class="cards">
+  <li><a href="../rules/"><span class="name">Rules</span><span class="blurb">Trigger, confidence, and framework-specific fix.</span></a></li>
+  <li><a href="../agent-config-security/"><span class="name">Agent config</span><span class="blurb">Hooks, MCP servers, instructions, and editor tasks.</span></a></li>
+  <li><a href="../vet/"><span class="name">owlwarden vet</span><span class="blurb">Check a repository before you open it.</span></a></li>
+  <li><a href="../seal/"><span class="name">owlwarden seal</span><span class="blurb">Notice when your agent's execution surface moves.</span></a></li>
+  <li><a href="../exposure/"><span class="name">Exposure</span><span class="blurb">Which of these findings do I fix first?</span></a></li>
+  <li><a href="../runtimes/"><span class="name">Runtimes</span><span class="blurb">Does this fix run on Bun, Deno, or Workers?</span></a></li>
+  <li><a href="../owasp/"><span class="name">Coverage</span><span class="blurb">Mapped rules and categories static analysis cannot cover.</span></a></li>
+</ul>
+
+</main>
+
+<footer class="site-footer">
+  <div class="footer-brand">
+    <img src="../favicon.svg" width="36" height="36" alt="">
+    <p><strong>owlwarden 1.2.0</strong><br>Local security checks for Node apps and coding-agent configuration.</p>
+  </div>
+  <nav aria-label="Footer">
+    <a href="../rules/">All rules</a>
+    <a href="../owasp/">OWASP coverage</a>
+    <a href="../asi/">ASI coverage</a>
+    <a href="../offline/">Offline</a>
+    <a href="../ci/">CI</a>
+    <a href="../mcp/">MCP</a>
+    <a href="https://github.com/suthat/owlwarden/blob/main/RULES.md" rel="noopener">RULES.md</a>
+    <a href="https://www.npmjs.com/package/owlwarden" rel="noopener">npm</a>
+  </nav>
+  <p class="licence">No account / no telemetry / MIT OR Apache-2.0 / <code>npx owlwarden scan</code></p>
+</footer>
+</body>
+</html>

@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+
+<title>owlwarden seal: lock your agent&#39;s execution surface</title>
+<meta name="description" content="owlwarden seal records every file your agent loads out of the working tree, with hooks and MCP servers extracted, so a change reads as a sentence.">
+<link rel="canonical" href="https://suthat.github.io/owlwarden/seal/">
+<meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1">
+<meta name="theme-color" content="#fbfaf8">
+
+<meta property="og:type" content="article">
+<meta property="og:locale" content="en_US">
+<meta property="og:site_name" content="owlwarden">
+<meta property="og:title" content="Notice when .claude/settings.json moves">
+<meta property="og:description" content="owlwarden seal records every file your agent loads out of the working tree, with hooks and MCP servers extracted, so a change reads as a sentence.">
+<meta property="og:url" content="https://suthat.github.io/owlwarden/seal/">
+<meta property="og:image" content="https://suthat.github.io/owlwarden/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="An owlwarden finding: a SessionStart hook in .claude/settings.json that runs a command when the workspace is opened">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Notice when .claude/settings.json moves">
+<meta name="twitter:description" content="owlwarden seal records every file your agent loads out of the working tree, with hooks and MCP servers extracted, so a change reads as a sentence.">
+<meta name="twitter:image" content="https://suthat.github.io/owlwarden/og.png">
+<meta name="twitter:image:alt" content="An owlwarden scan showing the exact vulnerable line and its fix">
+
+<link rel="icon" type="image/svg+xml" href="../favicon.svg">
+<link rel="alternate icon" type="image/png" sizes="192x192" href="../favicon.png">
+<link rel="apple-touch-icon" sizes="180x180" href="../apple-touch-icon.png">
+<link rel="manifest" href="../manifest.webmanifest">
+<link rel="alternate" type="application/atom+xml" title="owlwarden releases" href="https://suthat.github.io/owlwarden/changelog/feed.xml">
+<link rel="stylesheet" href="../styles.css?v=86e674860125">
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebSite",
+      "@id": "https://suthat.github.io/owlwarden/#website",
+      "name": "owlwarden",
+      "url": "https://suthat.github.io/owlwarden/",
+      "description": "Local security scanner for Node apps and coding-agent configuration.",
+      "inLanguage": "en"
+    },
+    {
+      "@type": "BreadcrumbList",
+      "@id": "https://suthat.github.io/owlwarden/seal/#breadcrumbs",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "owlwarden",
+          "item": "https://suthat.github.io/owlwarden/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "seal",
+          "item": "https://suthat.github.io/owlwarden/seal/"
+        }
+      ]
+    },
+    {
+      "@type": "HowTo",
+      "name": "Detect a change to your agent's configuration",
+      "totalTime": "PT1M",
+      "step": [
+        {
+          "@type": "HowToStep",
+          "name": "Record the surface",
+          "text": "npx owlwarden seal"
+        },
+        {
+          "@type": "HowToStep",
+          "name": "Commit it",
+          "text": "git add .owlwarden/surface.lock"
+        },
+        {
+          "@type": "HowToStep",
+          "name": "Check it in CI",
+          "text": "npx owlwarden seal --verify"
+        }
+      ]
+    }
+  ]
+}
+</script>
+</head>
+<body>
+<a class="skip-link" href="#main-content">Skip to content</a>
+
+<header class="site-header">
+  <a class="wordmark" href="../">
+    <img src="../favicon.svg" width="32" height="32" alt="">
+    <span>owlwarden</span>
+  </a>
+  <nav aria-label="Primary">
+    <a href="../rules/">Rules</a>
+    <a href="../agent-config-security/">Agent config</a>
+    <a href="../vet/">vet</a>
+    <a href="../offline/">Offline</a>
+    <a href="../owasp/">Coverage</a>
+    <a class="nav-cta" href="https://github.com/suthat/owlwarden" rel="noopener">GitHub <span aria-hidden="true">↗</span></a>
+  </nav>
+</header>
+
+<nav class="breadcrumbs" aria-label="Breadcrumb">
+  <ol>
+    <li><a href="../">owlwarden</a></li>
+    <li aria-current="page">seal</li>
+  </ol>
+</nav>
+
+<main id="main-content" class="article-page">
+<h1>Notice when .claude/settings.json moves</h1>
+
+<pre class="code"><code class="language-bash">npx owlwarden seal          # record it
+npx owlwarden seal --verify # …and notice when it moves</code></pre>
+
+<h2>Your dependencies have a lockfile. Your agent's execution surface does not.</h2>
+<p>
+  <code>package-lock.json</code> does not judge whether a package is malicious.
+  It records what was resolved and makes a change loud, and it works because the
+  diff is reviewable even when the content is not.
+</p>
+<p>
+  Nothing does that for the set of files an agent loads and executes out of your
+  working tree. A <code>SessionStart</code> hook running
+  <code>node ./scripts/warm-cache.mjs</code> is indistinguishable from a
+  legitimate one by inspection. What is <em>not</em> ambiguous is that it was not
+  there yesterday.
+</p>
+
+<h2>The diff is in the surface's own vocabulary</h2>
+<p>
+  Hooks, MCP servers, and permissions are extracted, not merely hashed. A file
+  digest tells you something changed. This tells you what.
+</p>
+<pre class="code"><code class="language-text">◉ᴥ◉ surface drift / 2 changes
+
+  + hook          claude-code SessionStart  node .claude/setup.mjs / not present in the seal
+                  .claude/settings.json:4
+
+  ~ mcp server    claude-code docs  pin: exact npx -y some-mcp@2.4.1 → unpinned npx -y some-mcp
+                  .claude/settings.json:31
+
+  seal taken 2026-08-27T09:14:02Z by engine 1.2.0 / no signature beside the seal</code></pre>
+<p>
+  <code>surface.lock changed</code> is a line people learn to re-run past. <em>A
+  <code>SessionStart</code> hook was added</em> is not.
+</p>
+
+<h2>Reformatting does not break it</h2>
+<p>
+  Every file carries two digests: one over the bytes, one over the parsed and
+  canonicalised structure. Comparison uses the second, so running
+  <code>prettier</code> over your dot-directory is reported and is not drift.
+  Changing one character of a hook command is.
+</p>
+<p>
+  Instruction files are the exception and seal byte-for-byte. In a file whose
+  whole purpose is to be read by a model, whitespace is content: a reordered
+  paragraph in <code>CLAUDE.md</code> is a different instruction.
+</p>
+
+<h2>What it does not protect against</h2>
+<p>
+  This is a detection and review control, not a containment control, and the
+  difference decides whether you deploy it correctly.
+</p>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Setup</th><th>What it stops</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>Unsigned seal</td>
+      <td>Accident, drift, and opportunistic malware. <strong>Not</strong> an
+      attacker with code execution who can run <code>owlwarden seal --yes</code>
+      before you next look.</td>
+    </tr>
+    <tr>
+      <td>Signed, key outside the repository</td>
+      <td>Raises the bar substantially: CI verifies a signature a process writing
+      files in your working tree cannot forge. A targeted attacker who
+      compromises the signing key defeats it, as they defeat every signing
+      scheme.</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+<p>
+  Sealing is never unattended - without a terminal it refuses unless
+  <code>--yes</code> is passed. That raises the cost for whatever wrote the
+  drift. It does not close the hole, and this page says so rather than
+  footnoting it.
+</p>
+<p>
+  It also says nothing about whether your configuration is <em>safe</em>. It says
+  whether it is the configuration you sealed.
+  <a href="../vet/">The ten agent rules</a> answer the other question, and both
+  are needed. How often those rules are wrong is
+  <a href="../benchmark/">its own page</a>.
+</p>
+
+<h2>In the gate and in CI</h2>
+<pre class="code"><code class="language-bash"># Drift at session start asks; mid-session it always denies, because
+# configuration that changes while an agent is running was written by
+# something in the session.
+npx owlwarden gate --host claude-code --seal advisory
+
+# In CI: exit 1 on drift, and refuse a seal nobody you trust vouched for.
+npx owlwarden seal --verify --require-signed-seal --trust ./trust.json</code></pre>
+<p>
+  <a href="../agent-config-security/">What is on the surface</a> /
+  <a href="../claude-code/">Claude Code setup</a> /
+  <a href="../ci/">Wiring it into CI</a>
+</p>
+
+<h2>Keep reading</h2>
+<ul class="cards">
+  <li><a href="../rules/"><span class="name">Rules</span><span class="blurb">Trigger, confidence, and framework-specific fix.</span></a></li>
+  <li><a href="../agent-config-security/"><span class="name">Agent config</span><span class="blurb">Hooks, MCP servers, instructions, and editor tasks.</span></a></li>
+  <li><a href="../vet/"><span class="name">owlwarden vet</span><span class="blurb">Check a repository before you open it.</span></a></li>
+  <li><a href="../seal/"><span class="name">owlwarden seal</span><span class="blurb">Notice when your agent's execution surface moves.</span></a></li>
+  <li><a href="../exposure/"><span class="name">Exposure</span><span class="blurb">Which of these findings do I fix first?</span></a></li>
+  <li><a href="../runtimes/"><span class="name">Runtimes</span><span class="blurb">Does this fix run on Bun, Deno, or Workers?</span></a></li>
+  <li><a href="../owasp/"><span class="name">Coverage</span><span class="blurb">Mapped rules and categories static analysis cannot cover.</span></a></li>
+</ul>
+
+</main>
+
+<footer class="site-footer">
+  <div class="footer-brand">
+    <img src="../favicon.svg" width="36" height="36" alt="">
+    <p><strong>owlwarden 1.2.0</strong><br>Local security checks for Node apps and coding-agent configuration.</p>
+  </div>
+  <nav aria-label="Footer">
+    <a href="../rules/">All rules</a>
+    <a href="../owasp/">OWASP coverage</a>
+    <a href="../asi/">ASI coverage</a>
+    <a href="../offline/">Offline</a>
+    <a href="../ci/">CI</a>
+    <a href="../mcp/">MCP</a>
+    <a href="https://github.com/suthat/owlwarden/blob/main/RULES.md" rel="noopener">RULES.md</a>
+    <a href="https://www.npmjs.com/package/owlwarden" rel="noopener">npm</a>
+  </nav>
+  <p class="licence">No account / no telemetry / MIT OR Apache-2.0 / <code>npx owlwarden scan</code></p>
+</footer>
+</body>
+</html>
