@@ -173,6 +173,56 @@ precise about which.
   Markdown PR comment, or a gate reason, because in each of those it reorders
   what a human reads.
 
+### The seal
+
+Added in 1.2 ([ADR 0027](docs/adr/0027-workspace-seal.md)).
+`.owlwarden/surface.lock` records the agent execution surface so that a change
+to it is loud. **It is a detection and review control, not a containment
+control**, and the difference decides whether it is deployed correctly.
+
+- **An unsigned seal detects accident, drift, and opportunistic malware.** It
+  does not stop an attacker who has code execution and can run
+  `owlwarden seal --yes` before you next look. Sealing requires a terminal or an
+  explicit `--yes`, and that raises the cost rather than closing the hole.
+- **A signed seal with the key outside the repository raises the bar
+  substantially**, because CI verifies a signature that a process writing files
+  in the working tree cannot forge. A targeted attacker who compromises the
+  signing key defeats it, as they defeat every signing scheme.
+- **Nothing in owlwarden signs.** Verification is one direction on purpose: a
+  security tool holding a private key is a security tool with a key to steal.
+  Trust roots come from `OWLWARDEN_SEAL_TRUST` or a file the operator names, and
+  **never** from the scanned tree — a root the repository can write is a root
+  that verifies whatever the repository signed.
+- **The seal says nothing about whether the configuration is safe.** It says
+  whether it is the configuration you sealed. The ten agent rules answer the
+  other question, and both are needed.
+- **A first seal on an already-compromised repository would seal the
+  compromise**, so `seal` runs a full `--preset agent-surface` scan first and
+  refuses to write while findings at or above `high` are unaccepted. You cannot
+  lock a door you have not looked behind.
+- **A committed lockfile is untrusted input.** It is bounded before it is
+  parsed, a schema version this build does not know is refused rather than
+  best-effort read, and an `accepted` entry with no reason fails to load.
+- **`node_modules` is out of scope for the seal.** Dependency-shipped agent
+  configuration changes on every install; `vet` is the tool for that.
+
+### The exposure axis
+
+Added in 1.2 ([ADR 0029](docs/adr/0029-exposure-model.md)). This is the only new
+failure mode in 1.2 that could make a reader *less* safe, so it is stated here
+rather than only in the ADR.
+
+- **`authenticated` requires a positively identified gate. Absence of evidence
+  yields `internet`.** A middleware module that does not resolve is not a gate;
+  a name that does not read as an auth check is not a gate; a session call whose
+  result is never checked is not a gate; a `config.matcher` we could not parse
+  covers nothing rather than everything.
+- **The engine does not judge whether the gate is correct.** A broken auth check
+  classifies as `authenticated`. Verifying authentication logic is a different
+  tool.
+- **`unknown` is not a quiet `internal`.** It means the question was not
+  answered, and it is counted separately so the unclassified rate is visible.
+
 ### The gate
 
 Added in 1.1 ([ADR 0026](docs/adr/0026-deterministic-agent-gate.md)). `gate`

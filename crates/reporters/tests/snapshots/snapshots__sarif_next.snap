@@ -34,6 +34,11 @@ expression: encoded
           "properties": {
             "confidence": "likely",
             "cwe": "CWE-89",
+            "exposure": "internet",
+            "exposureEvidence": {
+              "reason": "no authentication gate identified on this path",
+              "route": "/api/login"
+            },
             "owasp": "A03:2021",
             "severity": "high"
           },
@@ -74,6 +79,11 @@ expression: encoded
           "properties": {
             "confidence": "likely",
             "cwe": "CWE-918",
+            "exposure": "internet",
+            "exposureEvidence": {
+              "reason": "no authentication gate identified on this path",
+              "route": "/api/proxy"
+            },
             "owasp": "A10:2021",
             "severity": "high"
           },
@@ -114,6 +124,11 @@ expression: encoded
           "properties": {
             "confidence": "likely",
             "cwe": "CWE-918",
+            "exposure": "internet",
+            "exposureEvidence": {
+              "reason": "no authentication gate identified on this path",
+              "route": "/api/proxy"
+            },
             "owasp": "A10:2021",
             "severity": "high"
           },
@@ -154,6 +169,11 @@ expression: encoded
           "properties": {
             "confidence": "likely",
             "cwe": "CWE-918",
+            "exposure": "internet",
+            "exposureEvidence": {
+              "reason": "no authentication gate identified on this path",
+              "route": "/api/proxy"
+            },
             "owasp": "A10:2021",
             "severity": "high"
           },
@@ -194,6 +214,11 @@ expression: encoded
           "properties": {
             "confidence": "likely",
             "cwe": "CWE-918",
+            "exposure": "internet",
+            "exposureEvidence": {
+              "reason": "no authentication gate identified on this path",
+              "route": "/api/proxy"
+            },
             "owasp": "A10:2021",
             "severity": "high"
           },
@@ -234,6 +259,11 @@ expression: encoded
           "properties": {
             "confidence": "likely",
             "cwe": "CWE-209",
+            "exposure": "internet",
+            "exposureEvidence": {
+              "reason": "no authentication gate identified on this path",
+              "route": "/api/users"
+            },
             "owasp": "A05:2021",
             "severity": "high"
           },
@@ -241,201 +271,6 @@ expression: encoded
           "taxa": [
             {
               "id": "CWE-209",
-              "toolComponent": {
-                "name": "CWE"
-              }
-            }
-          ]
-        },
-        {
-          "level": "error",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "app/lib/billing.ts",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "endColumn": 59,
-                  "endLine": 3,
-                  "snippet": {
-                    "text": "const STRIPE_KEY = 'sk_l***'"
-                  },
-                  "startColumn": 20,
-                  "startLine": 3
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Credential hardcoded in source: This literal carries the prefix of a Stripe live secret key, so it is a real credential rather than a placeholder. It is in the repository's history and in every clone; deleting the line does not revoke it."
-          },
-          "properties": {
-            "confidence": "likely",
-            "cwe": "CWE-798",
-            "owasp": "A07:2021",
-            "severity": "high"
-          },
-          "ruleId": "hardcoded-secret",
-          "taxa": [
-            {
-              "id": "CWE-798",
-              "toolComponent": {
-                "name": "CWE"
-              }
-            }
-          ]
-        },
-        {
-          "level": "error",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "app/lib/crypto.ts",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "endColumn": 40,
-                  "endLine": 8,
-                  "snippet": {
-                    "text": "  const passwordHash = createHash('md5').update(password).digest('hex')"
-                  },
-                  "startColumn": 35,
-                  "startLine": 8
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Broken cryptographic primitive protecting a secret: This hash is fast, and speed is the attacker's advantage: a commodity GPU tries billions of candidates a second, so a leaked table of these hashes is a leaked table of the values behind them. Password hashing needs a deliberately slow algorithm with a per-value salt."
-          },
-          "properties": {
-            "confidence": "likely",
-            "cwe": "CWE-327",
-            "owasp": "A02:2021",
-            "severity": "high"
-          },
-          "ruleId": "weak-crypto",
-          "taxa": [
-            {
-              "id": "CWE-327",
-              "toolComponent": {
-                "name": "CWE"
-              }
-            }
-          ]
-        },
-        {
-          "level": "error",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "app/lib/crypto.ts",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "endColumn": 37,
-                  "endLine": 14,
-                  "snippet": {
-                    "text": "  const sessionToken = Math.random().toString(36).slice(2)"
-                  },
-                  "startColumn": 24,
-                  "startLine": 14
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Broken cryptographic primitive protecting a secret: Math.random() is a fast PRNG, not a cryptographic one; V8 documents it as unsuitable for security. An attacker who sees a few outputs can predict the rest, which for a session id or a reset token means minting valid ones."
-          },
-          "properties": {
-            "confidence": "likely",
-            "cwe": "CWE-327",
-            "owasp": "A02:2021",
-            "severity": "high"
-          },
-          "ruleId": "weak-crypto",
-          "taxa": [
-            {
-              "id": "CWE-327",
-              "toolComponent": {
-                "name": "CWE"
-              }
-            }
-          ]
-        },
-        {
-          "level": "error",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "app/lib/crypto.ts",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "endColumn": 58,
-                  "endLine": 20,
-                  "snippet": {
-                    "text": "  const cipher = createCipheriv('aes-256-ecb', key, null)"
-                  },
-                  "startColumn": 18,
-                  "startLine": 20
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Broken cryptographic primitive protecting a secret: This cipher or mode is broken independently of the key. DES has a keyspace small enough to search, RC4 has biased output, and ECB encrypts identical plaintext blocks to identical ciphertext blocks — the structure of the data survives encryption."
-          },
-          "properties": {
-            "confidence": "likely",
-            "cwe": "CWE-327",
-            "owasp": "A02:2021",
-            "severity": "high"
-          },
-          "ruleId": "weak-crypto",
-          "taxa": [
-            {
-              "id": "CWE-327",
-              "toolComponent": {
-                "name": "CWE"
-              }
-            }
-          ]
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": ".github/workflows/ci.yml",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 1,
-                  "startLine": 8
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "GitHub Action is not pinned to a commit SHA: A moving tag can be retargeted to a different commit. Anyone who can push that tag — or who compromises the action's repository — runs code in your CI with access to repository secrets."
-          },
-          "properties": {
-            "confidence": "likely",
-            "cwe": "CWE-829",
-            "owasp": "A08:2021",
-            "severity": "medium"
-          },
-          "ruleId": "ci-unpinned-action",
-          "taxa": [
-            {
-              "id": "CWE-829",
               "toolComponent": {
                 "name": "CWE"
               }
@@ -469,6 +304,11 @@ expression: encoded
           "properties": {
             "confidence": "likely",
             "cwe": "CWE-601",
+            "exposure": "internet",
+            "exposureEvidence": {
+              "reason": "no authentication gate identified on this path",
+              "route": "/api/proxy"
+            },
             "owasp": "A01:2021",
             "severity": "medium"
           },
@@ -509,6 +349,11 @@ expression: encoded
           "properties": {
             "confidence": "likely",
             "cwe": "CWE-601",
+            "exposure": "internet",
+            "exposureEvidence": {
+              "reason": "no authentication gate identified on this path",
+              "route": "/api/proxy"
+            },
             "owasp": "A01:2021",
             "severity": "medium"
           },
@@ -549,6 +394,11 @@ expression: encoded
           "properties": {
             "confidence": "likely",
             "cwe": "CWE-601",
+            "exposure": "internet",
+            "exposureEvidence": {
+              "reason": "no authentication gate identified on this path",
+              "route": "/api/proxy"
+            },
             "owasp": "A01:2021",
             "severity": "medium"
           },
@@ -589,6 +439,11 @@ expression: encoded
           "properties": {
             "confidence": "likely",
             "cwe": "CWE-532",
+            "exposure": "internet",
+            "exposureEvidence": {
+              "reason": "no authentication gate identified on this path",
+              "route": "/api/users"
+            },
             "owasp": "A09:2021",
             "severity": "medium"
           },
@@ -629,6 +484,11 @@ expression: encoded
           "properties": {
             "confidence": "likely",
             "cwe": "CWE-532",
+            "exposure": "internet",
+            "exposureEvidence": {
+              "reason": "no authentication gate identified on this path",
+              "route": "/api/users"
+            },
             "owasp": "A09:2021",
             "severity": "medium"
           },
@@ -648,34 +508,78 @@ expression: encoded
             {
               "physicalLocation": {
                 "artifactLocation": {
-                  "uri": "app/lib/cors.ts",
+                  "uri": "app/api/login/route.ts",
                   "uriBaseId": "%SRCROOT%"
                 },
                 "region": {
-                  "endColumn": 59,
-                  "endLine": 7,
+                  "endColumn": 55,
+                  "endLine": 20,
                   "snippet": {
-                    "text": "  response.headers.set('Access-Control-Allow-Origin', '*')"
+                    "text": "  cookies().set('session', rows.rows[0]?.id ?? 'anon')"
                   },
                   "startColumn": 3,
-                  "startLine": 7
+                  "startLine": 20
                 }
               }
             }
           ],
           "message": {
-            "text": "Cross-origin policy accepts any origin: Any origin may call this API and read the response. That is a deliberate choice for a public endpoint and a mistake for anything behind a session — nothing in the source says which this is, so it is reported for you to decide."
+            "text": "Cookie set without its protective attributes: This cookie is missing protections: httpOnly keeps the cookie out of reach of JavaScript, so a cross-site scripting bug cannot read the session; secure stops the cookie being sent over plain HTTP; sameSite stops the browser attaching the cookie to cross-site requests."
           },
           "properties": {
-            "confidence": "likely",
-            "cwe": "CWE-942",
+            "confidence": "possible",
+            "cwe": "CWE-614",
+            "exposure": "internet",
+            "exposureEvidence": {
+              "reason": "no authentication gate identified on this path",
+              "route": "/api/login"
+            },
             "owasp": "A05:2021",
             "severity": "medium"
           },
-          "ruleId": "cors-permissive",
+          "ruleId": "insecure-cookie",
           "taxa": [
             {
-              "id": "CWE-942",
+              "id": "CWE-614",
+              "toolComponent": {
+                "name": "CWE"
+              }
+            }
+          ]
+        },
+        {
+          "level": "warning",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": ".github/workflows/ci.yml",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startColumn": 1,
+                  "startLine": 8
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "GitHub Action is not pinned to a commit SHA: A moving tag can be retargeted to a different commit. Anyone who can push that tag — or who compromises the action's repository — runs code in your CI with access to repository secrets."
+          },
+          "properties": {
+            "confidence": "likely",
+            "cwe": "CWE-829",
+            "exposure": "internal",
+            "exposureEvidence": {
+              "reason": "not on a request-handling path"
+            },
+            "owasp": "A08:2021",
+            "severity": "medium"
+          },
+          "ruleId": "ci-unpinned-action",
+          "taxa": [
+            {
+              "id": "CWE-829",
               "toolComponent": {
                 "name": "CWE"
               }
@@ -710,6 +614,10 @@ expression: encoded
             "asi": "ASI04",
             "confidence": "likely",
             "cwe": "CWE-829",
+            "exposure": "internal",
+            "exposureEvidence": {
+              "reason": "not on a request-handling path"
+            },
             "owasp": "A08:2021",
             "severity": "medium"
           },
@@ -745,6 +653,10 @@ expression: encoded
           "properties": {
             "confidence": "likely",
             "cwe": "CWE-1104",
+            "exposure": "internal",
+            "exposureEvidence": {
+              "reason": "not on a request-handling path"
+            },
             "owasp": "A06:2021",
             "severity": "medium"
           },
@@ -752,46 +664,6 @@ expression: encoded
           "taxa": [
             {
               "id": "CWE-1104",
-              "toolComponent": {
-                "name": "CWE"
-              }
-            }
-          ]
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "app/api/login/route.ts",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "endColumn": 55,
-                  "endLine": 20,
-                  "snippet": {
-                    "text": "  cookies().set('session', rows.rows[0]?.id ?? 'anon')"
-                  },
-                  "startColumn": 3,
-                  "startLine": 20
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Cookie set without its protective attributes: This cookie is missing protections: httpOnly keeps the cookie out of reach of JavaScript, so a cross-site scripting bug cannot read the session; secure stops the cookie being sent over plain HTTP; sameSite stops the browser attaching the cookie to cross-site requests."
-          },
-          "properties": {
-            "confidence": "possible",
-            "cwe": "CWE-614",
-            "owasp": "A05:2021",
-            "severity": "medium"
-          },
-          "ruleId": "insecure-cookie",
-          "taxa": [
-            {
-              "id": "CWE-614",
               "toolComponent": {
                 "name": "CWE"
               }
@@ -820,6 +692,10 @@ expression: encoded
           "properties": {
             "confidence": "possible",
             "cwe": "CWE-693",
+            "exposure": "internal",
+            "exposureEvidence": {
+              "reason": "not on a request-handling path"
+            },
             "owasp": "A05:2021",
             "severity": "medium"
           },
@@ -827,6 +703,226 @@ expression: encoded
           "taxa": [
             {
               "id": "CWE-693",
+              "toolComponent": {
+                "name": "CWE"
+              }
+            }
+          ]
+        },
+        {
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "app/lib/billing.ts",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "endColumn": 59,
+                  "endLine": 3,
+                  "snippet": {
+                    "text": "const STRIPE_KEY = 'sk_l***'"
+                  },
+                  "startColumn": 20,
+                  "startLine": 3
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Credential hardcoded in source: This literal carries the prefix of a Stripe live secret key, so it is a real credential rather than a placeholder. It is in the repository's history and in every clone; deleting the line does not revoke it."
+          },
+          "properties": {
+            "confidence": "likely",
+            "cwe": "CWE-798",
+            "exposure": "unknown",
+            "exposureEvidence": {
+              "reason": "no route resolved for this file, and its path is not a recognised non-request location"
+            },
+            "owasp": "A07:2021",
+            "severity": "high"
+          },
+          "ruleId": "hardcoded-secret",
+          "taxa": [
+            {
+              "id": "CWE-798",
+              "toolComponent": {
+                "name": "CWE"
+              }
+            }
+          ]
+        },
+        {
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "app/lib/crypto.ts",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "endColumn": 40,
+                  "endLine": 8,
+                  "snippet": {
+                    "text": "  const passwordHash = createHash('md5').update(password).digest('hex')"
+                  },
+                  "startColumn": 35,
+                  "startLine": 8
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Broken cryptographic primitive protecting a secret: This hash is fast, and speed is the attacker's advantage: a commodity GPU tries billions of candidates a second, so a leaked table of these hashes is a leaked table of the values behind them. Password hashing needs a deliberately slow algorithm with a per-value salt."
+          },
+          "properties": {
+            "confidence": "likely",
+            "cwe": "CWE-327",
+            "exposure": "unknown",
+            "exposureEvidence": {
+              "reason": "no route resolved for this file, and its path is not a recognised non-request location"
+            },
+            "owasp": "A02:2021",
+            "severity": "high"
+          },
+          "ruleId": "weak-crypto",
+          "taxa": [
+            {
+              "id": "CWE-327",
+              "toolComponent": {
+                "name": "CWE"
+              }
+            }
+          ]
+        },
+        {
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "app/lib/crypto.ts",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "endColumn": 37,
+                  "endLine": 14,
+                  "snippet": {
+                    "text": "  const sessionToken = Math.random().toString(36).slice(2)"
+                  },
+                  "startColumn": 24,
+                  "startLine": 14
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Broken cryptographic primitive protecting a secret: Math.random() is a fast PRNG, not a cryptographic one; V8 documents it as unsuitable for security. An attacker who sees a few outputs can predict the rest, which for a session id or a reset token means minting valid ones."
+          },
+          "properties": {
+            "confidence": "likely",
+            "cwe": "CWE-327",
+            "exposure": "unknown",
+            "exposureEvidence": {
+              "reason": "no route resolved for this file, and its path is not a recognised non-request location"
+            },
+            "owasp": "A02:2021",
+            "severity": "high"
+          },
+          "ruleId": "weak-crypto",
+          "taxa": [
+            {
+              "id": "CWE-327",
+              "toolComponent": {
+                "name": "CWE"
+              }
+            }
+          ]
+        },
+        {
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "app/lib/crypto.ts",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "endColumn": 58,
+                  "endLine": 20,
+                  "snippet": {
+                    "text": "  const cipher = createCipheriv('aes-256-ecb', key, null)"
+                  },
+                  "startColumn": 18,
+                  "startLine": 20
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Broken cryptographic primitive protecting a secret: This cipher or mode is broken independently of the key. DES has a keyspace small enough to search, RC4 has biased output, and ECB encrypts identical plaintext blocks to identical ciphertext blocks — the structure of the data survives encryption."
+          },
+          "properties": {
+            "confidence": "likely",
+            "cwe": "CWE-327",
+            "exposure": "unknown",
+            "exposureEvidence": {
+              "reason": "no route resolved for this file, and its path is not a recognised non-request location"
+            },
+            "owasp": "A02:2021",
+            "severity": "high"
+          },
+          "ruleId": "weak-crypto",
+          "taxa": [
+            {
+              "id": "CWE-327",
+              "toolComponent": {
+                "name": "CWE"
+              }
+            }
+          ]
+        },
+        {
+          "level": "warning",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "app/lib/cors.ts",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "endColumn": 59,
+                  "endLine": 7,
+                  "snippet": {
+                    "text": "  response.headers.set('Access-Control-Allow-Origin', '*')"
+                  },
+                  "startColumn": 3,
+                  "startLine": 7
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Cross-origin policy accepts any origin: Any origin may call this API and read the response. That is a deliberate choice for a public endpoint and a mistake for anything behind a session — nothing in the source says which this is, so it is reported for you to decide."
+          },
+          "properties": {
+            "confidence": "likely",
+            "cwe": "CWE-942",
+            "exposure": "unknown",
+            "exposureEvidence": {
+              "reason": "no route resolved for this file, and its path is not a recognised non-request location"
+            },
+            "owasp": "A05:2021",
+            "severity": "medium"
+          },
+          "ruleId": "cors-permissive",
+          "taxa": [
+            {
+              "id": "CWE-942",
               "toolComponent": {
                 "name": "CWE"
               }

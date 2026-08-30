@@ -231,6 +231,14 @@ impl Framework {
     pub const REMIX: Self = Self::new_static("remix");
     /// Gatsby (including Functions).
     pub const GATSBY: Self = Self::new_static("gatsby");
+    /// `SvelteKit`.
+    pub const SVELTEKIT: Self = Self::new_static("sveltekit");
+    /// `TanStack` Start.
+    pub const TANSTACK_START: Self = Self::new_static("tanstack-start");
+    /// `SolidStart`.
+    pub const SOLIDSTART: Self = Self::new_static("solidstart");
+    /// Elysia, on Bun.
+    pub const ELYSIA: Self = Self::new_static("elysia");
     /// No framework detected, or one we have no specific advice for.
     pub const GENERIC: Self = Self::new_static("generic");
 
@@ -471,6 +479,18 @@ pub enum RuntimeScope {
     Documentation,
     /// Under a template, example, or fixture path.
     Template,
+    /// Present in a file the host loads, and overridden by a higher tier — a
+    /// managed policy, or the developer's own settings.
+    ///
+    /// Reported, never suppressed. A repository that ships a dangerous hook
+    /// which happens to be inert on *your* machine is still shipping it to the
+    /// next person, whose tiers differ
+    /// ([ADR 0028](../../../docs/adr/0028-effective-configuration.md) §2).
+    ///
+    /// Only produced with `--include-user-config`. Without that flag nothing
+    /// outside the project root is opened, so the question cannot be answered
+    /// and is not guessed at.
+    Shadowed,
     /// Loadable, but not on the host's default resolution path.
     ProjectOptional,
     /// In a path the host actually loads.
@@ -484,6 +504,7 @@ impl RuntimeScope {
         match self {
             Self::Documentation => "documentation",
             Self::Template => "template",
+            Self::Shadowed => "shadowed",
             Self::ProjectOptional => "project-optional",
             Self::Active => "active",
         }
@@ -497,7 +518,11 @@ impl RuntimeScope {
     #[must_use]
     pub const fn confidence_ceiling(self) -> Confidence {
         match self {
-            Self::Documentation | Self::Template => Confidence::Possible,
+            // `shadowed` caps for the same reason `template` does: the key is
+            // present and something else decides. What it is *not* is
+            // suppressed — the finding still ships, because the next reader's
+            // tiers are not this reader's.
+            Self::Documentation | Self::Template | Self::Shadowed => Confidence::Possible,
             Self::ProjectOptional | Self::Active => Confidence::Likely,
         }
     }
@@ -509,6 +534,7 @@ impl RuntimeScope {
         match self {
             Self::Active => "this file is on the host's load path",
             Self::ProjectOptional => "this file is loadable, but not the default resolution path",
+            Self::Shadowed => "this key is overridden by a higher configuration tier",
             Self::Template => "this file is under a template or fixture path, not a live config",
             Self::Documentation => "this is a fenced example inside a Markdown file",
         }
@@ -520,6 +546,7 @@ impl RuntimeScope {
         match s.to_ascii_lowercase().as_str() {
             "active" => Some(Self::Active),
             "project-optional" => Some(Self::ProjectOptional),
+            "shadowed" => Some(Self::Shadowed),
             "template" => Some(Self::Template),
             "documentation" => Some(Self::Documentation),
             _ => None,
@@ -530,6 +557,153 @@ impl RuntimeScope {
 impl fmt::Display for RuntimeScope {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(self.as_str())
+    }
+}
+
+/// Whether anything outside the process can reach the code a finding sits in.
+///
+/// The third axis, orthogonal to [`Severity`] and [`Confidence`] and to
+/// [`RuntimeScope`], because it answers a fourth question. Severity asks *how
+/// bad is this class of bug*; confidence asks *how sure are we it is here*;
+/// `runtime_scope` asks *is this declaration in effect*; exposure asks *can
+/// anyone reach it*. Collapsing any two of those into one number is how
+/// scanners become unreadable
+/// ([ADR 0029](../../../docs/adr/0029-exposure-model.md) §1).
+///
+/// # It fails loud
+///
+/// **A finding is [`Exposure::Authenticated`] only when a gate was positively
+/// identified. Absence of evidence yields [`Exposure::Internet`].**
+///
+/// Everywhere else in owlwarden uncertainty resolves downward — a rule that
+/// cannot prove request origin reports `possible` rather than guessing.
+/// Exposure inverts the cost: a finding wrongly marked as behind auth is a
+/// finding somebody deprioritises, and the tool would be reassuring the reader
+/// about something it did not check. So the classifier says the scary thing
+/// when it does not understand what it is looking at, and the fixtures assert
+/// the direction rather than only the value.
+///
+/// Ordered `Internet > Authenticated > Internal > Unknown`, which is both the
+/// report sort order and the threshold `--fail-on-exposure` compares against.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Exposure {
+    /// The framework profile could not place the finding. Not a reassurance:
+    /// it means the question was not answered, and `coverage` reports the rate.
+    Unknown,
+    /// Not on a request-handling path — a build script, a worker, a CLI, a
+    /// migration.
+    Internal,
+    /// On a request-handling path with a positively identified authentication
+    /// gate. The engine does not judge whether that gate is *correct*.
+    Authenticated,
+    /// On a request-handling path with no authentication gate identified.
+    Internet,
+}
+
+impl Exposure {
+    /// Lowercase wire/CLI name (`"internet"`, `"authenticated"`, ...).
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Unknown => "unknown",
+            Self::Internal => "internal",
+            Self::Authenticated => "authenticated",
+            Self::Internet => "internet",
+        }
+    }
+
+    /// The phrase the summary line and the Markdown headings use.
+    #[must_use]
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::Unknown => "unclassified",
+            Self::Internal => "internal",
+            Self::Authenticated => "behind auth",
+            Self::Internet => "internet-reachable",
+        }
+    }
+
+    /// One clause explaining what the reader is looking at.
+    #[must_use]
+    pub const fn explanation(self) -> &'static str {
+        match self {
+            Self::Internet => "on a request path with no authentication gate identified",
+            Self::Authenticated => "on a request path behind an identified authentication gate",
+            Self::Internal => "not on a request-handling path",
+            Self::Unknown => "the framework profile could not place this file",
+        }
+    }
+
+    /// Parses a CLI/config value. Case-insensitive, and tolerant of the two
+    /// spellings a user is likely to type for the loud one.
+    #[must_use]
+    pub fn from_str_opt(s: &str) -> Option<Self> {
+        match s.to_ascii_lowercase().replace(['_', ' '], "-").as_str() {
+            "internet" | "internet-reachable" | "public" => Some(Self::Internet),
+            "authenticated" | "auth" | "behind-auth" => Some(Self::Authenticated),
+            "internal" => Some(Self::Internal),
+            "unknown" | "unclassified" => Some(Self::Unknown),
+            _ => None,
+        }
+    }
+
+    /// Every value, most reachable first. The order the summary line and the
+    /// Markdown reporter iterate in.
+    #[must_use]
+    pub const fn all() -> [Self; 4] {
+        [
+            Self::Internet,
+            Self::Authenticated,
+            Self::Internal,
+            Self::Unknown,
+        ]
+    }
+}
+
+impl fmt::Display for Exposure {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+/// Why a finding carries the [`Exposure`] it does.
+///
+/// A classification a reader cannot check is a classification a reader will not
+/// believe — and on the one axis where being wrong makes someone *less* safe,
+/// "trust me" is not an acceptable answer. So the evidence travels with the
+/// value: the route the file serves, and — when a gate was identified — what
+/// the gate was and where it is declared.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExposureEvidence {
+    /// The route the finding's file serves, when one was resolved.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub route: Option<String>,
+    /// The gate that was identified, named as the source spells it —
+    /// `requireAuth`, `clerkMiddleware`, `@fastify/jwt`.
+    ///
+    /// Set only on [`Exposure::Authenticated`]. A gate named here but not
+    /// resolvable to a file or a declared package is a bug, not a hint.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub gate: Option<String>,
+    /// `path:line` where the gate is declared.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub gate_location: Option<String>,
+    /// One clause naming what decided the classification, for the reader who
+    /// disagrees with it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
+}
+
+impl ExposureEvidence {
+    /// Whether there is nothing worth serializing.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.route.is_none()
+            && self.gate.is_none()
+            && self.gate_location.is_none()
+            && self.reason.is_none()
     }
 }
 
@@ -720,6 +894,14 @@ pub struct Fix {
     /// one of the two is set on any fix that is not the fallback.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub host: Option<AgentHost>,
+    /// The runtime this advice patches the framework fix for.
+    ///
+    /// Set only on a **delta** — a fix that exists because the framework's base
+    /// advice does not run there. A fix with no runtime is the base one, and
+    /// applies to every runtime the profile declares
+    /// ([ADR 0031](../../../docs/adr/0031-runtime-overlay.md) §2).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub runtime: Option<crate::runtime::Runtime>,
     /// One line: what to do.
     pub summary: String,
     /// Copy-paste-ready replacement code, if the fix is that concrete.
@@ -846,6 +1028,30 @@ pub struct Finding {
     /// not arise.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub runtime_scope: Option<RuntimeScope>,
+    /// Where the code this finding is in runs.
+    ///
+    /// Absent on the agent surface, which has no runtime axis: a `SessionStart`
+    /// hook is the host's concern, and the fix does not change because the
+    /// application runs on Bun.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub runtime: Option<crate::runtime::Runtime>,
+    /// How [`Self::runtime`] was arrived at.
+    ///
+    /// A fix chosen from an inferred runtime should say what it inferred, so
+    /// this travels with it rather than being recomputed by a reporter.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub runtime_source: Option<crate::runtime::RuntimeSource>,
+    /// Whether anything outside the process can reach this code.
+    ///
+    /// Filled by the engine after the rules run, never by a rule — the same
+    /// reason [`Self::apply_runtime_scope_ceiling`] lives there. Absent on
+    /// agent-surface findings, where "is this reachable from a request" is not
+    /// a question about the artefact.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub exposure: Option<Exposure>,
+    /// Why [`Self::exposure`] is what it is.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub exposure_evidence: Option<ExposureEvidence>,
     /// One line, sentence case, no trailing period.
     pub title: String,
     /// Why this matters, in plain language. Shown as the `why` line.
@@ -881,6 +1087,10 @@ impl Finding {
                 asi: None,
                 cwe: None,
                 runtime_scope: None,
+                runtime: None,
+                runtime_source: None,
+                exposure: None,
+                exposure_evidence: None,
                 title: title.into(),
                 why: String::new(),
                 location: Location::Source(SourceLocation {
@@ -908,10 +1118,24 @@ impl Finding {
         self.remediation
             .iter()
             .find(|fix| host.is_some() && fix.host.as_ref() == host)
+            // A runtime delta before the framework's base fix: the delta exists
+            // precisely because the base one does not run here, and showing the
+            // base first would put a `node:crypto` import at the top of a
+            // Workers user's report.
             .or_else(|| {
-                self.remediation
-                    .iter()
-                    .find(|fix| framework.is_some() && fix.framework.as_ref() == framework)
+                self.remediation.iter().find(|fix| {
+                    self.runtime.is_some()
+                        && fix.runtime == self.runtime
+                        && framework.is_some()
+                        && fix.framework.as_ref() == framework
+                })
+            })
+            .or_else(|| {
+                self.remediation.iter().find(|fix| {
+                    fix.runtime.is_none()
+                        && framework.is_some()
+                        && fix.framework.as_ref() == framework
+                })
             })
             .or_else(|| {
                 self.remediation
@@ -935,17 +1159,33 @@ impl Finding {
         }
     }
 
-    /// Report ordering: severity desc, confidence desc, then path/line/rule id
-    /// so the result is fully deterministic. Snapshot tests and CI diffs both
-    /// depend on two runs producing byte-identical output.
+    /// Report ordering: exposure desc, severity desc, confidence desc, then
+    /// path/line/rule id so the result is fully deterministic. Snapshot tests
+    /// and CI diffs both depend on two runs producing byte-identical output.
+    ///
+    /// Exposure leads because it is the axis the reader triages on
+    /// ([ADR 0029](../../../docs/adr/0029-exposure-model.md) §4): three
+    /// internet-reachable findings are an afternoon, and twenty-three findings
+    /// sorted by severity are a backlog. A finding with no exposure — every
+    /// agent-surface finding — sorts as if it were `internal`, so the agent
+    /// family keeps the position it had in 1.1 relative to application
+    /// findings that nothing can reach.
     #[must_use]
     pub fn cmp_for_report(&self, other: &Self) -> std::cmp::Ordering {
         other
-            .severity
-            .cmp(&self.severity)
+            .exposure_key()
+            .cmp(&self.exposure_key())
+            .then_with(|| other.severity.cmp(&self.severity))
             .then_with(|| other.confidence.cmp(&self.confidence))
             .then_with(|| self.location_key().cmp(&other.location_key()))
             .then_with(|| self.id.cmp(&other.id))
+    }
+
+    /// The exposure this finding sorts as. Absent means `Internal`: an
+    /// agent-config finding is not on a request path, and sorting it as
+    /// `Unknown` would push it below findings we know nothing can reach.
+    fn exposure_key(&self) -> Exposure {
+        self.exposure.unwrap_or(Exposure::Internal)
     }
 
     /// `(path-or-url, line)` used only for ordering.
@@ -1007,6 +1247,34 @@ impl FindingBuilder {
     #[must_use]
     pub fn runtime_scope(mut self, scope: RuntimeScope) -> Self {
         self.finding.runtime_scope = Some(scope);
+        self
+    }
+
+    /// Sets the runtime this code runs on, and how that was decided.
+    #[must_use]
+    pub fn runtime(
+        mut self,
+        runtime: crate::runtime::Runtime,
+        source: crate::runtime::RuntimeSource,
+    ) -> Self {
+        self.finding.runtime = Some(runtime);
+        self.finding.runtime_source = Some(source);
+        self
+    }
+
+    /// Sets the exposure and its evidence.
+    ///
+    /// On the builder for tests and for the correlation pass; production
+    /// findings get theirs from the engine's classification pass, so a rule
+    /// cannot disagree with the classifier about its own reachability.
+    #[must_use]
+    pub fn exposure(mut self, exposure: Exposure, evidence: ExposureEvidence) -> Self {
+        self.finding.exposure = Some(exposure);
+        self.finding.exposure_evidence = if evidence.is_empty() {
+            None
+        } else {
+            Some(evidence)
+        };
         self
     }
 
@@ -1140,6 +1408,7 @@ mod tests {
         .fix(Fix {
             framework: Some(Framework::NEXT),
             host: None,
+            runtime: None,
             summary: "next.config.js headers()".into(),
             patch: None,
             safety: FixSafety::Manual,
@@ -1147,6 +1416,7 @@ mod tests {
         .fix(Fix {
             framework: Some(Framework::NEST),
             host: None,
+            runtime: None,
             summary: "app.use(helmet())".into(),
             patch: None,
             safety: FixSafety::Manual,

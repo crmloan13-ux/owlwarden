@@ -227,6 +227,10 @@ fn remediation() -> Remediation {
         .manual(Framework::ASTRO, summary, patch)
         .manual(Framework::REMIX, summary, patch)
         .manual(Framework::GATSBY, summary, patch)
+        .manual(Framework::SVELTEKIT, summary, patch)
+        .manual(Framework::TANSTACK_START, summary, patch)
+        .manual(Framework::SOLIDSTART, summary, patch)
+        .manual(Framework::ELYSIA, summary, patch)
 }
 
 /// Every framework's fix, for `owlwarden explain`.

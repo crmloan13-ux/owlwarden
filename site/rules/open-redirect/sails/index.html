@@ -171,7 +171,7 @@
 <span class="dim">46 │</span>   },</div>
 <p>
   This finding comes from the Sails.js fixture in the owlwarden test
-  suite.
+  suite, in <code>/auth</code>.
   The whole redirect target comes from the request, so a link to this endpoint can send a visitor anywhere. The URL they click genuinely belongs to you, which is what makes the page they land on convincing - and on an OAuth callback the authorisation code goes with them.
 </p>
 
@@ -179,6 +179,8 @@
 <p>Validate before res.redirect().</p>
 <pre class="code"><code class="language-ts">const base = `${req.protocol}://${req.get(&#39;host&#39;)}`
 return res.redirect(safeRedirect(req.query.next, base))</code></pre>
+
+
 
 <h3>If you are not using Sails.js</h3>
 <p>Resolve the target against your own origin and refuse anything that lands elsewhere. Do not use a startsWith(&#39;/&#39;) check: &#39;//evil.com&#39; passes it and leaves the site.</p>

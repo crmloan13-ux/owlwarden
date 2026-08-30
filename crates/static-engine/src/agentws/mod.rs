@@ -24,11 +24,13 @@
 //! - [`workspace`] — the loader, and the view every rule reads.
 //! - [`command`] — judging a command string without running it.
 //! - [`text`] — hidden characters and homoglyphs in instruction files.
+//! - [`tiers`] — resolving configuration the way the host does.
 
 pub mod command;
 pub mod jsonc;
 pub mod paths;
 pub mod text;
+pub mod tiers;
 pub mod workspace;
 
 pub use paths::{Classification, WorkspaceFileKind, classify};

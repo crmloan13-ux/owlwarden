@@ -7,7 +7,7 @@
 use std::fmt::Write as _;
 use std::io::Write;
 
-use owlwarden_core::finding::{Finding, Location, Severity};
+use owlwarden_core::finding::{Exposure, Finding, Location, Severity};
 use owlwarden_core::report::Report;
 use owlwarden_core::reporter::{ReportError, Reporter};
 
@@ -60,16 +60,52 @@ fn build_markdown(report: &Report) -> String {
         append_omissions(&mut out, report);
         return out;
     }
-    let mut current: Option<Severity> = None;
-    for finding in &report.findings {
-        if current != Some(finding.severity) {
-            current = Some(finding.severity);
-            let _ = writeln!(out, "\n## {}\n", severity_heading(finding.severity));
+    // Grouped by exposure rather than by severity, because a pull-request
+    // comment is read top-down and the top is where the reachable ones belong
+    // ([ADR 0029](../../../docs/adr/0029-exposure-model.md) §5). Severity still
+    // orders within a group, so the first heading holds the first thing to fix.
+    //
+    // A report with nothing classified — `vet` over agent configuration — has
+    // no exposure to group by, and falls back to the 1.1 severity headings so
+    // the format does not sprout a meaningless "Unclassified" section.
+    if report.exposure_summary.total() == report.exposure_summary.unknown {
+        let mut current: Option<Severity> = None;
+        for finding in &report.findings {
+            if current != Some(finding.severity) {
+                current = Some(finding.severity);
+                let _ = writeln!(out, "\n## {}\n", severity_heading(finding.severity));
+            }
+            append_finding(&mut out, finding);
         }
-        append_finding(&mut out, finding);
+    } else {
+        let mut current: Option<Exposure> = None;
+        for finding in &report.findings {
+            let exposure = finding.exposure.unwrap_or(Exposure::Internal);
+            if current != Some(exposure) {
+                current = Some(exposure);
+                let _ = writeln!(out, "\n## {}\n", exposure_heading(exposure));
+            }
+            append_finding(&mut out, finding);
+        }
     }
     append_omissions(&mut out, report);
     out
+}
+
+/// The heading one exposure group gets, with the sentence that explains it.
+///
+/// The explanation is in the heading rather than in a legend, because a PR
+/// comment is read once by somebody who has not read the documentation, and
+/// `## Internet-reachable` on its own invites the reader to assume it means
+/// something narrower than it does.
+fn exposure_heading(exposure: Exposure) -> String {
+    let title = match exposure {
+        Exposure::Internet => "Internet-reachable",
+        Exposure::Authenticated => "Behind authentication",
+        Exposure::Internal => "Internal",
+        Exposure::Unknown => "Unclassified",
+    };
+    format!("{title} — {}", exposure.explanation())
 }
 
 fn append_heading(out: &mut String, report: &Report) {
@@ -77,12 +113,27 @@ fn append_heading(out: &mut String, report: &Report) {
     let _ = writeln!(out, "# owlwarden report — {project}");
     let seconds = report.duration_ms / 1000;
     let millis = report.duration_ms % 1000;
+    let runtime = report
+        .target
+        .runtime
+        .as_ref()
+        .map(|runtime| format!(" · {}", md_escape(runtime)))
+        .unwrap_or_default();
     let _ = writeln!(
         out,
-        "_{} files · {seconds}.{millis:03}s · {}_",
+        "_{} files{runtime} · {seconds}.{millis:03}s · {}_",
         report.target.files_scanned,
         summary_line(&report.summary)
     );
+    let distribution = report.exposure_summary;
+    if distribution.total() > 0 && distribution.total() != distribution.unknown {
+        let parts: Vec<String> = Exposure::all()
+            .into_iter()
+            .filter(|exposure| distribution.count(*exposure) > 0)
+            .map(|exposure| format!("{} {}", distribution.count(exposure), exposure.label()))
+            .collect();
+        let _ = writeln!(out, "_{}_", parts.join(" · "));
+    }
 }
 
 fn summary_line(summary: &owlwarden_core::report::ReportSummary) -> String {
@@ -135,9 +186,29 @@ fn append_finding(out: &mut String, finding: &Finding) {
             md_escape(scope.explanation())
         )
     });
+    let exposure = finding.exposure.map_or_else(String::new, |exposure| {
+        let gate = finding
+            .exposure_evidence
+            .as_ref()
+            .and_then(|evidence| {
+                let gate = evidence.gate.as_ref()?;
+                let at = evidence.gate_location.as_deref().unwrap_or("");
+                Some(format!(
+                    " — gate `{}` at `{}`",
+                    md_in_ticks(gate),
+                    md_in_ticks(at)
+                ))
+            })
+            .unwrap_or_default();
+        format!(
+            "\n**Exposure:** {} — {}{gate}",
+            md_escape(exposure.as_str()),
+            md_escape(exposure.explanation())
+        )
+    });
     let _ = writeln!(
         out,
-        "**Where:** {}{}\n**Confidence:** {}{scope}",
+        "**Where:** {}{}\n**Confidence:** {}{exposure}{scope}",
         location_line(finding),
         context_suffix(finding),
         finding.confidence.as_str()
@@ -345,7 +416,9 @@ mod tests {
     use owlwarden_core::finding::{
         CodeFrame, Finding, FindingContext, Highlight, Location, RuleId, Severity, SourceLocation,
     };
-    use owlwarden_core::report::{Report, ReportSummary, SCHEMA_VERSION, ScanTarget, ToolInfo};
+    use owlwarden_core::report::{
+        ExposureSummary, Report, ReportSummary, SCHEMA_VERSION, ScanTarget, ToolInfo,
+    };
 
     #[test]
     fn a_bidi_override_cannot_reorder_a_pull_request_comment() {
@@ -402,6 +475,7 @@ mod tests {
                 ..ScanTarget::default()
             },
             summary: ReportSummary::of(std::slice::from_ref(&finding)),
+            exposure_summary: ExposureSummary::default(),
             findings: vec![finding],
             suppressed_count: 0,
             suppressions: Vec::new(),

@@ -171,7 +171,7 @@
 <span class="dim">87 │</span>   }</div>
 <p>
   This finding comes from the Remix fixture in the owlwarden test
-  suite, in <code> /api/users</code>.
+  suite, in <code>/api/users</code>.
   The whole redirect target comes from the request, so a link to this endpoint can send a visitor anywhere. The URL they click genuinely belongs to you, which is what makes the page they land on convincing - and on an OAuth callback the authorisation code goes with them.
 </p>
 
@@ -184,6 +184,8 @@ export async function loader({ request }: LoaderFunctionArgs) {
   const next = url.searchParams.get(&#39;next&#39;)
   return redirect(safeRedirect(next, url.origin))
 }</code></pre>
+
+
 
 <h3>If you are not using Remix</h3>
 <p>Resolve the target against your own origin and refuse anything that lands elsewhere. Do not use a startsWith(&#39;/&#39;) check: &#39;//evil.com&#39; passes it and leaves the site.</p>

@@ -462,6 +462,26 @@ fn remediation() -> Remediation {
         "Bind the value; keep the SQL text constant.",
         "await pool.query('SELECT * FROM users WHERE id = $1', [req.query.id])",
     )
+    .manual(
+        Framework::SVELTEKIT,
+        "Bind the value as a parameter in the endpoint; never build the statement by interpolation.",
+        "const rows = await pool.query('SELECT id, role FROM users WHERE email = $1', [body.email])",
+    )
+    .manual(
+        Framework::TANSTACK_START,
+        "Bind the value as a parameter in the server function.",
+        "const rows = await pool.query('SELECT id, role FROM users WHERE email = $1', [body.email])",
+    )
+    .manual(
+        Framework::SOLIDSTART,
+        "Bind the value as a parameter in the API route.",
+        "const rows = await pool.query('SELECT id, role FROM users WHERE email = $1', [body.email])",
+    )
+    .manual(
+        Framework::ELYSIA,
+        "Bind the value as a parameter. Elysia's `t` schema validates the shape; it does not make a string safe to concatenate.",
+        "const rows = await pool.query('SELECT id, role FROM users WHERE email = $1', [body.email])",
+    )
 }
 
 /// Every framework's fix, for `owlwarden explain`.

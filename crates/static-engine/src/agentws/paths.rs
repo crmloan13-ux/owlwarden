@@ -82,6 +82,19 @@ pub enum WorkspaceFileKind {
     AgentDefinition,
     /// An executable script sitting inside a config directory.
     Script,
+    /// `.owlwarden/surface.lock` and its detached signature.
+    ///
+    /// On the surface so that writing one is a tracked event — per the
+    /// precedent CVE-2026-25725 set, **creating a protected file that did not
+    /// previously exist counts as mutation**, and a seal that appeared during a
+    /// session is exactly as interesting as a hook that did
+    /// ([ADR 0027](../../../../docs/adr/0027-workspace-seal.md) §6).
+    ///
+    /// Deliberately not parsed as rule-visible JSON. The lockfile records
+    /// command prefixes read out of the very configuration the rules judge, and
+    /// a rule that read them back would report owlwarden's own record of a
+    /// finding as a second finding.
+    SurfaceLock,
 }
 
 impl WorkspaceFileKind {
@@ -120,6 +133,7 @@ impl WorkspaceFileKind {
             Self::Instructions => "instructions",
             Self::AgentDefinition => "agent definition",
             Self::Script => "script",
+            Self::SurfaceLock => "surface lock",
         }
     }
 }
@@ -340,6 +354,20 @@ pub const ALLOWLIST: &[WorkspacePattern] = &[
         // Not on any host's default resolution path by itself; a host has to be
         // pointed at it.
         root_scope: RuntimeScope::ProjectOptional,
+    },
+    WorkspacePattern {
+        glob: ".owlwarden/surface.lock",
+        shape: Shape::Exact(".owlwarden/surface.lock"),
+        host: AgentHost::GENERIC,
+        kind: WorkspaceFileKind::SurfaceLock,
+        root_scope: RuntimeScope::Active,
+    },
+    WorkspacePattern {
+        glob: ".owlwarden/surface.lock.sig",
+        shape: Shape::Exact(".owlwarden/surface.lock.sig"),
+        host: AgentHost::GENERIC,
+        kind: WorkspaceFileKind::SurfaceLock,
+        root_scope: RuntimeScope::Active,
     },
     WorkspacePattern {
         glob: "CLAUDE.md",
@@ -584,6 +612,10 @@ mod tests {
             ".codex/**",
             ".mcp.json",
             "mcp.json",
+            // Added by ADR 0027 §6: the seal is itself on the protected
+            // surface, so writing one is a tracked event.
+            ".owlwarden/surface.lock",
+            ".owlwarden/surface.lock.sig",
             "CLAUDE.md",
             "AGENTS.md",
         ];

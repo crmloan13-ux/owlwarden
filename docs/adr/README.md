@@ -35,6 +35,11 @@ an archaeology exercise.
 | [0024](0024-plugin-api-v1.md) | Freeze plugin API v1 at 1.0 | Accepted |
 | [0025](0025-agent-surface-and-supply-chain.md) | The agent workspace is a second scan surface | Accepted |
 | [0026](0026-deterministic-agent-gate.md) | A gate, not a tool the model may call | Accepted |
+| [0027](0027-workspace-seal.md) | A lockfile for the agent execution surface | Accepted |
+| [0028](0028-effective-configuration.md) | Effective configuration, and the `shadowed` scope | Accepted |
+| [0029](0029-exposure-model.md) | Exposure: a third axis, and it fails loud | Accepted |
+| [0030](0030-published-benchmark.md) | Publish the false-positive rate on every commit | Accepted |
+| [0031](0031-runtime-overlay.md) | Runtime is an overlay, not a dimension | Accepted |
 
 ## Writing one
 

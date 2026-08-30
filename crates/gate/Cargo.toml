@@ -16,12 +16,13 @@ categories.workspace = true
 # a tree and runs a scan, which is what a CLI needs and what a test of the
 # decision logic must not need.
 default = ["runtime"]
-runtime = ["dep:owlwarden-detectors", "dep:owlwarden-static"]
+runtime = ["dep:owlwarden-detectors", "dep:owlwarden-static", "dep:owlwarden-seal"]
 
 [dependencies]
 owlwarden-core.workspace = true
 owlwarden-detectors = { workspace = true, optional = true }
 owlwarden-static = { workspace = true, optional = true }
+owlwarden-seal = { workspace = true, optional = true }
 
 serde.workspace = true
 serde_json.workspace = true

@@ -16,13 +16,20 @@ expression: encoded
     "filesScanned": 7,
     "configFilesScanned": 0,
     "routesProbed": 0,
-    "preset": "owasp-top10"
+    "preset": "owasp-top10",
+    "runtime": "node (defaulted)"
   },
   "summary": {
     "high": 10,
     "medium": 11,
     "low": 0,
     "info": 0
+  },
+  "exposureSummary": {
+    "internet": 12,
+    "authenticated": 0,
+    "internal": 4,
+    "unknown": 5
   },
   "findings": [
     {
@@ -31,6 +38,13 @@ expression: encoded
       "confidence": "likely",
       "owasp": "A03:2021",
       "cwe": 89,
+      "runtime": "node",
+      "runtimeSource": "default",
+      "exposure": "internet",
+      "exposureEvidence": {
+        "route": "/api/login",
+        "reason": "no authentication gate identified on this path"
+      },
       "title": "SQL query built by string interpolation",
       "why": "A value taken from the request is interpolated into SQL, so the caller controls part of the statement. That is enough to read other users' rows, bypass a WHERE clause, or drop a table.",
       "location": {
@@ -95,6 +109,13 @@ expression: encoded
       "confidence": "likely",
       "owasp": "A10:2021",
       "cwe": 918,
+      "runtime": "node",
+      "runtimeSource": "default",
+      "exposure": "internet",
+      "exposureEvidence": {
+        "route": "/api/proxy",
+        "reason": "no authentication gate identified on this path"
+      },
       "title": "Server fetches a URL the caller controls",
       "why": "The destination of this request comes from the caller, so they choose which host the server connects to. That includes hosts they cannot reach themselves: the cloud metadata endpoint that hands out IAM credentials, internal services that skip authentication because they are 'not exposed', and anything bound to localhost.",
       "location": {
@@ -161,6 +182,13 @@ expression: encoded
       "confidence": "likely",
       "owasp": "A10:2021",
       "cwe": 918,
+      "runtime": "node",
+      "runtimeSource": "default",
+      "exposure": "internet",
+      "exposureEvidence": {
+        "route": "/api/proxy",
+        "reason": "no authentication gate identified on this path"
+      },
       "title": "Server fetches a URL the caller controls",
       "why": "The destination of this request comes from the caller, so they choose which host the server connects to. That includes hosts they cannot reach themselves: the cloud metadata endpoint that hands out IAM credentials, internal services that skip authentication because they are 'not exposed', and anything bound to localhost.",
       "location": {
@@ -227,6 +255,13 @@ expression: encoded
       "confidence": "likely",
       "owasp": "A10:2021",
       "cwe": 918,
+      "runtime": "node",
+      "runtimeSource": "default",
+      "exposure": "internet",
+      "exposureEvidence": {
+        "route": "/api/proxy",
+        "reason": "no authentication gate identified on this path"
+      },
       "title": "Server fetches a URL the caller controls",
       "why": "The destination of this request comes from the caller, so they choose which host the server connects to. That includes hosts they cannot reach themselves: the cloud metadata endpoint that hands out IAM credentials, internal services that skip authentication because they are 'not exposed', and anything bound to localhost.",
       "location": {
@@ -293,6 +328,13 @@ expression: encoded
       "confidence": "likely",
       "owasp": "A10:2021",
       "cwe": 918,
+      "runtime": "node",
+      "runtimeSource": "default",
+      "exposure": "internet",
+      "exposureEvidence": {
+        "route": "/api/proxy",
+        "reason": "no authentication gate identified on this path"
+      },
       "title": "Server fetches a URL the caller controls",
       "why": "The destination of this request comes from the caller, so they choose which host the server connects to. That includes hosts they cannot reach themselves: the cloud metadata endpoint that hands out IAM credentials, internal services that skip authentication because they are 'not exposed', and anything bound to localhost.",
       "location": {
@@ -359,6 +401,13 @@ expression: encoded
       "confidence": "likely",
       "owasp": "A05:2021",
       "cwe": 209,
+      "runtime": "node",
+      "runtimeSource": "default",
+      "exposure": "internet",
+      "exposureEvidence": {
+        "route": "/api/users",
+        "reason": "no authentication gate identified on this path"
+      },
       "title": "Stack trace leaked in error response",
       "why": "Stack traces expose absolute file paths, dependency versions, and internal call structure — enough to fingerprint the stack and locate other weaknesses.",
       "location": {
@@ -421,328 +470,18 @@ expression: encoded
       ]
     },
     {
-      "id": "hardcoded-secret",
-      "severity": "high",
-      "confidence": "likely",
-      "owasp": "A07:2021",
-      "cwe": 798,
-      "title": "Credential hardcoded in source",
-      "why": "This literal carries the prefix of a Stripe live secret key, so it is a real credential rather than a placeholder. It is in the repository's history and in every clone; deleting the line does not revoke it.",
-      "location": {
-        "path": "app/lib/billing.ts",
-        "line": 3,
-        "col": 20
-      },
-      "snippet": {
-        "path": "app/lib/billing.ts",
-        "startLine": 1,
-        "lines": [
-          "// FIXTURE: hardcoded-secret — Stripe live key prefix.",
-          "// Non-alphanumeric character keeps GitHub push protection from blocking the repo.",
-          "const STRIPE_KEY = 'sk_l***'",
-          "",
-          "export async function charge(amountCents: number) {"
-        ],
-        "highlight": {
-          "line": 3,
-          "startCol": 20,
-          "endCol": 59,
-          "label": "credential written into source"
-        }
-      },
-      "context": {
-        "framework": "next",
-        "evidence": "looks like a Stripe live secret key"
-      },
-      "remediation": [
-        {
-          "framework": "next",
-          "summary": "Read it from the environment on the server. A NEXT_PUBLIC_ prefix ships the value to the browser, so never use one for a secret.",
-          "patch": "const apiKey = process.env.API_KEY\nif (!apiKey) throw new Error('API_KEY is not set')",
-          "safety": "manual"
-        },
-        {
-          "summary": "Move the value into an environment variable or a secret manager, and rotate it — once committed it is in the history and in every clone, so removing the line does not revoke it.",
-          "safety": "manual"
-        }
-      ],
-      "references": [
-        {
-          "kind": "owasp",
-          "id": "A07:2021",
-          "url": "https://owasp.org/Top10/A07_2021-Identification_and_Authentication_Failures/"
-        },
-        {
-          "kind": "cwe",
-          "id": "CWE-798",
-          "url": "https://cwe.mitre.org/data/definitions/798.html"
-        },
-        {
-          "kind": "docs",
-          "id": "RULES.md#hardcoded-secret",
-          "url": "https://github.com/suthat/owlwarden/blob/main/RULES.md#hardcoded-secret"
-        }
-      ]
-    },
-    {
-      "id": "weak-crypto",
-      "severity": "high",
-      "confidence": "likely",
-      "owasp": "A02:2021",
-      "cwe": 327,
-      "title": "Broken cryptographic primitive protecting a secret",
-      "why": "This hash is fast, and speed is the attacker's advantage: a commodity GPU tries billions of candidates a second, so a leaked table of these hashes is a leaked table of the values behind them. Password hashing needs a deliberately slow algorithm with a per-value salt.",
-      "location": {
-        "path": "app/lib/crypto.ts",
-        "line": 8,
-        "col": 35
-      },
-      "snippet": {
-        "path": "app/lib/crypto.ts",
-        "startLine": 6,
-        "lines": [
-          "export function hashPassword(password: string): string {",
-          "  // weak-crypto: MD5 over a password.",
-          "  const passwordHash = createHash('md5').update(password).digest('hex')",
-          "  return passwordHash",
-          "}"
-        ],
-        "highlight": {
-          "line": 8,
-          "startCol": 35,
-          "endCol": 40,
-          "label": "fast hash protecting a credential"
-        }
-      },
-      "context": {
-        "framework": "next",
-        "evidence": "createHash('md5') used for `passwordhash`"
-      },
-      "remediation": [
-        {
-          "framework": "next",
-          "summary": "Replace the broken digest algorithm with sha256 (or prefer scrypt/argon2 for passwords).",
-          "patch": "'sha256'",
-          "safety": "safe"
-        },
-        {
-          "summary": "Replace md5/sha1 with a stronger digest when the hash protects a secret.",
-          "patch": "'sha256'",
-          "safety": "safe"
-        },
-        {
-          "framework": "next",
-          "summary": "Use node:crypto in the route handler. Note that the edge runtime has no node:crypto — use globalThis.crypto.randomUUID() and Web Crypto there, or pin the route to nodejs.",
-          "patch": "import { randomBytes, randomUUID, scrypt } from 'node:crypto'\n\n// Tokens and session ids: unpredictable, not merely random-looking.\nconst sessionId = randomUUID()\nconst resetToken = randomBytes(32).toString('base64url')\n\n// Passwords: a slow hash with a per-password salt. bcrypt and argon2 are\n// equally correct; scrypt needs no dependency.\nconst salt = randomBytes(16)\nconst hash = await new Promise<Buffer>((resolve, reject) =>\n  scrypt(password, salt, 64, (error, key) => (error ? reject(error) : resolve(key))),\n)",
-          "safety": "manual"
-        },
-        {
-          "summary": "Use a slow, salted hash for passwords and a cryptographic random source for tokens. Both are in the Node standard library; neither needs a dependency.",
-          "patch": "import { randomBytes, randomUUID, scrypt } from 'node:crypto'\n\n// Tokens and session ids: unpredictable, not merely random-looking.\nconst sessionId = randomUUID()\nconst resetToken = randomBytes(32).toString('base64url')\n\n// Passwords: a slow hash with a per-password salt. bcrypt and argon2 are\n// equally correct; scrypt needs no dependency.\nconst salt = randomBytes(16)\nconst hash = await new Promise<Buffer>((resolve, reject) =>\n  scrypt(password, salt, 64, (error, key) => (error ? reject(error) : resolve(key))),\n)",
-          "safety": "manual"
-        }
-      ],
-      "references": [
-        {
-          "kind": "owasp",
-          "id": "A02:2021",
-          "url": "https://owasp.org/Top10/A02_2021-Cryptographic_Failures/"
-        },
-        {
-          "kind": "cwe",
-          "id": "CWE-327",
-          "url": "https://cwe.mitre.org/data/definitions/327.html"
-        },
-        {
-          "kind": "docs",
-          "id": "RULES.md#weak-crypto",
-          "url": "https://github.com/suthat/owlwarden/blob/main/RULES.md#weak-crypto"
-        }
-      ]
-    },
-    {
-      "id": "weak-crypto",
-      "severity": "high",
-      "confidence": "likely",
-      "owasp": "A02:2021",
-      "cwe": 327,
-      "title": "Broken cryptographic primitive protecting a secret",
-      "why": "Math.random() is a fast PRNG, not a cryptographic one; V8 documents it as unsuitable for security. An attacker who sees a few outputs can predict the rest, which for a session id or a reset token means minting valid ones.",
-      "location": {
-        "path": "app/lib/crypto.ts",
-        "line": 14,
-        "col": 24
-      },
-      "snippet": {
-        "path": "app/lib/crypto.ts",
-        "startLine": 12,
-        "lines": [
-          "export function mintSessionToken(): string {",
-          "  // weak-crypto: predictable session token.",
-          "  const sessionToken = Math.random().toString(36).slice(2)",
-          "  return sessionToken",
-          "}"
-        ],
-        "highlight": {
-          "line": 14,
-          "startCol": 24,
-          "endCol": 37,
-          "label": "predictable random source used for a secret"
-        }
-      },
-      "context": {
-        "framework": "next",
-        "evidence": "Math.random() used for `sessiontoken`"
-      },
-      "remediation": [
-        {
-          "framework": "next",
-          "summary": "Use Web Crypto (or node:crypto) instead of Math.random() for tokens.",
-          "patch": "(globalThis.crypto.getRandomValues(new Uint32Array(1))[0] / 0x100000000)",
-          "safety": "safe"
-        },
-        {
-          "summary": "Replace Math.random() with a cryptographic source when the value is a secret.",
-          "patch": "(globalThis.crypto.getRandomValues(new Uint32Array(1))[0] / 0x100000000)",
-          "safety": "safe"
-        }
-      ],
-      "references": [
-        {
-          "kind": "owasp",
-          "id": "A02:2021",
-          "url": "https://owasp.org/Top10/A02_2021-Cryptographic_Failures/"
-        },
-        {
-          "kind": "cwe",
-          "id": "CWE-327",
-          "url": "https://cwe.mitre.org/data/definitions/327.html"
-        },
-        {
-          "kind": "docs",
-          "id": "RULES.md#weak-crypto",
-          "url": "https://github.com/suthat/owlwarden/blob/main/RULES.md#weak-crypto"
-        }
-      ]
-    },
-    {
-      "id": "weak-crypto",
-      "severity": "high",
-      "confidence": "likely",
-      "owasp": "A02:2021",
-      "cwe": 327,
-      "title": "Broken cryptographic primitive protecting a secret",
-      "why": "This cipher or mode is broken independently of the key. DES has a keyspace small enough to search, RC4 has biased output, and ECB encrypts identical plaintext blocks to identical ciphertext blocks — the structure of the data survives encryption.",
-      "location": {
-        "path": "app/lib/crypto.ts",
-        "line": 20,
-        "col": 18
-      },
-      "snippet": {
-        "path": "app/lib/crypto.ts",
-        "startLine": 18,
-        "lines": [
-          "export function sealCard(pan: string, key: Buffer): Buffer {",
-          "  // weak-crypto: ECB leaks structure.",
-          "  const cipher = createCipheriv('aes-256-ecb', key, null)",
-          "  return Buffer.concat([cipher.update(pan, 'utf8'), cipher.final()])",
-          "}"
-        ],
-        "highlight": {
-          "line": 20,
-          "startCol": 18,
-          "endCol": 58,
-          "label": "broken cipher"
-        }
-      },
-      "context": {
-        "framework": "next",
-        "evidence": "aes-256-ecb"
-      },
-      "remediation": [
-        {
-          "framework": "next",
-          "summary": "Use node:crypto in the route handler. Note that the edge runtime has no node:crypto — use globalThis.crypto.randomUUID() and Web Crypto there, or pin the route to nodejs.",
-          "patch": "import { randomBytes, randomUUID, scrypt } from 'node:crypto'\n\n// Tokens and session ids: unpredictable, not merely random-looking.\nconst sessionId = randomUUID()\nconst resetToken = randomBytes(32).toString('base64url')\n\n// Passwords: a slow hash with a per-password salt. bcrypt and argon2 are\n// equally correct; scrypt needs no dependency.\nconst salt = randomBytes(16)\nconst hash = await new Promise<Buffer>((resolve, reject) =>\n  scrypt(password, salt, 64, (error, key) => (error ? reject(error) : resolve(key))),\n)",
-          "safety": "manual"
-        },
-        {
-          "summary": "Use a slow, salted hash for passwords and a cryptographic random source for tokens. Both are in the Node standard library; neither needs a dependency.",
-          "patch": "import { randomBytes, randomUUID, scrypt } from 'node:crypto'\n\n// Tokens and session ids: unpredictable, not merely random-looking.\nconst sessionId = randomUUID()\nconst resetToken = randomBytes(32).toString('base64url')\n\n// Passwords: a slow hash with a per-password salt. bcrypt and argon2 are\n// equally correct; scrypt needs no dependency.\nconst salt = randomBytes(16)\nconst hash = await new Promise<Buffer>((resolve, reject) =>\n  scrypt(password, salt, 64, (error, key) => (error ? reject(error) : resolve(key))),\n)",
-          "safety": "manual"
-        }
-      ],
-      "references": [
-        {
-          "kind": "owasp",
-          "id": "A02:2021",
-          "url": "https://owasp.org/Top10/A02_2021-Cryptographic_Failures/"
-        },
-        {
-          "kind": "cwe",
-          "id": "CWE-327",
-          "url": "https://cwe.mitre.org/data/definitions/327.html"
-        },
-        {
-          "kind": "docs",
-          "id": "RULES.md#weak-crypto",
-          "url": "https://github.com/suthat/owlwarden/blob/main/RULES.md#weak-crypto"
-        }
-      ]
-    },
-    {
-      "id": "ci-unpinned-action",
-      "severity": "medium",
-      "confidence": "likely",
-      "owasp": "A08:2021",
-      "cwe": 829,
-      "title": "GitHub Action is not pinned to a commit SHA",
-      "why": "A moving tag can be retargeted to a different commit. Anyone who can push that tag — or who compromises the action's repository — runs code in your CI with access to repository secrets.",
-      "location": {
-        "path": ".github/workflows/ci.yml",
-        "line": 8,
-        "col": 1
-      },
-      "context": {
-        "framework": "next",
-        "evidence": "actions/checkout@v4"
-      },
-      "remediation": [
-        {
-          "framework": "next",
-          "summary": "Pin the action to a full commit SHA (keep the tag in a comment for humans).",
-          "patch": "uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1",
-          "safety": "manual"
-        },
-        {
-          "summary": "Pin the action to a full commit SHA (keep the tag in a comment for humans).",
-          "safety": "manual"
-        }
-      ],
-      "references": [
-        {
-          "kind": "owasp",
-          "id": "A08:2021",
-          "url": "https://owasp.org/Top10/A08_2021-Software_and_Data_Integrity_Failures/"
-        },
-        {
-          "kind": "cwe",
-          "id": "CWE-829",
-          "url": "https://cwe.mitre.org/data/definitions/829.html"
-        },
-        {
-          "kind": "docs",
-          "id": "RULES.md#ci-unpinned-action",
-          "url": "https://github.com/suthat/owlwarden/blob/main/RULES.md#ci-unpinned-action"
-        }
-      ]
-    },
-    {
       "id": "open-redirect",
       "severity": "medium",
       "confidence": "likely",
       "owasp": "A01:2021",
       "cwe": 601,
+      "runtime": "node",
+      "runtimeSource": "default",
+      "exposure": "internet",
+      "exposureEvidence": {
+        "route": "/api/proxy",
+        "reason": "no authentication gate identified on this path"
+      },
       "title": "Redirect target comes from the caller",
       "why": "The whole redirect target comes from the request, so a link to this endpoint can send a visitor anywhere. The URL they click genuinely belongs to you, which is what makes the page they land on convincing — and on an OAuth callback the authorisation code goes with them.",
       "location": {
@@ -808,6 +547,13 @@ expression: encoded
       "confidence": "likely",
       "owasp": "A01:2021",
       "cwe": 601,
+      "runtime": "node",
+      "runtimeSource": "default",
+      "exposure": "internet",
+      "exposureEvidence": {
+        "route": "/api/proxy",
+        "reason": "no authentication gate identified on this path"
+      },
       "title": "Redirect target comes from the caller",
       "why": "The whole redirect target comes from the request, so a link to this endpoint can send a visitor anywhere. The URL they click genuinely belongs to you, which is what makes the page they land on convincing — and on an OAuth callback the authorisation code goes with them.",
       "location": {
@@ -873,6 +619,13 @@ expression: encoded
       "confidence": "likely",
       "owasp": "A01:2021",
       "cwe": 601,
+      "runtime": "node",
+      "runtimeSource": "default",
+      "exposure": "internet",
+      "exposureEvidence": {
+        "route": "/api/proxy",
+        "reason": "no authentication gate identified on this path"
+      },
       "title": "Redirect target comes from the caller",
       "why": "The whole redirect target comes from the request, so a link to this endpoint can send a visitor anywhere. The URL they click genuinely belongs to you, which is what makes the page they land on convincing — and on an OAuth callback the authorisation code goes with them.",
       "location": {
@@ -939,6 +692,13 @@ expression: encoded
       "confidence": "likely",
       "owasp": "A09:2021",
       "cwe": 532,
+      "runtime": "node",
+      "runtimeSource": "default",
+      "exposure": "internet",
+      "exposureEvidence": {
+        "route": "/api/users",
+        "reason": "no authentication gate identified on this path"
+      },
       "title": "Sensitive data written to a log",
       "why": "Logs are copied into aggregators, retained for months, and readable by anyone with access to the logging system. A credential that reaches a log has left the application's trust boundary.",
       "location": {
@@ -1004,6 +764,13 @@ expression: encoded
       "confidence": "likely",
       "owasp": "A09:2021",
       "cwe": 532,
+      "runtime": "node",
+      "runtimeSource": "default",
+      "exposure": "internet",
+      "exposureEvidence": {
+        "route": "/api/users",
+        "reason": "no authentication gate identified on this path"
+      },
       "title": "Sensitive data written to a log",
       "why": "Logs are copied into aggregators, retained for months, and readable by anyone with access to the logging system. A credential that reaches a log has left the application's trust boundary.",
       "location": {
@@ -1064,48 +831,56 @@ expression: encoded
       ]
     },
     {
-      "id": "cors-permissive",
+      "id": "insecure-cookie",
       "severity": "medium",
-      "confidence": "likely",
+      "confidence": "possible",
       "owasp": "A05:2021",
-      "cwe": 942,
-      "title": "Cross-origin policy accepts any origin",
-      "why": "Any origin may call this API and read the response. That is a deliberate choice for a public endpoint and a mistake for anything behind a session — nothing in the source says which this is, so it is reported for you to decide.",
+      "cwe": 614,
+      "runtime": "node",
+      "runtimeSource": "default",
+      "exposure": "internet",
+      "exposureEvidence": {
+        "route": "/api/login",
+        "reason": "no authentication gate identified on this path"
+      },
+      "title": "Cookie set without its protective attributes",
+      "why": "This cookie is missing protections: httpOnly keeps the cookie out of reach of JavaScript, so a cross-site scripting bug cannot read the session; secure stops the cookie being sent over plain HTTP; sameSite stops the browser attaching the cookie to cross-site requests.",
       "location": {
-        "path": "app/lib/cors.ts",
-        "line": 7,
+        "path": "app/api/login/route.ts",
+        "line": 20,
         "col": 3
       },
       "snippet": {
-        "path": "app/lib/cors.ts",
-        "startLine": 5,
+        "path": "app/api/login/route.ts",
+        "startLine": 18,
         "lines": [
           "",
-          "export function applyOpenCors(response: NextResponse): NextResponse {",
-          "  response.headers.set('Access-Control-Allow-Origin', '*')",
-          "  response.headers.set('Access-Control-Allow-Credentials', 'true')",
-          "  return response"
+          "  // insecure-cookie: Next's cookies().set with no attributes.",
+          "  cookies().set('session', rows.rows[0]?.id ?? 'anon')",
+          "",
+          "  return NextResponse.json({ ok: true })"
         ],
         "highlight": {
-          "line": 7,
+          "line": 20,
           "startCol": 3,
-          "endCol": 59,
-          "label": "accepts requests from any origin"
+          "endCol": 55,
+          "label": "cookie written without httpOnly/secure/sameSite"
         }
       },
       "context": {
         "framework": "next",
-        "evidence": "origin: '*', credentials allowed"
+        "route": "/api/login",
+        "evidence": "no cookie options passed"
       },
       "remediation": [
         {
           "framework": "next",
-          "summary": "Return an explicit origin from the route or middleware, not '*'.",
-          "patch": "const allowed = new Set(['https://app.example.com'])\nconst origin = request.headers.get('origin') ?? ''\nif (allowed.has(origin)) {\n  response.headers.set('Access-Control-Allow-Origin', origin)\n  response.headers.set('Vary', 'Origin')\n}",
+          "summary": "Pass the attributes to the cookie store.",
+          "patch": "cookies().set('session', token, {\n  httpOnly: true,\n  secure: process.env.NODE_ENV === 'production',\n  sameSite: 'lax',\n  path: '/',\n})",
           "safety": "manual"
         },
         {
-          "summary": "Replace the wildcard with the origins that actually need access, and only send credentials to those.",
+          "summary": "Set httpOnly, secure, and sameSite when writing a cookie that carries anything the user would not want read or replayed.",
           "safety": "manual"
         }
       ],
@@ -1117,13 +892,66 @@ expression: encoded
         },
         {
           "kind": "cwe",
-          "id": "CWE-942",
-          "url": "https://cwe.mitre.org/data/definitions/942.html"
+          "id": "CWE-614",
+          "url": "https://cwe.mitre.org/data/definitions/614.html"
         },
         {
           "kind": "docs",
-          "id": "RULES.md#cors-permissive",
-          "url": "https://github.com/suthat/owlwarden/blob/main/RULES.md#cors-permissive"
+          "id": "RULES.md#insecure-cookie",
+          "url": "https://github.com/suthat/owlwarden/blob/main/RULES.md#insecure-cookie"
+        }
+      ]
+    },
+    {
+      "id": "ci-unpinned-action",
+      "severity": "medium",
+      "confidence": "likely",
+      "owasp": "A08:2021",
+      "cwe": 829,
+      "runtime": "node",
+      "runtimeSource": "default",
+      "exposure": "internal",
+      "exposureEvidence": {
+        "reason": "not on a request-handling path"
+      },
+      "title": "GitHub Action is not pinned to a commit SHA",
+      "why": "A moving tag can be retargeted to a different commit. Anyone who can push that tag — or who compromises the action's repository — runs code in your CI with access to repository secrets.",
+      "location": {
+        "path": ".github/workflows/ci.yml",
+        "line": 8,
+        "col": 1
+      },
+      "context": {
+        "framework": "next",
+        "evidence": "actions/checkout@v4"
+      },
+      "remediation": [
+        {
+          "framework": "next",
+          "summary": "Pin the action to a full commit SHA (keep the tag in a comment for humans).",
+          "patch": "uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1",
+          "safety": "manual"
+        },
+        {
+          "summary": "Pin the action to a full commit SHA (keep the tag in a comment for humans).",
+          "safety": "manual"
+        }
+      ],
+      "references": [
+        {
+          "kind": "owasp",
+          "id": "A08:2021",
+          "url": "https://owasp.org/Top10/A08_2021-Software_and_Data_Integrity_Failures/"
+        },
+        {
+          "kind": "cwe",
+          "id": "CWE-829",
+          "url": "https://cwe.mitre.org/data/definitions/829.html"
+        },
+        {
+          "kind": "docs",
+          "id": "RULES.md#ci-unpinned-action",
+          "url": "https://github.com/suthat/owlwarden/blob/main/RULES.md#ci-unpinned-action"
         }
       ]
     },
@@ -1134,6 +962,12 @@ expression: encoded
       "owasp": "A08:2021",
       "asi": "ASI04",
       "cwe": 829,
+      "runtime": "node",
+      "runtimeSource": "default",
+      "exposure": "internal",
+      "exposureEvidence": {
+        "reason": "not on a request-handling path"
+      },
       "title": "Package declares an install-time script",
       "why": "`postinstall` runs for everyone who installs this package, before any code is reviewed and often inside CI with credentials in the environment. This is the mechanism a compromised package uses to spread.",
       "location": {
@@ -1199,6 +1033,12 @@ expression: encoded
       "confidence": "likely",
       "owasp": "A06:2021",
       "cwe": 1104,
+      "runtime": "node",
+      "runtimeSource": "default",
+      "exposure": "internal",
+      "exposureEvidence": {
+        "reason": "not on a request-handling path"
+      },
       "title": "Dependency version is unpinned",
       "why": "An unpinned range lets the next install resolve a different major version, including one with a known vulnerability or a breaking API change, without anyone reviewing the bump.",
       "location": {
@@ -1241,76 +1081,17 @@ expression: encoded
       ]
     },
     {
-      "id": "insecure-cookie",
-      "severity": "medium",
-      "confidence": "possible",
-      "owasp": "A05:2021",
-      "cwe": 614,
-      "title": "Cookie set without its protective attributes",
-      "why": "This cookie is missing protections: httpOnly keeps the cookie out of reach of JavaScript, so a cross-site scripting bug cannot read the session; secure stops the cookie being sent over plain HTTP; sameSite stops the browser attaching the cookie to cross-site requests.",
-      "location": {
-        "path": "app/api/login/route.ts",
-        "line": 20,
-        "col": 3
-      },
-      "snippet": {
-        "path": "app/api/login/route.ts",
-        "startLine": 18,
-        "lines": [
-          "",
-          "  // insecure-cookie: Next's cookies().set with no attributes.",
-          "  cookies().set('session', rows.rows[0]?.id ?? 'anon')",
-          "",
-          "  return NextResponse.json({ ok: true })"
-        ],
-        "highlight": {
-          "line": 20,
-          "startCol": 3,
-          "endCol": 55,
-          "label": "cookie written without httpOnly/secure/sameSite"
-        }
-      },
-      "context": {
-        "framework": "next",
-        "route": "/api/login",
-        "evidence": "no cookie options passed"
-      },
-      "remediation": [
-        {
-          "framework": "next",
-          "summary": "Pass the attributes to the cookie store.",
-          "patch": "cookies().set('session', token, {\n  httpOnly: true,\n  secure: process.env.NODE_ENV === 'production',\n  sameSite: 'lax',\n  path: '/',\n})",
-          "safety": "manual"
-        },
-        {
-          "summary": "Set httpOnly, secure, and sameSite when writing a cookie that carries anything the user would not want read or replayed.",
-          "safety": "manual"
-        }
-      ],
-      "references": [
-        {
-          "kind": "owasp",
-          "id": "A05:2021",
-          "url": "https://owasp.org/Top10/A05_2021-Security_Misconfiguration/"
-        },
-        {
-          "kind": "cwe",
-          "id": "CWE-614",
-          "url": "https://cwe.mitre.org/data/definitions/614.html"
-        },
-        {
-          "kind": "docs",
-          "id": "RULES.md#insecure-cookie",
-          "url": "https://github.com/suthat/owlwarden/blob/main/RULES.md#insecure-cookie"
-        }
-      ]
-    },
-    {
       "id": "security-headers-missing",
       "severity": "medium",
       "confidence": "possible",
       "owasp": "A05:2021",
       "cwe": 693,
+      "runtime": "node",
+      "runtimeSource": "default",
+      "exposure": "internal",
+      "exposureEvidence": {
+        "reason": "not on a request-handling path"
+      },
       "title": "Security headers are not configured",
       "why": "Without these headers the browser enforces nothing: strict-transport-security forces HTTPS for future requests; content-security-policy limits which scripts and origins the page may load; x-content-type-options stops browsers guessing a response's content type; x-frame-options blocks clickjacking via framing; referrer-policy stops URLs leaking to third parties.",
       "location": {
@@ -1349,6 +1130,370 @@ expression: encoded
           "kind": "docs",
           "id": "RULES.md#security-headers-missing",
           "url": "https://github.com/suthat/owlwarden/blob/main/RULES.md#security-headers-missing"
+        }
+      ]
+    },
+    {
+      "id": "hardcoded-secret",
+      "severity": "high",
+      "confidence": "likely",
+      "owasp": "A07:2021",
+      "cwe": 798,
+      "runtime": "node",
+      "runtimeSource": "default",
+      "exposure": "unknown",
+      "exposureEvidence": {
+        "reason": "no route resolved for this file, and its path is not a recognised non-request location"
+      },
+      "title": "Credential hardcoded in source",
+      "why": "This literal carries the prefix of a Stripe live secret key, so it is a real credential rather than a placeholder. It is in the repository's history and in every clone; deleting the line does not revoke it.",
+      "location": {
+        "path": "app/lib/billing.ts",
+        "line": 3,
+        "col": 20
+      },
+      "snippet": {
+        "path": "app/lib/billing.ts",
+        "startLine": 1,
+        "lines": [
+          "// FIXTURE: hardcoded-secret — Stripe live key prefix.",
+          "// Non-alphanumeric character keeps GitHub push protection from blocking the repo.",
+          "const STRIPE_KEY = 'sk_l***'",
+          "",
+          "export async function charge(amountCents: number) {"
+        ],
+        "highlight": {
+          "line": 3,
+          "startCol": 20,
+          "endCol": 59,
+          "label": "credential written into source"
+        }
+      },
+      "context": {
+        "framework": "next",
+        "evidence": "looks like a Stripe live secret key"
+      },
+      "remediation": [
+        {
+          "framework": "next",
+          "summary": "Read it from the environment on the server. A NEXT_PUBLIC_ prefix ships the value to the browser, so never use one for a secret.",
+          "patch": "const apiKey = process.env.API_KEY\nif (!apiKey) throw new Error('API_KEY is not set')",
+          "safety": "manual"
+        },
+        {
+          "summary": "Move the value into an environment variable or a secret manager, and rotate it — once committed it is in the history and in every clone, so removing the line does not revoke it.",
+          "safety": "manual"
+        }
+      ],
+      "references": [
+        {
+          "kind": "owasp",
+          "id": "A07:2021",
+          "url": "https://owasp.org/Top10/A07_2021-Identification_and_Authentication_Failures/"
+        },
+        {
+          "kind": "cwe",
+          "id": "CWE-798",
+          "url": "https://cwe.mitre.org/data/definitions/798.html"
+        },
+        {
+          "kind": "docs",
+          "id": "RULES.md#hardcoded-secret",
+          "url": "https://github.com/suthat/owlwarden/blob/main/RULES.md#hardcoded-secret"
+        }
+      ]
+    },
+    {
+      "id": "weak-crypto",
+      "severity": "high",
+      "confidence": "likely",
+      "owasp": "A02:2021",
+      "cwe": 327,
+      "runtime": "node",
+      "runtimeSource": "default",
+      "exposure": "unknown",
+      "exposureEvidence": {
+        "reason": "no route resolved for this file, and its path is not a recognised non-request location"
+      },
+      "title": "Broken cryptographic primitive protecting a secret",
+      "why": "This hash is fast, and speed is the attacker's advantage: a commodity GPU tries billions of candidates a second, so a leaked table of these hashes is a leaked table of the values behind them. Password hashing needs a deliberately slow algorithm with a per-value salt.",
+      "location": {
+        "path": "app/lib/crypto.ts",
+        "line": 8,
+        "col": 35
+      },
+      "snippet": {
+        "path": "app/lib/crypto.ts",
+        "startLine": 6,
+        "lines": [
+          "export function hashPassword(password: string): string {",
+          "  // weak-crypto: MD5 over a password.",
+          "  const passwordHash = createHash('md5').update(password).digest('hex')",
+          "  return passwordHash",
+          "}"
+        ],
+        "highlight": {
+          "line": 8,
+          "startCol": 35,
+          "endCol": 40,
+          "label": "fast hash protecting a credential"
+        }
+      },
+      "context": {
+        "framework": "next",
+        "evidence": "createHash('md5') used for `passwordhash`"
+      },
+      "remediation": [
+        {
+          "framework": "next",
+          "summary": "Replace the broken digest algorithm with sha256 (or prefer scrypt/argon2 for passwords).",
+          "patch": "'sha256'",
+          "safety": "safe"
+        },
+        {
+          "summary": "Replace md5/sha1 with a stronger digest when the hash protects a secret.",
+          "patch": "'sha256'",
+          "safety": "safe"
+        },
+        {
+          "framework": "next",
+          "summary": "Use node:crypto in the route handler.",
+          "patch": "import { randomBytes, randomUUID, scrypt } from 'node:crypto'\n\n// Tokens and session ids: unpredictable, not merely random-looking.\nconst sessionId = randomUUID()\nconst resetToken = randomBytes(32).toString('base64url')\n\n// Passwords: a slow hash with a per-password salt. bcrypt and argon2 are\n// equally correct; scrypt needs no dependency.\nconst salt = randomBytes(16)\nconst hash = await new Promise<Buffer>((resolve, reject) =>\n  scrypt(password, salt, 64, (error, key) => (error ? reject(error) : resolve(key))),\n)",
+          "safety": "manual"
+        },
+        {
+          "summary": "Use a slow, salted hash for passwords and a cryptographic random source for tokens. Both are in the Node standard library; neither needs a dependency.",
+          "patch": "import { randomBytes, randomUUID, scrypt } from 'node:crypto'\n\n// Tokens and session ids: unpredictable, not merely random-looking.\nconst sessionId = randomUUID()\nconst resetToken = randomBytes(32).toString('base64url')\n\n// Passwords: a slow hash with a per-password salt. bcrypt and argon2 are\n// equally correct; scrypt needs no dependency.\nconst salt = randomBytes(16)\nconst hash = await new Promise<Buffer>((resolve, reject) =>\n  scrypt(password, salt, 64, (error, key) => (error ? reject(error) : resolve(key))),\n)",
+          "safety": "manual"
+        }
+      ],
+      "references": [
+        {
+          "kind": "owasp",
+          "id": "A02:2021",
+          "url": "https://owasp.org/Top10/A02_2021-Cryptographic_Failures/"
+        },
+        {
+          "kind": "cwe",
+          "id": "CWE-327",
+          "url": "https://cwe.mitre.org/data/definitions/327.html"
+        },
+        {
+          "kind": "docs",
+          "id": "RULES.md#weak-crypto",
+          "url": "https://github.com/suthat/owlwarden/blob/main/RULES.md#weak-crypto"
+        }
+      ]
+    },
+    {
+      "id": "weak-crypto",
+      "severity": "high",
+      "confidence": "likely",
+      "owasp": "A02:2021",
+      "cwe": 327,
+      "runtime": "node",
+      "runtimeSource": "default",
+      "exposure": "unknown",
+      "exposureEvidence": {
+        "reason": "no route resolved for this file, and its path is not a recognised non-request location"
+      },
+      "title": "Broken cryptographic primitive protecting a secret",
+      "why": "Math.random() is a fast PRNG, not a cryptographic one; V8 documents it as unsuitable for security. An attacker who sees a few outputs can predict the rest, which for a session id or a reset token means minting valid ones.",
+      "location": {
+        "path": "app/lib/crypto.ts",
+        "line": 14,
+        "col": 24
+      },
+      "snippet": {
+        "path": "app/lib/crypto.ts",
+        "startLine": 12,
+        "lines": [
+          "export function mintSessionToken(): string {",
+          "  // weak-crypto: predictable session token.",
+          "  const sessionToken = Math.random().toString(36).slice(2)",
+          "  return sessionToken",
+          "}"
+        ],
+        "highlight": {
+          "line": 14,
+          "startCol": 24,
+          "endCol": 37,
+          "label": "predictable random source used for a secret"
+        }
+      },
+      "context": {
+        "framework": "next",
+        "evidence": "Math.random() used for `sessiontoken`"
+      },
+      "remediation": [
+        {
+          "framework": "next",
+          "summary": "Use Web Crypto (or node:crypto) instead of Math.random() for tokens.",
+          "patch": "(globalThis.crypto.getRandomValues(new Uint32Array(1))[0] / 0x100000000)",
+          "safety": "safe"
+        },
+        {
+          "summary": "Replace Math.random() with a cryptographic source when the value is a secret.",
+          "patch": "(globalThis.crypto.getRandomValues(new Uint32Array(1))[0] / 0x100000000)",
+          "safety": "safe"
+        }
+      ],
+      "references": [
+        {
+          "kind": "owasp",
+          "id": "A02:2021",
+          "url": "https://owasp.org/Top10/A02_2021-Cryptographic_Failures/"
+        },
+        {
+          "kind": "cwe",
+          "id": "CWE-327",
+          "url": "https://cwe.mitre.org/data/definitions/327.html"
+        },
+        {
+          "kind": "docs",
+          "id": "RULES.md#weak-crypto",
+          "url": "https://github.com/suthat/owlwarden/blob/main/RULES.md#weak-crypto"
+        }
+      ]
+    },
+    {
+      "id": "weak-crypto",
+      "severity": "high",
+      "confidence": "likely",
+      "owasp": "A02:2021",
+      "cwe": 327,
+      "runtime": "node",
+      "runtimeSource": "default",
+      "exposure": "unknown",
+      "exposureEvidence": {
+        "reason": "no route resolved for this file, and its path is not a recognised non-request location"
+      },
+      "title": "Broken cryptographic primitive protecting a secret",
+      "why": "This cipher or mode is broken independently of the key. DES has a keyspace small enough to search, RC4 has biased output, and ECB encrypts identical plaintext blocks to identical ciphertext blocks — the structure of the data survives encryption.",
+      "location": {
+        "path": "app/lib/crypto.ts",
+        "line": 20,
+        "col": 18
+      },
+      "snippet": {
+        "path": "app/lib/crypto.ts",
+        "startLine": 18,
+        "lines": [
+          "export function sealCard(pan: string, key: Buffer): Buffer {",
+          "  // weak-crypto: ECB leaks structure.",
+          "  const cipher = createCipheriv('aes-256-ecb', key, null)",
+          "  return Buffer.concat([cipher.update(pan, 'utf8'), cipher.final()])",
+          "}"
+        ],
+        "highlight": {
+          "line": 20,
+          "startCol": 18,
+          "endCol": 58,
+          "label": "broken cipher"
+        }
+      },
+      "context": {
+        "framework": "next",
+        "evidence": "aes-256-ecb"
+      },
+      "remediation": [
+        {
+          "framework": "next",
+          "summary": "Use node:crypto in the route handler.",
+          "patch": "import { randomBytes, randomUUID, scrypt } from 'node:crypto'\n\n// Tokens and session ids: unpredictable, not merely random-looking.\nconst sessionId = randomUUID()\nconst resetToken = randomBytes(32).toString('base64url')\n\n// Passwords: a slow hash with a per-password salt. bcrypt and argon2 are\n// equally correct; scrypt needs no dependency.\nconst salt = randomBytes(16)\nconst hash = await new Promise<Buffer>((resolve, reject) =>\n  scrypt(password, salt, 64, (error, key) => (error ? reject(error) : resolve(key))),\n)",
+          "safety": "manual"
+        },
+        {
+          "summary": "Use a slow, salted hash for passwords and a cryptographic random source for tokens. Both are in the Node standard library; neither needs a dependency.",
+          "patch": "import { randomBytes, randomUUID, scrypt } from 'node:crypto'\n\n// Tokens and session ids: unpredictable, not merely random-looking.\nconst sessionId = randomUUID()\nconst resetToken = randomBytes(32).toString('base64url')\n\n// Passwords: a slow hash with a per-password salt. bcrypt and argon2 are\n// equally correct; scrypt needs no dependency.\nconst salt = randomBytes(16)\nconst hash = await new Promise<Buffer>((resolve, reject) =>\n  scrypt(password, salt, 64, (error, key) => (error ? reject(error) : resolve(key))),\n)",
+          "safety": "manual"
+        }
+      ],
+      "references": [
+        {
+          "kind": "owasp",
+          "id": "A02:2021",
+          "url": "https://owasp.org/Top10/A02_2021-Cryptographic_Failures/"
+        },
+        {
+          "kind": "cwe",
+          "id": "CWE-327",
+          "url": "https://cwe.mitre.org/data/definitions/327.html"
+        },
+        {
+          "kind": "docs",
+          "id": "RULES.md#weak-crypto",
+          "url": "https://github.com/suthat/owlwarden/blob/main/RULES.md#weak-crypto"
+        }
+      ]
+    },
+    {
+      "id": "cors-permissive",
+      "severity": "medium",
+      "confidence": "likely",
+      "owasp": "A05:2021",
+      "cwe": 942,
+      "runtime": "node",
+      "runtimeSource": "default",
+      "exposure": "unknown",
+      "exposureEvidence": {
+        "reason": "no route resolved for this file, and its path is not a recognised non-request location"
+      },
+      "title": "Cross-origin policy accepts any origin",
+      "why": "Any origin may call this API and read the response. That is a deliberate choice for a public endpoint and a mistake for anything behind a session — nothing in the source says which this is, so it is reported for you to decide.",
+      "location": {
+        "path": "app/lib/cors.ts",
+        "line": 7,
+        "col": 3
+      },
+      "snippet": {
+        "path": "app/lib/cors.ts",
+        "startLine": 5,
+        "lines": [
+          "",
+          "export function applyOpenCors(response: NextResponse): NextResponse {",
+          "  response.headers.set('Access-Control-Allow-Origin', '*')",
+          "  response.headers.set('Access-Control-Allow-Credentials', 'true')",
+          "  return response"
+        ],
+        "highlight": {
+          "line": 7,
+          "startCol": 3,
+          "endCol": 59,
+          "label": "accepts requests from any origin"
+        }
+      },
+      "context": {
+        "framework": "next",
+        "evidence": "origin: '*', credentials allowed"
+      },
+      "remediation": [
+        {
+          "framework": "next",
+          "summary": "Return an explicit origin from the route or middleware, not '*'.",
+          "patch": "const allowed = new Set(['https://app.example.com'])\nconst origin = request.headers.get('origin') ?? ''\nif (allowed.has(origin)) {\n  response.headers.set('Access-Control-Allow-Origin', origin)\n  response.headers.set('Vary', 'Origin')\n}",
+          "safety": "manual"
+        },
+        {
+          "summary": "Replace the wildcard with the origins that actually need access, and only send credentials to those.",
+          "safety": "manual"
+        }
+      ],
+      "references": [
+        {
+          "kind": "owasp",
+          "id": "A05:2021",
+          "url": "https://owasp.org/Top10/A05_2021-Security_Misconfiguration/"
+        },
+        {
+          "kind": "cwe",
+          "id": "CWE-942",
+          "url": "https://cwe.mitre.org/data/definitions/942.html"
+        },
+        {
+          "kind": "docs",
+          "id": "RULES.md#cors-permissive",
+          "url": "https://github.com/suthat/owlwarden/blob/main/RULES.md#cors-permissive"
         }
       ]
     }

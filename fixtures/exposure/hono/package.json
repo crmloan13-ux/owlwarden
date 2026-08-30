@@ -1,0 +1,8 @@
+{
+  "name": "fixture-exposure-hono",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "hono": "^4.5.0"
+  }
+}

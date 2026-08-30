@@ -113,6 +113,52 @@
   <a href="../rules/">the rule catalogue</a>
 </p>
 
+<h2 id="1-2-0">1.2.0 <span class="chip chip-scope">2026-08-30</span></h2>
+<p>1.1 answered <em>what is here</em>. This release answers the three questions a person asks immediately afterwards: <strong>what changed, what is reachable, and how often are we wrong?</strong> (<a href="https://github.com/suthat/owlwarden/blob/main/docs/adr/0027-workspace-seal.md">ADR 0027</a>, <a href="https://github.com/suthat/owlwarden/blob/main/docs/adr/0028-effective-configuration.md">ADR 0028</a>, <a href="https://github.com/suthat/owlwarden/blob/main/docs/adr/0029-exposure-model.md">ADR 0029</a>, <a href="https://github.com/suthat/owlwarden/blob/main/docs/adr/0030-published-benchmark.md">ADR 0030</a>, <a href="https://github.com/suthat/owlwarden/blob/main/docs/adr/0031-runtime-overlay.md">ADR 0031</a>).</p>
+<p>No new rules. The existing 25 became substantially more useful without one.</p>
+<h3>Added</h3>
+<ul>
+  <li><strong><code>exposure</code>, a third axis on every application finding</strong> - <code>internet</code>, <code>authenticated</code>, <code>internal</code>, <code>unknown</code> - computed by the engine from route resolution and auth-gate recognition per framework.</li>
+</ul>
+<p><strong>It fails loud: <code>authenticated</code> requires a positively identified gate, and absence of evidence yields <code>internet</code>.</strong> A module that does not resolve is not a gate, a name that does not read as one is not a gate, a session call whose result is never checked is not a gate, and a <code>config.matcher</code> we could not parse covers nothing rather than everything. Everywhere else in owlwarden uncertainty resolves downward; here it resolves upward, because a finding wrongly marked as behind auth is a finding somebody deprioritises.</p>
+<p>Report order becomes exposure → severity → confidence, <code>--fail-on-exposure</code> composes with <code>--fail-on</code> as an OR, the Markdown reporter groups by exposure, and the summary line states the distribution. Exposure never raises severity.</p>
+<ul>
+  <li><strong><code>owlwarden seal</code></strong> - <code>.owlwarden/surface.lock</code>, a committed record of every file the agent loads out of the working tree by semantic digest, with hooks, MCP servers and their pins, the permission set, marketplace sources, and instruction files extracted rather than merely hashed. <code>settings.json changed</code> is a message people re-run past; <em>a <code>SessionStart</code> hook was added</em> is not.</li>
+</ul>
+<p><code>--verify</code>, <code>--diff</code>, and repeatable <code>--accept &lt;fp&gt; --reason &quot;…&quot;</code>. Reformatting a config does not break the seal; changing one character of a hook command does. Sealing is never unattended, and refuses to write while an unaccepted high finding sits on the surface.</p>
+<ul>
+  <li><strong><code>owlwarden effective</code></strong> - the resolved agent configuration with provenance per key. <code>git config --show-origin</code> for your agent.</li>
+</ul>
+<ul>
+  <li><strong><code>runtime_scope: shadowed</code></strong> - a project key a higher configuration tier overrides, capped at <code>possible</code> and reported rather than suppressed. Only under <code>--include-user-config</code>; without it nothing outside the project root is opened and behaviour is identical to 1.1.</li>
+</ul>
+<ul>
+  <li><strong>Runtime as an overlay.</strong> Findings carry the runtime their file runs on, resolved per file, and five rules carry deltas where their base fix would not execute. The build asserts that the un-deltaed fix does not name an absent API, so the <em>absence</em> of a delta is a positive claim.</li>
+</ul>
+<ul>
+  <li><strong>Four frameworks, taking the matrix to sixteen</strong>: SvelteKit, TanStack Start, SolidStart, Elysia - each with the full square fixture matrix and 13 remediation cells.</li>
+</ul>
+<ul>
+  <li><strong><code>owlwarden bench</code></strong> - precision, recall, per-rule false positives with their locations, and <code>authenticated</code> precision published separately. The corpus discipline is enforced on load. <strong>The corpus is empty and the tooling says so</strong>; <code>/benchmark/</code> is not published until real repositories are labelled.</li>
+</ul>
+<ul>
+  <li><code>owlwarden coverage [PATH]</code> adds the exposure distribution, the unclassified rate, and the seal state.</li>
+</ul>
+<ul>
+  <li>The Action gains <code>seal</code>, <code>require-signed-seal</code>, and <code>fail-on-exposure</code>. The surface diff goes to the job summary and a <code>seal-diff</code> output, silent when the surface has not moved.</li>
+</ul>
+<h3>Changed</h3>
+<ul>
+  <li><code>open-redirect</code> now recognises status-first <code>redirect(302, to)</code>, status-last <code>Response.redirect(to, 302)</code>, and <code>set.headers.Location = to</code>. It was blind to all three, which made it blind to SvelteKit and Elysia redirects.</li>
+  <li>Sails gained route resolution; SolidStart&#39;s profile now names <code>src/middleware.ts</code>, where its headers are actually set.</li>
+  <li>Report JSON gains <code>exposure</code>, <code>exposureEvidence</code>, <code>runtime</code>, <code>runtimeSource</code>, and <code>exposureSummary</code>; <code>target.runtime</code> states the runtime and whether it was detected or defaulted. All additive - a 1.1 consumer is unaffected.</li>
+</ul>
+<h3>Security</h3>
+<ul>
+  <li>Gate evidence is clamped at one choke point. A module specifier is a string literal that can hold a newline or a bidirectional override, it resolves on any Unix filesystem, and it previously reached a terminal, a SARIF result, and a pull-request comment unclamped.</li>
+  <li>49 adversarial tests across the seal, tier resolution, the exposure classifier, and the benchmark. <code>SECURITY.md</code> carries the seal&#39;s limits - a detection and review control, not a containment one - and the exposure axis&#39;s loud-direction rule.</li>
+</ul>
+
 <h2 id="1-1-0">1.1.0 <span class="chip chip-scope">2026-08-26</span></h2>
 <p>A second scan surface and a control that always runs (<a href="https://github.com/suthat/owlwarden/blob/main/docs/adr/0025-agent-surface-and-supply-chain.md">ADR 0025</a>, <a href="https://github.com/suthat/owlwarden/blob/main/docs/adr/0026-deterministic-agent-gate.md">ADR 0026</a>).</p>
 <p>owlwarden answered one question: <em>is the web application in this repository written safely?</em> This release adds the second question the same repository now raises: <em>is the coding agent that works in it being told to do something hostile?</em></p>

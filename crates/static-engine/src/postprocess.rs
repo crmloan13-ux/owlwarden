@@ -59,7 +59,7 @@ pub fn apply_suppressions_with(
     } else {
         report.suppressed_count = 0;
     }
-    report.summary = owlwarden_core::report::ReportSummary::of(&report.findings);
+    report.recount();
 }
 
 /// Drops findings present in the baseline. Call after [`apply_suppressions`].
@@ -67,7 +67,7 @@ pub fn apply_baseline(report: &mut Report, baseline: &BaselineFile) {
     let filtered = baseline::filter(std::mem::take(&mut report.findings), baseline);
     report.findings = filtered.findings;
     report.baseline_hidden_count = filtered.hidden_count;
-    report.summary = owlwarden_core::report::ReportSummary::of(&report.findings);
+    report.recount();
 }
 
 /// Applies suppressions and an optional baseline to a finished report.
@@ -124,7 +124,9 @@ mod tests {
     use owlwarden_core::finding::{
         Confidence, Finding, Location, RuleId, Severity, SourceLocation,
     };
-    use owlwarden_core::report::{Report, ReportSummary, SCHEMA_VERSION, ScanTarget, ToolInfo};
+    use owlwarden_core::report::{
+        ExposureSummary, Report, ReportSummary, SCHEMA_VERSION, ScanTarget, ToolInfo,
+    };
     use owlwarden_core::source::{FileSelector, RelPath, SourceError, SourceFile, SourceProvider};
 
     use super::*;
@@ -180,6 +182,7 @@ mod tests {
             duration_ms: 0,
             target: ScanTarget::default(),
             summary: ReportSummary::of(&findings),
+            exposure_summary: ExposureSummary::default(),
             findings,
             suppressed_count: 0,
             suppressions: Vec::new(),

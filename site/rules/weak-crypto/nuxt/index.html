@@ -107,7 +107,7 @@
         {
           "@type": "HowToStep",
           "name": "Fix it",
-          "text": "node:crypto works inside Nitro on the node preset. On a worker preset use the Web Crypto API, which Nitro exposes globally as `crypto`."
+          "text": "node:crypto works inside Nitro on the node preset."
         },
         {
           "@type": "HowToStep",
@@ -177,7 +177,7 @@
 </p>
 
 <h2>The corrected handler</h2>
-<p>node:crypto works inside Nitro on the node preset. On a worker preset use the Web Crypto API, which Nitro exposes globally as `crypto`.</p>
+<p>node:crypto works inside Nitro on the node preset.</p>
 <pre class="code"><code class="language-ts">import { randomBytes, randomUUID, scrypt } from &#39;node:crypto&#39;
 
 // Tokens and session ids: unpredictable, not merely random-looking.
@@ -189,6 +189,31 @@ const resetToken = randomBytes(32).toString(&#39;base64url&#39;)
 const salt = randomBytes(16)
 const hash = await new Promise&lt;Buffer&gt;((resolve, reject) =&gt;
   scrypt(password, salt, 64, (error, key) =&gt; (error ? reject(error) : resolve(key))),
+)</code></pre>
+
+<h2>On a different runtime</h2>
+<p>
+  The fix above is written for the runtime Nuxt usually runs on. These
+  are the runtimes where it would not run at all - an import that does not
+  exist, or an API the host does not have - and what to write instead.
+</p>
+<h3>Workers and other fetch-API runtimes</h3>
+<p>There is no node:crypto on this runtime. Use the Web Crypto API, which is global. scrypt has no equivalent; PBKDF2 with a high iteration count is the replacement.</p>
+<pre class="code"><code class="language-ts">// No node:crypto here - this is the Web Crypto API, which every
+// fetch-API runtime exposes globally as `crypto`.
+
+// Tokens and session ids.
+const sessionId = crypto.randomUUID()
+const resetToken = btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(32))))
+  .replace(/\+/g, &#39;-&#39;).replace(/\//g, &#39;_&#39;).replace(/=+$/, &#39;&#39;)
+
+// Passwords: scrypt is not available. PBKDF2 is, and needs a high
+// iteration count to be worth anything.
+const salt = crypto.getRandomValues(new Uint8Array(16))
+const key = await crypto.subtle.importKey(&#39;raw&#39;, new TextEncoder().encode(password),
+  &#39;PBKDF2&#39;, false, [&#39;deriveBits&#39;])
+const hash = await crypto.subtle.deriveBits(
+  { name: &#39;PBKDF2&#39;, salt, iterations: 600_000, hash: &#39;SHA-256&#39; }, key, 256,
 )</code></pre>
 
 <h3>If you are not using Nuxt</h3>

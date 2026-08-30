@@ -24,7 +24,7 @@
 use std::fmt::Write as _;
 use std::io::Write;
 
-use owlwarden_core::finding::{CodeFrame, Finding, ReferenceKind, Severity};
+use owlwarden_core::finding::{CodeFrame, Exposure, Finding, ReferenceKind, Severity};
 use owlwarden_core::report::Report;
 use owlwarden_core::reporter::{ReportError, Reporter};
 
@@ -122,8 +122,17 @@ impl<'w> PrettyReporter<'w> {
             .map(|scope| format!(" · {scope}"))
             .unwrap_or_default();
 
+        // The runtime is on the summary line and cannot be dropped in a quiet
+        // mode: detection is inference, and a report whose fixes were chosen
+        // from an inferred runtime has to say what it inferred.
+        let runtime = report
+            .target
+            .runtime
+            .as_ref()
+            .map(|runtime| format!(" · {runtime}"))
+            .unwrap_or_default();
         let header = format!(
-            "{} {scanned} · {}{scope} · {}.{:02}s",
+            "{} {scanned} · {}{runtime}{scope} · {}.{:02}s",
             crate::banner::owl_mark(self.options.unicode),
             report.target.preset,
             report.duration_ms / 1000,
@@ -154,12 +163,45 @@ impl<'w> PrettyReporter<'w> {
 
         writeln!(
             self.writer,
-            "{} {}\n",
+            "{} {}",
             self.paint(bold(), &format!("{} findings", summary.total())),
             self.paint(dim(), &format!("({})", rendered.join(", ")))
         )?;
+        self.write_exposure_line(report)?;
+        writeln!(self.writer)?;
         let _ = glyphs;
         Ok(())
+    }
+
+    /// The exposure distribution.
+    ///
+    /// Its own line rather than folded into the severity counts, because it
+    /// answers a different question and because it is the line the reader
+    /// triages on: three internet-reachable findings is an afternoon, and the
+    /// same twenty-three findings sorted by severity is a backlog.
+    ///
+    /// Silent when every finding is unclassified — a `vet` run over agent
+    /// configuration has nothing to say here, and printing
+    /// `14 unclassified` would imply the scan failed at something it never
+    /// attempted.
+    fn write_exposure_line(&mut self, report: &Report) -> std::io::Result<()> {
+        let distribution = report.exposure_summary;
+        if distribution.total() == 0 || distribution.total() == distribution.unknown {
+            return Ok(());
+        }
+        let parts: Vec<String> = Exposure::all()
+            .into_iter()
+            .filter(|exposure| distribution.count(*exposure) > 0)
+            .map(|exposure| {
+                let text = format!("{} {}", distribution.count(exposure), exposure.label());
+                self.paint(crate::theme::exposure_style(exposure), &text)
+            })
+            .collect();
+        writeln!(
+            self.writer,
+            "{}",
+            parts.join(self.paint(dim(), ", ").as_str())
+        )
     }
 
     /// One finding: heading, location, code frame, fix, why, references.
@@ -193,9 +235,22 @@ impl<'w> PrettyReporter<'w> {
             .runtime_scope
             .map(|scope| format!("{}  ", self.paint(dim(), scope.as_str())))
             .unwrap_or_default();
+        // Exposure sits beside severity and confidence because it is the third
+        // axis, not a footnote on either. `unknown` is printed rather than
+        // hidden: "we could not place this file" is information the reader
+        // needs in order to distrust the position it was sorted into.
+        let exposure = finding
+            .exposure
+            .map(|exposure| {
+                format!(
+                    "{}  ",
+                    self.paint(crate::theme::exposure_style(exposure), exposure.as_str())
+                )
+            })
+            .unwrap_or_default();
         writeln!(
             self.writer,
-            "{severity}  {confidence}  {scope}{}  {category}",
+            "{severity}  {confidence}  {exposure}{scope}{}  {category}",
             self.paint(bold(), &finding.title)
         )?;
         writeln!(self.writer, "{}", self.paint(dim(), &rule))?;
@@ -306,9 +361,16 @@ impl<'w> PrettyReporter<'w> {
             // pasted in.
             let label = fix.host.as_ref().map_or_else(
                 || {
-                    fix.framework
-                        .as_ref()
-                        .map_or_else(|| "fix".to_owned(), |profile| format!("fix ({profile})"))
+                    fix.framework.as_ref().map_or_else(
+                        || "fix".to_owned(),
+                        |profile| match fix.runtime {
+                            // A delta names the runtime as well as the
+                            // framework, because *that* is why this advice
+                            // differs from the paragraph in the docs.
+                            Some(runtime) => format!("fix ({profile} · {})", runtime.label()),
+                            None => format!("fix ({profile})"),
+                        },
+                    )
                 },
                 |host| format!("fix ({host})"),
             );

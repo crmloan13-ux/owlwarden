@@ -39,6 +39,10 @@ const FRAMEWORK_FIXTURES = {
   astro: "vulnerable/astro-api",
   remix: "vulnerable/remix-api",
   gatsby: "vulnerable/gatsby-api",
+  sveltekit: "vulnerable/sveltekit-api",
+  "tanstack-start": "vulnerable/tanstack-start-api",
+  solidstart: "vulnerable/solidstart-api",
+  elysia: "vulnerable/elysia-api",
 };
 
 /** The seven agent-host fixtures. */

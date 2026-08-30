@@ -283,6 +283,33 @@ const MATRIX: &[Expectation] = &[
         clean: "should-not-fire/gatsby-api-clean",
         fires: SHARED_FIRES,
     },
+    // The four added in 1.2 alongside the runtime overlay. They are the
+    // frameworks most likely to be on a non-Node runtime, so the overlay and
+    // the new profiles exercise each other (ADR 0031 §5).
+    Expectation {
+        framework: "sveltekit",
+        vulnerable: "vulnerable/sveltekit-api",
+        clean: "should-not-fire/sveltekit-api-clean",
+        fires: SHARED_FIRES,
+    },
+    Expectation {
+        framework: "tanstack-start",
+        vulnerable: "vulnerable/tanstack-start-api",
+        clean: "should-not-fire/tanstack-start-api-clean",
+        fires: SHARED_FIRES,
+    },
+    Expectation {
+        framework: "solidstart",
+        vulnerable: "vulnerable/solidstart-api",
+        clean: "should-not-fire/solidstart-api-clean",
+        fires: SHARED_FIRES,
+    },
+    Expectation {
+        framework: "elysia",
+        vulnerable: "vulnerable/elysia-api",
+        clean: "should-not-fire/elysia-api-clean",
+        fires: SHARED_FIRES,
+    },
 ];
 
 #[tokio::test]
@@ -345,14 +372,14 @@ fn every_catalogue_rule_is_exercised_on_every_framework() {
             );
         }
     }
-    // 13 offline webApp rules × 12 frameworks = 156 cells. If this number
+    // 13 offline webApp rules × 16 frameworks = 208 cells. If this number
     // moves, update the table in fixtures/should-not-fire/README.md in the same
     // PR. The agent surface has its own grid and its own arithmetic.
     assert_eq!(
         SHARED_FIRES.len() * MATRIX.len(),
         owlwarden_detectors::SUPPORTED_FRAMEWORKS.len() * catalogue.len()
     );
-    assert_eq!(SHARED_FIRES.len() * MATRIX.len(), 156);
+    assert_eq!(SHARED_FIRES.len() * MATRIX.len(), 208);
 }
 
 #[test]

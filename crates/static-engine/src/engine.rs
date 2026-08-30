@@ -32,6 +32,12 @@ pub struct EngineStats {
     pub skip_examples: Vec<String>,
     /// True when a per-file or global findings cap dropped results.
     pub truncated: bool,
+    /// The runtime the project resolved to, for the summary line.
+    ///
+    /// Reported by the engine rather than recomputed by the runner: the engine
+    /// is where the evidence was read, and a second resolution could disagree
+    /// with the one the fixes were chosen under.
+    pub runtime: Option<String>,
 }
 
 /// Runs every static rule over one project.
@@ -263,7 +269,13 @@ impl Detector for StaticEngine {
             *stats = EngineStats::default();
         }
 
-        let project = Project::discover(ctx.source())?;
+        let project = Project::discover(ctx.source())?
+            .with_tier_policy(if ctx.settings().include_user_config {
+                crate::agentws::tiers::TierPolicy::IncludeUserConfig
+            } else {
+                crate::agentws::tiers::TierPolicy::ProjectOnly
+            })
+            .with_home(ctx.settings().home_override.clone());
         let mut findings = Vec::new();
 
         let scoped_paths = ctx
@@ -299,6 +311,46 @@ impl Detector for StaticEngine {
         // config — is the one that gets a rule family switched off.
         for finding in &mut findings {
             finding.apply_runtime_scope_ceiling();
+        }
+
+        // Runtime, for the same reason: it is a property of where the file
+        // sits, not of what a rule found, and a rule that had to remember it
+        // would one day forget on the one file whose runtime differs.
+        //
+        // The *remediation* is still chosen by the rules, which is where a
+        // delta has to be applied — a fix picked after the fact could not know
+        // which of a rule's fixes the runtime replaced.
+        for finding in &mut findings {
+            if finding.context.host.is_some() {
+                continue;
+            }
+            if let owlwarden_core::finding::Location::Source(location) = &finding.location {
+                let resolved = project.runtimes().for_path(&location.path);
+                finding.runtime = Some(resolved.runtime);
+                finding.runtime_source = Some(resolved.source);
+            }
+        }
+
+        // Exposure, for the same reason and with a stronger one behind it: a
+        // rule that classified its own reachability could claim `authenticated`
+        // without having looked for a gate, and that is the one new way 1.2
+        // could make a reader less safe
+        // ([ADR 0029](../../../docs/adr/0029-exposure-model.md) §2).
+        //
+        // After truncation would be cheaper. Before it is correct: the
+        // classifier's per-file budget should be spent on the findings the
+        // reader will actually see, and those are chosen by the sort that
+        // happens downstream of this.
+        let mut classifier = crate::exposure::ExposureClassifier::build(&project);
+        classifier.classify_all(&mut findings);
+
+        if let Ok(mut stats) = self.stats.lock() {
+            let resolved = project.runtimes().project();
+            stats.runtime = Some(format!(
+                "{} ({})",
+                resolved.runtime.label(),
+                resolved.source.label()
+            ));
         }
 
         if findings.len() > limits::scan::MAX_FINDINGS {

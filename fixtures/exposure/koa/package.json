@@ -1,0 +1,9 @@
+{
+  "name": "fixture-exposure-koa",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "koa": "^2.15.0",
+    "koa-jwt": "^4.0.4"
+  }
+}

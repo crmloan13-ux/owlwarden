@@ -78,6 +78,9 @@ export async function runScan(
   const preset = options.preset ?? (trustProjectGates ? config.preset : "quick");
   const formats = resolveFormats(options, trustProjectGates ? config.format : "json");
   const failOn = options.failOn ?? (trustProjectGates ? config.failOn : "info");
+  // No project-config counterpart: `--fail-on-exposure` is an operator policy,
+  // and a scanned tree that could set it could also unset it.
+  const failOnExposure = options.failOnExposure;
   const minConfidence =
     options.minConfidence ?? (trustProjectGates ? config.minConfidence : "possible");
 
@@ -321,14 +324,14 @@ export async function runScan(
             `${remaining.length > 0 ? ` (${remaining.length} still in rewritten files)` : ""}\n`,
         );
       }
-      return shouldFail(verified.data, failOn, minConfidence) ? EXIT.FINDINGS : EXIT.CLEAN;
+      return shouldFail(verified.data, failOn, minConfidence, failOnExposure) ? EXIT.FINDINGS : EXIT.CLEAN;
     }
     if (fixResult.errors.length > 0 && fixResult.written.length === 0 && !options.dryRun) {
       return EXIT.ERROR;
     }
   }
 
-  return shouldFail(parsed.data, failOn, minConfidence) ? EXIT.FINDINGS : EXIT.CLEAN;
+  return shouldFail(parsed.data, failOn, minConfidence, failOnExposure) ? EXIT.FINDINGS : EXIT.CLEAN;
 }
 
 /**

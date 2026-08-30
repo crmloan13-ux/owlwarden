@@ -10,6 +10,101 @@ are listed here under Changed.
 
 ## [Unreleased]
 
+## [1.2.0] — 2026-08-30
+
+1.1 answered *what is here*. This release answers the three questions a person
+asks immediately afterwards: **what changed, what is reachable, and how often
+are we wrong?**
+([ADR 0027](docs/adr/0027-workspace-seal.md),
+[ADR 0028](docs/adr/0028-effective-configuration.md),
+[ADR 0029](docs/adr/0029-exposure-model.md),
+[ADR 0030](docs/adr/0030-published-benchmark.md),
+[ADR 0031](docs/adr/0031-runtime-overlay.md)).
+
+No new rules. The existing 25 became substantially more useful without one.
+
+### Added
+
+- **`exposure`, a third axis on every application finding** — `internet`,
+  `authenticated`, `internal`, `unknown` — computed by the engine from route
+  resolution and auth-gate recognition per framework.
+
+  **It fails loud: `authenticated` requires a positively identified gate, and
+  absence of evidence yields `internet`.** A module that does not resolve is
+  not a gate, a name that does not read as one is not a gate, a session call
+  whose result is never checked is not a gate, and a `config.matcher` we could
+  not parse covers nothing rather than everything. Everywhere else in owlwarden
+  uncertainty resolves downward; here it resolves upward, because a finding
+  wrongly marked as behind auth is a finding somebody deprioritises.
+
+  Report order becomes exposure → severity → confidence, `--fail-on-exposure`
+  composes with `--fail-on` as an OR, the Markdown reporter groups by exposure,
+  and the summary line states the distribution. Exposure never raises severity.
+
+- **`owlwarden seal`** — `.owlwarden/surface.lock`, a committed record of every
+  file the agent loads out of the working tree by semantic digest, with hooks,
+  MCP servers and their pins, the permission set, marketplace sources, and
+  instruction files extracted rather than merely hashed. `settings.json
+  changed` is a message people re-run past; *a `SessionStart` hook was added*
+  is not.
+
+  `--verify`, `--diff`, and repeatable `--accept <fp> --reason "…"`.
+  Reformatting a config does not break the seal; changing one character of a
+  hook command does. Sealing is never unattended, and refuses to write while an
+  unaccepted high finding sits on the surface.
+
+- **`owlwarden effective`** — the resolved agent configuration with provenance
+  per key. `git config --show-origin` for your agent.
+
+- **`runtime_scope: shadowed`** — a project key a higher configuration tier
+  overrides, capped at `possible` and reported rather than suppressed. Only
+  under `--include-user-config`; without it nothing outside the project root is
+  opened and behaviour is identical to 1.1.
+
+- **Runtime as an overlay.** Findings carry the runtime their file runs on,
+  resolved per file, and five rules carry deltas where their base fix would not
+  execute. The build asserts that the un-deltaed fix does not name an absent
+  API, so the *absence* of a delta is a positive claim.
+
+- **Four frameworks, taking the matrix to sixteen**: SvelteKit, TanStack Start,
+  SolidStart, Elysia — each with the full square fixture matrix and 13
+  remediation cells.
+
+- **`owlwarden bench`** — precision, recall, per-rule false positives with
+  their locations, and `authenticated` precision published separately. The
+  corpus discipline is enforced on load. **The corpus is empty and the tooling
+  says so**; `/benchmark/` is not published until real repositories are
+  labelled.
+
+- `owlwarden coverage [PATH]` adds the exposure distribution, the unclassified
+  rate, and the seal state.
+
+- The Action gains `seal`, `require-signed-seal`, and `fail-on-exposure`. The
+  surface diff goes to the job summary and a `seal-diff` output, silent when
+  the surface has not moved.
+
+### Changed
+
+- `open-redirect` now recognises status-first `redirect(302, to)`, status-last
+  `Response.redirect(to, 302)`, and `set.headers.Location = to`. It was blind
+  to all three, which made it blind to SvelteKit and Elysia redirects.
+- Sails gained route resolution; SolidStart's profile now names
+  `src/middleware.ts`, where its headers are actually set.
+- Report JSON gains `exposure`, `exposureEvidence`, `runtime`, `runtimeSource`,
+  and `exposureSummary`; `target.runtime` states the runtime and whether it was
+  detected or defaulted. All additive — a 1.1 consumer is unaffected.
+
+### Security
+
+- Gate evidence is clamped at one choke point. A module specifier is a string
+  literal that can hold a newline or a bidirectional override, it resolves on
+  any Unix filesystem, and it previously reached a terminal, a SARIF result,
+  and a pull-request comment unclamped.
+- 49 adversarial tests across the seal, tier resolution, the exposure
+  classifier, and the benchmark. `SECURITY.md` carries the seal's limits — a
+  detection and review control, not a containment one — and the exposure axis's
+  loud-direction rule.
+
 ## [1.1.0] — 2026-08-26
 
 A second scan surface and a control that always runs

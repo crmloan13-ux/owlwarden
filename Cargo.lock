@@ -559,6 +559,7 @@ checksum = "70e796c081cee67dc755e1a36a0a172b897fab85fc3f6bc48307991f64e4eca9"
 dependencies = [
  "curve25519-dalek",
  "ed25519",
+ "rand_core 0.6.4",
  "serde",
  "sha2",
  "subtle",
@@ -1314,16 +1315,32 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "384b8ab6d37215f3c5301a95a4accb5d64aa607f1fcb26a11b5303878451b4fe"
 
 [[package]]
+name = "owlwarden-bench"
+version = "1.2.0"
+dependencies = [
+ "owlwarden-core",
+ "owlwarden-detectors",
+ "owlwarden-static",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror",
+ "tokio",
+]
+
+[[package]]
 name = "owlwarden-cli"
-version = "1.1.0"
+version = "1.2.0"
 dependencies = [
  "anstream",
+ "owlwarden-bench",
  "owlwarden-core",
  "owlwarden-detectors",
  "owlwarden-dynamic",
  "owlwarden-gate",
  "owlwarden-plugin-host",
  "owlwarden-reporters",
+ "owlwarden-seal",
  "owlwarden-static",
  "owlwarden-transport",
  "serde_json",
@@ -1333,7 +1350,7 @@ dependencies = [
 
 [[package]]
 name = "owlwarden-core"
-version = "1.1.0"
+version = "1.2.0"
 dependencies = [
  "async-trait",
  "futures-util",
@@ -1347,7 +1364,7 @@ dependencies = [
 
 [[package]]
 name = "owlwarden-detectors"
-version = "1.1.0"
+version = "1.2.0"
 dependencies = [
  "async-trait",
  "owlwarden-core",
@@ -1364,7 +1381,7 @@ dependencies = [
 
 [[package]]
 name = "owlwarden-dynamic"
-version = "1.1.0"
+version = "1.2.0"
 dependencies = [
  "async-trait",
  "futures-executor",
@@ -1378,11 +1395,12 @@ dependencies = [
 
 [[package]]
 name = "owlwarden-gate"
-version = "1.1.0"
+version = "1.2.0"
 dependencies = [
  "insta",
  "owlwarden-core",
  "owlwarden-detectors",
+ "owlwarden-seal",
  "owlwarden-static",
  "serde",
  "serde_json",
@@ -1393,7 +1411,7 @@ dependencies = [
 
 [[package]]
 name = "owlwarden-napi"
-version = "1.1.0"
+version = "1.2.0"
 dependencies = [
  "futures-executor",
  "napi",
@@ -1405,6 +1423,7 @@ dependencies = [
  "owlwarden-gate",
  "owlwarden-plugin-host",
  "owlwarden-reporters",
+ "owlwarden-seal",
  "owlwarden-static",
  "owlwarden-transport",
  "serde",
@@ -1413,7 +1432,7 @@ dependencies = [
 
 [[package]]
 name = "owlwarden-plugin-host"
-version = "1.1.0"
+version = "1.2.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -1431,7 +1450,7 @@ dependencies = [
 
 [[package]]
 name = "owlwarden-reporters"
-version = "1.1.0"
+version = "1.2.0"
 dependencies = [
  "anstream",
  "anstyle",
@@ -1441,12 +1460,29 @@ dependencies = [
  "owlwarden-static",
  "serde",
  "serde_json",
+ "tempfile",
  "tokio",
 ]
 
 [[package]]
+name = "owlwarden-seal"
+version = "1.2.0"
+dependencies = [
+ "ed25519-dalek",
+ "owlwarden-core",
+ "owlwarden-detectors",
+ "owlwarden-static",
+ "rand_core 0.6.4",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tempfile",
+ "thiserror",
+]
+
+[[package]]
 name = "owlwarden-static"
-version = "1.1.0"
+version = "1.2.0"
 dependencies = [
  "async-trait",
  "globset",
@@ -1457,6 +1493,7 @@ dependencies = [
  "oxc_ast_visit",
  "oxc_parser",
  "oxc_span",
+ "oxc_syntax",
  "serde",
  "serde_json",
  "tempfile",
@@ -1466,7 +1503,7 @@ dependencies = [
 
 [[package]]
 name = "owlwarden-transport"
-version = "1.1.0"
+version = "1.2.0"
 dependencies = [
  "async-trait",
  "futures-executor",

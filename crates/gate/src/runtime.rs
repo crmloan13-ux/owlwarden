@@ -17,8 +17,8 @@ use owlwarden_core::suppression::SuppressionPolicy;
 use owlwarden_static::runner::{ScanRequest, scan_project_with};
 
 use crate::decision::GateDecision;
-use crate::event::GateEvent;
-use crate::policy::{GateOutcome, GatePolicy, ProjectPosture, decide};
+use crate::event::{GateEvent, GateEventKind};
+use crate::policy::{GateOutcome, GatePolicy, ProjectPosture, SealPosture, decide_with_seal};
 
 /// The preset a gate scan runs.
 ///
@@ -49,6 +49,14 @@ pub struct GateRequest<'a> {
     /// What the scanned project's config asked for. Tightenings are applied;
     /// loosenings are refused and reported.
     pub project_posture: ProjectPosture,
+    /// A trust root file for the seal's detached signature.
+    ///
+    /// Operator-supplied, and never a path inside the scanned tree: a root the
+    /// repository can write is a root that verifies whatever the repository
+    /// signed. `None` leaves `OWLWARDEN_SEAL_TRUST` as the only source.
+    pub seal_trust_file: Option<&'a Path>,
+    /// Whether an unsigned or badly-signed seal is a failure.
+    pub require_signed_seal: bool,
 }
 
 /// Runs a scoped scan and returns the decision.
@@ -66,7 +74,16 @@ pub async fn run(request: GateRequest<'_>) -> GateDecision {
         Err(message) => GateOutcome::Failed(message),
     };
 
-    decide(request.event, outcome, &policy).with_rejections(rejections)
+    let seal = (policy.seal != SealPosture::Off).then(|| {
+        verify_seal(
+            request.project_root,
+            request.event,
+            request.seal_trust_file,
+            request.require_signed_seal,
+        )
+    });
+
+    decide_with_seal(request.event, outcome, &policy, seal.as_ref()).with_rejections(rejections)
 }
 
 async fn scan(
@@ -94,6 +111,11 @@ async fn scan(
             preset: GATE_PRESET.to_owned(),
             dirty_paths: None,
             scoped_paths: scoped,
+            // A gate never reads outside the project root. `--include-user-config`
+            // is an operator's decision about their own machine, and the gate
+            // runs on a keystroke path against a tree that may not be theirs.
+            include_user_config: false,
+            home_override: None,
         },
         // A gate that honoured a baseline would be a gate the repository can
         // pre-approve its own findings into.
@@ -125,6 +147,93 @@ async fn scan(
     )
     .await
     .map_err(|error| error.to_string())
+}
+
+/// Verifying `.owlwarden/surface.lock`, as the gate needs to see it.
+///
+/// Lives here rather than in the caller so the npm CLI and the standalone
+/// binary cannot answer differently — the same reason the scan does.
+///
+/// Never fails: every way this can go wrong is a [`SealState`] the decision
+/// layer already knows how to render. A seal that cannot be read is not a clean
+/// seal, and returning an error would leave two callers to invent that policy
+/// separately.
+#[must_use]
+pub fn verify_seal(
+    project_root: &Path,
+    event: &GateEvent,
+    trust_file: Option<&Path>,
+    require_signature: bool,
+) -> crate::policy::SealState {
+    use owlwarden_seal::{diff, extract, signature, store};
+
+    let Ok((lock, bytes)) = store::load(project_root) else {
+        // Absent, oversized, malformed, or written under a schema we do not
+        // know. All four mean the same thing to a verifier: there is no record
+        // to compare against.
+        return crate::policy::SealState::default();
+    };
+
+    let signature_status = signature::verify_detached(
+        &bytes,
+        signature::read_signature(&store::signature_path(project_root)).as_deref(),
+        trust_file,
+    );
+    let signature_rejected =
+        require_signature && signature_status != signature::SignatureStatus::Verified;
+
+    let Ok(provider) = owlwarden_static::FsSourceProvider::new(project_root) else {
+        return crate::policy::SealState {
+            present: true,
+            signature_rejected,
+            ..crate::policy::SealState::default()
+        };
+    };
+    let workspace = owlwarden_static::agentws::AgentWorkspace::load(&provider)
+        .unwrap_or_else(|error| owlwarden_static::agentws::AgentWorkspace::unwalkable(&error));
+    let current = extract::extract(&workspace);
+    let mut comparison = diff::compare(&lock, &current, &extract::engine_stamp().catalogue_digest);
+
+    // A mid-session config change is judged on the file that changed. Reporting
+    // drift elsewhere in the same breath would deny an edit for something the
+    // agent did not do, and a gate that denies for reasons the developer cannot
+    // connect to their action is a gate they turn off.
+    if event.kind == GateEventKind::ConfigChanged && !event.paths.is_empty() {
+        let mut scoped = diff::SurfaceDiff {
+            changes: Vec::new(),
+            ..comparison.clone()
+        };
+        for path in event.paths.iter().take(crate::event::MAX_EVENT_PATHS) {
+            scoped.changes.extend(comparison.scoped_to(path).changes);
+        }
+        scoped.changes.dedup();
+        comparison = scoped;
+    }
+
+    crate::policy::SealState {
+        present: true,
+        automatic_addition: comparison.has_automatic_addition(),
+        catalogue_drifted: comparison.catalogue_drifted,
+        signature_rejected,
+        changes: comparison
+            .changes
+            .iter()
+            .map(|change| {
+                let location = change
+                    .location
+                    .as_deref()
+                    .map(|at| format!("  {at}"))
+                    .unwrap_or_default();
+                format!(
+                    "{} {:<12} {}  {}{location}",
+                    change.kind.marker(),
+                    change.category,
+                    change.key,
+                    change.detail
+                )
+            })
+            .collect(),
+    }
 }
 
 #[cfg(test)]
@@ -172,6 +281,8 @@ mod tests {
             session_paths: session.iter().map(|p| (*p).to_owned()).collect(),
             policy: GatePolicy::default(),
             project_posture: posture,
+            seal_trust_file: None,
+            require_signed_seal: false,
         })
         .await
     }
@@ -330,6 +441,8 @@ mod tests {
             session_paths: Vec::new(),
             policy: GatePolicy::default(),
             project_posture: ProjectPosture::default(),
+            seal_trust_file: None,
+            require_signed_seal: false,
         })
         .await;
         assert_eq!(

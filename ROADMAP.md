@@ -221,7 +221,7 @@ changelog and upgrade guide exist. Third-party plugins in the wild are a
 consequence of the freeze, not a file we can commit. Hard CI perf gates and
 cosign remain later — stated so 1.0.0 does not overclaim.
 
-## v1.1 — The agent surface and the gate — **this release**
+## v1.1 — The agent surface and the gate — **shipped**
 
 **Goal:** answer the second question the same repository now raises — *is the
 coding agent that works in it being told to do something hostile?* — and turn a
@@ -273,7 +273,81 @@ The number that is not a target: rule count. Twenty-five is not a step toward
 five thousand, and the second surface exists because nothing else reads it —
 not to make the first number larger.
 
-## Beyond 1.1
+## v1.2 — Prove it — **this release**
+
+**Goal:** 1.1 answered *what is here*. This release answers the three questions
+a person asks immediately afterwards, and that no scanner in this category
+answers well — *what changed*, *which of these matters*, and *how often are you
+wrong?*
+([ADR 0027](docs/adr/0027-workspace-seal.md),
+[ADR 0028](docs/adr/0028-effective-configuration.md),
+[ADR 0029](docs/adr/0029-exposure-model.md),
+[ADR 0030](docs/adr/0030-published-benchmark.md),
+[ADR 0031](docs/adr/0031-runtime-overlay.md)).
+
+**No new rules.** The instinct after 1.1 is to grow the catalogue, and it is
+wrong twice over: rule count is a race against tools with a decade's head start,
+and the catalogue was never the binding constraint on the user's experience.
+Twenty-five rules on a real repository produce a flat list, no way to tell
+tomorrow's scan from today's, and no basis for deciding whether the twelve
+mediums are worth an afternoon.
+
+Delivered:
+
+- **`exposure`**, a third axis on every application finding, computed from route
+  resolution and auth-gate recognition declared per `FrameworkProfile`. It fails
+  loud — `authenticated` requires a positively identified gate — and the
+  fixtures assert the *direction*: for every framework, deleting the gate must
+  never produce `authenticated`.
+- **`owlwarden seal`**, a lockfile for the agent execution surface, with
+  structured extraction so a diff reads as a sentence. Wired into the gate
+  (`--seal advisory|strict`), CI, and both CLIs.
+- **`owlwarden effective`** and the `shadowed` scope: agent configuration
+  resolved the way the host does, with the user tier read only under an explicit
+  flag and its contents excluded from every output by construction.
+- **Runtime as an overlay**, five deltaed rules, and a build invariant that
+  makes the *absence* of a delta a positive claim. Four frameworks join, taking
+  the matrix to sixteen.
+- **`owlwarden bench`**: the harness, the corpus discipline enforced on load,
+  and the threshold gate. The corpus is empty, and the tooling says so rather
+  than publishing a number computed from our own fixtures.
+
+**A pentest pass over the new surface**, in the same spirit as 1.1's over the
+old. Forty-nine adversarial tests, and the lesson repeated: the one real finding
+— unclamped gate evidence reaching a terminal, a SARIF result, and a
+pull-request comment — was reachable only because a module specifier is a string
+literal and a Unix filename can hold anything. It was found by asking *what can
+the attacker write*, not by reading the code again.
+
+**What this release is not.** Not a taint engine — exposure asks whether code is
+reachable from a request, not whether attacker data reaches a sink. `Confirmed`
+still requires a running target. The seal is not a defence against an attacker
+who already has code execution. No hosted anything, and no model in the engine.
+
+**Known gap, stated rather than deferred quietly:** `/benchmark/` publishes
+nothing yet, because labelling real repositories is judgement work that has not
+been done. The harness, the discipline, and the gate are in place and tested;
+the corpus is the schedule risk, and it is the next thing.
+
+## Beyond 1.2
+
+Carried forward from 1.1, plus what this release makes newly reachable:
+exposure-aware autofix ordering — apply `Safe` fixes on internet-reachable
+routes first, verify, then the rest; and a second language, which is still the
+precondition for calling the parsing layer generic and which the runtime overlay
+quietly rehearses, since separating *what the code is* from *where it runs* is
+the same separation a second language needs.
+
+Still named as out of scope: scanning agent configuration inside `node_modules`
+(`vet --deep` is designed and not built); a policy file for org-wide floors;
+`init --harden`; plugin-authored rules on the agent surface, which needs an RFC;
+and any enforcement at the model layer rather than the process layer.
+
+## Beyond 1.1 — as it stood at that release
+
+Kept for the record. Three items on it landed in 1.2 (effective configuration
+across a host's tiers, and two frameworks' worth of the parsing-layer
+groundwork); the rest is folded into *Beyond 1.2* above.
 
 Candidate directions, in no particular order: GraphQL and gRPC awareness;
 authenticated scan flows; frameworks outside the Node ecosystem, which needs a

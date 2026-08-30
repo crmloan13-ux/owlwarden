@@ -30,6 +30,7 @@ function reportOf(findings: Finding[], truncated = false): Report {
       preset: "quick",
     },
     summary: { high: 0, medium: 0, low: 0, info: 0 },
+    exposureSummary: { internet: 0, authenticated: 0, internal: 0, unknown: 0 },
     findings,
     suppressedCount: 0,
     suppressions: [],

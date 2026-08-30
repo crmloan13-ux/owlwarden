@@ -88,6 +88,26 @@ const MATRIX: &[Row] = &[
         vulnerable: "vulnerable/gatsby-api",
         clean: "should-not-fire/gatsby-api-clean",
     },
+    Row {
+        framework: "sveltekit",
+        vulnerable: "vulnerable/sveltekit-api",
+        clean: "should-not-fire/sveltekit-api-clean",
+    },
+    Row {
+        framework: "tanstack-start",
+        vulnerable: "vulnerable/tanstack-start-api",
+        clean: "should-not-fire/tanstack-start-api-clean",
+    },
+    Row {
+        framework: "solidstart",
+        vulnerable: "vulnerable/solidstart-api",
+        clean: "should-not-fire/solidstart-api-clean",
+    },
+    Row {
+        framework: "elysia",
+        vulnerable: "vulnerable/elysia-api",
+        clean: "should-not-fire/elysia-api-clean",
+    },
 ];
 
 fn fixture(relative: &str) -> PathBuf {

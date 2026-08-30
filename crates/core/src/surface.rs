@@ -24,7 +24,7 @@
 //!
 //! ```
 //! # use owlwarden_core::surface::Surface;
-//! assert_eq!(Surface::WebApp.profiles().len(), 12);
+//! assert_eq!(Surface::WebApp.profiles().len(), 16);
 //! assert_eq!(Surface::AgentWorkspace.profiles().len(), 7);
 //! ```
 
@@ -52,6 +52,14 @@ pub const SUPPORTED_FRAMEWORKS: &[Framework] = &[
     Framework::ASTRO,
     Framework::REMIX,
     Framework::GATSBY,
+    // Added in 1.2 alongside the runtime overlay. These four are the frameworks
+    // most likely to be on a non-Node runtime, so the overlay and the new
+    // profiles exercise each other
+    // ([ADR 0031](../../../docs/adr/0031-runtime-overlay.md) §5).
+    Framework::SVELTEKIT,
+    Framework::TANSTACK_START,
+    Framework::SOLIDSTART,
+    Framework::ELYSIA,
 ];
 
 /// The agent hosts every `AgentWorkspace` rule is expected to have remediation

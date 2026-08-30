@@ -330,6 +330,26 @@ fn remediation() -> Remediation {
             "console.info({ event: 'login_attempt', userId })\n\
          // never: console.info({ password: req.body.password })",
         )
+    .manual(
+        Framework::SVELTEKIT,
+        "Log that a field was present, not the field.",
+        "console.info({ hasPassword: Boolean(body.password) })",
+    )
+    .manual(
+        Framework::TANSTACK_START,
+        "Log that a field was present, not the field.",
+        "console.info({ hasPassword: Boolean(body.password) })",
+    )
+    .manual(
+        Framework::SOLIDSTART,
+        "Log that a field was present, not the field.",
+        "console.info({ hasPassword: Boolean(body.password) })",
+    )
+    .manual(
+        Framework::ELYSIA,
+        "Log that a field was present, not the field. Elysia's request logger sees the same object.",
+        "console.info({ hasPassword: Boolean(body.password) })",
+    )
 }
 
 /// Every framework's fix, for `owlwarden explain`.

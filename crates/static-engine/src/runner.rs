@@ -207,6 +207,7 @@ pub async fn scan_project_with(
         routes_probed: 0,
         preset: settings.preset.clone(),
         config_files_scanned: 0,
+        runtime: None,
         diff_scope: request.diff_scope.clone(),
     };
 
@@ -223,6 +224,7 @@ pub async fn scan_project_with(
     let stats = engine.stats();
     report.target.files_scanned = stats.files_scanned;
     report.target.config_files_scanned = stats.config_files_scanned;
+    report.target.runtime.clone_from(&stats.runtime);
     // Per-file caps live inside the engine; the scheduler only sees the
     // returned Vec. Surface truncation so CI cannot go green on a partial scan.
     if stats.truncated {

@@ -172,7 +172,7 @@
 <span class="dim">5 │</span> async function charge(amountCents) {</div>
 <p>
   This finding comes from the Sails.js fixture in the owlwarden test
-  suite.
+  suite, in <code>/billing</code>.
   This literal carries the prefix of a Stripe live secret key, so it is a real credential rather than a placeholder. It is in the repository&#39;s history and in every clone; deleting the line does not revoke it.
 </p>
 
@@ -184,6 +184,8 @@ module.exports = {
     apiKey: process.env.API_KEY,
   },
 }</code></pre>
+
+
 
 <h3>If you are not using Sails.js</h3>
 <p>Move the value into an environment variable or a secret manager, and rotate it - once committed it is in the history and in every clone, so removing the line does not revoke it.</p>

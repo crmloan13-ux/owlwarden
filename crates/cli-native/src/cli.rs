@@ -5,7 +5,7 @@
 //! dependency its users have to trust. If the surface grows past what fits in
 //! this file, that trade-off should be revisited in a PR, not stretched.
 
-use owlwarden_core::finding::{Confidence, Severity};
+use owlwarden_core::finding::{AgentHost, Confidence, Exposure, Severity};
 
 /// What the user asked us to do.
 #[derive(Debug, PartialEq, Eq)]
@@ -33,6 +33,12 @@ pub enum Command {
         min_confidence: Option<Confidence>,
         /// At a turn boundary, scan what changed since this ref.
         since: Option<String>,
+        /// How hard to react to agent-surface drift.
+        seal: owlwarden_gate::SealPosture,
+        /// A trust root file for the seal's signature. Never inside the tree.
+        seal_trust: Option<String>,
+        /// Refuse an unsigned or badly-signed seal.
+        require_signed_seal: bool,
     },
     /// Re-scan on change (static only).
     Watch(Box<ScanArgs>),
@@ -43,10 +49,47 @@ pub enum Command {
     },
     /// Print what the shipped rules cover, and what they do not.
     Coverage {
+        /// Project to also report the exposure distribution and seal state for.
+        ///
+        /// `None` prints the compiled-in tables only, which is what a reader
+        /// evaluating the tool wants. A path adds what this repository looks
+        /// like through them, which is what a reader who already installed it
+        /// wants.
+        path: Option<String>,
         /// Emit JSON instead of text.
         json: bool,
         /// Force colour off.
         no_color: bool,
+        /// Restrict output to ASCII.
+        ascii: bool,
+    },
+    /// Record or verify the agent execution surface.
+    Seal(Box<SealArgs>),
+    /// Score the engine against the labelled corpus.
+    Bench {
+        /// Corpus directory. Defaults to `bench/corpus`.
+        path: String,
+        /// Score only this rule.
+        rule: Option<String>,
+        /// Emit JSON instead of text.
+        json: bool,
+        /// Write the report here instead of stdout.
+        out: Option<String>,
+        /// Thresholds file. Defaults to `bench/thresholds.toml`.
+        thresholds: Option<String>,
+    },
+    /// Print the agent configuration a host would actually resolve.
+    Effective {
+        /// Project root.
+        path: String,
+        /// Which host's resolution order to follow.
+        host: String,
+        /// Restrict output to one key.
+        key: Option<String>,
+        /// Emit JSON instead of text.
+        json: bool,
+        /// Also read the user and managed tiers.
+        include_user_config: bool,
         /// Restrict output to ASCII.
         ascii: bool,
     },
@@ -70,6 +113,77 @@ pub enum Command {
     },
 }
 
+/// What `owlwarden seal` should do.
+///
+/// Four verbs and one file. Deliberately not four commands: they all operate on
+/// the same lockfile, and a reader who knows `seal` should not have to learn
+/// `seal-verify` as a separate thing.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum SealMode {
+    /// Write or update the lockfile. Interactive; requires a TTY or `--yes`.
+    #[default]
+    Write,
+    /// Exit 0 if unchanged, 1 on drift, 2 if it could not run.
+    Verify,
+    /// Show what changed without writing.
+    Diff,
+    /// Record a finding as deliberately accepted.
+    Accept,
+}
+
+/// Options for `owlwarden seal`.
+///
+/// Independent presentation and policy switches, the same shape and for the
+/// same reason as [`ScanArgs`]: folding them into an enum would mean inventing
+/// combinations the user cannot express on a command line.
+#[allow(clippy::struct_excessive_bools)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SealArgs {
+    /// Project root.
+    pub path: String,
+    /// What to do.
+    pub mode: SealMode,
+    /// Emit JSON instead of text.
+    pub json: bool,
+    /// Proceed without a TTY.
+    ///
+    /// Sealing is never unattended: this is the whole defence against the
+    /// obvious objection that whatever wrote the drift can also run `seal`. It
+    /// is a partial defence, and `SECURITY.md` says so.
+    pub yes: bool,
+    /// `--accept <fingerprint> --reason <text>` pairs, in the order given.
+    ///
+    /// Repeatable, because a first seal on a real repository often has more
+    /// than one deliberate finding in it, and a flag that could only accept one
+    /// per invocation would deadlock: `seal` refuses while any high finding is
+    /// unaccepted, so there would be no seal to accept the second into.
+    pub accept: Vec<(String, String)>,
+    /// A trust root file for signature verification.
+    pub trust: Option<String>,
+    /// Refuse an unsigned or badly-signed seal.
+    pub require_signed: bool,
+    /// Force colour off.
+    pub no_color: bool,
+    /// Restrict output to ASCII.
+    pub ascii: bool,
+}
+
+impl Default for SealArgs {
+    fn default() -> Self {
+        Self {
+            path: ".".to_owned(),
+            mode: SealMode::Write,
+            json: false,
+            yes: false,
+            accept: Vec::new(),
+            trust: None,
+            require_signed: false,
+            no_color: false,
+            ascii: false,
+        }
+    }
+}
+
 /// Options for `owlwarden scan`.
 ///
 /// Yes, that is a lot of booleans. They are independent presentation switches,
@@ -86,6 +200,9 @@ pub struct ScanArgs {
     pub format: String,
     /// Severity at which findings fail the run.
     pub fail_on: Severity,
+    /// Exposure at or above which findings fail the run, independently of
+    /// [`Self::fail_on`]. `None` leaves the gate off.
+    pub fail_on_exposure: Option<Exposure>,
     /// Findings below this confidence are dropped.
     pub min_confidence: Confidence,
     /// Write the report here instead of stdout.
@@ -139,6 +256,13 @@ pub struct ScanArgs {
     pub budget: Option<usize>,
     /// `--format agent`: hard cap on findings.
     pub max_findings: Option<usize>,
+    /// Read the user- and managed-configuration tiers so a project key
+    /// overridden by a higher one reports `shadowed`.
+    ///
+    /// Off by default. Without it nothing outside the project root is opened,
+    /// and the flag's documentation has to be blunt about that, because a flag
+    /// that changes what a scanner *reads* is a flag people misunderstand.
+    pub include_user_config: bool,
     /// True for `vet`: the target is not yours, so nothing in it may influence
     /// the answer.
     pub vet: bool,
@@ -154,6 +278,11 @@ impl Default for ScanArgs {
             // keeps that from being unusable, since `Possible` findings never
             // fail on their own.
             fail_on: Severity::Info,
+            // Off by default. `--fail-on info` already fails on everything the
+            // confidence floor lets through, so switching this on by default
+            // would change nothing except for teams who *raised* `--fail-on`,
+            // for whom it would silently undo the choice they made.
+            fail_on_exposure: None,
             min_confidence: Confidence::Possible,
             out: None,
             baseline: None,
@@ -180,6 +309,7 @@ impl Default for ScanArgs {
             paths: Vec::new(),
             budget: None,
             max_findings: None,
+            include_user_config: false,
             vet: false,
         }
     }
@@ -230,21 +360,30 @@ pub fn parse(args: &[String]) -> Result<Command, ArgError> {
         "scan" => parse_scan(rest).map(|args| Command::Scan(Box::new(args))),
         "vet" => parse_vet(rest).map(|args| Command::Vet(Box::new(args))),
         "gate" => parse_gate(rest),
+        "seal" => parse_seal(rest).map(|args| Command::Seal(Box::new(args))),
+        "effective" => parse_effective(rest),
+        "bench" => parse_bench(rest),
         "watch" => parse_scan(rest).map(|args| Command::Watch(Box::new(args))),
         "rules" => Ok(Command::Rules {
             json: rest.any(|arg| arg == "--json"),
         }),
         "coverage" => {
             let (mut json, mut no_color, mut ascii) = (false, false, false);
+            let mut path: Option<String> = None;
             for arg in rest {
                 match arg.as_str() {
                     "--json" => json = true,
                     "--no-color" => no_color = true,
                     "--ascii" => ascii = true,
-                    other => return Err(ArgError::UnknownOption(other.to_owned())),
+                    other if other.starts_with('-') => {
+                        return Err(ArgError::UnknownOption(other.to_owned()));
+                    }
+                    candidate if path.is_none() => path = Some(candidate.to_owned()),
+                    extra => return Err(ArgError::UnknownOption(extra.to_owned())),
                 }
             }
             Ok(Command::Coverage {
+                path,
                 json,
                 no_color,
                 ascii,
@@ -318,6 +457,8 @@ struct RawScan {
     baseline: Option<String>,
     write_baseline: Option<String>,
     fail_on: Option<Severity>,
+    fail_on_exposure: Option<Exposure>,
+    include_user_config: bool,
     min_confidence: Option<Confidence>,
     report_suppressions: bool,
     ci: bool,
@@ -410,6 +551,13 @@ fn parse_vet<'a>(args: impl Iterator<Item = &'a String>) -> Result<ScanArgs, Arg
         ("--osv", parsed.osv),
         ("--baseline", parsed.baseline.is_some()),
         ("--allow-suppressions", parsed.allow_suppressions),
+        // Not for a privacy reason — tier contents never reach any output —
+        // but because the answer would be wrong in the reassuring direction.
+        // `vet` reads a repository somebody else wrote. Downgrading its
+        // dangerous hook to `shadowed` because *your* settings happen to
+        // override it says nothing about the next reader, who is the person
+        // `vet` exists to warn.
+        ("--include-user-config", parsed.include_user_config),
     ] {
         if set {
             return Err(ArgError::InvalidValue {
@@ -439,6 +587,9 @@ fn parse_gate<'a>(args: impl Iterator<Item = &'a String>) -> Result<Command, Arg
     let mut fail_on: Option<Severity> = None;
     let mut min_confidence: Option<Confidence> = None;
     let mut since: Option<String> = None;
+    let mut seal = owlwarden_gate::SealPosture::Off;
+    let mut seal_trust: Option<String> = None;
+    let mut require_signed_seal = false;
     let mut args = args.peekable();
 
     while let Some(arg) = args.next() {
@@ -447,6 +598,23 @@ fn parse_gate<'a>(args: impl Iterator<Item = &'a String>) -> Result<Command, Arg
         match arg.as_str() {
             "--host" => host = Some(value("--host")?),
             "--since" => since = Some(value("--since")?),
+            "--seal" => {
+                seal = enumerated(
+                    "--seal",
+                    &value("--seal")?,
+                    owlwarden_gate::SealPosture::from_str_opt,
+                    "off, advisory, strict",
+                )?;
+            }
+            "--seal-trust" => seal_trust = Some(value("--seal-trust")?),
+            "--require-signed-seal" => {
+                require_signed_seal = true;
+                if seal == owlwarden_gate::SealPosture::Off {
+                    // Asking for a signature and not asking for verification is
+                    // a contradiction, and the useful reading is the strict one.
+                    seal = owlwarden_gate::SealPosture::Advisory;
+                }
+            }
             "--fail-on" => {
                 let text = value("--fail-on")?;
                 fail_on = Some(Severity::from_str_opt(&text).ok_or(ArgError::InvalidValue {
@@ -488,10 +656,225 @@ fn parse_gate<'a>(args: impl Iterator<Item = &'a String>) -> Result<Command, Arg
         fail_on,
         min_confidence,
         since,
+        seal,
+        seal_trust,
+        require_signed_seal,
     })
 }
 
+/// Parses the flags of `bench`.
+fn parse_bench<'a>(args: impl Iterator<Item = &'a String>) -> Result<Command, ArgError> {
+    let mut path: Option<String> = None;
+    let mut rule: Option<String> = None;
+    let mut json = false;
+    let mut out: Option<String> = None;
+    let mut thresholds: Option<String> = None;
+    let mut args = args.peekable();
+
+    while let Some(arg) = args.next() {
+        let mut value =
+            |option: &'static str| args.next().cloned().ok_or(ArgError::MissingValue(option));
+        match arg.as_str() {
+            "--rule" => rule = Some(value("--rule")?),
+            "--out" => out = Some(value("--out")?),
+            "--thresholds" => thresholds = Some(value("--thresholds")?),
+            "--json" => json = true,
+            "--format" => {
+                let format = value("--format")?;
+                match format.as_str() {
+                    "json" => json = true,
+                    "pretty" | "text" => json = false,
+                    _ => {
+                        return Err(ArgError::InvalidValue {
+                            option: "--format",
+                            value: format,
+                            expected: "pretty or json",
+                        });
+                    }
+                }
+            }
+            "--compare" => {
+                // Named rather than silently ignored. A comparison run has
+                // rules — the alternative's exact version and invocation
+                // published, run in a configuration its own documentation
+                // recommends, and every row where we do worse shown in the same
+                // font size. None of that is implemented, and a flag that
+                // pretended otherwise would produce exactly the dishonest
+                // benchmark ADR 0030 §5 refuses to publish.
+                let tool = value("--compare")?;
+                return Err(ArgError::InvalidValue {
+                    option: "--compare",
+                    value: tool,
+                    expected: "not implemented. A comparison is only publishable under the \
+                               rules in ADR 0030 §5, and running one that does not meet them \
+                               would be worse than publishing none",
+                });
+            }
+            other if other.starts_with('-') => {
+                return Err(ArgError::UnknownOption(other.to_owned()));
+            }
+            candidate if path.is_none() => path = Some(candidate.to_owned()),
+            extra => return Err(ArgError::UnknownOption(extra.to_owned())),
+        }
+    }
+
+    Ok(Command::Bench {
+        path: path.unwrap_or_else(|| "bench/corpus".to_owned()),
+        rule,
+        json,
+        out,
+        thresholds,
+    })
+}
+
+/// Parses the flags of `effective`.
+fn parse_effective<'a>(args: impl Iterator<Item = &'a String>) -> Result<Command, ArgError> {
+    let mut path: Option<String> = None;
+    let mut host = AgentHost::CLAUDE_CODE.as_str().to_owned();
+    let mut key: Option<String> = None;
+    let mut json = false;
+    let mut include_user_config = false;
+    let mut ascii = false;
+    let mut args = args.peekable();
+
+    while let Some(arg) = args.next() {
+        let mut value =
+            |option: &'static str| args.next().cloned().ok_or(ArgError::MissingValue(option));
+        match arg.as_str() {
+            "--host" => host = value("--host")?,
+            "--key" => key = Some(value("--key")?),
+            "--format" => {
+                let format = value("--format")?;
+                match format.as_str() {
+                    "json" => json = true,
+                    "pretty" | "text" => json = false,
+                    _ => {
+                        return Err(ArgError::InvalidValue {
+                            option: "--format",
+                            value: format,
+                            expected: "pretty or json",
+                        });
+                    }
+                }
+            }
+            "--json" => json = true,
+            "--include-user-config" => include_user_config = true,
+            "--ascii" => ascii = true,
+            other if other.starts_with('-') => {
+                return Err(ArgError::UnknownOption(other.to_owned()));
+            }
+            candidate if path.is_none() => path = Some(candidate.to_owned()),
+            extra => return Err(ArgError::UnknownOption(extra.to_owned())),
+        }
+    }
+
+    if AgentHost::parse(&host).is_err() {
+        return Err(ArgError::InvalidValue {
+            option: "--host",
+            value: host,
+            expected: "claude-code, cursor, vscode, copilot, codex, gemini-cli, generic",
+        });
+    }
+
+    Ok(Command::Effective {
+        path: path.unwrap_or_else(|| ".".to_owned()),
+        host,
+        key,
+        json,
+        include_user_config,
+        ascii,
+    })
+}
+
+/// Parses the flags of `seal`.
+fn parse_seal<'a>(args: impl Iterator<Item = &'a String>) -> Result<SealArgs, ArgError> {
+    let mut parsed = SealArgs::default();
+    let mut path: Option<String> = None;
+    let mut modes: Vec<SealMode> = Vec::new();
+    let mut accepted: Vec<(String, String)> = Vec::new();
+    let mut args = args.peekable();
+
+    while let Some(arg) = args.next() {
+        let mut value =
+            |option: &'static str| args.next().cloned().ok_or(ArgError::MissingValue(option));
+        match arg.as_str() {
+            "--verify" => modes.push(SealMode::Verify),
+            "--diff" => modes.push(SealMode::Diff),
+            "--accept" => {
+                if !modes.contains(&SealMode::Accept) {
+                    modes.push(SealMode::Accept);
+                }
+                accepted.push((value("--accept")?, String::new()));
+            }
+            "--reason" => {
+                let reason = value("--reason")?;
+                let Some(last) = accepted.last_mut() else {
+                    return Err(ArgError::InvalidValue {
+                        option: "--reason",
+                        value: reason,
+                        expected: "--accept <fingerprint> before --reason",
+                    });
+                };
+                last.1 = reason;
+            }
+            "--trust" => parsed.trust = Some(value("--trust")?),
+            "--require-signed-seal" => parsed.require_signed = true,
+            "--json" => parsed.json = true,
+            "--yes" | "-y" => parsed.yes = true,
+            "--no-color" => parsed.no_color = true,
+            "--ascii" => parsed.ascii = true,
+            other if other.starts_with('-') => {
+                return Err(ArgError::UnknownOption(other.to_owned()));
+            }
+            candidate if path.is_none() => path = Some(candidate.to_owned()),
+            extra => return Err(ArgError::UnknownOption(extra.to_owned())),
+        }
+    }
+
+    if modes.len() > 1 {
+        return Err(ArgError::InvalidValue {
+            option: "seal",
+            value: "more than one mode".to_owned(),
+            expected: "at most one of --verify, --diff, --accept",
+        });
+    }
+    parsed.mode = modes.first().copied().unwrap_or(SealMode::Write);
+    // The same rule suppressions live under. An acceptance nobody can explain
+    // is an acceptance nobody decided, and a seal is precisely where the
+    // decision is supposed to be written down.
+    if let Some((fingerprint, _)) = accepted.iter().find(|(_, reason)| reason.trim().is_empty()) {
+        return Err(ArgError::InvalidValue {
+            option: "--accept",
+            value: fingerprint.clone(),
+            expected: "--reason \"why this is deliberate\"",
+        });
+    }
+    parsed.accept = accepted;
+    if let Some(path) = path {
+        parsed.path = path;
+    }
+    Ok(parsed)
+}
+
 /// Parses the flags of `scan`.
+/// Parses a closed-set flag value, or reports the set it should have been in.
+///
+/// One helper for the three severity-shaped flags rather than three copies of
+/// the same six lines: the shape they share is "a word from a fixed list", and
+/// a user who mistypes one should get the same message whichever it was.
+fn enumerated<T>(
+    option: &'static str,
+    text: &str,
+    parse: impl Fn(&str) -> Option<T>,
+    expected: &'static str,
+) -> Result<T, ArgError> {
+    parse(text).ok_or_else(|| ArgError::InvalidValue {
+        option,
+        value: text.to_owned(),
+        expected,
+    })
+}
+
 fn parse_scan<'a>(args: impl Iterator<Item = &'a String>) -> Result<ScanArgs, ArgError> {
     let mut raw = RawScan::default();
     let mut args = args.peekable();
@@ -537,23 +920,30 @@ fn parse_scan<'a>(args: impl Iterator<Item = &'a String>) -> Result<ScanArgs, Ar
                 apply_scoping_flag(&mut raw, arg, taken)?;
             }
             "--fail-on" => {
-                let text = value("--fail-on")?;
-                let level = Severity::from_str_opt(&text).ok_or(ArgError::InvalidValue {
-                    option: "--fail-on",
-                    value: text,
-                    expected: "high, medium, low, info",
-                })?;
-                raw.fail_on = Some(level);
+                raw.fail_on = Some(enumerated(
+                    "--fail-on",
+                    &value("--fail-on")?,
+                    Severity::from_str_opt,
+                    "high, medium, low, info",
+                )?);
+            }
+            "--fail-on-exposure" => {
+                raw.fail_on_exposure = Some(enumerated(
+                    "--fail-on-exposure",
+                    &value("--fail-on-exposure")?,
+                    Exposure::from_str_opt,
+                    "internet, authenticated, internal, unknown",
+                )?);
             }
             "--min-confidence" => {
-                let text = value("--min-confidence")?;
-                let level = Confidence::from_str_opt(&text).ok_or(ArgError::InvalidValue {
-                    option: "--min-confidence",
-                    value: text,
-                    expected: "confirmed, likely, possible",
-                })?;
-                raw.min_confidence = Some(level);
+                raw.min_confidence = Some(enumerated(
+                    "--min-confidence",
+                    &value("--min-confidence")?,
+                    Confidence::from_str_opt,
+                    "confirmed, likely, possible",
+                )?);
             }
+            "--include-user-config" => raw.include_user_config = true,
             "--no-color" => raw.no_color = true,
             "--ascii" => raw.ascii = true,
             "--quiet" | "-q" => raw.quiet = true,
@@ -569,6 +959,16 @@ fn parse_scan<'a>(args: impl Iterator<Item = &'a String>) -> Result<ScanArgs, Ar
         }
     }
 
+    check_scan_combinations(&raw)?;
+    Ok(raw.into_scan_args())
+}
+
+/// Flag combinations that parse individually and contradict each other.
+///
+/// Split out of [`parse_scan`] so the match arms and the coherence rules do not
+/// share a screen: the arms answer "what did the user type", these answer "can
+/// they mean it together".
+fn check_scan_combinations(raw: &RawScan) -> Result<(), ArgError> {
     if raw.allow_active && raw.target.is_none() {
         return Err(ArgError::InvalidValue {
             option: "--allow-active",
@@ -593,8 +993,7 @@ fn parse_scan<'a>(args: impl Iterator<Item = &'a String>) -> Result<ScanArgs, Ar
             expected: "requires --osv-db",
         });
     }
-
-    Ok(raw.into_scan_args())
+    Ok(())
 }
 
 impl RawScan {
@@ -611,6 +1010,7 @@ impl RawScan {
                 }
             }),
             fail_on: self.fail_on.unwrap_or(defaults.fail_on),
+            fail_on_exposure: self.fail_on_exposure,
             min_confidence: self.min_confidence.unwrap_or(defaults.min_confidence),
             out: self.out,
             baseline: self.baseline,
@@ -637,6 +1037,7 @@ impl RawScan {
             paths: self.paths,
             budget: self.budget,
             max_findings: self.max_findings,
+            include_user_config: self.include_user_config,
             vet: false,
         }
     }
@@ -645,17 +1046,11 @@ impl RawScan {
 /// The help text.
 #[must_use]
 pub fn help_text() -> String {
-    let presets = owlwarden_detectors::PRESETS
-        .iter()
-        .map(|preset| {
-            format!(
-                "                     {:<14} {}",
-                preset.name, preset.description
-            )
-        })
-        .collect::<Vec<_>>()
-        .join("\n");
+    format!("{}{}", commands_help(), options_help())
+}
 
+/// The commands, and one paragraph each on what they are for.
+fn commands_help() -> String {
     format!(
         "owlwarden {version} — security scanner for Node apps
 
@@ -663,10 +1058,13 @@ USAGE
   owlwarden scan [PATH] [OPTIONS]
   owlwarden vet [PATH]                 check a repo before you open it
   owlwarden gate --host <HOST> [PATH]  hook entry point; event JSON on stdin
+  owlwarden seal [PATH] [OPTIONS]      lock the agent's execution surface
+  owlwarden effective [PATH] --host <HOST>   which file is deciding this?
+  owlwarden bench [CORPUS] [--rule R] [--json]   how often are we wrong?
   owlwarden watch [PATH] [OPTIONS]
   owlwarden osv update [PATH] [--out FILE]
   owlwarden rules [--json]
-  owlwarden coverage [--json] [--no-color] [--ascii]
+  owlwarden coverage [PATH] [--json] [--no-color] [--ascii]
   owlwarden explain <RULE_ID> [--json]
   owlwarden --version
 
@@ -684,6 +1082,57 @@ USAGE
         Exit codes with --host generic: 0 allow, 1 deny, 2 ask.
         Set OWLWARDEN_GATE_FAIL=closed to deny on a gate failure after an edit;
         before a command it always asks, and that is not configurable.
+        --seal off | advisory | strict  react to agent-surface drift
+        --seal-trust <FILE>             trust roots for the seal's signature
+        --require-signed-seal           refuse an unsigned or untrusted seal
+  seal — records .owlwarden/surface.lock: every file the agent loads out of the
+        working tree, by semantic digest, with its hooks, MCP servers, and
+        permission set extracted so a diff reads as a sentence.
+        --verify   exit 0 if unchanged, 1 on drift, 2 if it could not run
+        --diff     show what changed without writing, and never exit non-zero
+        --accept <FINGERPRINT> --reason <TEXT>  repeatable; both required
+        --trust <FILE>            trust roots for the detached signature
+        --require-signed-seal     an unsigned or untrusted seal fails --verify
+        --yes      proceed without a terminal
+        Sealing is never unattended: without a TTY it refuses unless --yes is
+        passed. That raises the cost for whatever wrote the drift; it does not
+        close the hole, and SECURITY.md says so.
+",
+        version = owlwarden_core::ENGINE_VERSION,
+    )
+}
+
+/// The option tables.
+fn options_help() -> String {
+    let presets = owlwarden_detectors::PRESETS
+        .iter()
+        .map(|preset| {
+            format!(
+                "                     {:<14} {}",
+                preset.name, preset.description
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    format!(
+        "
+  effective — `git config --show-origin` for your agent. Prints the resolved
+        configuration with provenance per key: which file won, and which lost.
+        --host <HOST>            whose resolution order to follow
+        --key <KEY>              one key rather than all of them
+        --include-user-config    also read the user and managed tiers
+        A value that won from outside the project root renders as
+        `(set by user settings)`. It is never printed.
+
+  bench — scores the engine against a labelled corpus of real repositories and
+        prints precision, recall, per-rule false positives, and wall time.
+        --rule <ID>          score one rule
+        --out <FILE>         write the report instead of printing it
+        --thresholds <FILE>  precision floors; default bench/thresholds.toml
+        Exit 1 when a floor is breached. The corpus discipline — two named
+        reviewers, disagreements recorded rather than resolved, repositories
+        pinned by SHA — is enforced when the corpus loads.
 
 SCAN OPTIONS
   --preset <NAME>      Rule bundle to run. Default: {default_preset}
@@ -697,10 +1146,18 @@ SCAN OPTIONS
   --out <FILE>         Write the report to a file instead of stdout
   --baseline <FILE>    Report only findings new since this baseline
   --write-baseline <F> Write current findings to a baseline file
+  --include-user-config  Resolve agent config against the user and managed
+                       tiers, so a project key a higher tier overrides reports
+                       `shadowed`. Without it NOTHING outside the project root
+                       is opened. Their contents never enter any output.
   --report-suppressions  List every inline suppression; flag stale ones
   --allow-suppressions Under --ci, honour inline suppressions (off by default)
   --allow-baseline     Under --ci, permit --baseline (off by default)
   --fail-on <LEVEL>    Exit 1 at this severity or above. Default: info
+  --fail-on-exposure <REACH>
+                       Exit 1 at this reachability or above: internet,
+                       authenticated, internal, unknown. Composes with
+                       --fail-on as an OR — either one trips the exit code.
   --min-confidence <L> Drop findings below this confidence. Default: possible
   --target <URL>       Probe this URL (passive GET/HEAD). Operator-only —
                        never read from project config
@@ -731,7 +1188,6 @@ Without --target / --osv, scans are static-only and never touch the network.
 With --target, only passive methods are used unless --allow-active; scope is
 deny-by-default. --osv talks only to api.osv.dev (package names/versions).
 ",
-        version = owlwarden_core::ENGINE_VERSION,
         default_preset = owlwarden_detectors::DEFAULT_PRESET,
     )
 }

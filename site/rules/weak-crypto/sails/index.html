@@ -172,7 +172,7 @@
 <span class="dim">7 │</span> }</div>
 <p>
   This finding comes from the Sails.js fixture in the owlwarden test
-  suite.
+  suite, in <code>/account</code>.
   This hash is fast, and speed is the attacker&#39;s advantage: a commodity GPU tries billions of candidates a second, so a leaked table of these hashes is a leaked table of the values behind them. Password hashing needs a deliberately slow algorithm with a per-value salt.
 </p>
 
@@ -190,6 +190,8 @@ const salt = randomBytes(16)
 const hash = await new Promise&lt;Buffer&gt;((resolve, reject) =&gt;
   scrypt(password, salt, 64, (error, key) =&gt; (error ? reject(error) : resolve(key))),
 )</code></pre>
+
+
 
 <h3>If you are not using Sails.js</h3>
 <p>Use a slow, salted hash for passwords and a cryptographic random source for tokens. Both are in the Node standard library; neither needs a dependency.</p>

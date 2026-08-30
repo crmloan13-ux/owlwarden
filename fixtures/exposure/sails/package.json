@@ -1,0 +1,8 @@
+{
+  "name": "fixture-exposure-sails",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "sails": "^1.5.0"
+  }
+}

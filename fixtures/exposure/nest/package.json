@@ -1,0 +1,9 @@
+{
+  "name": "fixture-exposure-nest",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@nestjs/core": "^10.0.0",
+    "@nestjs/passport": "^10.0.0"
+  }
+}

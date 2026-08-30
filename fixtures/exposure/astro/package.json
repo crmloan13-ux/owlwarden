@@ -1,0 +1,8 @@
+{
+  "name": "fixture-exposure-astro",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "astro": "^4.13.0"
+  }
+}

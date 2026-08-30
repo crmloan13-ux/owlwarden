@@ -172,7 +172,7 @@
 <span class="dim">24 │</span>     // cors-permissive: hand-rolled wildcard + credentials (detected reliably).</div>
 <p>
   This finding comes from the Sails.js fixture in the owlwarden test
-  suite.
+  suite, in <code>/auth</code>.
   This cookie is missing protections: httpOnly keeps the cookie out of reach of JavaScript, so a cross-site scripting bug cannot read the session; secure stops the cookie being sent over plain HTTP; sameSite stops the browser attaching the cookie to cross-site requests.
 </p>
 
@@ -183,6 +183,8 @@
   secure: process.env.NODE_ENV === &#39;production&#39;,
   sameSite: &#39;lax&#39;,
 })</code></pre>
+
+
 
 <h3>If you are not using Sails.js</h3>
 <p>Set httpOnly, secure, and sameSite when writing a cookie that carries anything the user would not want read or replayed.</p>

@@ -172,7 +172,7 @@
 <span class="dim">16 │</span>       headers: { &#39;Content-Type&#39;: &#39;application/json&#39; },</div>
 <p>
   This finding comes from the Astro fixture in the owlwarden test
-  suite, in <code> /api/proxy</code>.
+  suite, in <code>/api/proxy</code>.
   The destination of this request comes from the caller, so they choose which host the server connects to. That includes hosts they cannot reach themselves: the cloud metadata endpoint that hands out IAM credentials, internal services that skip authentication because they are &#39;not exposed&#39;, and anything bound to localhost.
 </p>
 
@@ -181,6 +181,20 @@
 <pre class="code"><code class="language-ts">const { url } = await request.json()
 const target = assertAllowedUrl(url)
 const upstream = await fetch(target, { redirect: &#39;error&#39; })</code></pre>
+
+<h2>On a different runtime</h2>
+<p>
+  The fix above is written for the runtime Astro usually runs on. These
+  are the runtimes where it would not run at all - an import that does not
+  exist, or an API the host does not have - and what to write instead.
+</p>
+<h3>Workers and other fetch-API runtimes</h3>
+<p>redirect: &#39;error&#39; is not honoured on this runtime. Use redirect: &#39;manual&#39; and refuse the response yourself, or an allowlisted host can redirect you to one that is not.</p>
+<pre class="code"><code class="language-ts">const url = assertAllowedUrl(input)
+const upstream = await fetch(url, { redirect: &#39;manual&#39; })
+if (upstream.status &gt;= 300 &amp;&amp; upstream.status &lt; 400) {
+  throw new Error(&#39;refusing to follow a redirect from an allowlisted host&#39;)
+}</code></pre>
 
 <h3>If you are not using Astro</h3>
 <p>Check the destination against an allowlist of hosts before fetching it. Blocklists do not work here: DNS rebinding, redirects, and IPv6-mapped addresses all defeat them.</p>

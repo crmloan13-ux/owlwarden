@@ -1,6 +1,13 @@
 import { parseArgs, type ParseArgsConfig } from "node:util";
 
-import { confidenceSchema, severitySchema, type Confidence, type Severity } from "@dointhai/owlwarden-sdk";
+import {
+  confidenceSchema,
+  exposureSchema,
+  severitySchema,
+  type Confidence,
+  type Exposure,
+  type Severity,
+} from "@dointhai/owlwarden-sdk";
 
 /**
  * Argument parsing, on top of Node's own `parseArgs`.
@@ -41,11 +48,52 @@ export type Cli =
   | { command: "plugin-scaffold"; name: string }
   | { command: "plugin-inspect"; path: string }
   | { command: "osv-update"; path: string; out?: string }
+  | { command: "seal"; options: SealCliOptions }
+  | { command: "effective"; options: EffectiveCliOptions }
   | { command: "help" }
   | { command: "version" };
 
 /** A scan report rendering target. */
 export type ReportFormat = "pretty" | "json" | "sarif" | "junit" | "md" | "agent";
+
+/** Everything `owlwarden effective` needs. */
+export interface EffectiveCliOptions {
+  /** Project root. */
+  path: string;
+  /** Which host's resolution order to follow. */
+  host: string;
+  /** Restrict the answer to one key. */
+  key?: string;
+  /** Emit JSON instead of text. */
+  json: boolean;
+  /** Also read the user and managed tiers. */
+  includeUserConfig: boolean;
+  /** Use box-drawing characters. */
+  unicode: boolean;
+}
+
+/** What `owlwarden seal` should do. */
+export type SealMode = "write" | "verify" | "diff" | "accept";
+
+/** Everything `owlwarden seal` needs. */
+export interface SealCliOptions {
+  /** Project root. */
+  path: string;
+  /** What to do. */
+  mode: SealMode;
+  /** Emit JSON instead of text. */
+  json: boolean;
+  /** Proceed without a terminal. */
+  yes: boolean;
+  /** `--accept <fingerprint> --reason <text>` pairs, in the order given. */
+  accept: { fingerprint: string; reason: string }[];
+  /** A trust root file for the detached signature. Never inside the tree. */
+  trust?: string;
+  /** Refuse an unsigned or badly-signed seal. */
+  requireSigned: boolean;
+  /** Restrict output to ASCII. */
+  ascii: boolean;
+}
 
 /** Everything `owlwarden gate` needs. */
 export interface GateCliOptions {
@@ -84,6 +132,11 @@ export interface ScanOptions {
   /** Stacked `--format` values from the CLI (deduped, order preserved). */
   formats?: ReportFormat[];
   failOn?: Severity;
+  /**
+   * Exposure at or above which findings fail the run, independently of
+   * {@link failOn}. Unset leaves the gate off.
+   */
+  failOnExposure?: Exposure;
   minConfidence?: Confidence;
   out?: string;
   /** Path to a baseline file; only new findings are reported. */
@@ -218,6 +271,16 @@ const OPTIONS = {
   baseline: { type: "string" },
   "write-baseline": { type: "string" },
   "fail-on": { type: "string" },
+  "fail-on-exposure": { type: "string" },
+  verify: { type: "boolean", default: false },
+  diff: { type: "boolean", default: false },
+  accept: { type: "string", multiple: true },
+  reason: { type: "string", multiple: true },
+  trust: { type: "string" },
+  "require-signed-seal": { type: "boolean", default: false },
+  yes: { type: "boolean", default: false },
+  key: { type: "string" },
+  "include-user-config": { type: "boolean", default: false },
   "min-confidence": { type: "string" },
   "report-suppressions": { type: "boolean", default: false },
   "allow-config-js": { type: "boolean", default: false },
@@ -370,6 +433,23 @@ export function parse(argv: string[]): Cli {
       }
       return { command: "plugin-scaffold", name };
     }
+    case "seal":
+      return { command: "seal", options: sealOptions(values, rest) };
+    case "effective": {
+      if (rest.length > 1) {
+        throw new ArgError(`effective takes at most one path, got ${rest.length}`);
+      }
+      const host = values.host ?? "claude-code";
+      const options: EffectiveCliOptions = {
+        path: rest[0] ?? ".",
+        host,
+        json: values.json,
+        includeUserConfig: values["include-user-config"],
+        unicode: !values.ascii,
+      };
+      if (values.key !== undefined) options.key = values.key;
+      return { command: "effective", options };
+    }
     case "osv": {
       if (rest[0] !== "update") {
         throw new ArgError("usage: owlwarden osv update [PATH] [--out FILE]");
@@ -495,6 +575,14 @@ function scanOptions(values: Values, positionals: string[]): ScanOptions {
       "info",
     ]);
   }
+  if (values["fail-on-exposure"] !== undefined) {
+    options.failOnExposure = parseWith(
+      exposureSchema,
+      "--fail-on-exposure",
+      values["fail-on-exposure"],
+      ["internet", "authenticated", "internal", "unknown"],
+    );
+  }
   if (values["min-confidence"] !== undefined) {
     options.minConfidence = parseWith(
       confidenceSchema,
@@ -593,6 +681,58 @@ function vetOptions(values: Values, positionals: string[]): ScanOptions {
       "info",
     ]);
   }
+  if (values["fail-on-exposure"] !== undefined) {
+    options.failOnExposure = parseWith(
+      exposureSchema,
+      "--fail-on-exposure",
+      values["fail-on-exposure"],
+      ["internet", "authenticated", "internal", "unknown"],
+    );
+  }
+  return options;
+}
+
+function sealOptions(values: Values, positionals: string[]): SealCliOptions {
+  if (positionals.length > 1) {
+    throw new ArgError(`seal takes at most one path, got ${positionals.length}`);
+  }
+  const fingerprints = values.accept ?? [];
+  const reasons = values.reason ?? [];
+  if (fingerprints.length !== reasons.length) {
+    // The same rule suppressions live under. An acceptance nobody can explain
+    // is an acceptance nobody decided, and a seal is precisely where the
+    // decision is supposed to be written down.
+    throw new ArgError(
+      "every --accept needs its own --reason: pass them in pairs, " +
+        '`--accept <fingerprint> --reason "why this is deliberate"`',
+    );
+  }
+  const accept = fingerprints.map((fingerprint, index) => {
+    const reason = reasons[index] ?? "";
+    if (reason.trim() === "") {
+      throw new ArgError(`--accept ${fingerprint} needs a non-empty --reason`);
+    }
+    return { fingerprint, reason };
+  });
+
+  const modes: SealMode[] = [];
+  if (values.verify) modes.push("verify");
+  if (values.diff) modes.push("diff");
+  if (accept.length > 0) modes.push("accept");
+  if (modes.length > 1) {
+    throw new ArgError("seal takes at most one of --verify, --diff, --accept");
+  }
+
+  const options: SealCliOptions = {
+    path: positionals[0] ?? ".",
+    mode: modes[0] ?? "write",
+    json: values.json,
+    yes: values.yes,
+    accept,
+    requireSigned: values["require-signed-seal"],
+    ascii: values.ascii,
+  };
+  if (values.trust !== undefined) options.trust = values.trust;
   return options;
 }
 

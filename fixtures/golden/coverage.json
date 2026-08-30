@@ -244,6 +244,26 @@
       "id": "gatsby",
       "rulesWithSpecificFix": 15,
       "rulesFallingBack": 0
+    },
+    {
+      "id": "sveltekit",
+      "rulesWithSpecificFix": 15,
+      "rulesFallingBack": 0
+    },
+    {
+      "id": "tanstack-start",
+      "rulesWithSpecificFix": 15,
+      "rulesFallingBack": 0
+    },
+    {
+      "id": "solidstart",
+      "rulesWithSpecificFix": 15,
+      "rulesFallingBack": 0
+    },
+    {
+      "id": "elysia",
+      "rulesWithSpecificFix": 15,
+      "rulesFallingBack": 0
     }
   ],
   "hosts": [
@@ -308,6 +328,8 @@
     ".codex/**",
     ".mcp.json",
     "mcp.json",
+    ".owlwarden/surface.lock",
+    ".owlwarden/surface.lock.sig",
     "CLAUDE.md",
     "AGENTS.md"
   ],

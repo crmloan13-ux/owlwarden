@@ -81,6 +81,9 @@ pub struct Project<'a> {
     frameworks: Arc<FrameworkSet>,
     files: Vec<SourceFile>,
     workspace: OnceLock<AgentWorkspace>,
+    tier_policy: crate::agentws::tiers::TierPolicy,
+    home: Option<std::path::PathBuf>,
+    runtimes: crate::runtime::RuntimeMap,
 }
 
 impl<'a> Project<'a> {
@@ -115,6 +118,7 @@ impl<'a> Project<'a> {
 
         let manifest = read_manifest(source);
         let frameworks = Arc::new(registry.detect(&manifest));
+        let runtimes = crate::runtime::RuntimeMap::build(source, &frameworks);
 
         Ok(Self {
             source,
@@ -122,7 +126,35 @@ impl<'a> Project<'a> {
             frameworks,
             files,
             workspace: OnceLock::new(),
+            tier_policy: crate::agentws::tiers::TierPolicy::ProjectOnly,
+            home: None,
+            runtimes,
         })
+    }
+
+    /// Lets the agent workspace resolve against tiers above the project.
+    ///
+    /// Off unless the operator asked for it. Set before
+    /// [`Self::agent_workspace`] is first called, which the engine does at
+    /// discovery time — the workspace is cached on first use, and a policy that
+    /// arrived after that would silently not apply.
+    #[must_use]
+    pub fn with_tier_policy(mut self, policy: crate::agentws::tiers::TierPolicy) -> Self {
+        self.tier_policy = policy;
+        self
+    }
+
+    /// Supplies the home directory tier resolution expands `~` against.
+    ///
+    /// `None`, the default, reads the environment. Passing it explicitly makes
+    /// resolution a pure function of its inputs, which is what lets the
+    /// user-tier privacy test prove its property without mutating process
+    /// environment — the same seam `expand_with` and `verify_detached_with`
+    /// have, for the same reason.
+    #[must_use]
+    pub fn with_home(mut self, home: Option<std::path::PathBuf>) -> Self {
+        self.home = home;
+        self
     }
 
     /// The framework remediation is written for.
@@ -135,6 +167,21 @@ impl<'a> Project<'a> {
     #[must_use]
     pub fn frameworks(&self) -> &FrameworkSet {
         &self.frameworks
+    }
+
+    /// The detected set as the shared handle every `FileUnit` holds.
+    ///
+    /// The exposure classifier outlives any one file and needs the set without
+    /// borrowing the project, which is what the `Arc` is already for.
+    #[must_use]
+    pub fn frameworks_arc(&self) -> &Arc<FrameworkSet> {
+        &self.frameworks
+    }
+
+    /// Where each file in this project runs.
+    #[must_use]
+    pub fn runtimes(&self) -> &crate::runtime::RuntimeMap {
+        &self.runtimes
     }
 
     /// The parsed `package.json`.
@@ -170,7 +217,7 @@ impl<'a> Project<'a> {
     #[must_use]
     pub fn agent_workspace(&self) -> &AgentWorkspace {
         self.workspace.get_or_init(|| {
-            AgentWorkspace::load(self.source)
+            AgentWorkspace::load_with_home(self.source, self.tier_policy, self.home.as_deref())
                 .unwrap_or_else(|error| AgentWorkspace::unwalkable(&error))
         })
     }
@@ -217,9 +264,25 @@ impl<'a> Project<'a> {
         f: impl FnOnce(&FileUnit<'_>) -> T,
     ) -> Result<T, ProjectError> {
         let text = self.source.read(file)?;
+        // An in-file `export const runtime = 'edge'` beats the directory
+        // answer: it is per route, and one such route in a Node application is
+        // the most common mixed-runtime shape there is.
+        let runtime = match crate::runtime::declared_in_source(&text) {
+            Some(declared) => {
+                // Recorded so the engine's post-pass sees the same answer the
+                // rules did, without reading the file a second time.
+                self.runtimes.declare_file(file.path.as_str(), declared);
+                crate::runtime::ResolvedRuntime {
+                    runtime: declared,
+                    source: owlwarden_core::runtime::RuntimeSource::Declared,
+                }
+            }
+            None => self.runtimes.for_path(file.path.as_str()),
+        };
         let meta = UnitMeta {
             frameworks: Arc::clone(&self.frameworks),
             route: self.frameworks.route(file.path.as_str()),
+            runtime,
         };
         Ok(with_parsed(&file.path, &text, meta, f)?)
     }

@@ -111,6 +111,102 @@ pub fn nitro(path: &str) -> Option<RouteInfo> {
     })
 }
 
+/// `SvelteKit`: server routes under `src/routes/`.
+///
+/// `+server.ts` handles requests; `+page.server.ts` runs a load or an action
+/// for a page. Everything else under the directory is a component, and
+/// reporting a route for one would attribute a finding to a request that never
+/// reaches it.
+///
+/// Route groups — `(app)` — are layout-only and are stripped, exactly as
+/// Next.js's are.
+#[must_use]
+pub fn sveltekit(path: &str) -> Option<RouteInfo> {
+    let rest = path.strip_prefix("src/routes/")?;
+    let (directory, file) = rest.rsplit_once('/').unwrap_or(("", rest));
+    let stem = strip_extension(file)?;
+    if !matches!(stem, "+server" | "+page.server" | "+layout.server") {
+        return None;
+    }
+    let mut route = String::new();
+    for segment in directory.split('/').filter(|segment| !segment.is_empty()) {
+        // `(group)` directories do not appear in the URL.
+        if segment.starts_with('(') && segment.ends_with(')') {
+            continue;
+        }
+        route.push('/');
+        route.push_str(segment);
+    }
+    if route.is_empty() {
+        route.push('/');
+    }
+    Some(RouteInfo::path_only(route))
+}
+
+/// `SolidStart`: file routes under `src/routes/`, with `.ts`/`.tsx` API routes.
+///
+/// The same shape as `SvelteKit`'s without the `+` prefix convention, so the
+/// mapping is by directory rather than by file name — and `index` collapses to
+/// the directory itself.
+#[must_use]
+pub fn solidstart(path: &str) -> Option<RouteInfo> {
+    let rest = path
+        .strip_prefix("src/routes/")
+        .or_else(|| path.strip_prefix("src/api/"))?;
+    let stem = strip_extension(rest)?;
+    let stem = stem.strip_suffix("/index").unwrap_or(stem);
+    if stem == "index" {
+        return Some(RouteInfo::path_only("/"));
+    }
+    let mut route = String::new();
+    for segment in stem.split('/').filter(|segment| !segment.is_empty()) {
+        route.push('/');
+        // SolidStart spells a dynamic segment `[id]`; the report keeps the
+        // framework's own spelling, because that is what the reader will grep.
+        route.push_str(segment);
+    }
+    if route.is_empty() {
+        return None;
+    }
+    Some(RouteInfo::path_only(route))
+}
+
+/// Sails: actions under `api/controllers/`.
+///
+/// Two layouts, both current. An action-per-file
+/// (`api/controllers/user/find.js`) is served at `/user/find` by Sails'
+/// default action routing. A classic controller
+/// (`api/controllers/UserController.js`) holds several actions, so the file
+/// names a prefix and not a route — and the method is never in the path, so it
+/// is always `None`.
+///
+/// Nothing else under `api/` maps: a model or a policy is not a route, and
+/// claiming one would attribute a finding to a request that never reaches it.
+#[must_use]
+pub fn sails(path: &str) -> Option<RouteInfo> {
+    let rest = path.strip_prefix("api/controllers/")?;
+    let stem = strip_extension(rest)?;
+    if stem.is_empty() {
+        return None;
+    }
+
+    let (directory, file) = stem.rsplit_once('/').unwrap_or(("", stem));
+    // `UserController` names a controller, not an action.
+    if let Some(name) = file.strip_suffix("Controller") {
+        let prefix = if directory.is_empty() {
+            String::new()
+        } else {
+            format!("/{}", directory.to_ascii_lowercase())
+        };
+        return Some(RouteInfo::path_only(format!(
+            "{prefix}/{}",
+            name.to_ascii_lowercase()
+        )));
+    }
+
+    Some(RouteInfo::path_only(format!("/{stem}")))
+}
+
 /// Splits a trailing `.get` / `.post` method suffix off a Nitro file stem.
 fn split_nitro_method(stem: &str) -> (&str, Option<String>) {
     let Some((rest, suffix)) = stem.rsplit_once('.') else {

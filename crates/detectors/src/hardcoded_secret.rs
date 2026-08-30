@@ -35,6 +35,7 @@ use owlwarden_core::finding::{
     Confidence, Finding, Framework, OwaspRef, Reference, RuleId, Severity,
 };
 use owlwarden_core::remediation::Remediation;
+use owlwarden_core::runtime::Runtime;
 use owlwarden_core::source::RelPath;
 use owlwarden_core::surface::Surface;
 use owlwarden_static::ast::property_name;
@@ -476,7 +477,7 @@ fn build_finding(unit: &FileUnit<'_>, hit: &Hit) -> Finding {
         // JSON and pretty output cannot re-leak the credential.
         .snippet(snippet)
         .context(unit.context(None, Some(evidence)))
-        .fixes(remediation().select(unit.framework()))
+        .fixes(remediation().select_for_runtime(unit.framework(), unit.runtime().runtime))
         .reference(Reference::rule_page(&meta.id))
         .build()
 }
@@ -495,7 +496,7 @@ fn mask_secret(secret: &str) -> String {
 /// people skip: rotate. A committed credential is compromised whether or not
 /// anyone has used it, and moving it to `.env` without rotating fixes nothing.
 fn remediation() -> Remediation {
-    Remediation::new(
+    let table = Remediation::new(
         "Move the value into an environment variable or a secret manager, and rotate it — once \
          committed it is in the history and in every clone, so removing the line does not revoke \
          it.",
@@ -575,6 +576,69 @@ fn remediation() -> Remediation {
         "Read it from the environment; only a GATSBY_ prefix ships a value to the browser, so \
          never use one for a secret.",
         "const apiKey = process.env.API_KEY\nif (!apiKey) throw new Error('API_KEY is not set')",
+    );
+    // `process.env` does not exist on a fetch-API runtime. Workers hands the
+    // handler an `env` binding and Deno uses `Deno.env.get`, so the base fix —
+    // "read it from process.env" — is advice that throws.;
+    fixes_added_in_1_2(table)
+}
+
+/// The four frameworks added in 1.2, and the runtime deltas.
+///
+/// A continuation rather than more of the same function. Sixteen profiles plus
+/// the deltas is past what fits on a screen, and a table nobody scrolls to the
+/// end of is a table with a hole in it.
+fn fixes_added_in_1_2(table: Remediation) -> Remediation {
+    table    .delta_each(
+        &[
+            Framework::NEXT,
+            Framework::NUXT,
+            Framework::HONO,
+            Framework::ASTRO,
+            Framework::REMIX,
+            Framework::SVELTEKIT,
+            Framework::TANSTACK_START,
+            Framework::SOLIDSTART,
+            Framework::ELYSIA,
+        ],
+        Runtime::WebWorker,
+        "There is no process.env on this runtime. Read the value from the binding the host \
+         passes the handler, and declare it as a secret rather than a plaintext var.",
+        "// wrangler.toml / .dev.vars declare it; the handler receives it.\n\
+         export default {\n  \
+         async fetch(request: Request, env: { API_KEY: string }) {\n    \
+         const key = env.API_KEY\n    \
+         if (!key) throw new Error('API_KEY is not bound')\n    \
+         return handle(request, key)\n  \
+         },\n\
+         }",
+    )
+    .delta(
+        Framework::HONO,
+        Runtime::Deno,
+        "There is no process.env on Deno. Use Deno.env.get, and run with an explicit --allow-env \
+         list so the process cannot read variables it was never meant to see.",
+        "const key = Deno.env.get('API_KEY')\nif (!key) throw new Error('API_KEY is not set')",
+    )
+    .manual(
+        Framework::SVELTEKIT,
+        "Read it from `$env/dynamic/private`, which SvelteKit refuses to import into client code — that refusal is the point.",
+        "import { env } from '$env/dynamic/private'\n\nconst stripeKey = env.STRIPE_KEY\nif (!stripeKey) throw new Error('STRIPE_KEY is not set')",
+    )
+    .manual(
+        Framework::TANSTACK_START,
+        "Read it from the environment inside the server function, and rotate the committed value.",
+        "const stripeKey = process.env.STRIPE_KEY\nif (!stripeKey) throw new Error('STRIPE_KEY is not set')",
+    )
+    .manual(
+        Framework::SOLIDSTART,
+        "Read it from the environment in server-only code. A `VITE_`-prefixed variable is bundled into the client; this one must not be.",
+        "const stripeKey = process.env.STRIPE_KEY\nif (!stripeKey) throw new Error('STRIPE_KEY is not set')",
+    )
+    .manual(
+        Framework::ELYSIA,
+        "Read it from the environment at startup so a missing value fails the boot rather than the first request.",
+        "const stripeKey = process.env.STRIPE_KEY\nif (!stripeKey) throw new Error('STRIPE_KEY is not set')",
     )
 }
 

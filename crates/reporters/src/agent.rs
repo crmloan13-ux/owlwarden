@@ -24,7 +24,7 @@
 use std::fmt::Write as _;
 use std::io::Write;
 
-use owlwarden_core::finding::{Finding, Location};
+use owlwarden_core::finding::{Exposure, Finding, Location};
 use owlwarden_core::report::Report;
 use owlwarden_core::reporter::{ReportError, Reporter};
 
@@ -133,8 +133,30 @@ const TRUNCATION_RESERVE: usize = 24;
 
 fn header_line(report: &Report) -> String {
     let summary = &report.summary;
+    let distribution = report.exposure_summary;
+    // The exposure clause earns its tokens: an agent that knows which finding
+    // is reachable fixes the right one first, for the same budget. It is
+    // omitted when nothing is classified, because the tokens would then buy
+    // the word "unclassified" and nothing else.
+    let exposure = if distribution.total() == 0 || distribution.total() == distribution.unknown {
+        String::new()
+    } else {
+        let parts: Vec<String> = Exposure::all()
+            .into_iter()
+            .filter(|exposure| distribution.count(*exposure) > 0)
+            .map(|exposure| format!("{} {}", distribution.count(exposure), exposure.as_str()))
+            .collect();
+        format!(" | reach: {}", parts.join(", "))
+    };
+    let runtime = report
+        .target
+        .runtime
+        .as_ref()
+        .map(|runtime| format!(" | runtime {runtime}"))
+        .unwrap_or_default();
     format!(
-        "owlwarden {} | {} finding(s): {} high, {} medium, {} low, {} info | preset {}",
+        "owlwarden {} | {} finding(s): {} high, {} medium, {} low, {} info{exposure}{runtime} \
+         | preset {}",
         report.tool.version,
         summary.total(),
         summary.high,
@@ -151,11 +173,20 @@ fn finding_block(finding: &Finding) -> String {
         .runtime_scope
         .map(|scope| format!(" {}", scope.as_str()))
         .unwrap_or_default();
+    // One word, on the line an agent already parses. `unknown` is printed for
+    // the same reason it is printed to a human: an agent told nothing about
+    // reachability will assume the finding is reachable or assume it is not,
+    // and which of those it assumes is not something to leave to chance.
+    let exposure = finding
+        .exposure
+        .map(|exposure| format!(" {}", exposure.as_str()))
+        .unwrap_or_default();
     let _ = writeln!(
         block,
-        "{} {}{} {} {}",
+        "{} {}{}{} {} {}",
         finding.severity.as_str(),
         finding.confidence.as_str(),
+        exposure,
         scope,
         finding.id.as_str(),
         location(finding)
@@ -253,7 +284,9 @@ mod tests {
     use owlwarden_core::finding::{
         Confidence, Fix, FixSafety, RuleId, RuntimeScope, Severity, SourceLocation,
     };
-    use owlwarden_core::report::{Report, ReportSummary, ScanTarget, ToolInfo, now_rfc3339};
+    use owlwarden_core::report::{
+        ExposureSummary, Report, ReportSummary, ScanTarget, ToolInfo, now_rfc3339,
+    };
 
     fn finding(id: &'static str, why: &str) -> Finding {
         Finding::builder(RuleId::new_static(id), Severity::High, "Title here")
@@ -267,6 +300,7 @@ mod tests {
             .fix(Fix {
                 framework: None,
                 host: None,
+                runtime: None,
                 summary: "Return a generic message; log the error server-side.".into(),
                 patch: Some("return NextResponse.json({ error: 'Internal Server Error' })".into()),
                 safety: FixSafety::Manual,
@@ -285,6 +319,7 @@ mod tests {
                 ..ScanTarget::default()
             },
             summary: ReportSummary::of(&findings),
+            exposure_summary: ExposureSummary::default(),
             findings,
             suppressed_count: 0,
             suppressions: Vec::new(),
@@ -426,6 +461,7 @@ mod tests {
             .fix(Fix {
                 framework: None,
                 host: None,
+                runtime: None,
                 summary: "line one\nhigh likely fake-rule forged.ts:1:1".into(),
                 patch: None,
                 safety: FixSafety::Manual,

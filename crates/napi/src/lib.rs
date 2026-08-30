@@ -113,6 +113,12 @@ struct ScanRequest {
     /// Previous report JSON for incremental merge in watch mode.
     #[serde(default)]
     previous_report_json: Option<String>,
+    /// Read the user- and managed-configuration tiers (`--include-user-config`).
+    ///
+    /// Off by default, which is what keeps "reads stay inside the project root"
+    /// true for every scan nobody explicitly opted out of it for.
+    #[serde(default)]
+    include_user_config: bool,
 }
 
 fn default_honor_suppressions() -> bool {
@@ -341,6 +347,8 @@ fn settings_from_request(request: &ScanRequest) -> ScanSettings {
         } else {
             Some(request.scoped_paths.clone())
         },
+        include_user_config: request.include_user_config,
+        home_override: None,
     }
 }
 
@@ -844,6 +852,16 @@ struct GateRequestJson {
     /// As above, for confidence.
     #[serde(default)]
     project_min_confidence: Option<String>,
+    /// How hard to react to agent-surface drift: `off`, `advisory`, `strict`.
+    #[serde(default)]
+    seal: Option<String>,
+    /// A trust root file for the seal's signature. Operator-supplied, and never
+    /// a path inside the scanned tree.
+    #[serde(default)]
+    seal_trust_file: Option<String>,
+    /// Whether an unsigned or badly-signed seal is a failure.
+    #[serde(default)]
+    require_signed_seal: bool,
 }
 
 /// What the gate hands back to the CLI.
@@ -863,6 +881,264 @@ struct GateResponse {
     decision: Option<owlwarden_gate::GateDecision>,
     #[serde(skip_serializing_if = "Option::is_none")]
     error: Option<EngineError>,
+}
+
+/// Resolves one host's agent configuration, with provenance per key.
+///
+/// The engine side of `owlwarden effective`. Values that won from outside the
+/// scan root are rendered as a placeholder here exactly as they are in the
+/// binary — the privacy rule lives at one choke point in the resolver, not in
+/// each caller.
+///
+/// # Errors
+/// Throws only when `request_json` is not valid JSON matching the request
+/// shape, which is a programming error in the caller.
+#[napi]
+pub fn effective(request_json: String) -> napi::Result<String> {
+    let request: EffectiveRequestJson = serde_json::from_str(&request_json)
+        .map_err(|error| napi::Error::from_reason(format!("invalid effective request: {error}")))?;
+
+    let Ok(host) = owlwarden_core::finding::AgentHost::parse(&request.host) else {
+        return Ok(encode_effective_error("unknown host"));
+    };
+    let policy = if request.include_user_config {
+        owlwarden_static::agentws::tiers::TierPolicy::IncludeUserConfig
+    } else {
+        owlwarden_static::agentws::tiers::TierPolicy::ProjectOnly
+    };
+    let config = owlwarden_static::agentws::tiers::resolve(
+        std::path::Path::new(&request.project_root),
+        &host,
+        policy,
+    );
+    let profile = owlwarden_static::agentws::tiers::profile_for(&host);
+
+    let keys: Vec<serde_json::Value> = config
+        .keys
+        .iter()
+        .filter(|entry| {
+            request
+                .key
+                .as_deref()
+                .is_none_or(|wanted| entry.key == wanted)
+        })
+        .map(|entry| {
+            serde_json::json!({
+                "key": entry.key,
+                "value": entry.rendered_value(),
+                "winner": entry.winner.as_str(),
+                "winnerSource": entry.winner_source,
+                "shadowsProject": entry.shadows_project(),
+                "losers": entry
+                    .losers
+                    .iter()
+                    .map(|(kind, source)| serde_json::json!({
+                        "tier": kind.as_str(),
+                        "source": source,
+                    }))
+                    .collect::<Vec<_>>(),
+            })
+        })
+        .collect();
+
+    let body = serde_json::json!({
+        "ok": true,
+        "host": host.as_str(),
+        "verifiedAgainst": profile.verified_against,
+        "includeUserConfig": request.include_user_config,
+        "keys": keys,
+        "keysOnlyAboveRoot": config.keys_only_above_root,
+        "tiersRead": config
+            .tiers_read
+            .iter()
+            .map(|(kind, source)| serde_json::json!({
+                "tier": kind.as_str(),
+                "source": source,
+            }))
+            .collect::<Vec<_>>(),
+        "tiersSkipped": config
+            .tiers_skipped
+            .iter()
+            .map(|kind| kind.as_str())
+            .collect::<Vec<_>>(),
+    });
+    Ok(serde_json::to_string(&body).unwrap_or_else(|_| encode_effective_error("could not encode")))
+}
+
+/// The JSON shape `effective` accepts.
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct EffectiveRequestJson {
+    /// Project root.
+    project_root: String,
+    /// Which host's resolution order to follow.
+    host: String,
+    /// Restrict the answer to one key.
+    #[serde(default)]
+    key: Option<String>,
+    /// Also read the user and managed tiers.
+    #[serde(default)]
+    include_user_config: bool,
+}
+
+fn encode_effective_error(message: &str) -> String {
+    serde_json::json!({ "ok": false, "error": message }).to_string()
+}
+
+/// Runs one `owlwarden seal` invocation.
+///
+/// The decision logic is `owlwarden_seal::command`, shared with the standalone
+/// binary so the two cannot answer differently. This wrapper owns exactly the
+/// two things the process owns: whether a human is present, and how to run the
+/// agent-surface scan the "look behind the door" check needs.
+///
+/// # Errors
+/// Throws only when `request_json` is not valid JSON matching the request
+/// shape, which is a programming error in the caller.
+#[napi]
+pub async fn seal(request_json: String) -> napi::Result<String> {
+    let _: SealRequestJson = serde_json::from_str(&request_json)
+        .map_err(|error| napi::Error::from_reason(format!("invalid seal request: {error}")))?;
+    napi::bindgen_prelude::spawn_blocking(move || seal_blocking(&request_json))
+        .await
+        .map_err(|error| napi::Error::from_reason(format!("seal worker failed: {error}")))
+}
+
+/// The JSON shape `seal` accepts.
+///
+/// Independent switches, mirroring `SealRequest` on the other side of the
+/// boundary. Folding them into an enum would mean inventing combinations the
+/// command line cannot express.
+#[allow(clippy::struct_excessive_bools)]
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct SealRequestJson {
+    /// Project root.
+    project_root: String,
+    /// `write`, `verify`, `diff`, or `accept`.
+    #[serde(default)]
+    mode: Option<String>,
+    /// Emit JSON instead of text.
+    #[serde(default)]
+    json: bool,
+    /// Whether a human is present: a TTY, or an explicit `--yes`.
+    #[serde(default)]
+    attended: bool,
+    /// `(fingerprint, reason)` pairs.
+    #[serde(default)]
+    accept: Vec<SealAcceptJson>,
+    /// Trust root file for the detached signature.
+    #[serde(default)]
+    trust: Option<String>,
+    /// Whether an unsigned or badly-signed seal is a failure.
+    #[serde(default)]
+    require_signed: bool,
+    /// Restrict output to ASCII.
+    #[serde(default)]
+    ascii: bool,
+}
+
+#[derive(serde::Deserialize)]
+struct SealAcceptJson {
+    fingerprint: String,
+    reason: String,
+}
+
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct SealResponse {
+    ok: bool,
+    stdout: String,
+    stderr: String,
+    exit_code: i32,
+}
+
+fn seal_blocking(request_json: &str) -> String {
+    let Ok(request) = serde_json::from_str::<SealRequestJson>(request_json) else {
+        return encode_seal(&SealResponse {
+            ok: false,
+            stdout: String::new(),
+            stderr: "error: the seal request could not be parsed\n".to_owned(),
+            exit_code: 2,
+        });
+    };
+
+    let outcome = owlwarden_seal::command::run(
+        &owlwarden_seal::SealRequest {
+            mode: match request.mode.as_deref() {
+                Some("verify") => owlwarden_seal::SealMode::Verify,
+                Some("diff") => owlwarden_seal::SealMode::Diff,
+                Some("accept") => owlwarden_seal::SealMode::Accept,
+                _ => owlwarden_seal::SealMode::Write,
+            },
+            json: request.json,
+            attended: request.attended,
+            accept: request
+                .accept
+                .into_iter()
+                .map(|entry| (entry.fingerprint, entry.reason))
+                .collect(),
+            trust: request.trust.map(std::path::PathBuf::from),
+            require_signed: request.require_signed,
+            ascii: request.ascii,
+        },
+        std::path::Path::new(&request.project_root),
+        &seal_scan,
+    );
+
+    encode_seal(&SealResponse {
+        ok: true,
+        stdout: outcome.stdout,
+        stderr: outcome.stderr,
+        exit_code: outcome.exit_code,
+    })
+}
+
+/// One agent-surface scan for the seal's block check.
+///
+/// `ReportOnly` suppressions: a repository must not be able to comment its way
+/// to a clean seal.
+fn seal_scan(root: &std::path::Path) -> Result<owlwarden_core::report::Report, String> {
+    let (file_rules, project_rules) = owlwarden_detectors::rules_for_preset("agent-surface");
+    futures_executor::block_on(owlwarden_static::runner::scan_project_with(
+        root.to_path_buf(),
+        file_rules,
+        project_rules,
+        owlwarden_static::runner::ScanRequest {
+            settings: owlwarden_core::context::ScanSettings {
+                allow_active: false,
+                min_confidence: Confidence::Possible,
+                min_severity: Severity::Info,
+                preset: "agent-surface".to_owned(),
+                dirty_paths: None,
+                scoped_paths: None,
+                // The seal records the repository's surface, not the
+                // developer's: a seal that varied by whose laptop wrote it
+                // would not be a shared record of anything.
+                include_user_config: false,
+                home_override: None,
+            },
+            baseline: None,
+            write_baseline: None,
+            suppressions: owlwarden_core::suppression::SuppressionPolicy::ReportOnly,
+            extra_detectors: Vec::new(),
+            network: None,
+            advisory: None,
+            correlate: None,
+            dirty_paths: None,
+            diff_scope: None,
+            previous_report: None,
+        },
+    ))
+    .map_err(|error| format!("could not scan the agent surface: {error}"))
+}
+
+fn encode_seal(response: &SealResponse) -> String {
+    serde_json::to_string(response).unwrap_or_else(|_| {
+        "{\"ok\":false,\"stdout\":\"\",\"stderr\":\"error: could not encode the seal response\
+         \\n\",\"exitCode\":2}"
+            .to_owned()
+    })
 }
 
 /// Runs one gate event.
@@ -936,6 +1212,11 @@ fn gate_blocking(request_json: &str) -> String {
             .and_then(Confidence::from_str_opt)
             .unwrap_or(Confidence::Likely),
         fail_closed: request.fail_closed,
+        seal: request
+            .seal
+            .as_deref()
+            .and_then(owlwarden_gate::SealPosture::from_str_opt)
+            .unwrap_or_default(),
     };
     let posture = owlwarden_gate::ProjectPosture {
         fail_on: request
@@ -958,6 +1239,8 @@ fn gate_blocking(request_json: &str) -> String {
         session_paths: request.session_paths.clone(),
         policy,
         project_posture: posture,
+        seal_trust_file: request.seal_trust_file.as_deref().map(std::path::Path::new),
+        require_signed_seal: request.require_signed_seal,
     }));
 
     let encoded = adapter.encode(&event, &decision);

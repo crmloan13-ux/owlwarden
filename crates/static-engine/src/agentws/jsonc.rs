@@ -167,6 +167,26 @@ impl JsonNode {
         Some(current)
     }
 
+    /// The top-level key whose value contains a byte offset.
+    ///
+    /// Answers "which setting is this finding in?" without a second traversal
+    /// model: a rule reports a span, and the tier resolver knows which
+    /// *top-level* keys a higher tier makes inert, so the top level is the
+    /// granularity at which the two meet.
+    ///
+    /// `None` when the offset is outside every member — in the whitespace
+    /// between keys, or in a document that is not an object.
+    #[must_use]
+    pub fn top_level_key_at(&self, offset: u32) -> Option<&str> {
+        self.as_object()?.iter().find_map(|member| {
+            // The key itself counts: a finding underlining `"hooks"` is a
+            // finding about `hooks`.
+            let start = member.key_span.0.min(member.value.span.0);
+            let end = member.value.span.1.max(member.key_span.1);
+            (offset >= start && offset < end).then_some(member.key.as_str())
+        })
+    }
+
     /// Every string in the document, with its span and the key path that
     /// reached it.
     ///

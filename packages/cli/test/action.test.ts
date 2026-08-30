@@ -107,6 +107,9 @@ async function runAction(
     INPUT_ALLOW_SUPPRESSIONS: "false",
     INPUT_ALLOW_PROJECT_CONFIG: "false",
     INPUT_OSV: "false",
+    INPUT_FAIL_ON_EXPOSURE: "",
+    INPUT_SEAL: "off",
+    INPUT_REQUIRE_SIGNED_SEAL: "false",
   };
 
   const result = spawnSync("bash", [join(workspace, "script.sh")], {
@@ -361,6 +364,86 @@ onPosix("the Action's script", () => {
       const argv = result.argv ?? [];
       expect(argv.indexOf("--since")).toBeLessThan(argv.indexOf("--"));
       expect(argv.at(-1)).toBe("apps/web");
+    });
+  });
+
+  describe("the seal step", () => {
+    // The seal answers a different question from the scan — "is this the
+    // configuration you agreed to" rather than "is it dangerous" — so it runs
+    // after the scan rather than instead of it, and it is off unless asked for.
+    it("is not run at all when seal is off", async () => {
+      const result = await runAction({ INPUT_SEAL: "off" });
+      expect(result.code).toBe(0);
+      const argv = result.argv ?? [];
+      expect(argv).not.toContain("seal");
+    });
+
+    it("verifies the surface after the scan when asked", async () => {
+      const result = await runAction({ INPUT_SEAL: "verify" });
+      const argv = result.argv ?? [];
+      expect(argv).toContain("seal");
+      expect(argv).toContain("--verify");
+      // The scan comes first: a job that verified the seal and skipped the scan
+      // would report the other question as clean.
+      expect(argv.indexOf("scan")).toBeLessThan(argv.indexOf("seal"));
+    });
+
+    it("passes --require-signed-seal through only when asked", async () => {
+      const off = await runAction({ INPUT_SEAL: "verify" });
+      expect(off.argv ?? []).not.toContain("--require-signed-seal");
+      const on = await runAction({
+        INPUT_SEAL: "verify",
+        INPUT_REQUIRE_SIGNED_SEAL: "true",
+      });
+      expect(on.argv ?? []).toContain("--require-signed-seal");
+    });
+
+    it("puts the path last, after the -- separator, in the seal call too", async () => {
+      const result = await runAction({ INPUT_SEAL: "verify", INPUT_PATH: "apps/api" });
+      const argv = result.argv ?? [];
+      const lastSeparator = argv.lastIndexOf("--");
+      expect(argv[lastSeparator + 1]).toBe("apps/api");
+    });
+
+    it("refuses a seal mode it does not know", async () => {
+      const result = await runAction({ INPUT_SEAL: "sometimes" });
+      expect(result.code).toBe(2);
+      expect(result.stderr).toContain("seal must be");
+      expect(result.argv).toBeNull();
+    });
+
+    it("treats an unset seal input as off, for a caller pinned to an older version", async () => {
+      // `set -u` is on. A workflow using an older `uses:` ref supplies none of
+      // these variables, and dying on an unbound one would break every such
+      // caller the moment this input shipped.
+      const result = await runAction({ INPUT_SEAL: "" });
+      expect(result.code).toBe(0);
+      expect(result.argv ?? []).not.toContain("seal");
+    });
+
+    it("stays silent in seal-diff when the surface has not moved", async () => {
+      const result = await runAction({ INPUT_SEAL: "verify" });
+      expect(result.output).toMatch(/seal-diff<<OWLWARDEN_EOF\n\nOWLWARDEN_EOF/);
+    });
+  });
+
+  describe("--fail-on-exposure", () => {
+    it("is omitted when the input is empty, rather than passed as an empty value", async () => {
+      const result = await runAction({ INPUT_FAIL_ON_EXPOSURE: "" });
+      expect(result.argv ?? []).not.toContain("--fail-on-exposure");
+    });
+
+    it("passes a known reachability through", async () => {
+      const result = await runAction({ INPUT_FAIL_ON_EXPOSURE: "internet" });
+      const argv = result.argv ?? [];
+      expect(argv[argv.indexOf("--fail-on-exposure") + 1]).toBe("internet");
+    });
+
+    it("refuses a value it does not know", async () => {
+      const result = await runAction({ INPUT_FAIL_ON_EXPOSURE: "sometimes" });
+      expect(result.code).toBe(2);
+      expect(result.stderr).toContain("fail-on-exposure must be");
+      expect(result.argv).toBeNull();
     });
   });
 

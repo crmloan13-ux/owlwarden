@@ -178,6 +178,8 @@
 <p>Strip them from `CLAUDE.md` and from anything under `.claude/agents/` or `.claude/skills/`, then add a CI check so the next one fails a pull request rather than reaching a session.</p>
 <pre class="code"><code class="language-json">// scripts/check-instructions.mjs - fail on any C0/format character outside \n and \t</code></pre>
 
+
+
 <h3>If you are not using Claude Code</h3>
 <p>Delete the invisible characters. Then find out how they got in: a paste from a web page is the innocent explanation, and a commit that added them alone is not.</p>
 

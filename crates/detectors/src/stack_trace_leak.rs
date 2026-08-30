@@ -410,6 +410,26 @@ fn remediation() -> Remediation {
             "Log server-side and send a generic body.",
             "console.error(err)\nres.status(500).json({ error: 'Internal Server Error' })",
         )
+    .manual(
+        Framework::SVELTEKIT,
+        "Log server-side and return a generic body from the endpoint. SvelteKit's `handleError` hook is where the detail belongs.",
+        "console.error(err)\nreturn json({ error: 'Internal Server Error' }, { status: 500 })",
+    )
+    .manual(
+        Framework::TANSTACK_START,
+        "Log server-side and return a generic body from the server function.",
+        "console.error(err)\nreturn new Response(JSON.stringify({ error: 'Internal Server Error' }), {\n  status: 500,\n  headers: { 'content-type': 'application/json' },\n})",
+    )
+    .manual(
+        Framework::SOLIDSTART,
+        "Log server-side and return a generic body from the API route.",
+        "console.error(err)\nreturn json({ error: 'Internal Server Error' }, { status: 500 })",
+    )
+    .manual(
+        Framework::ELYSIA,
+        "Use `onError` so every route answers the same way, and keep the detail in the log.",
+        "app.onError(({ error, set }) => {\n  console.error(error)\n  set.status = 500\n  return { error: 'Internal Server Error' }\n})",
+    )
 }
 
 /// Every framework's fix, for `owlwarden explain` and the rule catalogue page.

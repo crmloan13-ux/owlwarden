@@ -3,7 +3,8 @@
 # ◉ᴥ◉ owlwarden
 
 **The deterministic security floor for Node code — including the code your agent
-just wrote, and the config your agent reads.**
+just wrote, and the config your agent reads. It tells you what changed, what is
+reachable, and how often it is wrong.**
 
 Runs on your machine. No account, no telemetry, no network unless you ask for it.
 
@@ -22,6 +23,8 @@ Runs on your machine. No account, no telemetry, no network unless you ask for it
 ```bash
 npx owlwarden scan          # your app
 npx owlwarden vet .         # your agent's config — the part nothing else reads
+npx owlwarden seal          # lock the agent's execution surface
+npx owlwarden seal --verify # …and notice when it moves
 ```
 
 ## Why this exists
@@ -47,6 +50,23 @@ within hours. The foothold in the config was not, because nothing was looking at
 it. Opening the folder was enough to start the payload again.
 
 owlwarden scans both surfaces, in one pass, with one exit code.
+
+**Three.** Twenty-five rules on a six-month-old repository produce fifteen to
+eighty findings. The tool has done its job; you now have a triage problem it did
+not help with. So every finding carries an `exposure` — is this reachable from a
+request, and is anything guarding it — and the summary line is the difference
+between a backlog and an afternoon:
+
+```
+◉ᴥ◉ 412 files · quick · node (detected) · 1.4s
+23 findings (10 high, 11 medium, 2 low)
+3 internet-reachable, 8 behind auth, 9 internal, 3 unclassified
+```
+
+It fails loud: `authenticated` requires a gate we positively identified, and
+absence of evidence yields `internet`. A finding wrongly marked as behind auth
+is a finding somebody deprioritises, so that is the one axis where uncertainty
+resolves *upward*. See [docs/explanation/exposure.md](docs/explanation/exposure.md).
 
 ## What a finding looks like
 
@@ -134,8 +154,23 @@ cannot calibrate is worse than no report.
   and nothing on the agent surface can reach it at all.
 - **Agent-config rules cap at `likely`** and carry a `runtime_scope`, so a hook
   in a tutorial is not reported like a hook in your settings.
-- **Twelve frameworks and seven agent hosts get tailored fixes.** Everything else
-  gets a generic scan. Both matrices are locked in CI.
+- **Sixteen frameworks and seven agent hosts get tailored fixes.** Everything
+  else gets a generic scan. Both matrices are locked in CI, and a fix that would
+  not *run* on a declared runtime fails the build rather than becoming a
+  footnote.
+- **`exposure` fails loud, and `unknown` is not a quiet `internal`.**
+  `authenticated` is set only when a gate was positively identified; anything
+  else on a request path is `internet`. `unknown` means the question was not
+  answered, and `coverage` reports the rate.
+- **The seal detects change, not badness.** An unsigned
+  `.owlwarden/surface.lock` catches accident, drift, and opportunistic malware.
+  It does not stop an attacker who already has code execution and can re-seal.
+  A signed seal with the key outside the repository raises that bar
+  considerably; neither stops a targeted attacker who can re-sign.
+- **The published false-positive rate is not published yet.** `owlwarden bench`,
+  the corpus discipline, and the threshold gate all ship and are tested. No
+  repository has been labelled, so there is no number, and there is no number
+  rather than one computed from our own fixtures.
 - **Dynamic checks are passive by default.** Active probes need `--target` and
   `--allow-active`, staging only, never in the CI Action.
 - **Plugins are source-only WASM.** No hosted store. MCP is read-only and static,

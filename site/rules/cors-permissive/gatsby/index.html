@@ -171,7 +171,7 @@
 <span class="dim">34 │</span>     res.header(&#39;Access-Control-Allow-Credentials&#39;, &#39;true&#39;)</div>
 <p>
   This finding comes from the Gatsby fixture in the owlwarden test
-  suite, in <code> /api/users</code>.
+  suite, in <code>/api/users</code>.
   Any origin may call this API and read the response. That is a deliberate choice for a public endpoint and a mistake for anything behind a session - nothing in the source says which this is, so it is reported for you to decide.
 </p>
 
@@ -188,6 +188,8 @@ export default function handler(req: GatsbyFunctionRequest, res: GatsbyFunctionR
   }
   res.json({ ok: true })
 }</code></pre>
+
+
 
 <h3>If you are not using Gatsby</h3>
 <p>Replace the wildcard with the origins that actually need access, and only send credentials to those.</p>

@@ -44,6 +44,7 @@
 pub mod agentws;
 pub mod ast;
 pub mod engine;
+pub mod exposure;
 pub mod framework;
 pub mod fs_source;
 pub mod http;
@@ -54,11 +55,13 @@ pub mod postprocess;
 pub mod project;
 pub mod rule;
 pub mod runner;
+pub mod runtime;
 pub mod safe_io;
 pub mod taint;
 pub mod unit;
 
 pub use engine::StaticEngine;
+pub use exposure::ExposureClassifier;
 pub use framework::{
     FrameworkProfile, FrameworkRegistry, FrameworkSet, HandlerStyle, HttpVocabulary, RouteInfo,
 };
@@ -68,6 +71,7 @@ pub use parse::{ParseFailure, with_parsed};
 pub use project::{PackageManifest, Project};
 pub use rule::{FileRule, FindingSink, ProjectRule, RuleInfo};
 pub use runner::{NetworkStack, RunError, ScanRequest, scan_project, scan_project_with};
+pub use runtime::{ResolvedRuntime, RuntimeMap};
 pub use safe_io::{read_bounded, write_replacing};
 pub use taint::RequestOrigin;
 pub use unit::{FileUnit, UnitMeta};

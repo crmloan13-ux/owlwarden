@@ -1,0 +1,8 @@
+{
+  "name": "fixture-exposure-nuxt",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "nuxt": "^3.12.0"
+  }
+}

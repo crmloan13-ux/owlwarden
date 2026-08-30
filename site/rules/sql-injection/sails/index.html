@@ -171,7 +171,7 @@
 <span class="dim">19 │</span>     )</div>
 <p>
   This finding comes from the Sails.js fixture in the owlwarden test
-  suite.
+  suite, in <code>/auth</code>.
   A value taken from the request is interpolated into SQL, so the caller controls part of the statement. That is enough to read other users&#39; rows, bypass a WHERE clause, or drop a table.
 </p>
 
@@ -181,6 +181,8 @@
 
 // raw query: bind, do not interpolate
 await sails.getDatastore().sendNativeQuery(&#39;SELECT * FROM users WHERE id = $1&#39;, [inputs.id])</code></pre>
+
+
 
 <h3>If you are not using Sails.js</h3>
 <p>Pass the values as query parameters instead of interpolating them. Every driver supports it, and the binding is not optional formatting - it is what stops the value being parsed as SQL.</p>

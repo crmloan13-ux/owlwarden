@@ -1,0 +1,25 @@
+[package]
+name = "owlwarden-bench"
+description = "owlwarden's measured false-positive rate: a labelled corpus, and the harness that scores against it."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+owlwarden-core.workspace = true
+owlwarden-detectors.workspace = true
+owlwarden-static.workspace = true
+
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+tempfile = "3"
+tokio = { version = "1", features = ["macros", "rt"] }

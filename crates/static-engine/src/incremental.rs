@@ -162,7 +162,9 @@ mod tests {
     use owlwarden_core::finding::{
         Confidence, Finding, Location, RuleId, Severity, SourceLocation,
     };
-    use owlwarden_core::report::{Report, ReportSummary, SCHEMA_VERSION, ScanTarget, ToolInfo};
+    use owlwarden_core::report::{
+        ExposureSummary, Report, ReportSummary, SCHEMA_VERSION, ScanTarget, ToolInfo,
+    };
     use tempfile::TempDir;
 
     use super::*;
@@ -187,6 +189,7 @@ mod tests {
             duration_ms: 0,
             target: ScanTarget::default(),
             summary: ReportSummary::of(&findings),
+            exposure_summary: ExposureSummary::default(),
             findings,
             suppressed_count: 0,
             suppressions: Vec::new(),

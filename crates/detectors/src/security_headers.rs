@@ -31,6 +31,7 @@ use owlwarden_core::finding::{
     Severity, SourceLocation,
 };
 use owlwarden_core::remediation::Remediation;
+use owlwarden_core::runtime::Runtime;
 use owlwarden_core::surface::Surface;
 use owlwarden_static::ast::property_name;
 use owlwarden_static::project::Project;
@@ -155,7 +156,15 @@ impl ProjectRule for SecurityHeadersMissing {
             return Ok(());
         }
 
-        sink.push(build_finding(project.framework(), &evidence, &missing));
+        // A project rule, so the runtime is the project's: headers are set in
+        // one place for the whole application, and there is no per-file answer
+        // to give.
+        sink.push(build_finding(
+            project.framework(),
+            project.runtimes().project().runtime,
+            &evidence,
+            &missing,
+        ));
         Ok(())
     }
 }
@@ -329,7 +338,12 @@ impl<'a> Visit<'a> for ConfigVisitor {
 }
 
 /// Builds the finding.
-fn build_finding(framework: &Framework, evidence: &HeaderEvidence, missing: &[&str]) -> Finding {
+fn build_finding(
+    framework: &Framework,
+    runtime: Runtime,
+    evidence: &HeaderEvidence,
+    missing: &[&str],
+) -> Finding {
     let meta = SecurityHeadersMissing::meta();
 
     // Configuration exists and manages some headers: the gap is real and the
@@ -385,7 +399,7 @@ fn build_finding(framework: &Framework, evidence: &HeaderEvidence, missing: &[&s
             method: None,
             evidence: Some(evidence_text),
         })
-        .fixes(remediation(missing).select(framework))
+        .fixes(remediation(missing).select_for_runtime(framework, runtime))
         .reference(Reference::rule_page(&meta.id));
 
     if let Some(anchor) = &evidence.anchor
@@ -450,7 +464,7 @@ pub fn all_fixes() -> Vec<owlwarden_core::finding::Fix> {
 /// silently breaks production to close a Medium finding does not get a second
 /// chance.
 fn remediation(missing: &[&str]) -> Remediation {
-    Remediation::new(format!(
+    let table = Remediation::new(format!(
         "Set these response headers at the edge or in the app: {}.",
         missing.join(", ")
     ))
@@ -523,6 +537,66 @@ fn remediation(missing: &[&str]) -> Remediation {
         "Set the headers on the dev server, and via your host's static headers config (e.g. \
          gatsby-plugin-netlify) in production.",
         GATSBY_HEADERS_PATCH,
+    );
+    // Headers are set in edge middleware on this runtime, not in a Node config
+    // block — there is no `next.config.js` `headers()` to read and no
+    // `helmet()` to mount. The base fix is a file that never runs.;
+    fixes_added_in_1_2(table)
+}
+
+/// The four frameworks added in 1.2, and the runtime deltas.
+///
+/// A continuation rather than more of the same function. Sixteen profiles plus
+/// the deltas is past what fits on a screen, and a table nobody scrolls to the
+/// end of is a table with a hole in it.
+fn fixes_added_in_1_2(table: Remediation) -> Remediation {
+    table    .delta_each(
+        &[
+            Framework::NEXT,
+            Framework::NUXT,
+            Framework::HONO,
+            Framework::ASTRO,
+            Framework::REMIX,
+            Framework::SVELTEKIT,
+            Framework::TANSTACK_START,
+            Framework::SOLIDSTART,
+            Framework::ELYSIA,
+        ],
+        Runtime::WebWorker,
+        "Set them on the response in middleware. A config block the Node build reads is not \
+         evaluated on this runtime.",
+        "export default {\n  \
+         async fetch(request: Request) {\n    \
+         const response = await handle(request)\n    \
+         const headers = new Headers(response.headers)\n    \
+         headers.set('strict-transport-security', 'max-age=63072000; includeSubDomains')\n    \
+         headers.set('content-security-policy', \"default-src 'self'\")\n    \
+         headers.set('x-content-type-options', 'nosniff')\n    \
+         headers.set('x-frame-options', 'DENY')\n    \
+         headers.set('referrer-policy', 'strict-origin-when-cross-origin')\n    \
+         return new Response(response.body, { status: response.status, headers })\n  \
+         },\n\
+         }",
+    )
+    .manual(
+        Framework::SVELTEKIT,
+        "Set them once in `hooks.server.ts`, which runs in front of every response.",
+        "export const handle: Handle = async ({ event, resolve }) => {\n  const response = await resolve(event)\n  response.headers.set('strict-transport-security', 'max-age=63072000; includeSubDomains')\n  response.headers.set('content-security-policy', \"default-src 'self'\")\n  response.headers.set('x-content-type-options', 'nosniff')\n  response.headers.set('x-frame-options', 'DENY')\n  response.headers.set('referrer-policy', 'strict-origin-when-cross-origin')\n  return response\n}",
+    )
+    .manual(
+        Framework::TANSTACK_START,
+        "Set them on the response your server entry returns, so every route inherits them.",
+        "const headers = new Headers(response.headers)\nheaders.set('strict-transport-security', 'max-age=63072000; includeSubDomains')\nheaders.set('content-security-policy', \"default-src 'self'\")\nheaders.set('x-content-type-options', 'nosniff')\nheaders.set('x-frame-options', 'DENY')\nheaders.set('referrer-policy', 'strict-origin-when-cross-origin')\nreturn new Response(response.body, { status: response.status, headers })",
+    )
+    .manual(
+        Framework::SOLIDSTART,
+        "Set them in `src/middleware.ts`, registered in `app.config.ts`.",
+        "export default createMiddleware({\n  onBeforeResponse: [\n    (event) => {\n      const headers = event.response.headers\n      headers.set('strict-transport-security', 'max-age=63072000; includeSubDomains')\n      headers.set('content-security-policy', \"default-src 'self'\")\n      headers.set('x-content-type-options', 'nosniff')\n      headers.set('x-frame-options', 'DENY')\n      headers.set('referrer-policy', 'strict-origin-when-cross-origin')\n    },\n  ],\n})",
+    )
+    .manual(
+        Framework::ELYSIA,
+        "Set them in an `onAfterHandle` hook so every route is covered by one edit.",
+        "app.onAfterHandle(({ set }) => {\n  set.headers['strict-transport-security'] = 'max-age=63072000; includeSubDomains'\n  set.headers['content-security-policy'] = \"default-src 'self'\"\n  set.headers['x-content-type-options'] = 'nosniff'\n  set.headers['x-frame-options'] = 'DENY'\n  set.headers['referrer-policy'] = 'strict-origin-when-cross-origin'\n})",
     )
 }
 

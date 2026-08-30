@@ -1,0 +1,8 @@
+{
+  "name": "fixture-exposure-gatsby",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "gatsby": "^5.13.0"
+  }
+}

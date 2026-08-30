@@ -172,7 +172,7 @@
 <span class="dim">13 │</span>   const accessToken = request.headers.get(&#39;x-access-token&#39;)</div>
 <p>
   This finding comes from the Next.js fixture in the owlwarden test
-  suite, in <code> /api/users</code>.
+  suite, in <code>/api/users</code>.
   Logs are copied into aggregators, retained for months, and readable by anyone with access to the logging system. A credential that reaches a log has left the application&#39;s trust boundary.
 </p>
 
@@ -180,6 +180,8 @@
 <p>Log that the attempt happened, not the credential.</p>
 <pre class="code"><code class="language-ts">console.info({ event: &#39;login_attempt&#39;, userId })
 // never: console.info({ password })</code></pre>
+
+
 
 <h3>If you are not using Next.js</h3>
 <p>Log a redacted shape - an id, a boolean, a length - never the secret itself.</p>

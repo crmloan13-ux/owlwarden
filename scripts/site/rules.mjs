@@ -25,6 +25,7 @@ import { renderFrame } from "./samples.mjs";
  * and the body always use the full name — a title is a slot, not a rename.
  */
 const SHORT_LABELS = {
+  "tanstack-start": "TanStack",
   copilot: "Copilot",
   "gemini-cli": "Gemini",
   vscode: "VS Code",
@@ -44,6 +45,10 @@ const PROFILE_LABELS = {
   astro: "Astro",
   remix: "Remix",
   gatsby: "Gatsby",
+  sveltekit: "SvelteKit",
+  "tanstack-start": "TanStack Start",
+  solidstart: "SolidStart",
+  elysia: "Elysia",
   "claude-code": "Claude Code",
   cursor: "Cursor",
   vscode: "VS Code",
@@ -56,6 +61,14 @@ const PROFILE_LABELS = {
 export function profileLabel(id) {
   return PROFILE_LABELS[id] ?? id;
 }
+
+/** What a runtime is called on a page, as opposed to on the wire. */
+const RUNTIME_LABELS = {
+  node: "Node.js",
+  bun: "Bun",
+  deno: "Deno",
+  webWorker: "Workers and other fetch-API runtimes",
+};
 
 /** The profile key on a fix object, whichever surface it came from. */
 function fixProfile(fix) {
@@ -80,9 +93,17 @@ export function rulePages({ rules, explain, samples, coverage }) {
     const fixes = explain.get(rule.id)?.fixes ?? [];
     covered.set(
       rule.id,
-      fixes
-        .map(fixProfile)
-        .filter((profile) => profile !== null && perProfile.has(profile)),
+      // Deduplicated, because a runtime delta is a *second* fix carrying the
+      // same framework. It belongs on that framework's page as an extra
+      // section, not as a second page claiming the same URL.
+      [
+        ...new Set(
+          fixes
+            .filter((fix) => fix.runtime === undefined)
+            .map(fixProfile)
+            .filter((profile) => profile !== null && perProfile.has(profile)),
+        ),
+      ],
     );
   }
 
@@ -104,7 +125,14 @@ export function rulePages({ rules, explain, samples, coverage }) {
         page: profilePage({
           rule,
           profile,
-          fix: fixes.find((entry) => fixProfile(entry) === profile),
+          fix: fixes.find(
+            (entry) => fixProfile(entry) === profile && entry.runtime === undefined,
+          ),
+          // Every runtime this rule patches for this framework, so the page can
+          // say what changes where — which is the whole point of the overlay.
+          deltas: fixes.filter(
+            (entry) => fixProfile(entry) === profile && entry.runtime !== undefined,
+          ),
           generic: fixes.find((entry) => fixProfile(entry) === null),
           finding: perProfile.get(profile),
           siblings: rules.filter(
@@ -328,7 +356,7 @@ ${related
 
 // ---------------------------------------------------------------------------
 
-function profilePage({ rule, profile, fix, generic, finding, siblings }) {
+function profilePage({ rule, profile, fix, deltas = [], generic, finding, siblings }) {
   const label = profileLabel(profile);
   const surface = rule.surface ?? "webApp";
   const noun = surface === "webApp" ? "framework" : "agent host";
@@ -398,13 +426,31 @@ function profilePage({ rule, profile, fix, generic, finding, siblings }) {
 ${renderFrame(finding, esc)}
 <p>
   This finding comes from the ${esc(label)} fixture in the owlwarden test
-  suite${finding?.context?.route ? `, in <code>${esc(finding.context.method ?? "")} ${esc(finding.context.route)}</code>` : ""}.
+  suite${finding?.context?.route ? `, in <code>${esc([finding.context.method, finding.context.route].filter(Boolean).join(" "))}</code>` : ""}.
   ${esc(finding?.why ?? "")}
 </p>
 
 <h2>The corrected ${esc(surface === "webApp" ? "handler" : "configuration")}</h2>
 <p>${esc(fix?.summary ?? generic?.summary ?? "")}</p>
 ${fix?.patch ? code(surface === "webApp" ? "ts" : "json", fix.patch) : ""}
+
+${
+  deltas.length > 0
+    ? `<h2>On a different runtime</h2>
+<p>
+  The fix above is written for the runtime ${esc(label)} usually runs on. These
+  are the runtimes where it would not run at all — an import that does not
+  exist, or an API the host does not have — and what to write instead.
+</p>
+${deltas
+  .map(
+    (delta) => `<h3>${esc(RUNTIME_LABELS[delta.runtime] ?? delta.runtime)}</h3>
+<p>${esc(delta.summary)}</p>
+${delta.patch ? code("ts", delta.patch) : ""}`,
+  )
+  .join("\n")}`
+    : ""
+}
 
 ${
   generic && generic.summary !== fix?.summary

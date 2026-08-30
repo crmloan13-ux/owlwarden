@@ -69,6 +69,9 @@ pub mod runtime;
 pub use adapters::{Encoded, HostAdapter, adapter_for, available_hosts};
 pub use decision::{GateDecision, Verdict};
 pub use event::{GateError, GateEvent, GateEventKind};
-pub use policy::{GateOutcome, GatePolicy, PostureRejection, ProjectPosture, decide};
+pub use policy::{
+    GateOutcome, GatePolicy, PostureRejection, ProjectPosture, SealPosture, SealState, decide,
+    decide_with_seal,
+};
 #[cfg(feature = "runtime")]
 pub use runtime::{GATE_PRESET, GateRequest, run};

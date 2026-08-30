@@ -65,10 +65,11 @@ fn main() -> std::process::ExitCode {
         }
         Command::Rules { json } => run_rules(json),
         Command::Coverage {
+            path,
             json,
             no_color,
             ascii,
-        } => run_coverage(json, no_color, ascii),
+        } => run_coverage(path.as_deref(), json, no_color, ascii),
         Command::Explain { rule, json } => run_explain(&rule, json),
         Command::Scan(args) | Command::Vet(args) => run_scan(&args),
         Command::Gate {
@@ -77,7 +78,48 @@ fn main() -> std::process::ExitCode {
             fail_on,
             min_confidence,
             since,
-        } => run_gate(&host, &path, fail_on, min_confidence, since.as_deref()),
+            seal,
+            seal_trust,
+            require_signed_seal,
+        } => run_gate(&GateInvocation {
+            host: &host,
+            path: &path,
+            fail_on,
+            min_confidence,
+            since: since.as_deref(),
+            seal,
+            seal_trust: seal_trust.as_deref(),
+            require_signed_seal,
+        }),
+        Command::Seal(args) => run_seal(&args),
+        Command::Bench {
+            path,
+            rule,
+            json,
+            out,
+            thresholds,
+        } => run_bench(
+            &path,
+            rule.as_deref(),
+            json,
+            out.as_deref(),
+            thresholds.as_deref(),
+        ),
+        Command::Effective {
+            path,
+            host,
+            key,
+            json,
+            include_user_config,
+            ascii,
+        } => run_effective(
+            &path,
+            &host,
+            key.as_deref(),
+            json,
+            include_user_config,
+            ascii,
+        ),
         Command::Watch(args) => run_watch(&args),
         Command::OsvUpdate { path, out } => run_osv_update(&path, out.as_deref()),
     };
@@ -113,14 +155,30 @@ fn run_scan(args: &ScanArgs) -> i32 {
 /// shows the developer a stack trace mid-session and leaves the host with no
 /// verdict; the failure posture — `ask` before execution, `allow` after — is
 /// the answer, and it is chosen in `owlwarden_gate::decide` rather than here.
-fn run_gate(
-    host: &str,
-    path: &str,
+struct GateInvocation<'a> {
+    host: &'a str,
+    path: &'a str,
     fail_on: Option<owlwarden_core::finding::Severity>,
     min_confidence: Option<owlwarden_core::finding::Confidence>,
-    since: Option<&str>,
-) -> i32 {
+    since: Option<&'a str>,
+    seal: owlwarden_gate::SealPosture,
+    seal_trust: Option<&'a str>,
+    require_signed_seal: bool,
+}
+
+fn run_gate(invocation: &GateInvocation<'_>) -> i32 {
     use std::io::Read as _;
+
+    let GateInvocation {
+        host,
+        path,
+        fail_on,
+        min_confidence,
+        since,
+        seal,
+        seal_trust,
+        require_signed_seal,
+    } = *invocation;
 
     let Some(adapter) = owlwarden_gate::adapter_for(host) else {
         return fail(&format!(
@@ -171,6 +229,7 @@ fn run_gate(
         // Off by default: the default should be the one that keeps people from
         // removing the hook.
         fail_closed: std::env::var("OWLWARDEN_GATE_FAIL").is_ok_and(|value| value == "closed"),
+        seal,
     };
 
     let decision =
@@ -185,6 +244,8 @@ fn run_gate(
             // rule: nothing in the tree can move the threshold in either
             // direction.
             project_posture: owlwarden_gate::ProjectPosture::default(),
+            seal_trust_file: seal_trust.map(std::path::Path::new),
+            require_signed_seal,
         })) {
             Ok(decision) => decision,
             Err(error) => owlwarden_gate::GateDecision::new(
@@ -195,6 +256,402 @@ fn run_gate(
         };
 
     emit_gate(&*adapter, &event, &decision)
+}
+
+/// Runs `owlwarden seal`.
+///
+/// The decision logic lives in `owlwarden_seal::command` so the npm CLI and
+/// this binary cannot answer differently. What is left here is the two things
+/// this process owns: whether a human is present, and how to run a scan.
+fn run_seal(args: &cli::SealArgs) -> i32 {
+    let request = owlwarden_seal::SealRequest {
+        mode: match args.mode {
+            cli::SealMode::Write => owlwarden_seal::SealMode::Write,
+            cli::SealMode::Verify => owlwarden_seal::SealMode::Verify,
+            cli::SealMode::Diff => owlwarden_seal::SealMode::Diff,
+            cli::SealMode::Accept => owlwarden_seal::SealMode::Accept,
+        },
+        json: args.json,
+        // `--yes` or a real terminal. Nothing else counts as a human.
+        attended: args.yes || std::io::stdin().is_terminal(),
+        accept: args.accept.clone(),
+        trust: args.trust.as_ref().map(std::path::PathBuf::from),
+        require_signed: args.require_signed,
+        ascii: args.ascii,
+    };
+    let outcome = owlwarden_seal::command::run(
+        &request,
+        std::path::Path::new(&args.path),
+        &scan_agent_surface,
+    );
+    if !outcome.stdout.is_empty() {
+        let _ = write!(std::io::stdout(), "{}", outcome.stdout);
+    }
+    if !outcome.stderr.is_empty() {
+        let _ = write!(std::io::stderr(), "{}", outcome.stderr);
+    }
+    outcome.exit_code
+}
+
+/// One agent-surface scan, for the seal's "look behind the door" check.
+///
+/// `ReportOnly` suppressions: a repository must not be able to comment its way
+/// to a clean seal.
+fn scan_agent_surface(root: &std::path::Path) -> Result<Report, String> {
+    let (file_rules, project_rules) = owlwarden_detectors::rules_for_preset("agent-surface");
+    let outcome = owlwarden_dynamic::block_on(owlwarden_static::runner::scan_project_with(
+        root.to_path_buf(),
+        file_rules,
+        project_rules,
+        owlwarden_static::runner::ScanRequest {
+            settings: ScanSettings {
+                allow_active: false,
+                min_confidence: owlwarden_core::finding::Confidence::Possible,
+                min_severity: owlwarden_core::finding::Severity::Info,
+                preset: "agent-surface".to_owned(),
+                dirty_paths: None,
+                scoped_paths: None,
+                // The seal records the repository's surface, not the
+                // developer's. A key shadowed on this machine is still shipped
+                // to the next reader, and a seal that varied by whose laptop
+                // wrote it would not be a shared record of anything.
+                include_user_config: false,
+                home_override: None,
+            },
+            baseline: None,
+            write_baseline: None,
+            suppressions: owlwarden_core::suppression::SuppressionPolicy::ReportOnly,
+            extra_detectors: Vec::new(),
+            network: None,
+            advisory: None,
+            correlate: None,
+            dirty_paths: None,
+            diff_scope: None,
+            previous_report: None,
+        },
+    ));
+    match outcome {
+        Ok(Ok(report)) => Ok(report),
+        Ok(Err(error)) => Err(format!("could not scan the agent surface: {error}")),
+        Err(error) => Err(format!("could not scan the agent surface: {error}")),
+    }
+}
+
+/// Runs `owlwarden effective`.
+///
+/// A diagnostic, not a check: it always exits 0 when it could run at all.
+/// "Which of these four files is deciding my agent's behaviour" has no good
+/// answer in any tool today — developers debug it by deleting files — and the
+/// answer is not a pass or a fail.
+fn run_effective(
+    path: &str,
+    host: &str,
+    key: Option<&str>,
+    json: bool,
+    include_user_config: bool,
+    ascii: bool,
+) -> i32 {
+    use owlwarden_static::agentws::tiers::{self, TierPolicy};
+
+    let Ok(host) = owlwarden_core::finding::AgentHost::parse(host) else {
+        return fail("unknown --host");
+    };
+    let policy = if include_user_config {
+        TierPolicy::IncludeUserConfig
+    } else {
+        TierPolicy::ProjectOnly
+    };
+    let config = tiers::resolve(std::path::Path::new(path), &host, policy);
+    let profile = tiers::profile_for(&host);
+    let selected: Vec<&tiers::ResolvedKey> = config
+        .keys
+        .iter()
+        .filter(|entry| key.is_none_or(|wanted| entry.key == wanted))
+        .collect();
+
+    let rendered = if json {
+        match serde_json::to_string_pretty(&effective_json(
+            &host,
+            &profile,
+            &config,
+            &selected,
+            include_user_config,
+        )) {
+            Ok(text) => text,
+            Err(error) => return fail(&error.to_string()),
+        }
+    } else {
+        effective_text(&host, &profile, &config, &selected, ascii)
+    };
+    let _ = writeln!(std::io::stdout(), "{rendered}");
+    0
+}
+
+/// The machine-readable rendering.
+fn effective_json(
+    host: &owlwarden_core::finding::AgentHost,
+    profile: &owlwarden_static::agentws::tiers::AgentHostProfile,
+    config: &owlwarden_static::agentws::tiers::EffectiveConfig,
+    selected: &[&owlwarden_static::agentws::tiers::ResolvedKey],
+    include_user_config: bool,
+) -> serde_json::Value {
+    serde_json::json!({
+        "host": host.as_str(),
+        "verifiedAgainst": profile.verified_against,
+        "includeUserConfig": include_user_config,
+        "tiersRead": config
+            .tiers_read
+            .iter()
+            .map(|(kind, source)| serde_json::json!({
+                "tier": kind.as_str(),
+                "source": source,
+            }))
+            .collect::<Vec<_>>(),
+        "tiersSkipped": config
+            .tiers_skipped
+            .iter()
+            .map(|kind| kind.as_str())
+            .collect::<Vec<_>>(),
+        // Counted, never named: a key only a tier above the root sets is a line
+        // of the developer's own configuration.
+        "keysOnlyAboveRoot": config.keys_only_above_root,
+        "keys": selected
+            .iter()
+            .map(|entry| serde_json::json!({
+                "key": entry.key,
+                // The single choke point for the privacy rule: a value that won
+                // from outside the root renders as a placeholder here exactly
+                // as it does in the text output.
+                "value": entry.rendered_value(),
+                "winner": entry.winner.as_str(),
+                "winnerSource": entry.winner_source,
+                "shadowsProject": entry.shadows_project(),
+                "losers": entry
+                    .losers
+                    .iter()
+                    .map(|(kind, source)| serde_json::json!({
+                        "tier": kind.as_str(),
+                        "source": source,
+                    }))
+                    .collect::<Vec<_>>(),
+            }))
+            .collect::<Vec<_>>(),
+    })
+}
+
+/// The provenance table a human reads.
+fn effective_text(
+    host: &owlwarden_core::finding::AgentHost,
+    profile: &owlwarden_static::agentws::tiers::AgentHostProfile,
+    config: &owlwarden_static::agentws::tiers::EffectiveConfig,
+    selected: &[&owlwarden_static::agentws::tiers::ResolvedKey],
+    ascii: bool,
+) -> String {
+    use owlwarden_static::agentws::tiers::TierKind;
+    use std::fmt::Write as _;
+
+    let mut out = format!(
+        "\n{} effective configuration · {}  (order verified against {})\n\n",
+        owlwarden_reporters::banner::owl_mark(!ascii),
+        host.as_str(),
+        profile.verified_against
+    );
+    if selected.is_empty() {
+        out.push_str("  (nothing resolved)\n");
+    }
+    for entry in selected {
+        let _ = writeln!(
+            out,
+            "  {:<28}{}",
+            untrusted_text::one_line(&entry.key, 26),
+            entry.rendered_value()
+        );
+        let _ = writeln!(
+            out,
+            "  {:<28}✓ {}  ({})",
+            "",
+            entry.winner_source,
+            entry.winner.as_str()
+        );
+        for (kind, source) in &entry.losers {
+            let note = if entry.shadows_project() && *kind == TierKind::Project {
+                "shadowed"
+            } else {
+                "lost"
+            };
+            let _ = writeln!(out, "  {:<28}✗ {source}  ({}, {note})", "", kind.as_str());
+        }
+        out.push('\n');
+    }
+    if config.keys_only_above_root > 0 {
+        let _ = writeln!(
+            out,
+            "  {} key(s) set only above this project, not listed — their names are the \
+             developer's configuration, not this repository's",
+            config.keys_only_above_root
+        );
+    }
+    if !config.tiers_skipped.is_empty() {
+        let skipped: Vec<&str> = config
+            .tiers_skipped
+            .iter()
+            .map(|kind| kind.as_str())
+            .collect();
+        let _ = writeln!(
+            out,
+            "  not opened: {} — pass --include-user-config to resolve against them",
+            skipped.join(", ")
+        );
+    }
+    out
+}
+
+/// Runs `owlwarden bench`.
+///
+/// Exit 1 when a precision floor is breached — the same shape as a scan that
+/// found something. A benchmark that reported a regression and exited 0 would
+/// be a benchmark nobody wired into CI.
+fn run_bench(
+    path: &str,
+    rule: Option<&str>,
+    json: bool,
+    out: Option<&str>,
+    thresholds_path: Option<&str>,
+) -> i32 {
+    let corpus = match owlwarden_bench::corpus::load(std::path::Path::new(path)) {
+        Ok(corpus) => corpus,
+        Err(error) => return fail(&error.to_string()),
+    };
+
+    let report = match owlwarden_bench::run::run(
+        &owlwarden_bench::BenchRequest {
+            corpus: &corpus,
+            rule,
+        },
+        &bench_scan,
+    ) {
+        Ok(report) => report,
+        Err(error) => return fail(&error.to_string()),
+    };
+
+    let rendered = if json {
+        match serde_json::to_string_pretty(&report) {
+            Ok(text) => format!("{text}\n"),
+            Err(error) => return fail(&error.to_string()),
+        }
+    } else {
+        render_bench(&report)
+    };
+
+    match out {
+        Some(destination) => {
+            if let Err(error) = owlwarden_static::write_replacing(
+                std::path::Path::new(destination),
+                rendered.as_bytes(),
+            ) {
+                return fail(&error.to_string());
+            }
+            let _ = writeln!(std::io::stdout(), "wrote {destination}");
+        }
+        None => {
+            let _ = write!(std::io::stdout(), "{rendered}");
+        }
+    }
+
+    // Floors are optional: a project without a thresholds file gets the number
+    // and no gate, which is the right default for one that has just started
+    // labelling.
+    let floors = thresholds_path.unwrap_or("bench/thresholds.toml");
+    let Ok(thresholds) = owlwarden_bench::thresholds::load(std::path::Path::new(floors), None)
+    else {
+        return 0;
+    };
+    let breaches = report.breaches(&thresholds);
+    if breaches.is_empty() {
+        return 0;
+    }
+    for breach in &breaches {
+        let _ = writeln!(std::io::stderr(), "error: {breach}");
+    }
+    1
+}
+
+/// One corpus repository's scan.
+fn bench_scan(root: &std::path::Path, settings: &ScanSettings) -> Result<Report, String> {
+    let (file_rules, project_rules) =
+        owlwarden_detectors::rules_for_preset(owlwarden_bench::BENCH_PRESET);
+    let outcome = owlwarden_dynamic::block_on(owlwarden_static::runner::scan_project_with(
+        root.to_path_buf(),
+        file_rules,
+        project_rules,
+        owlwarden_static::runner::ScanRequest {
+            settings: settings.clone(),
+            baseline: None,
+            write_baseline: None,
+            suppressions: owlwarden_bench::run::suppression_policy(),
+            extra_detectors: Vec::new(),
+            network: None,
+            advisory: None,
+            correlate: None,
+            dirty_paths: None,
+            diff_scope: None,
+            previous_report: None,
+        },
+    ));
+    match outcome {
+        Ok(Ok(report)) => Ok(report),
+        Ok(Err(error)) => Err(error.to_string()),
+        Err(error) => Err(error.to_string()),
+    }
+}
+
+/// The benchmark table a human reads.
+fn render_bench(report: &owlwarden_bench::BenchReport) -> String {
+    use std::fmt::Write as _;
+
+    let mut out = format!("\n{}\n\n", report.summary());
+    let rate = |value: Option<f64>| {
+        value.map_or_else(
+            || "    n/a".to_owned(),
+            |value| format!("{:6.1}%", value * 100.0),
+        )
+    };
+
+    let _ = writeln!(
+        out,
+        "  {:<28}{:>8}{:>8}{:>6}{:>6}",
+        "rule", "prec", "recall", "fp", "fn"
+    );
+    for score in &report.rules {
+        let _ = writeln!(
+            out,
+            "  {:<28}{}{}{:>6}{:>6}",
+            untrusted_text::one_line(&score.rule, 26),
+            rate(score.precision),
+            rate(score.recall),
+            score.false_positives,
+            score.false_negatives
+        );
+    }
+
+    // The false positives, listed. A number nobody can inspect is a number
+    // nobody trusts, and this is the number the whole apparatus exists for.
+    let listed: Vec<&String> = report
+        .rules
+        .iter()
+        .flat_map(|score| score.false_positive_locations.iter())
+        .collect();
+    if !listed.is_empty() {
+        let _ = writeln!(out, "\n  false positives");
+        for location in listed.iter().take(100) {
+            let _ = writeln!(out, "    {}", untrusted_text::one_line(location, 160));
+        }
+        if listed.len() > 100 {
+            let _ = writeln!(out, "    … {} more (use --format json)", listed.len() - 100);
+        }
+    }
+    let _ = writeln!(out, "\n  reproduce: {}", report.reproduce);
+    out
 }
 
 /// Writes an encoded decision and returns the host's exit code.
@@ -300,6 +757,8 @@ fn build_scan_request(
             preset: args.preset.clone(),
             dirty_paths: None,
             scoped_paths: scope.as_ref().map(|scope| scope.paths.clone()),
+            include_user_config: args.include_user_config,
+            home_override: None,
         },
         baseline,
         write_baseline: args.write_baseline.as_ref().map(std::path::PathBuf::from),
@@ -344,7 +803,8 @@ fn finish_scan_report(args: &ScanArgs, report: &Report, color: bool) -> (i32, Op
     if args.report_suppressions {
         write_suppressions(report);
     }
-    let exit = if report.should_fail(args.fail_on, args.min_confidence) {
+    let exit = if report.should_fail_with(args.fail_on, args.min_confidence, args.fail_on_exposure)
+    {
         EXIT_FINDINGS
     } else {
         EXIT_CLEAN
@@ -576,11 +1036,13 @@ fn run_watch(args: &ScanArgs) -> i32 {
         paths: Vec::new(),
         budget: args.budget,
         max_findings: args.max_findings,
+        include_user_config: args.include_user_config,
         vet: args.vet,
         path: args.path.clone(),
         preset: args.preset.clone(),
         format: args.format.clone(),
         fail_on: args.fail_on,
+        fail_on_exposure: args.fail_on_exposure,
         min_confidence: args.min_confidence,
         out: args.out.clone(),
         baseline: args.baseline.clone(),
@@ -806,11 +1268,21 @@ fn run_rules(json: bool) -> i32 {
     EXIT_CLEAN
 }
 
-fn run_coverage(json: bool, no_color: bool, ascii: bool) -> i32 {
+fn run_coverage(path: Option<&str>, json: bool, no_color: bool, ascii: bool) -> i32 {
     let report = owlwarden_detectors::coverage_report();
+    // Only computed when a path is given: the compiled-in tables answer "what
+    // does this tool check", and that question has no project in it.
+    let project = path.map(project_coverage);
 
     if json {
-        return match serde_json::to_string_pretty(&report) {
+        let body = match &project {
+            Some(project) => serde_json::json!({
+                "catalogue": report,
+                "project": project,
+            }),
+            None => serde_json::json!({ "catalogue": report }),
+        };
+        return match serde_json::to_string_pretty(&body) {
             Ok(encoded) => {
                 println!("{encoded}");
                 EXIT_CLEAN
@@ -829,7 +1301,133 @@ fn run_coverage(json: bool, no_color: bool, ascii: bool) -> i32 {
             },
         )
     );
+    if let Some(project) = &project {
+        print!("{}", render_project_coverage(project));
+    }
     EXIT_CLEAN
+}
+
+/// What this repository looks like through the tables above.
+///
+/// Two numbers the catalogue cannot know: how the findings distribute across
+/// the exposure axis, and whether the agent's execution surface is recorded at
+/// all. Both are stated in the same voice as the gaps — a high unclassified
+/// rate is a gap in what the tool could answer, not a clean bill of health.
+fn project_coverage(path: &str) -> serde_json::Value {
+    let root = std::path::Path::new(path);
+    let distribution = match scan_for_coverage(root) {
+        Ok(report) => Some(report.exposure_summary),
+        Err(_) => None,
+    };
+
+    let seal = match owlwarden_seal::store::load(root) {
+        Ok((lock, _)) => serde_json::json!({
+            "present": true,
+            "sealedAt": lock.sealed_at,
+            "items": lock.item_count(),
+            "accepted": lock.accepted.len(),
+        }),
+        Err(_) => serde_json::json!({ "present": false }),
+    };
+
+    serde_json::json!({
+        "project": path,
+        "exposure": distribution,
+        "unclassifiedPercent": distribution.map(|value| value.unclassified_percent()),
+        "seal": seal,
+    })
+}
+
+fn scan_for_coverage(root: &std::path::Path) -> Result<Report, String> {
+    let (file_rules, project_rules) = owlwarden_detectors::rules_for_preset("quick");
+    let outcome = owlwarden_dynamic::block_on(owlwarden_static::runner::scan_project_with(
+        root.to_path_buf(),
+        file_rules,
+        project_rules,
+        owlwarden_static::runner::ScanRequest {
+            settings: ScanSettings {
+                preset: "quick".to_owned(),
+                ..ScanSettings::default()
+            },
+            baseline: None,
+            write_baseline: None,
+            suppressions: owlwarden_core::suppression::SuppressionPolicy::Honour,
+            extra_detectors: Vec::new(),
+            network: None,
+            advisory: None,
+            correlate: None,
+            dirty_paths: None,
+            diff_scope: None,
+            previous_report: None,
+        },
+    ));
+    match outcome {
+        Ok(Ok(report)) => Ok(report),
+        Ok(Err(error)) => Err(error.to_string()),
+        Err(error) => Err(error.to_string()),
+    }
+}
+
+/// The project section of the coverage table.
+fn render_project_coverage(project: &serde_json::Value) -> String {
+    use owlwarden_core::finding::Exposure;
+    use std::fmt::Write as _;
+
+    let mut out = String::from("\nThis project\n\n");
+
+    match project.get("exposure").and_then(|value| {
+        serde_json::from_value::<owlwarden_core::report::ExposureSummary>(value.clone()).ok()
+    }) {
+        Some(distribution) if distribution.total() > 0 => {
+            for exposure in Exposure::all() {
+                let _ = writeln!(
+                    out,
+                    "  {:<20}{:>5}",
+                    exposure.label(),
+                    distribution.count(exposure)
+                );
+            }
+            let _ = writeln!(
+                out,
+                "\n  {}% of findings could not be placed on the exposure axis. That is a gap in \n  \
+                 what this tool could answer about your code, not a clean result.",
+                distribution.unclassified_percent()
+            );
+        }
+        Some(_) => {
+            let _ = writeln!(out, "  no findings, so no exposure distribution");
+        }
+        None => {
+            let _ = writeln!(
+                out,
+                "  the scan did not complete, so there is no distribution"
+            );
+        }
+    }
+
+    let sealed = project
+        .get("seal")
+        .and_then(|seal| seal.get("present"))
+        .and_then(serde_json::Value::as_bool)
+        .unwrap_or(false);
+    if sealed {
+        let items = project
+            .get("seal")
+            .and_then(|seal| seal.get("items"))
+            .and_then(serde_json::Value::as_u64)
+            .unwrap_or(0);
+        let _ = writeln!(
+            out,
+            "\n  agent surface  sealed, {items} item(s) recorded — `owlwarden seal --verify`"
+        );
+    } else {
+        let _ = writeln!(
+            out,
+            "\n  agent surface  not sealed. Nothing records what your agent is allowed to \n  \
+             execute, so nothing notices when it changes: `owlwarden seal`."
+        );
+    }
+    out
 }
 
 fn run_explain(rule: &str, json: bool) -> i32 {
