@@ -4,7 +4,7 @@
 > with framework-specific fixes for 12 stacks and 7 agent hosts, plus scanning of
 > the `.claude/`, `.cursor/`, and `.vscode/` configuration a lockfile does not
 > record. Runs entirely on the developer's machine: no account, no telemetry, no
-> network unless asked. Version 1.1.0. MIT OR Apache-2.0.
+> network unless asked. Version 1.2.0. MIT OR Apache-2.0.
 
 Install: `npm i -D owlwarden` / Scan: `npx owlwarden scan` / Vet a repo you did
 not write: `npx owlwarden vet .`
