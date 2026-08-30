@@ -91,6 +91,19 @@ fn main() -> std::process::ExitCode {
             require_signed_seal,
         }),
         Command::Seal(args) => run_seal(&args),
+        Command::Bench {
+            path,
+            rule,
+            json,
+            out,
+            thresholds,
+        } => run_bench(
+            &path,
+            rule.as_deref(),
+            json,
+            out.as_deref(),
+            thresholds.as_deref(),
+        ),
         Command::Effective {
             path,
             host,
@@ -489,6 +502,154 @@ fn effective_text(
             skipped.join(", ")
         );
     }
+    out
+}
+
+/// Runs `owlwarden bench`.
+///
+/// Exit 1 when a precision floor is breached — the same shape as a scan that
+/// found something. A benchmark that reported a regression and exited 0 would
+/// be a benchmark nobody wired into CI.
+fn run_bench(
+    path: &str,
+    rule: Option<&str>,
+    json: bool,
+    out: Option<&str>,
+    thresholds_path: Option<&str>,
+) -> i32 {
+    let corpus = match owlwarden_bench::corpus::load(std::path::Path::new(path)) {
+        Ok(corpus) => corpus,
+        Err(error) => return fail(&error.to_string()),
+    };
+
+    let report = match owlwarden_bench::run::run(
+        &owlwarden_bench::BenchRequest {
+            corpus: &corpus,
+            rule,
+        },
+        &bench_scan,
+    ) {
+        Ok(report) => report,
+        Err(error) => return fail(&error.to_string()),
+    };
+
+    let rendered = if json {
+        match serde_json::to_string_pretty(&report) {
+            Ok(text) => format!("{text}\n"),
+            Err(error) => return fail(&error.to_string()),
+        }
+    } else {
+        render_bench(&report)
+    };
+
+    match out {
+        Some(destination) => {
+            if let Err(error) = owlwarden_static::write_replacing(
+                std::path::Path::new(destination),
+                rendered.as_bytes(),
+            ) {
+                return fail(&error.to_string());
+            }
+            let _ = writeln!(std::io::stdout(), "wrote {destination}");
+        }
+        None => {
+            let _ = write!(std::io::stdout(), "{rendered}");
+        }
+    }
+
+    // Floors are optional: a project without a thresholds file gets the number
+    // and no gate, which is the right default for one that has just started
+    // labelling.
+    let floors = thresholds_path.unwrap_or("bench/thresholds.toml");
+    let Ok(thresholds) = owlwarden_bench::thresholds::load(std::path::Path::new(floors), None)
+    else {
+        return 0;
+    };
+    let breaches = report.breaches(&thresholds);
+    if breaches.is_empty() {
+        return 0;
+    }
+    for breach in &breaches {
+        let _ = writeln!(std::io::stderr(), "error: {breach}");
+    }
+    1
+}
+
+/// One corpus repository's scan.
+fn bench_scan(root: &std::path::Path, settings: &ScanSettings) -> Result<Report, String> {
+    let (file_rules, project_rules) =
+        owlwarden_detectors::rules_for_preset(owlwarden_bench::BENCH_PRESET);
+    let outcome = owlwarden_dynamic::block_on(owlwarden_static::runner::scan_project_with(
+        root.to_path_buf(),
+        file_rules,
+        project_rules,
+        owlwarden_static::runner::ScanRequest {
+            settings: settings.clone(),
+            baseline: None,
+            write_baseline: None,
+            suppressions: owlwarden_bench::run::suppression_policy(),
+            extra_detectors: Vec::new(),
+            network: None,
+            advisory: None,
+            correlate: None,
+            dirty_paths: None,
+            diff_scope: None,
+            previous_report: None,
+        },
+    ));
+    match outcome {
+        Ok(Ok(report)) => Ok(report),
+        Ok(Err(error)) => Err(error.to_string()),
+        Err(error) => Err(error.to_string()),
+    }
+}
+
+/// The benchmark table a human reads.
+fn render_bench(report: &owlwarden_bench::BenchReport) -> String {
+    use std::fmt::Write as _;
+
+    let mut out = format!("\n{}\n\n", report.summary());
+    let rate = |value: Option<f64>| {
+        value.map_or_else(
+            || "    n/a".to_owned(),
+            |value| format!("{:6.1}%", value * 100.0),
+        )
+    };
+
+    let _ = writeln!(
+        out,
+        "  {:<28}{:>8}{:>8}{:>6}{:>6}",
+        "rule", "prec", "recall", "fp", "fn"
+    );
+    for score in &report.rules {
+        let _ = writeln!(
+            out,
+            "  {:<28}{}{}{:>6}{:>6}",
+            untrusted_text::one_line(&score.rule, 26),
+            rate(score.precision),
+            rate(score.recall),
+            score.false_positives,
+            score.false_negatives
+        );
+    }
+
+    // The false positives, listed. A number nobody can inspect is a number
+    // nobody trusts, and this is the number the whole apparatus exists for.
+    let listed: Vec<&String> = report
+        .rules
+        .iter()
+        .flat_map(|score| score.false_positive_locations.iter())
+        .collect();
+    if !listed.is_empty() {
+        let _ = writeln!(out, "\n  false positives");
+        for location in listed.iter().take(100) {
+            let _ = writeln!(out, "    {}", untrusted_text::one_line(location, 160));
+        }
+        if listed.len() > 100 {
+            let _ = writeln!(out, "    … {} more (use --format json)", listed.len() - 100);
+        }
+    }
+    let _ = writeln!(out, "\n  reproduce: {}", report.reproduce);
     out
 }
 

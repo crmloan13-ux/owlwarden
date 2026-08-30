@@ -58,6 +58,19 @@ pub enum Command {
     },
     /// Record or verify the agent execution surface.
     Seal(Box<SealArgs>),
+    /// Score the engine against the labelled corpus.
+    Bench {
+        /// Corpus directory. Defaults to `bench/corpus`.
+        path: String,
+        /// Score only this rule.
+        rule: Option<String>,
+        /// Emit JSON instead of text.
+        json: bool,
+        /// Write the report here instead of stdout.
+        out: Option<String>,
+        /// Thresholds file. Defaults to `bench/thresholds.toml`.
+        thresholds: Option<String>,
+    },
     /// Print the agent configuration a host would actually resolve.
     Effective {
         /// Project root.
@@ -342,6 +355,7 @@ pub fn parse(args: &[String]) -> Result<Command, ArgError> {
         "gate" => parse_gate(rest),
         "seal" => parse_seal(rest).map(|args| Command::Seal(Box::new(args))),
         "effective" => parse_effective(rest),
+        "bench" => parse_bench(rest),
         "watch" => parse_scan(rest).map(|args| Command::Watch(Box::new(args))),
         "rules" => Ok(Command::Rules {
             json: rest.any(|arg| arg == "--json"),
@@ -632,6 +646,71 @@ fn parse_gate<'a>(args: impl Iterator<Item = &'a String>) -> Result<Command, Arg
         seal,
         seal_trust,
         require_signed_seal,
+    })
+}
+
+/// Parses the flags of `bench`.
+fn parse_bench<'a>(args: impl Iterator<Item = &'a String>) -> Result<Command, ArgError> {
+    let mut path: Option<String> = None;
+    let mut rule: Option<String> = None;
+    let mut json = false;
+    let mut out: Option<String> = None;
+    let mut thresholds: Option<String> = None;
+    let mut args = args.peekable();
+
+    while let Some(arg) = args.next() {
+        let mut value =
+            |option: &'static str| args.next().cloned().ok_or(ArgError::MissingValue(option));
+        match arg.as_str() {
+            "--rule" => rule = Some(value("--rule")?),
+            "--out" => out = Some(value("--out")?),
+            "--thresholds" => thresholds = Some(value("--thresholds")?),
+            "--json" => json = true,
+            "--format" => {
+                let format = value("--format")?;
+                match format.as_str() {
+                    "json" => json = true,
+                    "pretty" | "text" => json = false,
+                    _ => {
+                        return Err(ArgError::InvalidValue {
+                            option: "--format",
+                            value: format,
+                            expected: "pretty or json",
+                        });
+                    }
+                }
+            }
+            "--compare" => {
+                // Named rather than silently ignored. A comparison run has
+                // rules — the alternative's exact version and invocation
+                // published, run in a configuration its own documentation
+                // recommends, and every row where we do worse shown in the same
+                // font size. None of that is implemented, and a flag that
+                // pretended otherwise would produce exactly the dishonest
+                // benchmark ADR 0030 §5 refuses to publish.
+                let tool = value("--compare")?;
+                return Err(ArgError::InvalidValue {
+                    option: "--compare",
+                    value: tool,
+                    expected: "not implemented. A comparison is only publishable under the \
+                               rules in ADR 0030 §5, and running one that does not meet them \
+                               would be worse than publishing none",
+                });
+            }
+            other if other.starts_with('-') => {
+                return Err(ArgError::UnknownOption(other.to_owned()));
+            }
+            candidate if path.is_none() => path = Some(candidate.to_owned()),
+            extra => return Err(ArgError::UnknownOption(extra.to_owned())),
+        }
+    }
+
+    Ok(Command::Bench {
+        path: path.unwrap_or_else(|| "bench/corpus".to_owned()),
+        rule,
+        json,
+        out,
+        thresholds,
     })
 }
 
@@ -968,6 +1047,7 @@ USAGE
   owlwarden gate --host <HOST> [PATH]  hook entry point; event JSON on stdin
   owlwarden seal [PATH] [OPTIONS]      lock the agent's execution surface
   owlwarden effective [PATH] --host <HOST>   which file is deciding this?
+  owlwarden bench [CORPUS] [--rule R] [--json]   how often are we wrong?
   owlwarden watch [PATH] [OPTIONS]
   owlwarden osv update [PATH] [--out FILE]
   owlwarden rules [--json]
@@ -1031,6 +1111,15 @@ fn options_help() -> String {
         --include-user-config    also read the user and managed tiers
         A value that won from outside the project root renders as
         `(set by user settings)`. It is never printed.
+
+  bench — scores the engine against a labelled corpus of real repositories and
+        prints precision, recall, per-rule false positives, and wall time.
+        --rule <ID>          score one rule
+        --out <FILE>         write the report instead of printing it
+        --thresholds <FILE>  precision floors; default bench/thresholds.toml
+        Exit 1 when a floor is breached. The corpus discipline — two named
+        reviewers, disagreements recorded rather than resolved, repositories
+        pinned by SHA — is enforced when the corpus loads.
 
 SCAN OPTIONS
   --preset <NAME>      Rule bundle to run. Default: {default_preset}

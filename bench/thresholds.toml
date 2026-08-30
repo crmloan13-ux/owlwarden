@@ -1,0 +1,20 @@
+# Precision floors for `owlwarden bench`.
+#
+# Raising a threshold is a normal change. LOWERING ONE REQUIRES A `# note:` line
+# directly above it, explaining what was traded and why — the parser refuses the
+# file otherwise. That asymmetry is the whole mechanism: without it, precision is
+# a statistic that drifts down one acceptable increment at a time and nobody is
+# ever the person who lowered it.
+#
+# Only precision gates the build. Recall is bounded by what has been labelled,
+# so a recall floor would mostly measure corpus growth (ADR 0030).
+#
+# These values are commented out until the corpus has repositories in it. A
+# floor over an empty corpus gates nothing and reads as though it does.
+
+# overall = 0.90
+
+# `authenticated` precision is floored separately and higher, because a finding
+# wrongly marked as behind auth is one somebody deprioritises — the only new
+# failure mode in 1.2 that makes a reader less safe (ADR 0029 §2).
+# authenticated = 0.95

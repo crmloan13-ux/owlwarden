@@ -1315,10 +1315,25 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "384b8ab6d37215f3c5301a95a4accb5d64aa607f1fcb26a11b5303878451b4fe"
 
 [[package]]
+name = "owlwarden-bench"
+version = "1.1.0"
+dependencies = [
+ "owlwarden-core",
+ "owlwarden-detectors",
+ "owlwarden-static",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror",
+ "tokio",
+]
+
+[[package]]
 name = "owlwarden-cli"
 version = "1.1.0"
 dependencies = [
  "anstream",
+ "owlwarden-bench",
  "owlwarden-core",
  "owlwarden-detectors",
  "owlwarden-dynamic",
