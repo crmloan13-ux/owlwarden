@@ -32,6 +32,13 @@ use super::ModuleResolver;
 /// and an unbounded collection here is memory an attacker chooses the size of.
 const MAX_ITEMS: usize = 64;
 
+/// Longest gate name, path, or reason carried into a finding.
+///
+/// Evidence is a glance, not a listing, and every one of these strings is
+/// attacker-chosen: an identifier and a path come out of a repository nobody
+/// vetted, and a module specifier is a string literal that can hold anything.
+const MAX_EVIDENCE_CHARS: usize = 160;
+
 /// A gate that was positively identified, and how.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GateRef {
@@ -41,6 +48,29 @@ pub struct GateRef {
     pub location: String,
     /// One clause naming what identified it, for the reader who disagrees.
     pub reason: String,
+}
+
+impl GateRef {
+    /// Builds a reference with every field made safe to display.
+    ///
+    /// One constructor rather than five call sites remembering: this evidence
+    /// reaches a terminal, a JSON file, a SARIF result, a Markdown pull-request
+    /// comment, and `--format agent`, and a raw newline or a bidirectional
+    /// override in any of them reorders what a human or a model reads.
+    ///
+    /// The mechanics live in [`owlwarden_core::untrusted_text`], shared with
+    /// the gate's reason string and the agent reporter, because two
+    /// implementations of "make this safe to show" is one more than can be kept
+    /// correct.
+    #[must_use]
+    pub fn new(name: impl AsRef<str>, location: impl AsRef<str>, reason: impl AsRef<str>) -> Self {
+        let clamp = |text: &str| owlwarden_core::untrusted_text::one_line(text, MAX_EVIDENCE_CHARS);
+        Self {
+            name: clamp(name.as_ref()),
+            location: clamp(location.as_ref()),
+            reason: clamp(reason.as_ref()),
+        }
+    }
 }
 
 /// A gate mounted for later requests, and the path prefix it covers.
@@ -241,14 +271,14 @@ impl FactVisitor<'_, '_> {
                 .iter()
                 .find(|(name, _, _)| self.guarded_bindings.iter().any(|held| held == name))
             {
-                self.facts.inline_gate = Some(GateRef {
-                    name: call.clone(),
-                    location: format!("{}:{line}", self.unit.path.as_str()),
-                    reason: format!(
+                self.facts.inline_gate = Some(GateRef::new(
+                    call.clone(),
+                    format!("{}:{line}", self.unit.path.as_str()),
+                    format!(
                         "`{call}` is checked in a branch that returns or throws before the handler \
                          continues"
                     ),
-                });
+                ));
             }
         }
         self.facts
@@ -266,11 +296,11 @@ impl FactVisitor<'_, '_> {
             }
             if super::imported_name_is_gate(self.resolver, self.unit.path.as_str(), name, specifier)
             {
-                self.facts.declared_gates.push(GateRef {
-                    name: name.clone(),
-                    location: format!("{}:1", self.unit.path.as_str()),
-                    reason: format!("`{name}` is imported from `{specifier}` by this middleware"),
-                });
+                self.facts.declared_gates.push(GateRef::new(
+                    name.clone(),
+                    format!("{}:1", self.unit.path.as_str()),
+                    format!("`{name}` is imported from `{specifier}` by this middleware"),
+                ));
             }
         }
     }
@@ -310,31 +340,31 @@ impl FactVisitor<'_, '_> {
 
         if let Some(specifier) = self.imports.specifier(root) {
             if auth::is_auth_package(specifier) {
-                return Some(GateRef {
+                return Some(GateRef::new(
                     name,
-                    location: self.here(call.span),
-                    reason: format!("`{root}` is imported from `{specifier}`, an auth package"),
-                });
+                    self.here(call.span),
+                    format!("`{root}` is imported from `{specifier}`, an auth package"),
+                ));
             }
             if auth::is_relative_specifier(specifier)
                 && self.resolver.resolves(self.unit.path.as_str(), specifier)
                 && (auth::is_gate_name(root) || method.is_some_and(auth::is_gate_name))
             {
-                return Some(GateRef {
+                return Some(GateRef::new(
                     name,
-                    location: self.here(call.span),
-                    reason: format!("`{root}` is defined in `{specifier}`"),
-                });
+                    self.here(call.span),
+                    format!("`{root}` is defined in `{specifier}`"),
+                ));
             }
             return None;
         }
         // Locally defined, in this file.
         if auth::is_gate_name(root) || method.is_some_and(auth::is_gate_name) {
-            return Some(GateRef {
+            return Some(GateRef::new(
                 name,
-                location: self.here(call.span),
-                reason: "the middleware's name identifies it as an authentication check".to_owned(),
-            });
+                self.here(call.span),
+                "the middleware's name identifies it as an authentication check",
+            ));
         }
         None
     }
@@ -368,19 +398,23 @@ impl FactVisitor<'_, '_> {
                 name,
                 specifier,
             )
-            .then(|| GateRef {
-                name: name.to_owned(),
-                location: self.here(span),
-                reason: format!("`{name}` is imported from `{specifier}`"),
+            .then(|| {
+                GateRef::new(
+                    name,
+                    self.here(span),
+                    format!("`{name}` is imported from `{specifier}`"),
+                )
             });
         }
         // Not imported: either defined here or a global. A global we cannot see
         // is not a gate, and the only way to tell them apart cheaply is that a
         // gate defined here has a name that says so.
-        auth::is_gate_name(name).then(|| GateRef {
-            name: name.to_owned(),
-            location: self.here(span),
-            reason: "the middleware's name identifies it as an authentication check".to_owned(),
+        auth::is_gate_name(name).then(|| {
+            GateRef::new(
+                name,
+                self.here(span),
+                "the middleware's name identifies it as an authentication check",
+            )
         })
     }
 
@@ -558,14 +592,14 @@ impl FactVisitor<'_, '_> {
                     Expression::ObjectExpression(_) | Expression::ArrayExpression(_)
                 )
             {
-                return Some(GateRef {
-                    name: key.to_owned(),
-                    location: self.here(entry.span),
-                    reason: format!(
+                return Some(GateRef::new(
+                    key,
+                    self.here(entry.span),
+                    format!(
                         "the route declares `{key}`, which this framework treats as an \
                          authentication requirement"
                     ),
-                });
+                ));
             }
         }
         None
@@ -589,11 +623,11 @@ impl FactVisitor<'_, '_> {
             {
                 continue;
             }
-            return Some(GateRef {
-                name: format!("@{name}"),
-                location: self.here(decorator.span),
-                reason: format!("`@{name}` gates the handler it decorates"),
-            });
+            return Some(GateRef::new(
+                format!("@{name}"),
+                self.here(decorator.span),
+                format!("`@{name}` gates the handler it decorates"),
+            ));
         }
         None
     }
@@ -623,11 +657,11 @@ impl<'a> Visit<'a> for FactVisitor<'_, '_> {
                         .any(|known| known == &path)
                 })
             {
-                self.facts.global_gate = Some(GateRef {
-                    name: path.clone(),
-                    location: self.here(call.span),
-                    reason: format!("`{path}` applies to every route the server serves"),
-                });
+                self.facts.global_gate = Some(GateRef::new(
+                    path.clone(),
+                    self.here(call.span),
+                    format!("`{path}` applies to every route the server serves"),
+                ));
             }
 
             // A call that rejects the request by itself — but only when we can
@@ -642,13 +676,11 @@ impl<'a> Visit<'a> for FactVisitor<'_, '_> {
                     .any(|profile| profile.auth.is_enforcing_call(&path))
                 && let Some(origin) = self.origin_of(root_identifier(&call.callee))
             {
-                self.facts.inline_gate = Some(GateRef {
-                    name: path.clone(),
-                    location: self.here(call.span),
-                    reason: format!(
-                        "`{path}` rejects the request when there is no session ({origin})"
-                    ),
-                });
+                self.facts.inline_gate = Some(GateRef::new(
+                    path.clone(),
+                    self.here(call.span),
+                    format!("`{path}` rejects the request when there is no session ({origin})"),
+                ));
             }
 
             if let Some(method) = method {
@@ -764,14 +796,14 @@ impl<'a> Visit<'a> for FactVisitor<'_, '_> {
             && self.facts.declared_gates.len() < MAX_ITEMS
             && auth::is_gate_name(literal.value.as_str())
         {
-            self.facts.declared_gates.push(GateRef {
-                name: literal.value.as_str().to_owned(),
-                location: self.here(literal.span),
-                reason: format!(
+            self.facts.declared_gates.push(GateRef::new(
+                literal.value.as_str(),
+                self.here(literal.span),
+                format!(
                     "`{}` is declared as a policy in this file",
                     literal.value.as_str()
                 ),
-            });
+            ));
         }
         oxc_ast_visit::walk::walk_string_literal(self, literal);
     }
