@@ -667,7 +667,8 @@ does and does not reach.
 - Bounded file count, file size, total bytes, and parser recursion depth, so a
   hostile repository cannot exhaust memory or the stack.
 
-[Unreleased]: https://github.com/suthat/owlwarden/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/suthat/owlwarden/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/suthat/owlwarden/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/suthat/owlwarden/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/suthat/owlwarden/compare/v0.5.0...v1.0.0
 [0.5.0]: https://github.com/suthat/owlwarden/compare/v0.4.0...v0.5.0
