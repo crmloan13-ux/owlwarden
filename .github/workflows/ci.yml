@@ -104,11 +104,12 @@ jobs:
       - name: every un-deltaed fix runs on every declared runtime
         if: runner.os == 'Linux'
         env:
-          # workerd has no standalone interpreter on a runner, so the grid is
-          # checked by API availability there rather than by execution. That is
-          # stated here rather than hidden: `probe_command` names it, and the
-          # test prints what it could not run.
-          OWLWARDEN_REQUIRE_RUNTIMES: ""
+          # The runtimes that must be installed, named rather than implied. A
+          # boolean here could only mean "all of them", and workerd has no
+          # standalone interpreter to install on a runner — so the grid checks
+          # it by API availability instead, and this list is where that
+          # exclusion is reviewable rather than true by accident (ADR 0031 §3).
+          OWLWARDEN_REQUIRE_RUNTIMES: bun,deno
         run: cargo test -p owlwarden-detectors --test runtime_execution -- --nocapture
 
       # The number that decides whether anyone believes the rest of the output.
