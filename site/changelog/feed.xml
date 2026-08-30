@@ -5,7 +5,57 @@
   <link href="https://suthat.github.io/owlwarden/changelog/feed.xml" rel="self"/>
   <link href="https://suthat.github.io/owlwarden/changelog/"/>
   <id>https://suthat.github.io/owlwarden/changelog/</id>
-  <updated>2026-08-26T00:00:00Z</updated>
+  <updated>2026-08-30T00:00:00Z</updated>
+  <entry>
+    <title>owlwarden 1.2.0</title>
+    <link href="https://suthat.github.io/owlwarden/changelog/#1-2-0"/>
+    <id>https://suthat.github.io/owlwarden/changelog/#1-2-0</id>
+    <updated>2026-08-30T00:00:00Z</updated>
+    <content type="html">&lt;p&gt;1.1 answered &lt;em&gt;what is here&lt;/em&gt;. This release answers the three questions a person asks immediately afterwards: &lt;strong&gt;what changed, what is reachable, and how often are we wrong?&lt;/strong&gt; (&lt;a href=&quot;https://github.com/suthat/owlwarden/blob/main/docs/adr/0027-workspace-seal.md&quot;&gt;ADR 0027&lt;/a&gt;, &lt;a href=&quot;https://github.com/suthat/owlwarden/blob/main/docs/adr/0028-effective-configuration.md&quot;&gt;ADR 0028&lt;/a&gt;, &lt;a href=&quot;https://github.com/suthat/owlwarden/blob/main/docs/adr/0029-exposure-model.md&quot;&gt;ADR 0029&lt;/a&gt;, &lt;a href=&quot;https://github.com/suthat/owlwarden/blob/main/docs/adr/0030-published-benchmark.md&quot;&gt;ADR 0030&lt;/a&gt;, &lt;a href=&quot;https://github.com/suthat/owlwarden/blob/main/docs/adr/0031-runtime-overlay.md&quot;&gt;ADR 0031&lt;/a&gt;).&lt;/p&gt;
+&lt;p&gt;No new rules. The existing 25 became substantially more useful without one.&lt;/p&gt;
+&lt;h3&gt;Added&lt;/h3&gt;
+&lt;ul&gt;
+  &lt;li&gt;&lt;strong&gt;&lt;code&gt;exposure&lt;/code&gt;, a third axis on every application finding&lt;/strong&gt; - &lt;code&gt;internet&lt;/code&gt;, &lt;code&gt;authenticated&lt;/code&gt;, &lt;code&gt;internal&lt;/code&gt;, &lt;code&gt;unknown&lt;/code&gt; - computed by the engine from route resolution and auth-gate recognition per framework.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;strong&gt;It fails loud: &lt;code&gt;authenticated&lt;/code&gt; requires a positively identified gate, and absence of evidence yields &lt;code&gt;internet&lt;/code&gt;.&lt;/strong&gt; A module that does not resolve is not a gate, a name that does not read as one is not a gate, a session call whose result is never checked is not a gate, and a &lt;code&gt;config.matcher&lt;/code&gt; we could not parse covers nothing rather than everything. Everywhere else in owlwarden uncertainty resolves downward; here it resolves upward, because a finding wrongly marked as behind auth is a finding somebody deprioritises.&lt;/p&gt;
+&lt;p&gt;Report order becomes exposure → severity → confidence, &lt;code&gt;--fail-on-exposure&lt;/code&gt; composes with &lt;code&gt;--fail-on&lt;/code&gt; as an OR, the Markdown reporter groups by exposure, and the summary line states the distribution. Exposure never raises severity.&lt;/p&gt;
+&lt;ul&gt;
+  &lt;li&gt;&lt;strong&gt;&lt;code&gt;owlwarden seal&lt;/code&gt;&lt;/strong&gt; - &lt;code&gt;.owlwarden/surface.lock&lt;/code&gt;, a committed record of every file the agent loads out of the working tree by semantic digest, with hooks, MCP servers and their pins, the permission set, marketplace sources, and instruction files extracted rather than merely hashed. &lt;code&gt;settings.json changed&lt;/code&gt; is a message people re-run past; &lt;em&gt;a &lt;code&gt;SessionStart&lt;/code&gt; hook was added&lt;/em&gt; is not.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;code&gt;--verify&lt;/code&gt;, &lt;code&gt;--diff&lt;/code&gt;, and repeatable &lt;code&gt;--accept &amp;lt;fp&amp;gt; --reason &amp;quot;…&amp;quot;&lt;/code&gt;. Reformatting a config does not break the seal; changing one character of a hook command does. Sealing is never unattended, and refuses to write while an unaccepted high finding sits on the surface.&lt;/p&gt;
+&lt;ul&gt;
+  &lt;li&gt;&lt;strong&gt;&lt;code&gt;owlwarden effective&lt;/code&gt;&lt;/strong&gt; - the resolved agent configuration with provenance per key. &lt;code&gt;git config --show-origin&lt;/code&gt; for your agent.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;ul&gt;
+  &lt;li&gt;&lt;strong&gt;&lt;code&gt;runtime_scope: shadowed&lt;/code&gt;&lt;/strong&gt; - a project key a higher configuration tier overrides, capped at &lt;code&gt;possible&lt;/code&gt; and reported rather than suppressed. Only under &lt;code&gt;--include-user-config&lt;/code&gt;; without it nothing outside the project root is opened and behaviour is identical to 1.1.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;ul&gt;
+  &lt;li&gt;&lt;strong&gt;Runtime as an overlay.&lt;/strong&gt; Findings carry the runtime their file runs on, resolved per file, and five rules carry deltas where their base fix would not execute. The build asserts that the un-deltaed fix does not name an absent API, so the &lt;em&gt;absence&lt;/em&gt; of a delta is a positive claim.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;ul&gt;
+  &lt;li&gt;&lt;strong&gt;Four frameworks, taking the matrix to sixteen&lt;/strong&gt;: SvelteKit, TanStack Start, SolidStart, Elysia - each with the full square fixture matrix and 13 remediation cells.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;ul&gt;
+  &lt;li&gt;&lt;strong&gt;&lt;code&gt;owlwarden bench&lt;/code&gt;&lt;/strong&gt; - precision, recall, per-rule false positives with their locations, and &lt;code&gt;authenticated&lt;/code&gt; precision published separately. The corpus discipline is enforced on load. &lt;strong&gt;The corpus is empty and the tooling says so&lt;/strong&gt;; &lt;code&gt;/benchmark/&lt;/code&gt; is not published until real repositories are labelled.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;ul&gt;
+  &lt;li&gt;&lt;code&gt;owlwarden coverage [PATH]&lt;/code&gt; adds the exposure distribution, the unclassified rate, and the seal state.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;ul&gt;
+  &lt;li&gt;The Action gains &lt;code&gt;seal&lt;/code&gt;, &lt;code&gt;require-signed-seal&lt;/code&gt;, and &lt;code&gt;fail-on-exposure&lt;/code&gt;. The surface diff goes to the job summary and a &lt;code&gt;seal-diff&lt;/code&gt; output, silent when the surface has not moved.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3&gt;Changed&lt;/h3&gt;
+&lt;ul&gt;
+  &lt;li&gt;&lt;code&gt;open-redirect&lt;/code&gt; now recognises status-first &lt;code&gt;redirect(302, to)&lt;/code&gt;, status-last &lt;code&gt;Response.redirect(to, 302)&lt;/code&gt;, and &lt;code&gt;set.headers.Location = to&lt;/code&gt;. It was blind to all three, which made it blind to SvelteKit and Elysia redirects.&lt;/li&gt;
+  &lt;li&gt;Sails gained route resolution; SolidStart&amp;#39;s profile now names &lt;code&gt;src/middleware.ts&lt;/code&gt;, where its headers are actually set.&lt;/li&gt;
+  &lt;li&gt;Report JSON gains &lt;code&gt;exposure&lt;/code&gt;, &lt;code&gt;exposureEvidence&lt;/code&gt;, &lt;code&gt;runtime&lt;/code&gt;, &lt;code&gt;runtimeSource&lt;/code&gt;, and &lt;code&gt;exposureSummary&lt;/code&gt;; &lt;code&gt;target.runtime&lt;/code&gt; states the runtime and whether it was detected or defaulted. All additive - a 1.1 consumer is unaffected.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3&gt;Security&lt;/h3&gt;
+&lt;ul&gt;
+  &lt;li&gt;Gate evidence is clamped at one choke point. A module specifier is a string literal that can hold a newline or a bidirectional override, it resolves on any Unix filesystem, and it previously reached a terminal, a SARIF result, and a pull-request comment unclamped.&lt;/li&gt;
+  &lt;li&gt;49 adversarial tests across the seal, tier resolution, the exposure classifier, and the benchmark. &lt;code&gt;SECURITY.md&lt;/code&gt; carries the seal&amp;#39;s limits - a detection and review control, not a containment one - and the exposure axis&amp;#39;s loud-direction rule.&lt;/li&gt;
+&lt;/ul&gt;</content>
+  </entry>
   <entry>
     <title>owlwarden 1.1.0</title>
     <link href="https://suthat.github.io/owlwarden/changelog/#1-1-0"/>
@@ -209,7 +259,7 @@
     <title>owlwarden 0.1.0</title>
     <link href="https://suthat.github.io/owlwarden/changelog/#0-1-0"/>
     <id>https://suthat.github.io/owlwarden/changelog/#0-1-0</id>
-    <updated>2026-08-26T00:00:00Z</updated>
+    <updated>2026-08-30T00:00:00Z</updated>
     <content type="html">&lt;p&gt;Passive dynamic engine and correlation. &lt;code&gt;Confirmed&lt;/code&gt; is reachable for the first time, without opening active (state-changing) checks.&lt;/p&gt;
 &lt;h3&gt;Added&lt;/h3&gt;
 &lt;ul&gt;
@@ -244,7 +294,7 @@
     <title>owlwarden 0.0.2</title>
     <link href="https://suthat.github.io/owlwarden/changelog/#0-0-2"/>
     <id>https://suthat.github.io/owlwarden/changelog/#0-0-2</id>
-    <updated>2026-08-26T00:00:00Z</updated>
+    <updated>2026-08-30T00:00:00Z</updated>
     <content type="html">&lt;p&gt;Static slice of the trust-and-noise work planned for v0.1: suppressions, baseline, three gap-closing rules, and &lt;code&gt;watch&lt;/code&gt;. Still no network - the dynamic engine that makes &lt;code&gt;Confirmed&lt;/code&gt; reachable remains later.&lt;/p&gt;
 &lt;h3&gt;Added&lt;/h3&gt;
 &lt;ul&gt;
@@ -267,7 +317,7 @@
     <title>owlwarden 0.0.1</title>
     <link href="https://suthat.github.io/owlwarden/changelog/#0-0-1"/>
     <id>https://suthat.github.io/owlwarden/changelog/#0-0-1</id>
-    <updated>2026-08-26T00:00:00Z</updated>
+    <updated>2026-08-30T00:00:00Z</updated>
     <content type="html">&lt;p&gt;First release. A static engine, a rule set, and honest reporting about what it does and does not reach.&lt;/p&gt;
 &lt;h3&gt;Added&lt;/h3&gt;
 &lt;ul&gt;

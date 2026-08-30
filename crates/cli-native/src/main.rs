@@ -65,10 +65,11 @@ fn main() -> std::process::ExitCode {
         }
         Command::Rules { json } => run_rules(json),
         Command::Coverage {
+            path,
             json,
             no_color,
             ascii,
-        } => run_coverage(json, no_color, ascii),
+        } => run_coverage(path.as_deref(), json, no_color, ascii),
         Command::Explain { rule, json } => run_explain(&rule, json),
         Command::Scan(args) | Command::Vet(args) => run_scan(&args),
         Command::Gate {
@@ -1267,11 +1268,21 @@ fn run_rules(json: bool) -> i32 {
     EXIT_CLEAN
 }
 
-fn run_coverage(json: bool, no_color: bool, ascii: bool) -> i32 {
+fn run_coverage(path: Option<&str>, json: bool, no_color: bool, ascii: bool) -> i32 {
     let report = owlwarden_detectors::coverage_report();
+    // Only computed when a path is given: the compiled-in tables answer "what
+    // does this tool check", and that question has no project in it.
+    let project = path.map(project_coverage);
 
     if json {
-        return match serde_json::to_string_pretty(&report) {
+        let body = match &project {
+            Some(project) => serde_json::json!({
+                "catalogue": report,
+                "project": project,
+            }),
+            None => serde_json::json!({ "catalogue": report }),
+        };
+        return match serde_json::to_string_pretty(&body) {
             Ok(encoded) => {
                 println!("{encoded}");
                 EXIT_CLEAN
@@ -1290,7 +1301,133 @@ fn run_coverage(json: bool, no_color: bool, ascii: bool) -> i32 {
             },
         )
     );
+    if let Some(project) = &project {
+        print!("{}", render_project_coverage(project));
+    }
     EXIT_CLEAN
+}
+
+/// What this repository looks like through the tables above.
+///
+/// Two numbers the catalogue cannot know: how the findings distribute across
+/// the exposure axis, and whether the agent's execution surface is recorded at
+/// all. Both are stated in the same voice as the gaps — a high unclassified
+/// rate is a gap in what the tool could answer, not a clean bill of health.
+fn project_coverage(path: &str) -> serde_json::Value {
+    let root = std::path::Path::new(path);
+    let distribution = match scan_for_coverage(root) {
+        Ok(report) => Some(report.exposure_summary),
+        Err(_) => None,
+    };
+
+    let seal = match owlwarden_seal::store::load(root) {
+        Ok((lock, _)) => serde_json::json!({
+            "present": true,
+            "sealedAt": lock.sealed_at,
+            "items": lock.item_count(),
+            "accepted": lock.accepted.len(),
+        }),
+        Err(_) => serde_json::json!({ "present": false }),
+    };
+
+    serde_json::json!({
+        "project": path,
+        "exposure": distribution,
+        "unclassifiedPercent": distribution.map(|value| value.unclassified_percent()),
+        "seal": seal,
+    })
+}
+
+fn scan_for_coverage(root: &std::path::Path) -> Result<Report, String> {
+    let (file_rules, project_rules) = owlwarden_detectors::rules_for_preset("quick");
+    let outcome = owlwarden_dynamic::block_on(owlwarden_static::runner::scan_project_with(
+        root.to_path_buf(),
+        file_rules,
+        project_rules,
+        owlwarden_static::runner::ScanRequest {
+            settings: ScanSettings {
+                preset: "quick".to_owned(),
+                ..ScanSettings::default()
+            },
+            baseline: None,
+            write_baseline: None,
+            suppressions: owlwarden_core::suppression::SuppressionPolicy::Honour,
+            extra_detectors: Vec::new(),
+            network: None,
+            advisory: None,
+            correlate: None,
+            dirty_paths: None,
+            diff_scope: None,
+            previous_report: None,
+        },
+    ));
+    match outcome {
+        Ok(Ok(report)) => Ok(report),
+        Ok(Err(error)) => Err(error.to_string()),
+        Err(error) => Err(error.to_string()),
+    }
+}
+
+/// The project section of the coverage table.
+fn render_project_coverage(project: &serde_json::Value) -> String {
+    use owlwarden_core::finding::Exposure;
+    use std::fmt::Write as _;
+
+    let mut out = String::from("\nThis project\n\n");
+
+    match project.get("exposure").and_then(|value| {
+        serde_json::from_value::<owlwarden_core::report::ExposureSummary>(value.clone()).ok()
+    }) {
+        Some(distribution) if distribution.total() > 0 => {
+            for exposure in Exposure::all() {
+                let _ = writeln!(
+                    out,
+                    "  {:<20}{:>5}",
+                    exposure.label(),
+                    distribution.count(exposure)
+                );
+            }
+            let _ = writeln!(
+                out,
+                "\n  {}% of findings could not be placed on the exposure axis. That is a gap in \n  \
+                 what this tool could answer about your code, not a clean result.",
+                distribution.unclassified_percent()
+            );
+        }
+        Some(_) => {
+            let _ = writeln!(out, "  no findings, so no exposure distribution");
+        }
+        None => {
+            let _ = writeln!(
+                out,
+                "  the scan did not complete, so there is no distribution"
+            );
+        }
+    }
+
+    let sealed = project
+        .get("seal")
+        .and_then(|seal| seal.get("present"))
+        .and_then(serde_json::Value::as_bool)
+        .unwrap_or(false);
+    if sealed {
+        let items = project
+            .get("seal")
+            .and_then(|seal| seal.get("items"))
+            .and_then(serde_json::Value::as_u64)
+            .unwrap_or(0);
+        let _ = writeln!(
+            out,
+            "\n  agent surface  sealed, {items} item(s) recorded — `owlwarden seal --verify`"
+        );
+    } else {
+        let _ = writeln!(
+            out,
+            "\n  agent surface  not sealed. Nothing records what your agent is allowed to \n  \
+             execute, so nothing notices when it changes: `owlwarden seal`."
+        );
+    }
+    out
 }
 
 fn run_explain(rule: &str, json: bool) -> i32 {

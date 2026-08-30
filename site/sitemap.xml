@@ -2,1277 +2,1277 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://suthat.github.io/owlwarden/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>1.0</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/agent-config-security/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/asi/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/changelog/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/ci/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/claude-code/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/cursor/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/mcp/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/offline/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/owasp/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/agent-config-env-redirect/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/agent-config-env-redirect/claude-code/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/agent-config-env-redirect/codex/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/agent-config-env-redirect/cursor/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/agent-config-env-redirect/gemini-cli/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/agent-config-env-redirect/vscode/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/agent-config-loader-script/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/agent-config-loader-script/claude-code/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/agent-config-loader-script/codex/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/agent-config-loader-script/cursor/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/agent-config-loader-script/vscode/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/agent-config-secret-reachable/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/agent-config-secret-reachable/claude-code/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/agent-config-secret-reachable/cursor/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/agent-config-secret-reachable/generic/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/agent-config-secret-reachable/vscode/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/agent-hook-autoexec/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/agent-hook-autoexec/claude-code/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/agent-hook-autoexec/codex/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/agent-hook-autoexec/cursor/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/agent-hook-autoexec/gemini-cli/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/agent-hook-autoexec/vscode/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/agent-hook-untrusted-command/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/agent-hook-untrusted-command/claude-code/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/agent-hook-untrusted-command/codex/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/agent-hook-untrusted-command/cursor/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/agent-hook-untrusted-command/gemini-cli/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/agent-hook-untrusted-command/vscode/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/agent-instructions-directive/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/agent-instructions-directive/claude-code/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/agent-instructions-directive/copilot/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/agent-instructions-directive/cursor/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/agent-instructions-directive/generic/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/agent-instructions-hidden-text/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/agent-instructions-hidden-text/claude-code/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/agent-instructions-hidden-text/copilot/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/agent-marketplace-untrusted/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/agent-marketplace-untrusted/claude-code/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/agent-marketplace-untrusted/cursor/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/agent-mcp-unpinned-remote/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/agent-mcp-unpinned-remote/claude-code/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/agent-mcp-unpinned-remote/cursor/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/agent-mcp-unpinned-remote/generic/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/agent-mcp-unpinned-remote/vscode/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/agent-permission-wildcard/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/agent-permission-wildcard/claude-code/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/agent-permission-wildcard/codex/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/agent-permission-wildcard/cursor/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/agent-permission-wildcard/gemini-cli/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/agent-permission-wildcard/vscode/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/ci-unpinned-action/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/cors-permissive/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/cors-permissive/astro/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/cors-permissive/elysia/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/cors-permissive/express/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/cors-permissive/fastify/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/cors-permissive/gatsby/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/cors-permissive/hapi/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/cors-permissive/hono/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/cors-permissive/koa/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/cors-permissive/nest/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/cors-permissive/next/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/cors-permissive/nuxt/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/cors-permissive/remix/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/cors-permissive/sails/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/cors-permissive/solidstart/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/cors-permissive/sveltekit/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/cors-permissive/tanstack-start/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/csrf-cross-origin-post/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/hardcoded-secret/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/hardcoded-secret/astro/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/hardcoded-secret/elysia/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/hardcoded-secret/express/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/hardcoded-secret/fastify/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/hardcoded-secret/gatsby/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/hardcoded-secret/hapi/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/hardcoded-secret/hono/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/hardcoded-secret/koa/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/hardcoded-secret/nest/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/hardcoded-secret/next/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/hardcoded-secret/nuxt/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/hardcoded-secret/remix/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/hardcoded-secret/sails/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/hardcoded-secret/solidstart/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/hardcoded-secret/sveltekit/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/hardcoded-secret/tanstack-start/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/insecure-cookie/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/insecure-cookie/astro/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/insecure-cookie/elysia/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/insecure-cookie/express/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/insecure-cookie/fastify/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/insecure-cookie/gatsby/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/insecure-cookie/hapi/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/insecure-cookie/hono/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/insecure-cookie/koa/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/insecure-cookie/nest/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/insecure-cookie/next/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/insecure-cookie/nuxt/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/insecure-cookie/remix/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/insecure-cookie/sails/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/insecure-cookie/solidstart/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/insecure-cookie/sveltekit/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/insecure-cookie/tanstack-start/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/install-lifecycle-script/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/install-lifecycle-script/astro/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/install-lifecycle-script/elysia/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/install-lifecycle-script/express/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/install-lifecycle-script/fastify/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/install-lifecycle-script/gatsby/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/install-lifecycle-script/hapi/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/install-lifecycle-script/hono/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/install-lifecycle-script/koa/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/install-lifecycle-script/nest/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/install-lifecycle-script/next/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/install-lifecycle-script/nuxt/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/install-lifecycle-script/remix/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/install-lifecycle-script/sails/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/install-lifecycle-script/solidstart/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/install-lifecycle-script/sveltekit/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/install-lifecycle-script/tanstack-start/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/known-vulnerable-dependency/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/open-redirect/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/open-redirect/astro/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/open-redirect/elysia/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/open-redirect/express/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/open-redirect/fastify/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/open-redirect/gatsby/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/open-redirect/hapi/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/open-redirect/hono/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/open-redirect/koa/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/open-redirect/nest/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/open-redirect/next/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/open-redirect/nuxt/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/open-redirect/remix/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/open-redirect/sails/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/open-redirect/solidstart/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/open-redirect/sveltekit/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/open-redirect/tanstack-start/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/security-headers-missing/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/security-headers-missing/astro/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/security-headers-missing/elysia/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/security-headers-missing/express/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/security-headers-missing/fastify/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/security-headers-missing/gatsby/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/security-headers-missing/hapi/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/security-headers-missing/hono/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/security-headers-missing/koa/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/security-headers-missing/nest/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/security-headers-missing/nuxt/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/security-headers-missing/remix/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/security-headers-missing/sails/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/security-headers-missing/solidstart/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/security-headers-missing/sveltekit/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/sensitive-data-logged/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/sensitive-data-logged/astro/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/sensitive-data-logged/elysia/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/sensitive-data-logged/express/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/sensitive-data-logged/fastify/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/sensitive-data-logged/gatsby/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/sensitive-data-logged/hapi/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/sensitive-data-logged/hono/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/sensitive-data-logged/koa/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/sensitive-data-logged/nest/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/sensitive-data-logged/next/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/sensitive-data-logged/nuxt/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/sensitive-data-logged/remix/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/sensitive-data-logged/sails/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/sensitive-data-logged/solidstart/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/sensitive-data-logged/sveltekit/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/sensitive-data-logged/tanstack-start/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/sql-injection/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/sql-injection/astro/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/sql-injection/elysia/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/sql-injection/express/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/sql-injection/fastify/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/sql-injection/gatsby/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/sql-injection/hapi/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/sql-injection/hono/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/sql-injection/koa/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/sql-injection/nest/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/sql-injection/next/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/sql-injection/nuxt/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/sql-injection/remix/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/sql-injection/sails/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/sql-injection/solidstart/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/sql-injection/sveltekit/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/sql-injection/tanstack-start/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/ssrf/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/ssrf/astro/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/ssrf/elysia/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/ssrf/express/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/ssrf/fastify/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/ssrf/gatsby/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/ssrf/hapi/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/ssrf/hono/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/ssrf/koa/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/ssrf/nest/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/ssrf/next/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/ssrf/nuxt/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/ssrf/remix/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/ssrf/sails/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/ssrf/solidstart/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/ssrf/sveltekit/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/ssrf/tanstack-start/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/stack-trace-leak/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/stack-trace-leak/astro/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/stack-trace-leak/elysia/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/stack-trace-leak/express/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/stack-trace-leak/fastify/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/stack-trace-leak/gatsby/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/stack-trace-leak/hapi/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/stack-trace-leak/hono/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/stack-trace-leak/koa/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/stack-trace-leak/nest/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/stack-trace-leak/next/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/stack-trace-leak/nuxt/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/stack-trace-leak/remix/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/stack-trace-leak/sails/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/stack-trace-leak/solidstart/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/stack-trace-leak/sveltekit/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/stack-trace-leak/tanstack-start/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/unpinned-dependency/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/weak-crypto/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/weak-crypto/astro/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/weak-crypto/elysia/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/weak-crypto/express/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/weak-crypto/fastify/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/weak-crypto/gatsby/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/weak-crypto/hapi/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/weak-crypto/hono/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/weak-crypto/koa/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/weak-crypto/nest/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/weak-crypto/next/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/weak-crypto/nuxt/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/weak-crypto/remix/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/weak-crypto/sails/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/weak-crypto/solidstart/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/weak-crypto/sveltekit/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/rules/weak-crypto/tanstack-start/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/vet/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/vs/claude-security/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/vs/eslint-plugin-security/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/vs/semgrep/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://suthat.github.io/owlwarden/vs/snyk/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-30</lastmod>
     <priority>0.8</priority>
   </url>
 </urlset>

@@ -49,6 +49,13 @@ pub enum Command {
     },
     /// Print what the shipped rules cover, and what they do not.
     Coverage {
+        /// Project to also report the exposure distribution and seal state for.
+        ///
+        /// `None` prints the compiled-in tables only, which is what a reader
+        /// evaluating the tool wants. A path adds what this repository looks
+        /// like through them, which is what a reader who already installed it
+        /// wants.
+        path: Option<String>,
         /// Emit JSON instead of text.
         json: bool,
         /// Force colour off.
@@ -362,15 +369,21 @@ pub fn parse(args: &[String]) -> Result<Command, ArgError> {
         }),
         "coverage" => {
             let (mut json, mut no_color, mut ascii) = (false, false, false);
+            let mut path: Option<String> = None;
             for arg in rest {
                 match arg.as_str() {
                     "--json" => json = true,
                     "--no-color" => no_color = true,
                     "--ascii" => ascii = true,
-                    other => return Err(ArgError::UnknownOption(other.to_owned())),
+                    other if other.starts_with('-') => {
+                        return Err(ArgError::UnknownOption(other.to_owned()));
+                    }
+                    candidate if path.is_none() => path = Some(candidate.to_owned()),
+                    extra => return Err(ArgError::UnknownOption(extra.to_owned())),
                 }
             }
             Ok(Command::Coverage {
+                path,
                 json,
                 no_color,
                 ascii,
@@ -1051,7 +1064,7 @@ USAGE
   owlwarden watch [PATH] [OPTIONS]
   owlwarden osv update [PATH] [--out FILE]
   owlwarden rules [--json]
-  owlwarden coverage [--json] [--no-color] [--ascii]
+  owlwarden coverage [PATH] [--json] [--no-color] [--ascii]
   owlwarden explain <RULE_ID> [--json]
   owlwarden --version
 
