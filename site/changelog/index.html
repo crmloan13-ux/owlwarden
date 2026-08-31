@@ -149,6 +149,11 @@
 <ul>
   <li><code>seal::command::current_surface</code> and <code>seal::ChangeKind::word()</code> are public: the turn verdict reports the agent execution surface without taking or comparing a seal, because an unsealed repository still has hooks and a reader deciding whether to seal wants to know how many.</li>
 </ul>
+<h3>Security</h3>
+<ul>
+  <li><strong>wasmtime floored at 36.0.14</strong>, up from 1.2&#39;s 36.0.13, which picked up RUSTSEC-2026-0269 / <a href="https://github.com/bytecodealliance/wasmtime/security/advisories/GHSA-vqjp-4c8c-hfgg" rel="noopener">GHSA-vqjp-4c8c-hfgg</a> - a filesystem sandbox escape through trailing slashes in paths and symlinks - in the interval between the two releases. The plugin host is the one crate in this workspace whose entire job is containment, so an open sandbox-escape advisory in it is the failure <code>AGENTS.md</code> names: <em>the tool must not become the vulnerability it hunts</em>.</li>
+</ul>
+<p>Nothing owlwarden ships was exploitable through it without a loaded plugin, and plugins are opt-in, source-only, and refused under <code>--ci</code> without <code>--allow-plugins</code>. It is floored anyway. <code>cargo deny check</code> found it on this branch, which is the job that check exists to do - the 40-test sandbox-escape suite passes on the new version unchanged.</p>
 <h3>Known issues</h3>
 <ul>
   <li><code>verify</code> still compares findings by <code>rule@location</code>, so a patch that shifts lines can report one finding resolved and one introduced. <code>turn</code> uses the baseline fingerprint and does not have this bug. Named here rather than fixed quietly: <code>verify</code> compares two states of one file seconds apart, where the case is rare.</li>

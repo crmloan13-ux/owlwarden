@@ -92,6 +92,23 @@ object, and nothing in the tool could tell them apart.
   comparing a seal, because an unsealed repository still has hooks and a reader
   deciding whether to seal wants to know how many.
 
+### Security
+
+- **wasmtime floored at 36.0.14**, up from 1.2's 36.0.13, which picked up
+  RUSTSEC-2026-0269 /
+  [GHSA-vqjp-4c8c-hfgg](https://github.com/bytecodealliance/wasmtime/security/advisories/GHSA-vqjp-4c8c-hfgg)
+  — a filesystem sandbox escape through trailing slashes in paths and symlinks
+  — in the interval between the two releases. The plugin host is the one crate in
+  this workspace whose entire job is containment, so an open sandbox-escape
+  advisory in it is the failure `AGENTS.md` names: *the tool must not become the
+  vulnerability it hunts*.
+
+  Nothing owlwarden ships was exploitable through it without a loaded plugin,
+  and plugins are opt-in, source-only, and refused under `--ci` without
+  `--allow-plugins`. It is floored anyway. `cargo deny check` found it on this
+  branch, which is the job that check exists to do — the 40-test sandbox-escape
+  suite passes on the new version unchanged.
+
 ### Known issues
 
 - `verify` still compares findings by `rule@location`, so a patch that shifts

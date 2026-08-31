@@ -46,6 +46,11 @@
 &lt;ul&gt;
   &lt;li&gt;&lt;code&gt;seal::command::current_surface&lt;/code&gt; and &lt;code&gt;seal::ChangeKind::word()&lt;/code&gt; are public: the turn verdict reports the agent execution surface without taking or comparing a seal, because an unsealed repository still has hooks and a reader deciding whether to seal wants to know how many.&lt;/li&gt;
 &lt;/ul&gt;
+&lt;h3&gt;Security&lt;/h3&gt;
+&lt;ul&gt;
+  &lt;li&gt;&lt;strong&gt;wasmtime floored at 36.0.14&lt;/strong&gt;, up from 1.2&amp;#39;s 36.0.13, which picked up RUSTSEC-2026-0269 / &lt;a href=&quot;https://github.com/bytecodealliance/wasmtime/security/advisories/GHSA-vqjp-4c8c-hfgg&quot; rel=&quot;noopener&quot;&gt;GHSA-vqjp-4c8c-hfgg&lt;/a&gt; - a filesystem sandbox escape through trailing slashes in paths and symlinks - in the interval between the two releases. The plugin host is the one crate in this workspace whose entire job is containment, so an open sandbox-escape advisory in it is the failure &lt;code&gt;AGENTS.md&lt;/code&gt; names: &lt;em&gt;the tool must not become the vulnerability it hunts&lt;/em&gt;.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;Nothing owlwarden ships was exploitable through it without a loaded plugin, and plugins are opt-in, source-only, and refused under &lt;code&gt;--ci&lt;/code&gt; without &lt;code&gt;--allow-plugins&lt;/code&gt;. It is floored anyway. &lt;code&gt;cargo deny check&lt;/code&gt; found it on this branch, which is the job that check exists to do - the 40-test sandbox-escape suite passes on the new version unchanged.&lt;/p&gt;
 &lt;h3&gt;Known issues&lt;/h3&gt;
 &lt;ul&gt;
   &lt;li&gt;&lt;code&gt;verify&lt;/code&gt; still compares findings by &lt;code&gt;rule@location&lt;/code&gt;, so a patch that shifts lines can report one finding resolved and one introduced. &lt;code&gt;turn&lt;/code&gt; uses the baseline fingerprint and does not have this bug. Named here rather than fixed quietly: &lt;code&gt;verify&lt;/code&gt; compares two states of one file seconds apart, where the case is rare.&lt;/li&gt;
