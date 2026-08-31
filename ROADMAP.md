@@ -273,7 +273,7 @@ The number that is not a target: rule count. Twenty-five is not a step toward
 five thousand, and the second surface exists because nothing else reads it —
 not to make the first number larger.
 
-## v1.2 — Prove it — **this release**
+## v1.2 — Prove it — **shipped**
 
 **Goal:** 1.1 answered *what is here*. This release answers the three questions
 a person asks immediately afterwards, and that no scanner in this category
@@ -329,9 +329,85 @@ nothing yet, because labelling real repositories is judgement work that has not
 been done. The harness, the discipline, and the gate are in place and tested;
 the corpus is the schedule risk, and it is the next thing.
 
-## Beyond 1.2
+## v1.3 — Whose finding is it — **this release**
 
-Carried forward from 1.1, plus what this release makes newly reachable:
+**Goal:** 1.1 answered *what is here*. 1.2 answered *which of these matters*.
+This release answers the question a developer asks dozens of times an hour, and
+that no scanner in this category answers at all — **which of these did I just
+do?** ([ADR 0032](docs/adr/0032-turn-verdict.md)).
+
+**No new rules, no new frameworks, no new agent hosts, one new command.** The
+instinct after 1.2 was to grow the matrix, and it is wrong for the third release
+running. The catalogue was never the binding constraint; a flat list of findings
+that belong to nobody is, and by the end of 2026 the agent-configuration surface
+that made 1.1 distinctive is a commodity — Snyk's Agent Scan, AgentShield, Golf,
+half a dozen SaaS scanners, and a marketplace full of "security-scan" skills.
+Competing on rule count against tools with a decade's head start, on the axis
+where everyone is already competing, is the losing move.
+
+Delivered:
+
+- **`owlwarden turn`.** Scan the changed paths in the working tree, scan the
+  same paths at the base commit, diff by the baseline fingerprint. Findings are
+  `introduced`, `carried`, or `fixed`. **Carried findings never fail a turn, at
+  any threshold** — the gate is applied to the introduced set before it is
+  consulted, so there is no code path that could grow a flag for it.
+  Everything introduced is reported whether or not it blocks, and `blocking` is
+  a separate field from `counts.introduced` so the verdict can never print
+  *nothing introduced* over something the turn introduced.
+- **`turn --hook <host>`**, through the same three adapters `gate` uses rather
+  than a fourth encoder. `init --claude-code` and `init --cursor` wire the Stop
+  hook to it; the per-edit and pre-command hooks stay on `gate`, which must be
+  cheap and has no meaningful base.
+- **`turn --record`** — a bounded `.owlwarden/turns.jsonl`, deterministic but
+  for the clock, asserted on both sides of the language boundary. Reproducible
+  is the property a scanner with a model in the loop structurally cannot claim.
+- **One notion of identity.** `baseline::fingerprints()` is public, and
+  `report::fails_gate()` is extracted, so `--baseline`, `seal --accept`, `scan`,
+  and `turn` cannot drift into two answers about what "the same finding" or
+  "bad enough to stop" means.
+- **The help is 41 lines, from 161.** Four commands and the flags a first run
+  needs; `help --all` keeps everything. And `--ascii` now means ASCII, which it
+  did not on the one line every reader sees.
+
+**Exit criteria, all met:** the ten in ADR 0032 — carried findings never block
+at any threshold; a reformat that moves a line is not a regression; `git status`
+is byte-identical across a run; two runs over an unchanged tree produce
+identical records; `--hook` puts nothing but the host's JSON on stdout; and the
+turn record round-trips through the zod schema with no field lost.
+
+**What this release is not.** Not a new analysis — every finding it reports came
+out of the rules `scan` already ran. Not a taint engine, not a model in the
+loop, and not a defence against an agent that can commit: the base is a commit,
+so it is exactly that trustworthy, and the verdict names it on every line rather
+than assuming it.
+
+**Known gap, carried from 1.2 rather than quietly dropped:** `/benchmark/` still
+publishes nothing. The harness and the discipline ship and are tested; labelling
+real repositories has not been done, and it is still the next thing.
+
+## Beyond 1.3
+
+The corpus, and nothing above it until it exists. A published false-positive
+rate is the one claim this project makes that it cannot currently support, and
+every release that adds capability instead of labelling repositories widens that
+gap.
+
+After it: exposure-aware autofix ordering (apply `Safe` fixes on
+internet-reachable routes first, verify, then the rest); `turn --base` in the
+Action, so a pull request is reviewed as one long turn against its merge base;
+and a second language, which is still the precondition for calling the parsing
+layer generic.
+
+Named as out of scope so a later release does not quietly claim them: a taint
+engine; a model anywhere in the engine; scanning agent configuration inside
+`node_modules`; a policy file for org-wide floors; `init --harden`;
+plugin-authored rules on the agent surface, which needs an RFC; and any
+enforcement at the model layer rather than the process layer.
+
+## Beyond 1.2 — as it stood at that release
+
+Carried forward from 1.1, plus what that release made newly reachable:
 exposure-aware autofix ordering — apply `Safe` fixes on internet-reachable
 routes first, verify, then the rest; and a second language, which is still the
 precondition for calling the parsing layer generic and which the runtime overlay

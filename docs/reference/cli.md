@@ -4,6 +4,7 @@ Values and defaults. Task-oriented steps live in [how-to](../how-to/) and
 [tutorials](../tutorials/).
 
 ```
+owlwarden turn [PATH] [--base REF] [--hook HOST] [--record] [--fail-on LEVEL]
 owlwarden scan [PATH] [OPTIONS]
 owlwarden vet [PATH] [--fail-on LEVEL] [--format FORMAT]
 owlwarden gate --host <HOST> [PATH] [--since REF] [--fail-on LEVEL]
@@ -20,12 +21,59 @@ owlwarden plugin inspect <PATH>
 owlwarden osv update [PATH] [--out FILE]
 ```
 
-`owlwarden --help` prints the same list with the presets compiled into this
-build. `owlwarden --version` prints the engine version.
+`owlwarden --help` prints the four commands a first run needs;
+`owlwarden help --all` prints this whole list with the presets compiled into
+this build. `owlwarden --version` prints the engine version.
 
 The standalone binary carries `scan`, `vet`, `gate`, `watch`, and the read-only
-commands. `init`, `verify`, `mcp`, and `plugin` are npm-CLI only — they need a
+commands. `init`, `turn`, `verify`, `mcp`, and `plugin` are npm-CLI only — they need a
 JavaScript runtime for reasons that are theirs, not the engine's.
+
+## `turn`
+
+*What did this turn change?* Scans the paths that differ from `--base`, scans
+the same paths at that commit, and diffs the two by the baseline fingerprint
+([ADR 0032](../adr/0032-turn-verdict.md)).
+
+| Flag | Default | Notes |
+|---|---|---|
+| `--base <REF>` | `HEAD` | One ref, not a range |
+| `--preset <NAME>` | `quick` | This runs after every turn |
+| `--fail-on <LEVEL>` | `high` | Not `scan`'s `info`: see below |
+| `--min-confidence <L>` | `likely` | `possible` never blocks, at any setting |
+| `--fail-on-exposure <R>` | unset | Composes with `--fail-on` as an OR |
+| `--hook <HOST>` | unset | `claude-code`, `cursor`, `generic` |
+| `--record` | off | Append to `.owlwarden/turns.jsonl` |
+| `--no-surface` | off | Skip the agent-execution-surface read |
+| `--format <F>` | `pretty` | `pretty` or `json` only |
+
+Every finding is one of three states:
+
+| state | meaning | can fail the turn |
+|---|---|---|
+| `introduced` | present now, absent at the base | **yes** |
+| `carried` | present in both | no, at any threshold |
+| `fixed` | present at the base, absent now | no |
+
+**Carried findings never fail a turn.** Everything introduced is reported
+whether or not it blocks; `blocking` in the JSON is the subset that met the
+gate, and the verdict is `blocked` exactly when it is non-zero.
+
+The defaults are stricter than `scan`'s because the command runs in a different
+place. `scan --fail-on info` is a report you read; `turn --fail-on high` is a
+control that interrupts someone.
+
+Exit codes are the usual `0` / `1` / `2`. Under `--hook` the exit code is the
+host's, and stdout carries the host's JSON and nothing else.
+
+**Requires a git repository.** The verdict is a comparison and the base of the
+comparison is a commit; outside a repository the command refuses rather than
+inventing one. Over 400 changed files it also refuses — that is a merge or a
+reformat, not a turn.
+
+**Your index and working tree are never touched.** The base tree is laid out
+with `read-tree` into a private `GIT_INDEX_FILE` and `checkout-index` into a
+temporary directory, so `git status` is byte-identical across a run.
 
 ## `scan` / `watch`
 

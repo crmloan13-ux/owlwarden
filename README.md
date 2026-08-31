@@ -3,8 +3,8 @@
 # ◉ᴥ◉ owlwarden
 
 **The deterministic security floor for Node code — including the code your agent
-just wrote, and the config your agent reads. It tells you what changed, what is
-reachable, and how often it is wrong.**
+just wrote, and the config your agent reads. It tells you what *this turn*
+broke, what is reachable, and what was already there.**
 
 Runs on your machine. No account, no telemetry, no network unless you ask for it.
 
@@ -21,10 +21,10 @@ Runs on your machine. No account, no telemetry, no network unless you ask for it
 ---
 
 ```bash
-npx owlwarden scan          # your app
+npx owlwarden turn          # what did this turn just introduce?
+npx owlwarden scan          # your app, whole
 npx owlwarden vet .         # your agent's config — the part nothing else reads
-npx owlwarden seal          # lock the agent's execution surface
-npx owlwarden seal --verify # …and notice when it moves
+npx owlwarden seal --verify # notice when the agent's execution surface moves
 ```
 
 ## Why this exists
@@ -67,6 +67,25 @@ It fails loud: `authenticated` requires a gate we positively identified, and
 absence of evidence yields `internet`. A finding wrongly marked as behind auth
 is a finding somebody deprioritises, so that is the one axis where uncertainty
 resolves *upward*. See [docs/explanation/exposure.md](docs/explanation/exposure.md).
+
+**Four — and it is the one that decides whether any of this stays installed.**
+That list is still, in the same undifferentiated way, somebody's problem some
+day. Meanwhile the thing that actually happened is narrower: an agent changed
+seven files in the last thirty seconds. Of the findings now standing on them,
+some were there before the turn started and some were not, and only the second
+kind has an author who is still at the keyboard.
+
+```
+◉ᴥ◉ turn · 7 files · since HEAD a1b2c3d · 0.31s
+✔ clean — nothing introduced
+  2 fixed · 5 carried (already at a1b2c3d, not this turn's)
+```
+
+**Carried findings never fail a turn, at any threshold.** There is no flag that
+changes it. A control that blocks on debt the turn did not create is a control
+somebody disables on the second day, and everything it would have caught goes
+with it. `owlwarden turn` is the whole of
+[ADR 0032](docs/adr/0032-turn-verdict.md).
 
 ## What a finding looks like
 
@@ -128,6 +147,7 @@ and agents read the same JSON.
 | Fix written for *your* framework | **enforced by CI, per surface** | generic message + link | varies per run | n/a |
 | Scans agent + editor config | **yes** | no | no | yes |
 | Both surfaces, one exit code | **yes** | no | no | no |
+| Separates *you introduced this* from *this was already here* | **yes** | no | no | no |
 | Telemetry | none, ever | varies | varies | varies |
 
 We are not trying to out-rule Semgrep and will not pretend otherwise. Run both.
@@ -162,6 +182,11 @@ cannot calibrate is worse than no report.
   `authenticated` is set only when a gate was positively identified; anything
   else on a request path is `internet`. `unknown` means the question was not
   answered, and `coverage` reports the rate.
+- **A turn verdict is only as trustworthy as its base commit.** `turn` compares
+  against a commit, so an agent that can commit can commit a finding and have
+  the next turn report it as carried. Detection and review, not containment —
+  the same limit the seal states about itself, which is why the base commit is
+  printed on every line of the verdict rather than assumed.
 - **The seal detects change, not badness.** An unsigned
   `.owlwarden/surface.lock` catches accident, drift, and opportunistic malware.
   It does not stop an attacker who already has code execution and can re-seal.
@@ -189,7 +214,8 @@ owlwarden init --generic       # a shell wrapper, for any host
 
 | surface | when it runs | what it does |
 |---|---|---|
-| **gate (hooks)** | after every edit, before a shell command, at the turn boundary | blocks, with the rule and the fix as the reason. Runs outside the model, so nothing in the prompt argues with it. |
+| **turn** | at the turn boundary | reports only what the turn introduced, and blocks on that alone. `--hook <host>` answers in the host's own shape, through the same adapters `gate` uses. The reason names what is new *and* says the rest were already there — an agent told "eighteen findings" triages a backlog nobody asked it to touch. |
+| **gate (hooks)** | after every edit, before a shell command | blocks, with the rule and the fix as the reason. Runs outside the model, so nothing in the prompt argues with it. |
 | **MCP** | when the model asks | `scan_project`, `scan_file`, `explain_rule`, `list_rules`. Read-only, static-only, paths stay under the workspace. |
 | **`--format agent`** | either | the report on a token budget: rule, line, patch. No prose. |
 | **`verify`** | after a fix | applies a patch to a scratch copy, re-scans, and exits 0 only if the finding is gone *and* nothing new appeared. |
@@ -243,6 +269,11 @@ and the docs contracts.
 ## Usage
 
 ```bash
+owlwarden turn                      # what this turn introduced, and nothing else
+owlwarden turn --base origin/main   # what this branch introduced
+owlwarden turn --hook claude-code   # the same verdict, in a host's hook shape
+owlwarden turn --record             # .owlwarden/turns.jsonl, last 200
+
 owlwarden scan                      # zero-config
 owlwarden scan --since origin/main  # only what changed
 owlwarden scan --staged             # pre-commit
@@ -333,7 +364,7 @@ The best bug report is a false positive with a small snippet.
 |---|---|
 | [RULES.md](RULES.md) | Every rule, every fix, generated from source |
 | [docs/tutorials/](docs/tutorials/) | First scan · agents and hooks |
-| [docs/how-to/](docs/how-to/) | CI · plugins · extending to a new framework |
+| [docs/how-to/](docs/how-to/) | Turn verdict · CI · plugins · extending to a new framework |
 | [docs/reference/](docs/reference/) | CLI · plugin API v1 · error codes |
 | [docs/explanation/](docs/explanation/) | Coverage · false positives · agents · compared |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | How it is built |

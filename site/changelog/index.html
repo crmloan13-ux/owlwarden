@@ -67,7 +67,7 @@
     {
       "@type": "CollectionPage",
       "name": "owlwarden changelog",
-      "description": "Release notes for owlwarden, current version 1.2.0."
+      "description": "Release notes for owlwarden, current version 1.3.0."
     }
   ]
 }
@@ -112,6 +112,48 @@
   <a href="https://github.com/suthat/owlwarden/releases" rel="noopener">GitHub releases</a> /
   <a href="../rules/">the rule catalogue</a>
 </p>
+
+<h2 id="1-3-0">1.3.0 <span class="chip chip-scope">2026-09-01</span></h2>
+<p>1.2 answered <em>which of these findings matters</em>. This release answers the question a developer actually asks, dozens of times an hour: <strong>which of these did I just do?</strong> (<a href="https://github.com/suthat/owlwarden/blob/main/docs/adr/0032-turn-verdict.md">ADR 0032</a>).</p>
+<p><strong>No new rules, no new frameworks, no new agent hosts, and one new command.</strong> The catalogue is still 25 rules, the matrix is still 16 frameworks and 7 hosts, and neither was the binding constraint. A finding you introduced thirty seconds ago and a finding you inherited from a repository&#39;s first year are not the same object, and nothing in the tool could tell them apart.</p>
+<h3>Added</h3>
+<ul>
+  <li><strong><code>owlwarden turn</code></strong> - scans the files this turn touched, scans the same files at the base commit, and diffs the two. Findings are <code>introduced</code>, <code>carried</code>, or <code>fixed</code>.</li>
+</ul>
+<p><strong>Carried findings never fail a turn, at any threshold.</strong> There is no flag that changes it and no code path that could grow one: the gate is applied to the introduced set before it is consulted. A control that blocks on debt the turn did not create is a control that gets removed on the second day, and everything it would have caught goes with it.</p>
+<p>Everything introduced is <em>reported</em> whether or not it blocks - a turn that adds a medium under a <code>high</code> gate reads <code>clean at high - 1 introduced below the bar, shown anyway</code>. <code>blocking</code> is a separate field from <code>counts.introduced</code> precisely so the verdict can never print &quot;nothing introduced&quot; over something the turn introduced.</p>
+<pre class="code"><code class="language-text">  ◉ᴥ◉ turn / 1 file / since HEAD a8a6b93 / 0.16s
+  ✘ blocked - 1 introduced at or above high
+    1 carried (already at HEAD a8a6b93, not this turn&#39;s)</code></pre>
+<p><code>--base &lt;REF&gt;</code>, <code>--record</code>, <code>--hook &lt;HOST&gt;</code>, <code>--fail-on</code>, <code>--fail-on-exposure</code>, <code>--no-surface</code>, <code>--format pretty|json</code>.</p>
+<ul>
+  <li><strong><code>turn --hook claude-code | cursor | generic</code></strong> - the verdict in a host&#39;s own hook shape, through the same three adapters <code>gate</code> uses rather than a fourth encoder. The reason the model receives names what is new <em>and</em> says the rest were already there: an agent told &quot;there are eighteen findings&quot; triages a backlog nobody asked it to touch.</li>
+</ul>
+<p><code>init --claude-code</code> and <code>init --cursor</code> now wire the <strong>Stop</strong> hook to <code>turn --hook &lt;host&gt; --record</code> instead of <code>gate --host &lt;host&gt; --since HEAD</code>. The per-edit and pre-command hooks are unchanged - <code>gate</code> still owns those.</p>
+<ul>
+  <li><strong><code>turn --record</code></strong> - one JSON line per turn in <code>.owlwarden/turns.jsonl</code>, bounded at the last 200. Every field but the timestamp and the stopwatch is derived from the two reports and the base, so two runs over an unchanged tree produce identical records. Asserted on both sides of the language boundary.</li>
+</ul>
+<ul>
+  <li><strong><code>owlwarden.turn</code></strong> in the SDK: <code>turnReportSchema</code> and its types, held to <code>fixtures/golden/turn.json</code> by the same cross-language contract as the scan report. Neither declaration can move alone.</li>
+</ul>
+<ul>
+  <li><code>owlwarden_core::baseline::fingerprints()</code> - the correct way to fingerprint more than one finding at a time, now that a second caller needs the occurrence walk. <code>owlwarden_core::report::fails_gate()</code> - the gate predicate, extracted so <code>scan</code> and <code>turn</code> cannot drift into two definitions of &quot;bad enough to stop&quot;.</li>
+</ul>
+<h3>Changed</h3>
+<ul>
+  <li><strong><code>owlwarden --help</code> is 41 lines, down from 161.</strong> It lists four commands - <code>turn</code>, <code>scan</code>, <code>vet</code>, <code>init</code> - and the flags a first run needs. <code>owlwarden help --all</code> prints everything, and nothing was removed. The cost of the wall landed on exactly the wrong person: someone who has run <code>npx owlwarden</code> once and is looking for the command that answers their question.</li>
+</ul>
+<ul>
+  <li><strong><code>--ascii</code> now means ASCII.</strong> The summary line every reader sees carried a literal <code>/</code> in both modes, so a flag whose whole job is a claim about the character set did not keep it. <code>Glyphs</code> gains <code>separator</code> and <code>dash</code>.</li>
+</ul>
+<ul>
+  <li><code>seal::command::current_surface</code> and <code>seal::ChangeKind::word()</code> are public: the turn verdict reports the agent execution surface without taking or comparing a seal, because an unsealed repository still has hooks and a reader deciding whether to seal wants to know how many.</li>
+</ul>
+<h3>Known issues</h3>
+<ul>
+  <li><code>verify</code> still compares findings by <code>rule@location</code>, so a patch that shifts lines can report one finding resolved and one introduced. <code>turn</code> uses the baseline fingerprint and does not have this bug. Named here rather than fixed quietly: <code>verify</code> compares two states of one file seconds apart, where the case is rare.</li>
+  <li><code>/benchmark/</code> still publishes nothing. The harness, the corpus discipline, and the threshold gate shipped in 1.2 and are tested; labelling real repositories is judgement work that has not been done, and a number computed from our own fixtures would be worse than no number.</li>
+</ul>
 
 <h2 id="1-2-0">1.2.0 <span class="chip chip-scope">2026-08-30</span></h2>
 <p>1.1 answered <em>what is here</em>. This release answers the three questions a person asks immediately afterwards: <strong>what changed, what is reachable, and how often are we wrong?</strong> (<a href="https://github.com/suthat/owlwarden/blob/main/docs/adr/0027-workspace-seal.md">ADR 0027</a>, <a href="https://github.com/suthat/owlwarden/blob/main/docs/adr/0028-effective-configuration.md">ADR 0028</a>, <a href="https://github.com/suthat/owlwarden/blob/main/docs/adr/0029-exposure-model.md">ADR 0029</a>, <a href="https://github.com/suthat/owlwarden/blob/main/docs/adr/0030-published-benchmark.md">ADR 0030</a>, <a href="https://github.com/suthat/owlwarden/blob/main/docs/adr/0031-runtime-overlay.md">ADR 0031</a>).</p>
@@ -405,14 +447,14 @@
   <li><code>#![forbid(unsafe_code)]</code> in every crate.</li>
   <li>Bounded file count, file size, total bytes, and parser recursion depth, so a hostile repository cannot exhaust memory or the stack.</li>
 </ul>
-<p>[Unreleased]: https://github.com/suthat/owlwarden/compare/v1.2.0...HEAD [1.2.0]: https://github.com/suthat/owlwarden/compare/v1.1.0...v1.2.0 [1.1.0]: https://github.com/suthat/owlwarden/compare/v1.0.0...v1.1.0 [1.0.0]: https://github.com/suthat/owlwarden/compare/v0.5.0...v1.0.0 [0.5.0]: https://github.com/suthat/owlwarden/compare/v0.4.0...v0.5.0 [0.4.0]: https://github.com/suthat/owlwarden/compare/v0.3.0...v0.4.0 [0.3.0]: https://github.com/suthat/owlwarden/compare/v0.2.0...v0.3.0 [0.2.0]: https://github.com/suthat/owlwarden/compare/v0.1.0...v0.2.0 [0.1.0]: https://github.com/suthat/owlwarden/compare/v0.0.2...v0.1.0 [0.0.2]: https://github.com/suthat/owlwarden/compare/v0.0.1...v0.0.2 [0.0.1]: https://github.com/suthat/owlwarden/releases/tag/v0.0.1</p>
+<p>[Unreleased]: https://github.com/suthat/owlwarden/compare/v1.3.0...HEAD [1.3.0]: https://github.com/suthat/owlwarden/compare/v1.2.0...v1.3.0 [1.2.0]: https://github.com/suthat/owlwarden/compare/v1.1.0...v1.2.0 [1.1.0]: https://github.com/suthat/owlwarden/compare/v1.0.0...v1.1.0 [1.0.0]: https://github.com/suthat/owlwarden/compare/v0.5.0...v1.0.0 [0.5.0]: https://github.com/suthat/owlwarden/compare/v0.4.0...v0.5.0 [0.4.0]: https://github.com/suthat/owlwarden/compare/v0.3.0...v0.4.0 [0.3.0]: https://github.com/suthat/owlwarden/compare/v0.2.0...v0.3.0 [0.2.0]: https://github.com/suthat/owlwarden/compare/v0.1.0...v0.2.0 [0.1.0]: https://github.com/suthat/owlwarden/compare/v0.0.2...v0.1.0 [0.0.2]: https://github.com/suthat/owlwarden/compare/v0.0.1...v0.0.2 [0.0.1]: https://github.com/suthat/owlwarden/releases/tag/v0.0.1</p>
 
 </main>
 
 <footer class="site-footer">
   <div class="footer-brand">
     <img src="../favicon.svg" width="36" height="36" alt="">
-    <p><strong>owlwarden 1.2.0</strong><br>Local security checks for Node apps and coding-agent configuration.</p>
+    <p><strong>owlwarden 1.3.0</strong><br>Local security checks for Node apps and coding-agent configuration.</p>
   </div>
   <nav aria-label="Footer">
     <a href="../rules/">All rules</a>

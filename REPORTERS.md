@@ -271,6 +271,42 @@ JUnit does not redefine exit codes — pipelines still read the CLI's 0 / 1 / 2.
 owlwarden scan --ci --format junit --out owlwarden-results.xml
 ```
 
+## 4d. Turn verdict — `turn` (shipped in v1.3)
+
+Not a `Reporter`, because it does not render a `Report`. `owlwarden turn`
+produces a `TurnReport`: the diff between two scans of the same paths, keyed on
+the baseline fingerprint ([ADR 0032](docs/adr/0032-turn-verdict.md)).
+
+It renders as `pretty` or `json` and deliberately not as SARIF: a code-scanning
+upload describing seven files would overwrite the repository's real results
+with a slice, and the failure would look like the repository getting cleaner.
+
+The layout follows one rule that the scan reporters do not have:
+
+**Introduced findings are rendered in full. Carried and fixed findings are
+named on one line and never rendered.**
+
+```
+◉ᴥ◉ turn · 7 files · since HEAD a1b2c3d · 0.31s
+✔ clean — nothing introduced
+  2 fixed · 5 carried (already at a1b2c3d, not this turn's)
+    - stack-trace-leak app/api/users/route.ts:13
+  surface unchanged · 4 files · 2 hooks · 1 MCP server
+```
+
+A carried finding printed with a code frame and a fix is the flat list this
+command exists to replace, so the `FindingRef` shape has nowhere to put one.
+Fixed findings come *before* carried ones on the counts line: it is the only
+place in this tool that reports something going right.
+
+The base commit appears on the header line, in the counts line, in the note
+under each introduced finding, and in the JSON. `clean` is a claim about a
+comparison, and a screenshot of it has to carry the thing compared against.
+
+The surface line is omitted entirely when the repository has no agent
+configuration — `surface unsealed · 0 files · 0 hooks` teaches the reader to
+skip the place where the loud news goes.
+
 ## 5. Context-aware remediation
 
 A finding is not "you have a problem" — it is "here is the fix for your stack".

@@ -8,15 +8,15 @@ Astro, Remix, Gatsby, SvelteKit, TanStack Start, SolidStart, and Elysia — and
 scans the agent configuration in your repository (`.claude/`, `.cursor/`,
 `.vscode/`, `CLAUDE.md`) that no dependency scanner reads.
 
-It also tells you **what changed**, **what is reachable**, and **how often it is
-wrong**. Runs entirely on your machine. No account, no telemetry, no network
-unless you ask.
+It also tells you **what this turn introduced**, **what is reachable**, and
+**what was already there**. Runs entirely on your machine — no account, no
+network unless you ask, and no telemetry.
 
 ```bash
-npx owlwarden scan          # your app
+npx owlwarden turn          # what did this turn just introduce?
+npx owlwarden scan          # your app, whole
 npx owlwarden vet .         # your agent's config
-npx owlwarden seal          # lock the agent's execution surface
-npx owlwarden seal --verify # …and notice when it moves
+npx owlwarden seal --verify # notice when the agent's execution surface moves
 ```
 
 ## Install
@@ -108,6 +108,8 @@ Full catalogue: https://github.com/suthat/owlwarden/blob/main/RULES.md
 ## Usage
 
 ```bash
+owlwarden turn                      # only what this turn introduced
+owlwarden turn --hook claude-code   # the same verdict, in a host's hook shape
 owlwarden scan                      # zero-config
 owlwarden scan --since origin/main  # only what changed
 owlwarden scan --staged             # pre-commit
@@ -129,6 +131,13 @@ Exit codes: `0` clean · `1` findings at or above `--fail-on` · `2` could not r
 
 An MCP tool is called when the model decides to call it. A hook runs every time.
 owlwarden ships both and says which is which.
+
+At the turn boundary the hook is `owlwarden turn`, which reports **only what
+the turn introduced**. Carried findings never fail a turn, at any threshold:
+a control that blocks on debt the turn did not create is a control somebody
+disables on the second day. The reason handed back to the model names what is
+new *and* says the rest were already there — otherwise an agent starts triaging
+a backlog nobody asked it to touch.
 
 ```bash
 owlwarden init --claude-code   # hooks + MCP entry
