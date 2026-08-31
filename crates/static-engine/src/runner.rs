@@ -169,6 +169,11 @@ pub async fn scan_project_with(
     let root = root.as_ref();
     let provider = FsSourceProvider::new(root)?;
     let project_rules_for_merge = project_rules.clone();
+    // Counted here rather than in the scheduler: the scheduler sees *detectors*,
+    // and the whole static engine is one of them. The number a clean report
+    // needs is how many rules were behind it.
+    let rules_run =
+        u32::try_from(file_rules.len().saturating_add(project_rules.len())).unwrap_or(u32::MAX);
     let engine = Arc::new(StaticEngine::new(file_rules, project_rules));
 
     let (settings, merge_previous, merge_dirty) = prepare_incremental(
@@ -208,6 +213,7 @@ pub async fn scan_project_with(
         preset: settings.preset.clone(),
         config_files_scanned: 0,
         runtime: None,
+        rules_run,
         diff_scope: request.diff_scope.clone(),
     };
 

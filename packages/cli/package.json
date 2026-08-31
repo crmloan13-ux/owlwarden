@@ -1,6 +1,6 @@
 {
   "name": "owlwarden",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "Offline security scanner for Node web apps and AI coding agents. OWASP rules with framework-specific fixes for 12 stacks, plus .claude/.cursor/.vscode config scanning. No telemetry.",
   "license": "(MIT OR Apache-2.0)",
   "repository": {

@@ -49,6 +49,7 @@ pub mod suppression;
 pub mod surface;
 pub mod taxonomy;
 pub mod transport;
+pub mod turn;
 pub mod untrusted_text;
 
 pub use advisory::{AdvisoryClient, AdvisoryError, AdvisoryHit, PackageQuery};
@@ -74,6 +75,10 @@ pub use source::{FileSelector, RelPath, SourceError, SourceFile, SourceProvider}
 pub use suppression::{Directive, SuppressionOutcome, SuppressionRecord};
 pub use surface::{Profile, SUPPORTED_AGENT_HOSTS, SUPPORTED_FRAMEWORKS, Surface};
 pub use transport::{BoundedRequest, BoundedResponse, HttpLimits, Transport, TransportError};
+pub use turn::{
+    FindingRef, TurnBase, TurnCounts, TurnDiff, TurnGate, TurnReport, TurnState, TurnSurface,
+    Verdict,
+};
 
 /// The version of this engine, as reported in `Report.tool.version`.
 pub const ENGINE_VERSION: &str = env!("CARGO_PKG_VERSION");

@@ -308,6 +308,14 @@ export const exposureSummarySchema = z.object({
 
 /** What was scanned. */
 export const scanTargetSchema = z.object({
+  /**
+   * How many detectors ran. Defaulted rather than required: additive in 1.3,
+   * and a 1.2 report still parses.
+   *
+   * Printed on a clean scan, where it is the difference between "we looked and
+   * it is fine" and "nothing ran".
+   */
+  rulesRun: z.number().int().nonnegative().default(0),
   project: z.string(),
   scope: z.array(z.string()),
   filesScanned: z.number().int().nonnegative(),

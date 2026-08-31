@@ -236,6 +236,24 @@ pub fn filter(findings: Vec<Finding>, baseline: &BaselineFile) -> BaselineFilter
     }
 }
 
+/// Fingerprints for a whole finding set, in the order given.
+///
+/// The occurrence index is assigned by walking the set, so this is the only
+/// correct way to fingerprint more than one finding at a time: calling
+/// [`fingerprint`] per finding would give two identical `err.stack` findings in
+/// one file the same key and collapse them into one.
+///
+/// [`crate::turn`] compares two sets and needs both walked the same way, which
+/// is why this is public rather than an implementation detail of [`filter`].
+#[must_use]
+pub fn fingerprints(findings: &[Finding]) -> Vec<String> {
+    let refs: Vec<&Finding> = findings.iter().collect();
+    with_occurrences(&refs)
+        .into_iter()
+        .map(|(finding, occurrence)| fingerprint_at(finding, occurrence))
+        .collect()
+}
+
 /// Fingerprint of one finding for baseline matching (first occurrence).
 ///
 /// Prefer [`fingerprint_at`] when more than one finding shares the same

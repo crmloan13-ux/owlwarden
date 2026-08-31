@@ -11,6 +11,7 @@ import { runRules } from "./commands/rules.js";
 import { runGate } from "./commands/gate.js";
 import { runScan } from "./commands/scan.js";
 import { runSeal } from "./commands/seal.js";
+import { runTurn } from "./commands/turn.js";
 import { runVerify } from "./commands/verify.js";
 import { runWatch } from "./commands/watch.js";
 import { EXIT } from "./exit.js";
@@ -57,7 +58,7 @@ export async function run(argv: string[], streams: Streams): Promise<number> {
 
   switch (cli.command) {
     case "help":
-      stdout.write(helpText(native));
+      stdout.write(helpText(native, cli.all));
       return EXIT.CLEAN;
     case "version":
       stdout.write(`owlwarden ${native?.engineVersion() ?? "unknown"}\n`);
@@ -90,6 +91,8 @@ export async function run(argv: string[], streams: Streams): Promise<number> {
       return runEffective(mustLoad(native), cli.options, stdout, stderr);
     case "verify":
       return runVerify(mustLoad(native), cli.options, stdout, stderr);
+    case "turn":
+      return runTurn(mustLoad(native), cli.options, stdout, stderr);
     case "mcp":
       return runMcp(mustLoad(native), cli.path);
     case "init":

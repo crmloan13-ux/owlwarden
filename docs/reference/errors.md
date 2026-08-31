@@ -87,6 +87,28 @@ does not surface here; this code is only for a plugin that never got as far
 as running. See `ARCHITECTURE.md` §6 and
 [ADR 0015](../adr/0015-plugin-host-wasmtime.md).
 
+## E_TURN_REQUEST
+
+`owlwarden turn` handed the engine a request it could not read.
+
+A programming error in the CLI rather than anything you did. It is a code and
+not a thrown exception for the same reason every other failure here is: a hook
+or a CI step that receives a stack trace has nothing to act on.
+
+## E_TURN_REPORT
+
+One of the two reports the turn verdict compares could not be read by the
+engine.
+
+Almost always version skew: the TypeScript CLI and the native addon came from
+different releases, so one is producing a report shape the other does not know.
+Reinstall `owlwarden` so both come from the same release.
+
+This is refused rather than worked around. A turn verdict computed from a
+report the engine only half-understood could report a finding as introduced
+because a field it keys on went missing, which is the one mistake this command
+must not make.
+
 ## E_ENCODE
 
 The report could not be serialised to JSON.

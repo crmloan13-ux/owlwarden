@@ -13,7 +13,8 @@
     "configFilesScanned": 0,
     "routesProbed": 0,
     "preset": "deep",
-    "runtime": "node (defaulted)"
+    "runtime": "node (defaulted)",
+    "rulesRun": 23
   },
   "summary": {
     "high": 10,

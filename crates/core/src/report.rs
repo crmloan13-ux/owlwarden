@@ -67,6 +67,17 @@ pub struct ScanTarget {
     /// ([ADR 0031](../../../docs/adr/0031-runtime-overlay.md) §1).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub runtime: Option<String>,
+    /// How many detectors actually ran.
+    ///
+    /// On the summary line of a **clean** report, and only there. `No findings`
+    /// on its own is the least useful sentence this tool produces: it is
+    /// indistinguishable from a scan that ran no rules, matched no files, or
+    /// silently skipped half its catalogue, and
+    /// `docs/explanation/compared.md` has claimed since 1.0 that a clean
+    /// report you cannot calibrate is worse than no report. This is the number
+    /// that makes it calibratable.
+    #[serde(default)]
+    pub rules_run: u32,
     /// What the scan was narrowed to, when it was: `"since origin/main"`,
     /// `"staged"`, `"3 paths"`.
     ///
@@ -304,18 +315,9 @@ impl Report {
         if self.truncated {
             return true;
         }
-        self.findings.iter().any(|finding| {
-            if finding.confidence < min_confidence || finding.confidence <= Confidence::Possible {
-                return false;
-            }
-            let by_severity = finding.severity >= fail_on;
-            let by_exposure = fail_on_exposure.is_some_and(|threshold| {
-                finding
-                    .exposure
-                    .is_some_and(|exposure| exposure >= threshold)
-            });
-            by_severity || by_exposure
-        })
+        self.findings
+            .iter()
+            .any(|finding| fails_gate(finding, fail_on, min_confidence, fail_on_exposure))
     }
 
     /// Drops findings below `min_confidence` and recomputes the summary.
@@ -337,6 +339,34 @@ impl Report {
         self.summary = ReportSummary::of(&self.findings);
         self.exposure_summary = ExposureSummary::of(&self.findings);
     }
+}
+
+/// Whether one finding trips the gate.
+///
+/// Extracted from [`Report::should_fail_with`] because [`crate::turn`] applies
+/// the *same* predicate to a different set — the findings a single turn
+/// introduced. Two copies of this would be two definitions of "bad enough to
+/// stop the build", and they would drift the first time one threshold changed.
+///
+/// `Possible`-confidence findings never trip it, at any severity and any
+/// exposure. Acting on a guess is how a tool gets removed from a pipeline.
+#[must_use]
+pub fn fails_gate(
+    finding: &Finding,
+    fail_on: Severity,
+    min_confidence: Confidence,
+    fail_on_exposure: Option<Exposure>,
+) -> bool {
+    if finding.confidence < min_confidence || finding.confidence <= Confidence::Possible {
+        return false;
+    }
+    let by_severity = finding.severity >= fail_on;
+    let by_exposure = fail_on_exposure.is_some_and(|threshold| {
+        finding
+            .exposure
+            .is_some_and(|exposure| exposure >= threshold)
+    });
+    by_severity || by_exposure
 }
 
 /// RFC 3339 timestamp for "now", in UTC, truncated to whole seconds.

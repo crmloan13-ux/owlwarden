@@ -49,6 +49,25 @@ export interface NativeEngine {
    */
   buildOsvIndex(projectRoot: string): Promise<string>;
 
+  /**
+   * Classifies one turn: which findings the change introduced, which it
+   * carried, and which it fixed.
+   *
+   * Takes the two reports as JSON strings and returns `{ ok, turn }`. The diff
+   * is in Rust because it keys on the baseline fingerprint, and a second
+   * implementation of "the same finding" would be a second answer.
+   */
+  turn(requestJson: string): Promise<string>;
+
+  /** Renders a turn record. `pretty` or `json`; deliberately not SARIF. */
+  renderTurn(turnJson: string, optionsJson: string): string;
+
+  /**
+   * Encodes a turn verdict in one host's hook shape, through the same three
+   * adapters `gate` uses. Returns `{ stdout, stderr, exitCode }`.
+   */
+  encodeTurnHook(turnJson: string, host: string): string;
+
   /** Renders a report to text. Takes JSON report + JSON render options. */
   render(reportJson: string, optionsJson: string): string;
   /** The whole rule catalogue, as JSON. */
@@ -82,6 +101,9 @@ const REQUIRED_EXPORTS = [
   "gate",
   "seal",
   "effective",
+  "turn",
+  "renderTurn",
+  "encodeTurnHook",
   "buildOsvIndex",
   "render",
   "listRules",

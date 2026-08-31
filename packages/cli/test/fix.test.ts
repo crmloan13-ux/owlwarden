@@ -48,6 +48,7 @@ function report(findings: Finding[]): Report {
       scope: [],
       filesScanned: 1,
     configFilesScanned: 0,
+    rulesRun: 0,
       routesProbed: 0,
       preset: "quick",
     },

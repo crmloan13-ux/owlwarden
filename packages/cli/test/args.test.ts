@@ -6,7 +6,7 @@ describe("parse", () => {
   it("shows help rather than scanning when given nothing", () => {
     // A scanner that starts work you did not ask for is a scanner you stop
     // trusting with a path argument.
-    expect(parse([])).toEqual({ command: "help" });
+    expect(parse([])).toEqual({ command: "help", all: false });
   });
 
   it("leaves unset options absent so config can supply them", () => {
@@ -285,5 +285,31 @@ describe("parse", () => {
     if (update.command !== "osv-update") throw new Error("expected osv-update");
     expect(update.path).toBe("./app");
     expect(update.out).toBe("idx.json");
+  });
+});
+
+describe("turn", () => {
+  it("defaults to a stricter gate than scan, because it interrupts someone", () => {
+    const parsed = parse(["turn"]);
+    expect(parsed.command).toBe("turn");
+    if (parsed.command !== "turn") throw new Error("unreachable");
+    expect(parsed.options.base).toBe("HEAD");
+    expect(parsed.options.failOn).toBe("high");
+    expect(parsed.options.minConfidence).toBe("likely");
+    expect(parsed.options.preset).toBe("quick");
+    expect(parsed.options.surface).toBe(true);
+  });
+
+  it("refuses a format that would overwrite a repository's code-scanning results", () => {
+    expect(() => parse(["turn", "--format", "sarif"])).toThrow(/pretty or json/);
+  });
+
+  it("refuses a host it does not have rather than falling back to generic", () => {
+    expect(() => parse(["turn", "--hook", "windsurf"])).toThrow(/claude-code/);
+  });
+
+  it("reads --all off both spellings of help", () => {
+    expect(parse(["help", "all"])).toEqual({ command: "help", all: true });
+    expect(parse(["--help", "--all"])).toEqual({ command: "help", all: true });
   });
 });

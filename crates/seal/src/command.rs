@@ -110,7 +110,15 @@ pub fn run(request: &SealRequest, root: &Path, scan: ScanFn<'_>) -> SealOutcome 
 }
 
 /// Reads the current surface, or reports why it could not.
-fn current_surface(root: &Path) -> Result<model::SurfaceRecord, String> {
+/// Reads the agent execution surface as it stands right now.
+///
+/// Public because the turn verdict reports the same surface without taking or
+/// comparing a seal — an unsealed repository still has hooks, and a reader
+/// deciding whether to seal wants to know how many before they do.
+///
+/// # Errors
+/// A message naming what could not be read.
+pub fn current_surface(root: &Path) -> Result<model::SurfaceRecord, String> {
     let provider = owlwarden_static::FsSourceProvider::new(root)
         .map_err(|error| format!("could not read {}: {error}", root.display()))?;
     let workspace = owlwarden_static::agentws::AgentWorkspace::load(&provider)

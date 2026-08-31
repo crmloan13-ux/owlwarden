@@ -32,7 +32,7 @@ use crate::theme::{Glyphs, bold, confidence_style, dim, severity_style, underlin
 
 /// Width of the horizontal rules. Fixed rather than terminal-width so output
 /// diffs cleanly between machines and inside CI logs.
-const RULE_WIDTH: usize = 72;
+pub(crate) const RULE_WIDTH: usize = 72;
 
 /// Label column width for the `fix` / `why` / `ref` lines.
 const LABEL_WIDTH: usize = 15;
@@ -68,8 +68,8 @@ impl Default for PrettyOptions {
 
 /// Renders a report for a human.
 pub struct PrettyReporter<'w> {
-    writer: Box<dyn Write + 'w>,
-    options: PrettyOptions,
+    pub(crate) writer: Box<dyn Write + 'w>,
+    pub(crate) options: PrettyOptions,
 }
 
 impl<'w> PrettyReporter<'w> {
@@ -79,12 +79,12 @@ impl<'w> PrettyReporter<'w> {
         Self { writer, options }
     }
 
-    fn glyphs(&self) -> Glyphs {
+    pub(crate) fn glyphs(&self) -> Glyphs {
         Glyphs::for_unicode(self.options.unicode)
     }
 
     /// Applies a style, or returns the text unchanged when colour is off.
-    fn paint(&self, style: anstyle::Style, text: &str) -> String {
+    pub(crate) fn paint(&self, style: anstyle::Style, text: &str) -> String {
         if self.options.color {
             format!("{style}{text}{style:#}")
         } else {
@@ -112,14 +112,19 @@ impl<'w> PrettyReporter<'w> {
         // "0 files" over fourteen findings would be describing the wrong one.
         let mut scanned = format!("{} files", report.target.files_scanned);
         if report.target.config_files_scanned > 0 {
-            let _ = write!(scanned, " · {} config", report.target.config_files_scanned);
+            let _ = write!(
+                scanned,
+                "{} {} config",
+                glyphs.separator.trim_end(),
+                report.target.config_files_scanned
+            );
         }
         // A diff-scoped clean result must never render as a clean repository.
         let scope = report
             .target
             .diff_scope
             .as_ref()
-            .map(|scope| format!(" · {scope}"))
+            .map(|scope| format!("{} {scope}", glyphs.separator.trim_end()))
             .unwrap_or_default();
 
         // The runtime is on the summary line and cannot be dropped in a quiet
@@ -129,10 +134,13 @@ impl<'w> PrettyReporter<'w> {
             .target
             .runtime
             .as_ref()
-            .map(|runtime| format!(" · {runtime}"))
+            .map(|runtime| format!("{} {runtime}", glyphs.separator.trim_end()))
             .unwrap_or_default();
+        // `--ascii` has to mean ASCII. A middle dot in the one line every
+        // reader sees would make the flag a claim the output does not keep.
+        let separator = glyphs.separator;
         let header = format!(
-            "{} {scanned} · {}{runtime}{scope} · {}.{:02}s",
+            "{} {scanned}{separator}{}{runtime}{scope}{separator}{}.{:02}s",
             crate::banner::owl_mark(self.options.unicode),
             report.target.preset,
             report.duration_ms / 1000,
@@ -141,9 +149,7 @@ impl<'w> PrettyReporter<'w> {
         writeln!(self.writer, "\n{}", self.paint(dim(), &header))?;
 
         if summary.total() == 0 {
-            let clean = self.paint(bold(), "No findings.");
-            writeln!(self.writer, "{clean}")?;
-            return Ok(());
+            return self.write_clean(report);
         }
 
         let counts = [
@@ -169,7 +175,76 @@ impl<'w> PrettyReporter<'w> {
         )?;
         self.write_exposure_line(report)?;
         writeln!(self.writer)?;
-        let _ = glyphs;
+        Ok(())
+    }
+
+    /// A clean report, which is the hardest one to write honestly.
+    ///
+    /// `No findings.` alone is indistinguishable from a scan that ran no rules,
+    /// matched no files, or skipped half its catalogue — and it gives a first-
+    /// time reader no reason to keep the tool. So a clean result states what it
+    /// looked at, what it could not settle, and where the gaps are documented.
+    /// This project has argued since 1.0 that a clean report you cannot
+    /// calibrate is worse than no report; until 1.3 it did not act on that in
+    /// the one place a reader would notice.
+    ///
+    /// Nothing here is derived: every number comes off the report, and a scan
+    /// that failed a detector or hit a diff scope says so on this screen rather
+    /// than in the JSON only.
+    fn write_clean(&mut self, report: &Report) -> std::io::Result<()> {
+        let glyphs = self.glyphs();
+        writeln!(self.writer, "{}", self.paint(bold(), "No findings."))?;
+
+        let mut lines: Vec<String> = Vec::new();
+
+        if report.target.rules_run > 0 {
+            let failed = report.errors.len();
+            let mut line = format!(
+                "{} rule{} ran",
+                report.target.rules_run,
+                if report.target.rules_run == 1 {
+                    ""
+                } else {
+                    "s"
+                }
+            );
+            // A detector that failed is the difference between "clean" and "we
+            // did not look". It is already in `errors` and printed by the
+            // footer; naming it *here* is what stops the headline being read as
+            // a clean bill of health.
+            if failed > 0 {
+                let _ = write!(line, ", {failed} failed — see below");
+            }
+            lines.push(line);
+        }
+
+        // A diff-scoped clean result is a statement about a diff. The summary
+        // line already carries the scope; this says what it means.
+        if let Some(scope) = &report.target.diff_scope {
+            lines.push(format!(
+                "this is {scope}, not the whole repository — `owlwarden scan` for that"
+            ));
+        }
+
+        if report.suppressed_count > 0 || report.baseline_hidden_count > 0 {
+            lines.push(format!(
+                "{} finding(s) hidden by suppressions or the baseline; clean is not the same as none",
+                report.suppressed_count + report.baseline_hidden_count
+            ));
+        }
+
+        lines.push(
+            "`owlwarden coverage` for what these rules reach, and what they do not".to_owned(),
+        );
+
+        for line in lines {
+            writeln!(
+                self.writer,
+                "  {} {}",
+                self.paint(dim(), glyphs.info),
+                self.paint(dim(), &line)
+            )?;
+        }
         Ok(())
     }
 
@@ -206,6 +281,24 @@ impl<'w> PrettyReporter<'w> {
 
     /// One finding: heading, location, code frame, fix, why, references.
     fn write_finding(&mut self, finding: &Finding) -> std::io::Result<()> {
+        self.write_finding_with_note(finding, None)
+    }
+
+    /// One finding, with an optional line under the location.
+    ///
+    /// Public because [`crate::turn`] renders the same block under its own
+    /// header and adds one sentence — *this one is new* — that the scan
+    /// reporter has no way to know. Re-implementing the block there would give
+    /// the project two finding layouts to keep in step, and the second one
+    /// would be the one that goes stale.
+    ///
+    /// # Errors
+    /// Propagates write failures from the underlying sink.
+    pub fn write_finding_with_note(
+        &mut self,
+        finding: &Finding,
+        note: Option<(&str, &str)>,
+    ) -> std::io::Result<()> {
         let glyphs = self.glyphs();
         let rule: String = std::iter::repeat_n(glyphs.rule, RULE_WIDTH).collect();
 
@@ -256,6 +349,11 @@ impl<'w> PrettyReporter<'w> {
         writeln!(self.writer, "{}", self.paint(dim(), &rule))?;
 
         self.write_location(finding)?;
+        if let Some((label, text)) = note {
+            let glyphs = self.glyphs();
+            self.write_labelled(glyphs.arrow, label, text)?;
+            writeln!(self.writer)?;
+        }
         if let Some(frame) = &finding.snippet {
             self.write_frame(frame)?;
         }
@@ -422,10 +520,18 @@ impl<'w> PrettyReporter<'w> {
 
     /// `↳ label   text`, wrapped under a hanging indent.
     ///
+    /// `pub(crate)` so the turn reporter's own header lines share the column
+    /// layout rather than approximating it.
+    ///
     /// The marker is padded to a fixed width so the Unicode and ASCII glyph
     /// sets produce the same column layout — otherwise `->` and `i` would start
     /// their labels one column apart in the same report.
-    fn write_labelled(&mut self, marker: &str, label: &str, text: &str) -> std::io::Result<()> {
+    pub(crate) fn write_labelled(
+        &mut self,
+        marker: &str,
+        label: &str,
+        text: &str,
+    ) -> std::io::Result<()> {
         let indent = 1 + MARKER_WIDTH + 1 + LABEL_WIDTH;
         // A label longer than the column — `fix (GitHub Copilot)` — still gets
         // a separating space. Without it the label runs into the text and the
@@ -553,5 +659,103 @@ impl Reporter for PrettyReporter<'_> {
         }
         self.write_footer(report).map_err(io)?;
         self.writer.flush().map_err(io)
+    }
+}
+
+#[cfg(test)]
+mod clean_report_tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used)]
+
+    use super::*;
+    use owlwarden_core::report::{
+        DetectorFailure, ExposureSummary, ReportSummary, SCHEMA_VERSION, ScanTarget, ToolInfo,
+    };
+
+    fn plain() -> PrettyOptions {
+        PrettyOptions {
+            color: false,
+            unicode: true,
+            hyperlinks: false,
+        }
+    }
+
+    fn clean(target: ScanTarget) -> Report {
+        Report {
+            schema_version: SCHEMA_VERSION.to_owned(),
+            tool: ToolInfo::default(),
+            scanned_at: "2026-01-01T00:00:00Z".to_owned(),
+            duration_ms: 40,
+            target,
+            summary: ReportSummary::default(),
+            exposure_summary: ExposureSummary::default(),
+            findings: Vec::new(),
+            suppressed_count: 0,
+            suppressions: Vec::new(),
+            baseline_hidden_count: 0,
+            truncated: false,
+            errors: Vec::new(),
+        }
+    }
+
+    fn target() -> ScanTarget {
+        ScanTarget {
+            preset: "quick".to_owned(),
+            files_scanned: 412,
+            rules_run: 25,
+            ..ScanTarget::default()
+        }
+    }
+
+    #[test]
+    fn a_clean_report_says_how_many_rules_produced_it() {
+        // `No findings.` alone is indistinguishable from a scan that ran
+        // nothing, and it gives a first-time reader no reason to keep the tool.
+        let out = render_to_string(&clean(target()), plain()).unwrap();
+        assert!(out.contains("No findings."), "{out}");
+        assert!(out.contains("25 rules ran"), "{out}");
+        assert!(out.contains("owlwarden coverage"), "{out}");
+    }
+
+    #[test]
+    fn a_clean_report_with_a_failed_detector_does_not_read_as_a_clean_bill_of_health() {
+        let mut report = clean(target());
+        report.errors.push(DetectorFailure {
+            rule: "ssrf".to_owned(),
+            message: "parse failed".to_owned(),
+        });
+        let out = render_to_string(&report, plain()).unwrap();
+        assert!(out.contains("1 failed"), "{out}");
+    }
+
+    #[test]
+    fn a_diff_scoped_clean_result_never_reads_as_a_clean_repository() {
+        let mut report = clean(target());
+        report.target.diff_scope = Some("since origin/main".to_owned());
+        let out = render_to_string(&report, plain()).unwrap();
+        assert!(out.contains("since origin/main"), "{out}");
+        assert!(out.contains("not the whole repository"), "{out}");
+    }
+
+    #[test]
+    fn hidden_findings_are_named_on_the_clean_screen_too() {
+        // "0 findings" must never be read as "0 problems", and the footer that
+        // says so is below the fold on a report with nothing in it.
+        let mut report = clean(target());
+        report.suppressed_count = 3;
+        report.baseline_hidden_count = 1;
+        let out = render_to_string(&report, plain()).unwrap();
+        assert!(out.contains("4 finding(s) hidden"), "{out}");
+        assert!(out.contains("clean is not the same as none"), "{out}");
+    }
+
+    #[test]
+    fn a_clean_report_from_an_engine_that_did_not_report_a_rule_count_omits_the_line() {
+        // A 1.2 report parsed by a 1.3 reader has `rulesRun: 0`. Printing
+        // "0 rules ran" over it would be a claim the report never made.
+        let mut report = clean(target());
+        report.target.rules_run = 0;
+        let out = render_to_string(&report, plain()).unwrap();
+        assert!(!out.contains("rules ran"), "{out}");
+        assert!(out.contains("owlwarden coverage"), "{out}");
     }
 }

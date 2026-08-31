@@ -40,6 +40,7 @@ an archaeology exercise.
 | [0029](0029-exposure-model.md) | Exposure: a third axis, and it fails loud | Accepted |
 | [0030](0030-published-benchmark.md) | Publish the false-positive rate on every commit | Accepted |
 | [0031](0031-runtime-overlay.md) | Runtime is an overlay, not a dimension | Accepted |
+| [0032](0032-turn-verdict.md) | The turn verdict: only what this turn introduced can block it | Accepted |
 
 ## Writing one
 

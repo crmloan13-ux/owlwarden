@@ -16,7 +16,7 @@ members = [
 ]
 
 [workspace.package]
-version = "1.2.0"
+version = "1.3.0"
 edition = "2024"
 rust-version = "1.88"
 license = "MIT OR Apache-2.0"
@@ -27,16 +27,16 @@ keywords = ["security", "sast", "owasp", "scanner", "static-analysis"]
 categories = ["development-tools", "web-programming"]
 
 [workspace.dependencies]
-owlwarden-core = { path = "crates/core", version = "1.2.0" }
-owlwarden-static = { path = "crates/static-engine", version = "1.2.0" }
-owlwarden-detectors = { path = "crates/detectors", version = "1.2.0" }
-owlwarden-gate = { path = "crates/gate", version = "1.2.0" }
-owlwarden-transport = { path = "crates/transport", version = "1.2.0" }
-owlwarden-dynamic = { path = "crates/dynamic-engine", version = "1.2.0" }
-owlwarden-reporters = { path = "crates/reporters", version = "1.2.0" }
-owlwarden-plugin-host = { path = "crates/plugin-host", version = "1.2.0" }
-owlwarden-seal = { path = "crates/seal", version = "1.2.0" }
-owlwarden-bench = { path = "crates/bench", version = "1.2.0" }
+owlwarden-core = { path = "crates/core", version = "1.3.0" }
+owlwarden-static = { path = "crates/static-engine", version = "1.3.0" }
+owlwarden-detectors = { path = "crates/detectors", version = "1.3.0" }
+owlwarden-gate = { path = "crates/gate", version = "1.3.0" }
+owlwarden-transport = { path = "crates/transport", version = "1.3.0" }
+owlwarden-dynamic = { path = "crates/dynamic-engine", version = "1.3.0" }
+owlwarden-reporters = { path = "crates/reporters", version = "1.3.0" }
+owlwarden-plugin-host = { path = "crates/plugin-host", version = "1.3.0" }
+owlwarden-seal = { path = "crates/seal", version = "1.3.0" }
+owlwarden-bench = { path = "crates/bench", version = "1.3.0" }
 
 async-trait = "0.1"
 futures-util = { version = "0.3", default-features = false, features = ["std"] }
@@ -58,18 +58,27 @@ ignore = "0.4"
 globset = "0.4"
 
 # Plugin host: wasmtime is the *only* crate allowed to bring wasmtime into the
-# workspace (ARCHITECTURE.md §3, ADR 0015). Floored at 36.0.13, not merely
-# "26" or "28": every wasmtime release below 36.0.13 has an open RUSTSEC
-# advisory as of this writing, several of them sandbox escapes — shipping one
-# in the plugin host would be the exact failure AGENTS.md warns against ("the
-# tool must not become the vulnerability it hunts"). 36.0.13's MSRV (1.86)
-# still sits under our own (1.88); `cargo deny check` re-verifies this on
-# every build. anyhow is already a transitive dependency of wasmtime and is
-# needed directly because host functions signal a trap by returning
-# `Err(anyhow::Error)`. `wat` is dev-only: it assembles the adversarial
-# modules in the sandbox-escape suite without checking in hand-written
-# `.wasm` binaries.
-wasmtime = { version = "36.0.13", default-features = false, features = [
+# workspace (ARCHITECTURE.md §3, ADR 0015). Floored at 36.0.14, not merely
+# "26" or "28": every wasmtime release below this floor has an open RUSTSEC
+# advisory, several of them sandbox escapes — shipping one in the plugin host
+# would be the exact failure AGENTS.md warns against ("the tool must not become
+# the vulnerability it hunts").
+#
+# The floor moves when a new advisory lands, and it has already moved once:
+# 36.0.13 was clean when 1.2 shipped and picked up RUSTSEC-2026-0269 (a
+# filesystem sandbox escape through trailing slashes in paths and symlinks)
+# before 1.3 did. That is not a reason to loosen the pin — it is the reason the
+# pin is a floor with a comment rather than a caret range nobody reads. The
+# advisory was found by `cargo deny check` in CI, which is the job that check
+# exists to do.
+#
+# 36.0.14's MSRV (1.86) still sits under our own (1.88); `cargo deny check`
+# re-verifies this on every build. anyhow is already a transitive dependency of
+# wasmtime and is needed directly because host functions signal a trap by
+# returning `Err(anyhow::Error)`. `wat` is dev-only: it assembles the
+# adversarial modules in the sandbox-escape suite without checking in
+# hand-written `.wasm` binaries.
+wasmtime = { version = "36.0.14", default-features = false, features = [
     "cranelift",
     "runtime",
     "std",

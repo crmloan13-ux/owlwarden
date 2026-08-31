@@ -10,6 +10,117 @@ are listed here under Changed.
 
 ## [Unreleased]
 
+## [1.3.0] — 2026-09-01
+
+1.2 answered *which of these findings matters*. This release answers the
+question a developer actually asks, dozens of times an hour: **which of these
+did I just do?**
+([ADR 0032](docs/adr/0032-turn-verdict.md)).
+
+**No new rules, no new frameworks, no new agent hosts, and one new command.**
+The catalogue is still 25 rules, the matrix is still 16 frameworks and 7 hosts,
+and neither was the binding constraint. A finding you introduced thirty seconds
+ago and a finding you inherited from a repository's first year are not the same
+object, and nothing in the tool could tell them apart.
+
+### Added
+
+- **`owlwarden turn`** — scans the files this turn touched, scans the same
+  files at the base commit, and diffs the two. Findings are `introduced`,
+  `carried`, or `fixed`.
+
+  **Carried findings never fail a turn, at any threshold.** There is no flag
+  that changes it and no code path that could grow one: the gate is applied to
+  the introduced set before it is consulted. A control that blocks on debt the
+  turn did not create is a control that gets removed on the second day, and
+  everything it would have caught goes with it.
+
+  Everything introduced is *reported* whether or not it blocks — a turn that
+  adds a medium under a `high` gate reads `clean at high — 1 introduced below
+  the bar, shown anyway`. `blocking` is a separate field from
+  `counts.introduced` precisely so the verdict can never print "nothing
+  introduced" over something the turn introduced.
+
+  ```
+  ◉ᴥ◉ turn · 1 file · since HEAD a8a6b93 · 0.16s
+  ✘ blocked — 1 introduced at or above high
+    1 carried (already at HEAD a8a6b93, not this turn's)
+  ```
+
+  `--base <REF>`, `--record`, `--hook <HOST>`, `--fail-on`,
+  `--fail-on-exposure`, `--no-surface`, `--format pretty|json`.
+
+- **`turn --hook claude-code | cursor | generic`** — the verdict in a host's
+  own hook shape, through the same three adapters `gate` uses rather than a
+  fourth encoder. The reason the model receives names what is new *and* says
+  the rest were already there: an agent told "there are eighteen findings"
+  triages a backlog nobody asked it to touch.
+
+  `init --claude-code` and `init --cursor` now wire the **Stop** hook to
+  `turn --hook <host> --record` instead of `gate --host <host> --since HEAD`.
+  The per-edit and pre-command hooks are unchanged — `gate` still owns those.
+
+- **`turn --record`** — one JSON line per turn in `.owlwarden/turns.jsonl`,
+  bounded at the last 200. Every field but the timestamp and the stopwatch is
+  derived from the two reports and the base, so two runs over an unchanged tree
+  produce identical records. Asserted on both sides of the language boundary.
+
+- **`owlwarden.turn`** in the SDK: `turnReportSchema` and its types, held to
+  `fixtures/golden/turn.json` by the same cross-language contract as the scan
+  report. Neither declaration can move alone.
+
+- `owlwarden_core::baseline::fingerprints()` — the correct way to fingerprint
+  more than one finding at a time, now that a second caller needs the
+  occurrence walk. `owlwarden_core::report::fails_gate()` — the gate predicate,
+  extracted so `scan` and `turn` cannot drift into two definitions of "bad
+  enough to stop".
+
+### Changed
+
+- **`owlwarden --help` is 41 lines, down from 161.** It lists four commands —
+  `turn`, `scan`, `vet`, `init` — and the flags a first run needs. `owlwarden
+  help --all` prints everything, and nothing was removed. The cost of the wall
+  landed on exactly the wrong person: someone who has run `npx owlwarden` once
+  and is looking for the command that answers their question.
+
+- **`--ascii` now means ASCII.** The summary line every reader sees carried a
+  literal `·` in both modes, so a flag whose whole job is a claim about the
+  character set did not keep it. `Glyphs` gains `separator` and `dash`.
+
+- `seal::command::current_surface` and `seal::ChangeKind::word()` are public:
+  the turn verdict reports the agent execution surface without taking or
+  comparing a seal, because an unsealed repository still has hooks and a reader
+  deciding whether to seal wants to know how many.
+
+### Security
+
+- **wasmtime floored at 36.0.14**, up from 1.2's 36.0.13, which picked up
+  RUSTSEC-2026-0269 /
+  [GHSA-vqjp-4c8c-hfgg](https://github.com/bytecodealliance/wasmtime/security/advisories/GHSA-vqjp-4c8c-hfgg)
+  — a filesystem sandbox escape through trailing slashes in paths and symlinks
+  — in the interval between the two releases. The plugin host is the one crate in
+  this workspace whose entire job is containment, so an open sandbox-escape
+  advisory in it is the failure `AGENTS.md` names: *the tool must not become the
+  vulnerability it hunts*.
+
+  Nothing owlwarden ships was exploitable through it without a loaded plugin,
+  and plugins are opt-in, source-only, and refused under `--ci` without
+  `--allow-plugins`. It is floored anyway. `cargo deny check` found it on this
+  branch, which is the job that check exists to do — the 40-test sandbox-escape
+  suite passes on the new version unchanged.
+
+### Known issues
+
+- `verify` still compares findings by `rule@location`, so a patch that shifts
+  lines can report one finding resolved and one introduced. `turn` uses the
+  baseline fingerprint and does not have this bug. Named here rather than fixed
+  quietly: `verify` compares two states of one file seconds apart, where the
+  case is rare.
+- `/benchmark/` still publishes nothing. The harness, the corpus discipline,
+  and the threshold gate shipped in 1.2 and are tested; labelling real
+  repositories is judgement work that has not been done, and a number computed
+  from our own fixtures would be worse than no number.
+
 ## [1.2.0] — 2026-08-30
 
 1.1 answered *what is here*. This release answers the three questions a person
@@ -667,7 +778,8 @@ does and does not reach.
 - Bounded file count, file size, total bytes, and parser recursion depth, so a
   hostile repository cannot exhaust memory or the stack.
 
-[Unreleased]: https://github.com/suthat/owlwarden/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/suthat/owlwarden/compare/v1.3.0...HEAD
+[1.3.0]: https://github.com/suthat/owlwarden/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/suthat/owlwarden/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/suthat/owlwarden/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/suthat/owlwarden/compare/v0.5.0...v1.0.0

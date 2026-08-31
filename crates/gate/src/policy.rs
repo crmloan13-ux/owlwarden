@@ -448,6 +448,31 @@ fn deny_reason(event: &GateEvent, blocking: &[Finding], report: &Report) -> Stri
         if blocking.len() == 1 { "" } else { "s" }
     ));
 
+    push_finding_lines(&mut lines, blocking);
+
+    let refused = ignored(report);
+    if !refused.is_empty() {
+        lines.push(format!(
+            "\n{} inline suppression(s) in files written this session were not honoured.",
+            refused.len()
+        ));
+    }
+
+    lines.push(
+        "\nFix the findings, then continue. Do not suppress them: a suppression written now is \
+         not honoured by this gate."
+            .to_owned(),
+    );
+    lines.join("\n")
+}
+
+/// The finding block shared by every reason this crate produces.
+///
+/// One implementation so a turn block and a gate block are the same text with
+/// a different first line — same sanitisation of paths and titles, same cap,
+/// same patch excerpt. Two of these would drift, and the one that drifted would
+/// be the one an attacker's filename reached.
+fn push_finding_lines(lines: &mut Vec<String>, blocking: &[Finding]) {
     for finding in blocking.iter().take(MAX_REASON_FINDINGS) {
         let location = match &finding.location {
             owlwarden_core::finding::Location::Source(source) => format!(
@@ -488,18 +513,38 @@ fn deny_reason(event: &GateEvent, blocking: &[Finding], report: &Report) -> Stri
             blocking.len() - MAX_REASON_FINDINGS
         ));
     }
+}
 
-    let refused = ignored(report);
-    if !refused.is_empty() {
+/// The reason a blocked *turn* hands back to the model.
+///
+/// The same body as a gate denial, plus the sentence only the turn verdict can
+/// say: **these are the ones you just added**. An agent told "there are
+/// nineteen findings" will start triaging a backlog it did not create and did
+/// not ask about; an agent told "you introduced two, the other seventeen were
+/// already here at a1b2c3d" fixes two things and stops.
+#[must_use]
+pub fn turn_reason(blocking: &[Finding], carried: u32, base: &str) -> String {
+    let mut lines = vec![format!(
+        "owlwarden blocked this turn: {} finding{} that {} not present at {}.",
+        blocking.len(),
+        if blocking.len() == 1 { "" } else { "s" },
+        if blocking.len() == 1 { "was" } else { "were" },
+        safe_for_reason(base),
+    )];
+
+    push_finding_lines(&mut lines, blocking);
+
+    if carried > 0 {
         lines.push(format!(
-            "\n{} inline suppression(s) in files written this session were not honoured.",
-            refused.len()
+            "\n{carried} other finding(s) on these files were already at {}. They are not this \
+             turn's and are not what is being asked of you.",
+            safe_for_reason(base),
         ));
     }
 
     lines.push(
-        "\nFix the findings, then continue. Do not suppress them: a suppression written now is \
-         not honoured by this gate."
+        "\nFix the findings above, then continue. Do not suppress them, and do not commit to move \
+         the base: the comparison is against the last commit, not against the last attempt."
             .to_owned(),
     );
     lines.join("\n")

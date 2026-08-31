@@ -110,6 +110,49 @@ an all-clear and says so to the developer.
 
 The ceiling is asserted in a test rather than claimed in a README.
 
+## `owlwarden turn` — which of these did I just do? (v1.3)
+
+The gate at a turn boundary used to scan what changed and report every finding
+standing on those files. On a file the agent touched but did not create, that
+means handing back a repository's inherited debt at the end of every turn — and
+an agent optimising for a clean verdict will start fixing it, in a session
+somebody is paying for, having been asked to do something else.
+
+`turn` scans the same paths at the base commit as well, and reports only the
+difference. **Carried findings never fail a turn, at any threshold.** The reason
+the model receives says both halves out loud:
+
+```
+owlwarden blocked this turn: 1 finding that was not present at a8a6b93.
+
+HIGH [stack-trace-leak] Stack trace leaked in error response
+  at app/api/users/route.ts:7:39
+  fix: Return a generic message; log the error server-side.
+  | console.error(err)
+  | return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
+
+17 other finding(s) on these files were already at a8a6b93. They are not this
+turn's and are not what is being asked of you.
+
+Fix the findings above, then continue. Do not suppress them, and do not commit
+to move the base: the comparison is against the last commit, not against the
+last attempt.
+```
+
+That last clause matters. The obvious way for a model to make this verdict go
+away is to commit, which moves the base and turns an introduced finding into a
+carried one. The instruction says not to; the design does not stop it, and
+[ADR 0032](../adr/0032-turn-verdict.md) says so rather than implying otherwise.
+Running `turn --base origin/main` in CI is the version of this that an agent
+cannot move.
+
+`init --claude-code` and `init --cursor` wire the Stop hook to
+`turn --hook <host> --record`. The per-edit and pre-command hooks stay on
+`gate`: those run dozens of times a turn, must be cheap, and have no meaningful
+base to compare against.
+
+See [docs/how-to/turn.md](../how-to/turn.md).
+
 ## `owlwarden verify` — did that fix actually fix it? (v1.1)
 
 ```bash
