@@ -157,12 +157,16 @@ function claudeSettings(existing: Record<string, unknown>): Record<string, unkno
           hooks: [{ type: "command", command: `${BIN} gate --host claude-code` }],
         },
       ],
-      // The loop-closer: everything changed since the turn began. Costs one
-      // scan per turn instead of one per edit.
+      // The loop-closer, and the one that decides whether this stays
+      // installed. `turn` rather than `gate --since HEAD`: both scan what
+      // changed, but `gate` reports every finding standing on those files and
+      // `turn` reports only the ones this turn introduced. An agent handed a
+      // repository's inherited debt at the end of every turn starts triaging a
+      // backlog nobody asked it to touch.
       Stop: [
         {
           hooks: [
-            { type: "command", command: `${BIN} gate --host claude-code --since HEAD` },
+            { type: "command", command: `${BIN} turn --hook claude-code --record` },
           ],
         },
       ],
@@ -179,7 +183,7 @@ function cursorHooks(existing: Record<string, unknown>): Record<string, unknown>
       ...hooks,
       afterFileEdit: [{ command: `${BIN} gate --host cursor` }],
       beforeShellExecution: [{ command: `${BIN} gate --host cursor` }],
-      stop: [{ command: `${BIN} gate --host cursor --since HEAD` }],
+      stop: [{ command: `${BIN} turn --hook cursor --record` }],
     },
   };
 }

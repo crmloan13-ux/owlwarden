@@ -1,5 +1,6 @@
 ---
 source: crates/reporters/tests/snapshots.rs
+assertion_line: 110
 expression: encoded
 ---
 {
@@ -17,7 +18,8 @@ expression: encoded
     "configFilesScanned": 0,
     "routesProbed": 0,
     "preset": "owasp-top10",
-    "runtime": "node (defaulted)"
+    "runtime": "node (defaulted)",
+    "rulesRun": 13
   },
   "summary": {
     "high": 10,

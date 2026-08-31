@@ -1,0 +1,239 @@
+{
+  "schemaVersion": "1.0",
+  "tool": {
+    "name": "owlwarden",
+    "version": "0.0.0-test"
+  },
+  "recordedAt": "2026-01-01T00:00:00Z",
+  "durationMs": 120,
+  "base": {
+    "reference": "HEAD",
+    "commit": "0000000000000000000000000000000000000000"
+  },
+  "filesChanged": 3,
+  "gate": {
+    "failOn": "medium",
+    "minConfidence": "possible"
+  },
+  "verdict": "blocked",
+  "counts": {
+    "introduced": 1,
+    "carried": 20,
+    "fixed": 1
+  },
+  "blocking": 1,
+  "introduced": [
+    {
+      "id": "stack-trace-leak",
+      "severity": "high",
+      "confidence": "likely",
+      "owasp": "A05:2021",
+      "cwe": 209,
+      "runtime": "node",
+      "runtimeSource": "default",
+      "exposure": "internet",
+      "exposureEvidence": {
+        "route": "/api/users",
+        "reason": "no authentication gate identified on this path"
+      },
+      "title": "Stack trace leaked in error response",
+      "why": "Stack traces expose absolute file paths, dependency versions, and internal call structure — enough to fingerprint the stack and locate other weaknesses.",
+      "location": {
+        "path": "app/api/users/route.ts",
+        "line": 20,
+        "col": 16
+      },
+      "snippet": {
+        "path": "app/api/users/route.ts",
+        "startLine": 18,
+        "lines": [
+          "  } catch (err) {",
+          "    return NextResponse.json(",
+          "      { error: err.stack },",
+          "      { status: 500 }",
+          "    )"
+        ],
+        "highlight": {
+          "line": 20,
+          "startCol": 16,
+          "endCol": 25,
+          "label": "leaks internal stack trace to the client"
+        }
+      },
+      "context": {
+        "framework": "next",
+        "route": "/api/users",
+        "method": "GET",
+        "evidence": "err.stack"
+      },
+      "remediation": [
+        {
+          "framework": "next",
+          "summary": "Return a generic message; log the error server-side.",
+          "patch": "console.error(err)\nreturn NextResponse.json(\n  { error: 'Internal Server Error' },\n  { status: 500 },\n)",
+          "safety": "manual"
+        },
+        {
+          "summary": "Log the error server-side and return a generic message to the client.",
+          "patch": "'Internal Server Error'",
+          "safety": "safe"
+        }
+      ],
+      "references": [
+        {
+          "kind": "owasp",
+          "id": "A05:2021",
+          "url": "https://owasp.org/Top10/A05_2021-Security_Misconfiguration/"
+        },
+        {
+          "kind": "cwe",
+          "id": "CWE-209",
+          "url": "https://cwe.mitre.org/data/definitions/209.html"
+        },
+        {
+          "kind": "docs",
+          "id": "RULES.md#stack-trace-leak",
+          "url": "https://github.com/suthat/owlwarden/blob/main/RULES.md#stack-trace-leak"
+        }
+      ]
+    }
+  ],
+  "carried": [
+    {
+      "id": "sql-injection",
+      "severity": "high",
+      "at": "app/api/login/route.ts:16",
+      "fingerprint": "cd6314d2f6d54ec2"
+    },
+    {
+      "id": "ssrf",
+      "severity": "high",
+      "at": "app/api/proxy/route.ts:19",
+      "fingerprint": "06e11ca75ec2922e"
+    },
+    {
+      "id": "ssrf",
+      "severity": "high",
+      "at": "app/api/proxy/route.ts:25",
+      "fingerprint": "06e11da75ec293e1"
+    },
+    {
+      "id": "ssrf",
+      "severity": "high",
+      "at": "app/api/proxy/route.ts:32",
+      "fingerprint": "06e11aa75ec28ec8"
+    },
+    {
+      "id": "ssrf",
+      "severity": "high",
+      "at": "app/api/proxy/route.ts:40",
+      "fingerprint": "06e11ba75ec2907b"
+    },
+    {
+      "id": "open-redirect",
+      "severity": "medium",
+      "at": "app/api/proxy/route.ts:50",
+      "fingerprint": "f591375cc1c26d1b"
+    },
+    {
+      "id": "open-redirect",
+      "severity": "medium",
+      "at": "app/api/proxy/route.ts:56",
+      "fingerprint": "f591365cc1c26b68"
+    },
+    {
+      "id": "open-redirect",
+      "severity": "medium",
+      "at": "app/api/proxy/route.ts:62",
+      "fingerprint": "f591395cc1c27081"
+    },
+    {
+      "id": "sensitive-data-logged",
+      "severity": "medium",
+      "at": "app/api/users/route.ts:11",
+      "fingerprint": "8f49cfadbe555552"
+    },
+    {
+      "id": "sensitive-data-logged",
+      "severity": "medium",
+      "at": "app/api/users/route.ts:14",
+      "fingerprint": "b1ed7eab5fd0a6dc"
+    },
+    {
+      "id": "insecure-cookie",
+      "severity": "medium",
+      "at": "app/api/login/route.ts:20",
+      "fingerprint": "c66cca54b43e6fd6"
+    },
+    {
+      "id": "ci-unpinned-action",
+      "severity": "medium",
+      "at": ".github/workflows/ci.yml:8",
+      "fingerprint": "ba1b9102af044615"
+    },
+    {
+      "id": "install-lifecycle-script",
+      "severity": "medium",
+      "at": "package.json:7",
+      "fingerprint": "e2424c3d9304477e"
+    },
+    {
+      "id": "unpinned-dependency",
+      "severity": "medium",
+      "at": "package.json:14",
+      "fingerprint": "0f5ecd77931743c9"
+    },
+    {
+      "id": "security-headers-missing",
+      "severity": "medium",
+      "at": "package.json:1",
+      "fingerprint": "8b3f5234411d74b0"
+    },
+    {
+      "id": "hardcoded-secret",
+      "severity": "high",
+      "at": "app/lib/billing.ts:3",
+      "fingerprint": "8e040be6794b3fa0"
+    },
+    {
+      "id": "weak-crypto",
+      "severity": "high",
+      "at": "app/lib/crypto.ts:8",
+      "fingerprint": "ec4aec5e5993cba3"
+    },
+    {
+      "id": "weak-crypto",
+      "severity": "high",
+      "at": "app/lib/crypto.ts:14",
+      "fingerprint": "f61ca12200b8fc60"
+    },
+    {
+      "id": "weak-crypto",
+      "severity": "high",
+      "at": "app/lib/crypto.ts:20",
+      "fingerprint": "9797451f4f50c819"
+    },
+    {
+      "id": "cors-permissive",
+      "severity": "medium",
+      "at": "app/lib/cors.ts:7",
+      "fingerprint": "34d252c11ebdfcd4"
+    }
+  ],
+  "fixed": [
+    {
+      "id": "sql-injection",
+      "severity": "high",
+      "at": "deleted/app/api/login/route.ts:16",
+      "fingerprint": "4e04199574a32ba0"
+    }
+  ],
+  "surface": {
+    "state": "unchanged",
+    "files": 2,
+    "hooks": 1,
+    "mcpServers": 0,
+    "changes": []
+  },
+  "notes": []
+}

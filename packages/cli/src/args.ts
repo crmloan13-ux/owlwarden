@@ -32,6 +32,7 @@ export type Cli =
   | { command: "vet"; options: ScanOptions }
   | { command: "gate"; options: GateCliOptions }
   | { command: "verify"; options: VerifyCliOptions }
+  | { command: "turn"; options: TurnCliOptions }
   | { command: "rules"; json: boolean }
   | { command: "coverage"; json: boolean; color: boolean; unicode: boolean }
   | { command: "explain"; rule: string; json: boolean }
@@ -50,7 +51,7 @@ export type Cli =
   | { command: "osv-update"; path: string; out?: string }
   | { command: "seal"; options: SealCliOptions }
   | { command: "effective"; options: EffectiveCliOptions }
-  | { command: "help" }
+  | { command: "help"; all: boolean }
   | { command: "version" };
 
 /** A scan report rendering target. */
@@ -119,6 +120,39 @@ export interface VerifyCliOptions {
   rule?: string;
   /** Severity at or above which a *new* finding fails the verification. */
   failOn?: string;
+}
+
+/** Everything `owlwarden turn` needs. */
+export interface TurnCliOptions {
+  /** Project root. */
+  path: string;
+  /** The ref the turn is measured against. Default `HEAD`. */
+  base: string;
+  /** Rule bundle. Default `quick` — a turn runs in a hook, on every edit. */
+  preset: string;
+  /** `pretty` or `json`. Deliberately not SARIF: see `renderTurn`. */
+  format: "pretty" | "json";
+  /** Severity at or above which an *introduced* finding blocks the turn. */
+  failOn: string;
+  /** Confidence floor. */
+  minConfidence: string;
+  /** Exposure at or above which an introduced finding blocks the turn. */
+  failOnExposure?: string;
+  /** Read and report the agent execution surface. */
+  surface: boolean;
+  /** Append the verdict to `.owlwarden/turns.jsonl`. */
+  record: boolean;
+  /**
+   * Answer in a host's hook shape instead of on a terminal.
+   *
+   * The same three adapters `gate` uses, so a Stop hook wired to `turn` speaks
+   * the host's protocol rather than relying on the host's reading of an exit
+   * code.
+   */
+  hook?: string;
+  color: boolean;
+  unicode: boolean;
+  quiet: boolean;
 }
 
 /** Everything `scan` / `watch` needs, before config is merged in. */
@@ -301,6 +335,10 @@ const OPTIONS = {
   "osv-db": { type: "string" },
   offline: { type: "boolean", default: false },
   since: { type: "string" },
+  base: { type: "string" },
+  record: { type: "boolean", default: false },
+  hook: { type: "string" },
+  "no-surface": { type: "boolean", default: false },
   staged: { type: "boolean", default: false },
   paths: { type: "string", multiple: true },
   budget: { type: "string" },
@@ -322,6 +360,7 @@ const OPTIONS = {
   workflow: { type: "boolean", default: false },
   mcp: { type: "boolean", default: false },
   force: { type: "boolean", default: false },
+  all: { type: "boolean", default: false },
   help: { type: "boolean", short: "h", default: false },
   version: { type: "boolean", short: "V", default: false },
 } as const satisfies NonNullable<ParseArgsConfig["options"]>;
@@ -357,7 +396,9 @@ export function parse(argv: string[]): Cli {
 
   if (common.version) return { command: "version" };
   if (common.help || command === undefined || command === "help") {
-    return { command: "help" };
+    // `--all` is read off both spellings: someone who types `owlwarden --help
+    // --all` has asked the same question as `owlwarden help --all`.
+    return { command: "help", all: values.all || rest.includes("all") };
   }
 
   switch (command) {
@@ -371,6 +412,8 @@ export function parse(argv: string[]): Cli {
       return { command: "gate", options: gateOptions(values, rest) };
     case "verify":
       return { command: "verify", options: verifyOptions(values, rest) };
+    case "turn":
+      return { command: "turn", options: turnOptions(values, rest) };
     case "rules":
       return { command: "rules", json: values.json };
     case "coverage":
@@ -776,6 +819,71 @@ function verifyOptions(values: Values, positionals: string[]): VerifyCliOptions 
 }
 
 /** Parses a positive integer flag value. */
+/**
+ * `owlwarden turn`.
+ *
+ * The defaults are the argument. `--fail-on high` rather than the scan's
+ * `medium`, because a turn verdict runs after every edit and a gate that stops
+ * an agent on a medium it introduced in passing is a gate somebody disables on
+ * the second day. The threshold is printed on the verdict line, so raising it
+ * is one flag and reading it is no work at all.
+ */
+function turnOptions(values: Values, positionals: string[]): TurnCliOptions {
+  if (positionals.length > 1) {
+    throw new ArgError(`turn takes at most one path, got ${positionals.length}`);
+  }
+  const requested = values.format?.at(-1) ?? "pretty";
+  if (requested !== "pretty" && requested !== "json") {
+    throw new ArgError(
+      `turn renders as pretty or json, not ${JSON.stringify(requested)}. ` +
+        "A SARIF upload describing seven files would overwrite the repository's real findings.",
+    );
+  }
+  const options: TurnCliOptions = {
+    path: positionals[0] ?? ".",
+    base: values.base ?? "HEAD",
+    preset: values.preset ?? "quick",
+    format: requested,
+    failOn: parseWith(severitySchema, "--fail-on", values["fail-on"] ?? "high", [
+      "high",
+      "medium",
+      "low",
+      "info",
+    ]),
+    minConfidence: parseWith(
+      confidenceSchema,
+      "--min-confidence",
+      values["min-confidence"] ?? "likely",
+      ["confirmed", "likely", "possible"],
+    ),
+    surface: !values["no-surface"],
+    record: values.record,
+    color: !values["no-color"] && useColorByDefault(),
+    unicode: !values.ascii,
+    quiet: values.quiet,
+  };
+  if (values["fail-on-exposure"] !== undefined) {
+    options.failOnExposure = parseWith(
+      exposureSchema,
+      "--fail-on-exposure",
+      values["fail-on-exposure"],
+      ["internet", "authenticated", "internal", "unknown"],
+    );
+  }
+  if (values.hook !== undefined) {
+    if (!HOOK_HOSTS.includes(values.hook)) {
+      throw new ArgError(
+        `unknown host ${JSON.stringify(values.hook)} for --hook; expected one of: ${HOOK_HOSTS.join(", ")}`,
+      );
+    }
+    options.hook = values.hook;
+  }
+  return options;
+}
+
+/** Hosts `--hook` can answer as. The same three `gate --host` accepts. */
+const HOOK_HOSTS: readonly string[] = ["claude-code", "cursor", "generic"];
+
 function positiveInt(flag: string, raw: string): number {
   const parsed = Number.parseInt(raw, 10);
   if (!Number.isFinite(parsed) || parsed <= 0) {

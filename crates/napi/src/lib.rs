@@ -1283,3 +1283,351 @@ fn encode_gate_error(code: &'static str, message: impl Into<String>) -> String {
     serde_json::to_string(&response)
         .unwrap_or_else(|_| r#"{"ok":false,"stdout":"{}","exitCode":2}"#.to_owned())
 }
+
+/// The JSON shape [`turn`] accepts.
+///
+/// Both reports arrive already rendered rather than being re-scanned here: the
+/// CLI is the only layer that knows how to materialise a tree at a commit, and
+/// the engine's rule against executing anything means it is never going to be
+/// the layer that runs git.
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct TurnRequest {
+    /// Project root, for the surface read.
+    project_root: String,
+    /// The report over the base version of the changed paths.
+    before_report_json: String,
+    /// The report over the working-tree version of the same paths.
+    after_report_json: String,
+    /// What the operator asked for, e.g. `HEAD`.
+    base_ref: String,
+    /// What it resolved to, when git could say.
+    #[serde(default)]
+    base_commit: Option<String>,
+    /// Files the turn touched.
+    #[serde(default)]
+    files_changed: u32,
+    /// Wall-clock cost of the whole verdict, measured by the caller.
+    #[serde(default)]
+    duration_ms: u32,
+    /// Severity floor.
+    #[serde(default)]
+    fail_on: Option<String>,
+    /// Confidence floor.
+    #[serde(default)]
+    min_confidence: Option<String>,
+    /// Exposure floor.
+    #[serde(default)]
+    fail_on_exposure: Option<String>,
+    /// Whether to read and report the agent execution surface.
+    #[serde(default)]
+    surface: bool,
+    /// Anything that stopped the turn from being fully answered.
+    #[serde(default)]
+    notes: Vec<String>,
+}
+
+/// The envelope [`turn`] returns.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct TurnEnvelope {
+    ok: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    turn: Option<owlwarden_core::turn::TurnReport>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    error: Option<EngineError>,
+}
+
+/// Classifies one turn: what did these changes introduce, carry, and fix.
+///
+/// The diff lives in `owlwarden_core::turn` so that both CLIs and any future
+/// consumer reach the same verdict from the same two reports. Doing it in
+/// TypeScript would have meant reimplementing the baseline fingerprint there,
+/// and a second implementation of "the same finding" is a second answer.
+///
+/// # Errors
+/// Throws only when `request_json` does not match the request shape, which is a
+/// programming error in the caller. A report that will not parse comes back as
+/// an error envelope, because that is a version-skew problem the user can act
+/// on.
+#[napi]
+pub async fn turn(request_json: String) -> napi::Result<String> {
+    let _: TurnRequest = serde_json::from_str(&request_json)
+        .map_err(|error| napi::Error::from_reason(format!("invalid turn request: {error}")))?;
+
+    napi::bindgen_prelude::spawn_blocking(move || turn_blocking(&request_json))
+        .await
+        .map_err(|error| napi::Error::from_reason(format!("turn worker failed: {error}")))
+}
+
+fn turn_blocking(request_json: &str) -> String {
+    let Ok(request) = serde_json::from_str::<TurnRequest>(request_json) else {
+        return encode_turn(&TurnEnvelope {
+            ok: false,
+            turn: None,
+            error: Some(turn_error(
+                "E_TURN_REQUEST",
+                "the turn request could not be parsed",
+            )),
+        });
+    };
+
+    let (Ok(before), Ok(after)) = (
+        serde_json::from_str::<owlwarden_core::report::Report>(&request.before_report_json),
+        serde_json::from_str::<owlwarden_core::report::Report>(&request.after_report_json),
+    ) else {
+        return encode_turn(&TurnEnvelope {
+            ok: false,
+            turn: None,
+            error: Some(turn_error(
+                "E_TURN_REPORT",
+                "a report handed to the turn diff could not be read; \
+                 reinstall owlwarden so the CLI and the engine come from one release",
+            )),
+        });
+    };
+
+    let gate = owlwarden_core::turn::TurnGate {
+        fail_on: request
+            .fail_on
+            .as_deref()
+            .and_then(Severity::from_str_opt)
+            .unwrap_or(Severity::Medium),
+        min_confidence: request
+            .min_confidence
+            .as_deref()
+            .and_then(Confidence::from_str_opt)
+            .unwrap_or(Confidence::Possible),
+        fail_on_exposure: request
+            .fail_on_exposure
+            .as_deref()
+            .and_then(owlwarden_core::finding::Exposure::from_str_opt),
+    };
+
+    let diff = owlwarden_core::turn::TurnDiff::between(&before.findings, &after.findings);
+    let mut record = owlwarden_core::turn::TurnReport::new(
+        &diff,
+        owlwarden_core::turn::TurnBase {
+            reference: request.base_ref,
+            commit: request.base_commit,
+        },
+        request.files_changed,
+        u64::from(request.duration_ms),
+        gate,
+    );
+    record.notes = request.notes;
+
+    // A truncated scan on either side means the comparison is between two sets
+    // that do not know their own size, and "nothing introduced" would be a
+    // claim neither report can support.
+    if before.truncated || after.truncated {
+        record.notes.push(
+            "a scan hit the findings cap, so this turn's comparison is incomplete".to_owned(),
+        );
+    }
+
+    if request.surface {
+        record.surface = Some(read_surface(std::path::Path::new(&request.project_root)));
+    }
+
+    encode_turn(&TurnEnvelope {
+        ok: true,
+        turn: Some(record),
+        error: None,
+    })
+}
+
+/// The agent execution surface as it stands, and whether it has moved.
+///
+/// Never fails the turn: a surface that cannot be read is reported as
+/// `unreadable` with zero counts, because a verdict about the *code* is still
+/// worth having when the seal machinery is unavailable — and saying `sealed`
+/// over a failed read would be the one lie this whole feature exists to avoid.
+fn read_surface(root: &std::path::Path) -> owlwarden_core::turn::TurnSurface {
+    let Ok(current) = owlwarden_seal::command::current_surface(root) else {
+        return owlwarden_core::turn::TurnSurface {
+            state: "unreadable".to_owned(),
+            files: 0,
+            hooks: 0,
+            mcp_servers: 0,
+            changes: Vec::new(),
+        };
+    };
+    let count = |len: usize| u32::try_from(len).unwrap_or(u32::MAX);
+    let files = count(current.files.len());
+    let hooks = count(current.hooks.len());
+    let mcp_servers = count(current.mcp_servers.len());
+
+    let Ok((lock, _bytes)) = owlwarden_seal::store::load(root) else {
+        return owlwarden_core::turn::TurnSurface {
+            state: "unsealed".to_owned(),
+            files,
+            hooks,
+            mcp_servers,
+            changes: Vec::new(),
+        };
+    };
+
+    let stamp = owlwarden_seal::extract::engine_stamp();
+    let comparison = owlwarden_seal::diff::compare(&lock, &current, &stamp.catalogue_digest);
+    // A reformat is reported by `seal --diff` and is not drift; repeating it on
+    // every turn would train the reader to skip the line that matters.
+    let changes: Vec<String> = comparison
+        .changes
+        .iter()
+        .filter(|change| change.semantic)
+        .map(|change| {
+            let automatic = if change.automatic {
+                " (runs automatically)"
+            } else {
+                ""
+            };
+            format!(
+                "{} {}: {}{automatic}",
+                change.kind.word(),
+                change.category,
+                change.detail
+            )
+        })
+        .collect();
+
+    owlwarden_core::turn::TurnSurface {
+        state: if changes.is_empty() {
+            "unchanged"
+        } else {
+            "moved"
+        }
+        .to_owned(),
+        files,
+        hooks,
+        mcp_servers,
+        changes,
+    }
+}
+
+/// Renders a turn record.
+///
+/// # Errors
+/// Throws if the record or the options cannot be parsed, or the format is one
+/// this command does not have. `turn` deliberately offers fewer formats than
+/// `scan`: a SARIF file describing one turn is a code-scanning upload that
+/// overwrites the repository's real findings with a seven-file slice.
+#[napi]
+pub fn render_turn(turn_json: String, options_json: String) -> napi::Result<String> {
+    let record: owlwarden_core::turn::TurnReport = serde_json::from_str(&turn_json)
+        .map_err(|error| napi::Error::from_reason(format!("invalid turn record: {error}")))?;
+    let options: RenderRequest = serde_json::from_str(&options_json)
+        .map_err(|error| napi::Error::from_reason(format!("invalid render options: {error}")))?;
+
+    match options.format.as_str() {
+        "pretty" => owlwarden_reporters::turn::render_to_string(
+            &record,
+            PrettyOptions {
+                color: options.color,
+                unicode: options.unicode,
+                hyperlinks: options.hyperlinks,
+            },
+        )
+        .map_err(|error| napi::Error::from_reason(error.to_string())),
+        "json" => if options.pretty_json {
+            serde_json::to_string_pretty(&record)
+        } else {
+            serde_json::to_string(&record)
+        }
+        .map(|json| json + "\n")
+        .map_err(|error| napi::Error::from_reason(error.to_string())),
+        other => Err(napi::Error::from_reason(format!(
+            "turn renders as pretty or json, not {other:?}"
+        ))),
+    }
+}
+
+fn turn_error(code: &'static str, message: &str) -> EngineError {
+    EngineError {
+        code,
+        message: message.to_owned(),
+        help: owlwarden_core::error_url(code),
+    }
+}
+
+fn encode_turn(envelope: &TurnEnvelope) -> String {
+    serde_json::to_string(envelope).unwrap_or_else(|_| {
+        r#"{"ok":false,"error":{"code":"E_ENCODE","message":"failed to encode the turn record","help":""}}"#
+            .to_owned()
+    })
+}
+
+/// Encodes a turn verdict in one host's hook shape.
+///
+/// # Why this reuses the gate's adapters
+///
+/// A Stop hook is a Stop hook. Claude Code reads `decision: "block"` with a
+/// `reason`; Cursor reads its own shape; the generic adapter emits owlwarden's.
+/// Those three translations already exist, are tested against each host's
+/// schema, and get updated when a host changes — writing a fourth one here for
+/// the turn verdict would give the project two places to be wrong about the
+/// same JSON, and only one of them would get fixed.
+///
+/// # Errors
+/// Throws when the record cannot be parsed or the host is not one we have.
+#[napi]
+pub fn encode_turn_hook(turn_json: String, host: String) -> napi::Result<String> {
+    let record: owlwarden_core::turn::TurnReport = serde_json::from_str(&turn_json)
+        .map_err(|error| napi::Error::from_reason(format!("invalid turn record: {error}")))?;
+    let adapter = owlwarden_gate::adapters::adapter_for(&host).ok_or_else(|| {
+        napi::Error::from_reason(format!(
+            "unknown host {host:?}; available: {}",
+            owlwarden_gate::adapters::available_hosts().join(", ")
+        ))
+    })?;
+
+    let base = record.base.commit.as_deref().map_or_else(
+        || record.base.reference.clone(),
+        |commit| commit.chars().take(7).collect(),
+    );
+
+    // Only the findings that met the gate reach the model. Everything else the
+    // turn introduced is in the record and on the developer's terminal; a hook
+    // reason is not a report.
+    let blocking: Vec<owlwarden_core::finding::Finding> = record
+        .introduced
+        .iter()
+        .filter(|finding| {
+            owlwarden_core::report::fails_gate(
+                finding,
+                record.gate.fail_on,
+                record.gate.min_confidence,
+                record.gate.fail_on_exposure,
+            )
+        })
+        .cloned()
+        .collect();
+
+    let event = owlwarden_gate::event::GateEvent::new(
+        &host,
+        owlwarden_gate::event::GateEventKind::TurnBoundary,
+    );
+    let decision = if blocking.is_empty() {
+        owlwarden_gate::decision::GateDecision::new(
+            owlwarden_gate::decision::Verdict::Allow,
+            format!(
+                "owlwarden: nothing introduced at or above {} since {base}",
+                record.gate.fail_on.as_str()
+            ),
+        )
+    } else {
+        owlwarden_gate::decision::GateDecision::new(
+            owlwarden_gate::decision::Verdict::Deny,
+            owlwarden_gate::policy::turn_reason(&blocking, record.counts.carried, &base),
+        )
+        .with_findings(blocking)
+    };
+
+    let encoded = adapter.encode(&event, &decision);
+    serde_json::to_string(&serde_json::json!({
+        "stdout": encoded.stdout,
+        "stderr": encoded.stderr,
+        "exitCode": encoded.exit_code,
+    }))
+    .map_err(|error| napi::Error::from_reason(error.to_string()))
+}

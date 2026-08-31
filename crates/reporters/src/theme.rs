@@ -21,6 +21,10 @@ pub struct Glyphs {
     pub arrow: &'static str,
     /// Marker before a references line.
     pub info: &'static str,
+    /// Separator between fields on a summary line.
+    pub separator: &'static str,
+    /// Dash introducing a clause, as in `clean — nothing introduced`.
+    pub dash: &'static str,
 }
 
 impl Glyphs {
@@ -33,6 +37,8 @@ impl Glyphs {
             underline: '~',
             arrow: "↳",
             info: "ⓘ",
+            separator: " · ",
+            dash: "—",
         }
     }
 
@@ -45,6 +51,8 @@ impl Glyphs {
             underline: '~',
             arrow: "->",
             info: "i",
+            separator: " | ",
+            dash: "-",
         }
     }
 

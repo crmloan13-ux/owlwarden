@@ -40,6 +40,19 @@ impl ChangeKind {
             Self::Modified => '~',
         }
     }
+
+    /// The word, for output read as a sentence rather than scanned as a diff.
+    ///
+    /// The turn verdict prints one line per change inside a paragraph of
+    /// prose, where a bare `+` reads as punctuation.
+    #[must_use]
+    pub const fn word(self) -> &'static str {
+        match self {
+            Self::Added => "added",
+            Self::Removed => "removed",
+            Self::Modified => "changed",
+        }
+    }
 }
 
 /// One reviewable change.

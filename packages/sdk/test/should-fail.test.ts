@@ -26,6 +26,7 @@ function reportOf(findings: Finding[], truncated = false): Report {
       scope: [],
       filesScanned: 0,
     configFilesScanned: 0,
+    rulesRun: 0,
       routesProbed: 0,
       preset: "quick",
     },

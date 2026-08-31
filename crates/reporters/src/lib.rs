@@ -43,6 +43,7 @@ pub mod md;
 pub mod pretty;
 pub mod sarif;
 pub mod theme;
+pub mod turn;
 
 pub use agent::{AgentOptions, AgentReporter, DEFAULT_BUDGET_TOKENS};
 pub use banner::{BannerOpts, owl_mark, print_banner, render_banner};

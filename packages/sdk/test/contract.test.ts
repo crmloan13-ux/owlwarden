@@ -8,6 +8,7 @@ import {
   reportSchema,
   ruleMetaListSchema,
   shouldFail,
+  turnReportSchema,
   type Confidence,
   type Severity,
 } from "../src/index.js";
@@ -135,5 +136,48 @@ describe("shouldFail", () => {
         `failOn=${row.failOn} minConfidence=${row.minConfidence}`,
       ).toBe(row.fails);
     }
+  });
+});
+
+describe("turn record schema", () => {
+  it("accepts a turn record produced by the Rust engine", () => {
+    const parsed = turnReportSchema.safeParse(golden("turn.json"));
+    if (!parsed.success) {
+      throw new Error(
+        `the engine's turn record does not match the zod schema:\n${parsed.error.issues
+          .map((issue) => `  ${issue.path.join(".")}: ${issue.message}`)
+          .join("\n")}`,
+      );
+    }
+    expect(parsed.data.schemaVersion).toBe("1.0");
+  });
+
+  it("keeps every field the engine emits", () => {
+    const raw = golden("turn.json") as Record<string, unknown>;
+    const parsed = turnReportSchema.parse(raw) as Record<string, unknown>;
+    expect(Object.keys(parsed).sort()).toEqual(Object.keys(raw).sort());
+  });
+
+  it("exercises all three states, so none of them can drift unnoticed", () => {
+    const record = turnReportSchema.parse(golden("turn.json"));
+    expect(record.counts.introduced).toBeGreaterThan(0);
+    expect(record.counts.carried).toBeGreaterThan(0);
+    expect(record.counts.fixed).toBeGreaterThan(0);
+  });
+
+  it("renders carried and fixed findings by reference only", () => {
+    // The shape enforces the argument: a carried finding cannot arrive with a
+    // code frame and a fix, because the schema has nowhere to put them.
+    const record = turnReportSchema.parse(golden("turn.json"));
+    expect(record.carried.length).toBe(record.counts.carried);
+    for (const entry of [...record.carried, ...record.fixed]) {
+      expect(Object.keys(entry).sort()).toEqual(["at", "fingerprint", "id", "severity"]);
+    }
+  });
+
+  it("never says clean while something introduced met the gate", () => {
+    const record = turnReportSchema.parse(golden("turn.json"));
+    expect(record.blocking).toBeLessThanOrEqual(record.counts.introduced);
+    expect(record.verdict === "blocked").toBe(record.blocking > 0);
   });
 });

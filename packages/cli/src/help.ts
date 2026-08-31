@@ -3,16 +3,77 @@ import { presetInfoListSchema } from "@dointhai/owlwarden-sdk";
 import type { NativeEngine } from "./native.js";
 
 /**
- * The help text.
+ * The help text, in two tiers.
+ *
+ * # Why two
+ *
+ * The full listing is eleven commands and sixty flags, and every one of them is
+ * there because somebody needed it. Printed all at once it is a wall, and the
+ * cost lands on exactly the wrong person: someone who has run `npx owlwarden`
+ * for the first time and is looking for the one command that answers their
+ * question. Everything a first run needs is in the default text; `help --all`
+ * has the rest, and nothing was removed.
  *
  * Presets come from the engine so the list is never stale. If the engine cannot
  * be loaded, help still prints — someone whose install is broken needs the help
  * text more than most, not less.
  */
-export function helpText(native: NativeEngine | undefined): string {
+export function helpText(native: NativeEngine | undefined, all = false): string {
+  return all ? fullHelp(native) : shortHelp(native);
+}
+
+/** The default: what a first run needs, and where the rest is. */
+function shortHelp(native: NativeEngine | undefined): string {
+  return `owlwarden ${native?.engineVersion() ?? ""} — the deterministic security floor for Node
+and for the coding agent working in your repository.
+
+USAGE
+  owlwarden turn                    what did this turn change?   ← start here
+  owlwarden scan [PATH]             every rule, the whole repository
+  owlwarden vet [PATH]              someone else's repo, before you open it
+  owlwarden init --claude-code      wire it into the agent loop
+
+  Runs on your machine. No account, no telemetry, no network unless you ask.
+
+  turn — scans the files this turn touched, scans the same files at the last
+        commit, and reports only what you just introduced. Findings that
+        were already there are counted on one line and never printed: a gate
+        that blocks on debt the turn did not create is a gate that gets
+        removed, and everything it would have caught goes with it.
+        --base <REF>       compare against this instead of HEAD
+        --hook <HOST>      answer in a host's hook shape (claude-code, cursor,
+                           generic) instead of on a terminal
+        --record           append the verdict to .owlwarden/turns.jsonl
+        --fail-on <LEVEL>  what blocks a turn. Default: high
+  scan — the whole repository, both surfaces, one exit code. Every finding
+        carries a fix written for your framework, and an \`exposure\` saying
+        whether an anonymous caller can reach it.
+        --since <REF>  --staged  --fix  --format <F>  --fail-on <LEVEL>
+  vet  — a repository you did not write, before you open it in an editor.
+        Agent-surface rules only, offline, and the target's own config,
+        baseline, and suppressions are counted rather than honoured.
+  init — writes the hooks and the MCP entry for one host. Never a SessionStart
+        hook: repository config that runs on open is what this tool reports.
+
+EXIT CODES
+  0  clean        1  findings at or above --fail-on        2  could not run
+
+MORE
+  owlwarden help --all        every command and every flag
+  owlwarden explain <RULE>    one rule, in full, offline
+  owlwarden coverage          what it finds — and what it does not
+  owlwarden rules             the whole catalogue
+
+  Docs: https://suthat.github.io/owlwarden/
+`;
+}
+
+/** Everything. Reached by \`owlwarden help --all\`. */
+function fullHelp(native: NativeEngine | undefined): string {
   return `owlwarden ${native?.engineVersion() ?? ""} — security scanner for Node apps (MCP-ready)
 
 USAGE
+  owlwarden turn [PATH] [OPTIONS]      what did this turn change?
   owlwarden scan [PATH] [OPTIONS]
   owlwarden vet [PATH]                 check a repo before you open it
   owlwarden gate --host <HOST> [PATH]  hook entry point; event JSON on stdin
@@ -32,6 +93,25 @@ USAGE
 
   Local only. No telemetry. --target is opt-in (scoped; deny by default).
 
+  turn — the loop-closer. Scans the paths that changed since --base (default
+        HEAD), scans the same paths at that commit, and diffs the two by the
+        baseline fingerprint. Introduced findings are reported in full and are
+        the only ones that can fail the turn; carried findings are counted;
+        fixed findings are named, because that is the only line in this tool
+        that reports something going right.
+        --base <REF>            what to measure against. Default: HEAD
+        --hook <HOST>           answer in claude-code / cursor / generic hook
+                                shape, through the same adapters \`gate\` uses
+        --record                append to .owlwarden/turns.jsonl (last 200)
+        --no-surface            skip the agent-execution-surface read
+        --format pretty|json    not sarif: a SARIF upload describing seven
+                                files would overwrite the repository's findings
+        --fail-on <LEVEL>       default high, not scan's info: this runs after
+                                every turn, and a gate that stops an agent on a
+                                passing medium is a gate somebody disables
+        The base is a commit, so the verdict is exactly as trustworthy as the
+        commit is. An agent that can commit can move the anchor; the base is
+        printed on every line for that reason.
   vet — scan a repository you did not write. Agent-surface rules only, offline,
         no plugins, and the target's own config, baseline, and suppressions are
         counted and reported rather than honoured. Every mechanism that makes

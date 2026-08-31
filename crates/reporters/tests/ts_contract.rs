@@ -145,3 +145,68 @@ async fn should_fail_matrix_is_current() {
     let encoded = serde_json::to_string_pretty(&rows).unwrap();
     assert_golden("should-fail.json", &format!("{encoded}\n"));
 }
+
+/// A turn record with everything that varies between runs pinned.
+///
+/// Built by scanning the same fixture twice — once whole, once with one rule's
+/// findings withheld — so the record carries at least one finding in each of
+/// the three states. A golden that only ever exercised `introduced` would let
+/// the `carried` and `fixed` shapes drift without failing anything.
+async fn frozen_turn() -> owlwarden_core::turn::TurnReport {
+    let report = frozen_report().await;
+
+    // `after` is the whole report. `before` holds every finding except one
+    // rule's — those read as introduced — plus one finding on a path that no
+    // longer exists, which reads as fixed. Everything else is carried.
+    let mut before: Vec<_> = report
+        .findings
+        .iter()
+        .filter(|finding| finding.id.as_str() != "stack-trace-leak")
+        .cloned()
+        .collect();
+
+    if let Some(first) = report.findings.first() {
+        let mut deleted = first.clone();
+        if let owlwarden_core::finding::Location::Source(location) = &mut deleted.location {
+            location.path = format!("deleted/{}", location.path);
+        }
+        before.push(deleted);
+    }
+
+    let diff = owlwarden_core::turn::TurnDiff::between(&before, &report.findings);
+    let mut record = owlwarden_core::turn::TurnReport::new(
+        &diff,
+        owlwarden_core::turn::TurnBase {
+            reference: "HEAD".to_owned(),
+            commit: Some("0000000000000000000000000000000000000000".to_owned()),
+        },
+        3,
+        120,
+        owlwarden_core::turn::TurnGate {
+            fail_on: Severity::Medium,
+            min_confidence: Confidence::Possible,
+            fail_on_exposure: None,
+        },
+    );
+    record.recorded_at = "2026-01-01T00:00:00Z".to_owned();
+    record.tool.version = "0.0.0-test".to_owned();
+    record.surface = Some(owlwarden_core::turn::TurnSurface {
+        state: "unchanged".to_owned(),
+        files: 2,
+        hooks: 1,
+        mcp_servers: 0,
+        changes: Vec::new(),
+    });
+    record
+}
+
+#[tokio::test]
+async fn turn_golden_is_current() {
+    let record = frozen_turn().await;
+    assert!(
+        record.counts.introduced > 0 && record.counts.carried > 0 && record.counts.fixed > 0,
+        "the golden must exercise all three states, or two of them can drift silently"
+    );
+    let encoded = serde_json::to_string_pretty(&record).unwrap();
+    assert_golden("turn.json", &format!("{encoded}\n"));
+}
