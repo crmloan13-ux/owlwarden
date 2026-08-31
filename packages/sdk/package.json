@@ -1,6 +1,6 @@
 {
   "name": "@dointhai/owlwarden-sdk",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "Types and zod schemas for owlwarden reports, rules, and coverage. Install `owlwarden` to run the scanner.",
   "license": "(MIT OR Apache-2.0)",
   "repository": {

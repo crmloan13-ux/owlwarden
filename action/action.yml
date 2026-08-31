@@ -15,7 +15,7 @@ inputs:
   version:
     description: npm package version or dist-tag for `npx owlwarden@…` (semver or tag only).
     required: false
-    default: "1.2.0"
+    default: "1.3.0"
   preset:
     description: >
       Rule set (`quick`, `owasp-top10`, `deep`, `agent-surface`). `agent-surface`
