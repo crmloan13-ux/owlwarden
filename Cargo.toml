@@ -47,12 +47,12 @@ time = { version = "0.3", default-features = false, features = ["std", "formatti
 
 # Static engine: oxc is pinned exactly — AST shape is not semver-stable enough
 # to float, and a silent parser change is a silent detector change.
-oxc_allocator = "=0.143.0"
-oxc_ast = "=0.143.0"
-oxc_ast_visit = "=0.143.0"
-oxc_parser = "=0.143.0"
-oxc_span = "=0.143.0"
-oxc_syntax = "=0.143.0"
+oxc_allocator = "=0.147.0"
+oxc_ast = "=0.147.0"
+oxc_ast_visit = "=0.147.0"
+oxc_parser = "=0.147.0"
+oxc_span = "=0.147.0"
+oxc_syntax = "=0.147.0"
 
 ignore = "0.4"
 globset = "0.4"
