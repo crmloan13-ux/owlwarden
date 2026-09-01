@@ -6,7 +6,7 @@
 <meta name="color-scheme" content="light">
 
 <title>owlwarden: local security scanner for Node and coding agents</title>
-<meta name="description" content="owlwarden turn reports only what this turn introduced. Local OWASP checks for Node apps and coding-agent config, with a framework-specific fix.">
+<meta name="description" content="Local OWASP checks for Node apps and coding-agent config, with a framework-specific fix. owlwarden turn reports only what this turn introduced.">
 <link rel="canonical" href="https://suthat.github.io/owlwarden/">
 <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1">
 <meta name="theme-color" content="#fbfaf8">
@@ -14,16 +14,16 @@
 <meta property="og:type" content="website">
 <meta property="og:locale" content="en_US">
 <meta property="og:site_name" content="owlwarden">
-<meta property="og:title" content="What this turn introduced, and what was already there">
-<meta property="og:description" content="owlwarden turn reports only what this turn introduced. Local OWASP checks for Node apps and coding-agent config, with a framework-specific fix.">
+<meta property="og:title" content="Security checks for Node apps and coding-agent config">
+<meta property="og:description" content="Local OWASP checks for Node apps and coding-agent config, with a framework-specific fix. owlwarden turn reports only what this turn introduced.">
 <meta property="og:url" content="https://suthat.github.io/owlwarden/">
 <meta property="og:image" content="https://suthat.github.io/owlwarden/og.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="An owlwarden finding: a SessionStart hook in .claude/settings.json that runs a command when the workspace is opened">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="What this turn introduced, and what was already there">
-<meta name="twitter:description" content="owlwarden turn reports only what this turn introduced. Local OWASP checks for Node apps and coding-agent config, with a framework-specific fix.">
+<meta name="twitter:title" content="Security checks for Node apps and coding-agent config">
+<meta name="twitter:description" content="Local OWASP checks for Node apps and coding-agent config, with a framework-specific fix. owlwarden turn reports only what this turn introduced.">
 <meta name="twitter:image" content="https://suthat.github.io/owlwarden/og.png">
 <meta name="twitter:image:alt" content="An owlwarden scan showing the exact vulnerable line and its fix">
 
@@ -149,33 +149,37 @@
 <section class="page-hero">
   <div class="hero-copy">
     <p class="eyebrow">Node and agent config security</p>
-    <h1>What this turn introduced, and what was already there</h1>
-    <p class="hero-summary"><strong><code>owlwarden turn</code> reports only what this turn introduced.</strong> 15 checks cover Node application code and 10 cover coding-agent config. Each finding includes the line, confidence, and a fix.</p>
+    <h1>Security checks for Node apps and coding-agent config</h1>
+    <p class="hero-summary"><strong>15 checks cover Node application code and 10 cover coding-agent config.</strong> Each finding includes the line, confidence, and a fix. <code>owlwarden turn</code> reports only what this turn introduced.</p>
     <div class="hero-actions"><a class="button button-primary" href="https://www.npmjs.com/package/owlwarden">Install</a>
+<a class="button button-secondary" href="./rules/">Read 25 rules</a>
 <a class="button button-secondary" href="./turn/">How turn works</a></div>
   </div>
-  <figure class="product-visual product-visual-safe" aria-label="owlwarden turn">
+  <figure class="product-visual finding-visual" aria-label="Two owlwarden findings from one local scan">
   <div class="visual-chrome" aria-hidden="true">
   <span class="window-dots"><i></i><i></i><i></i></span>
-  <span>owlwarden turn</span>
-  <span class="visual-status"><i></i>local</span>
+  <span>owlwarden scan</span>
+  <span class="visual-status"><i></i>offline</span>
 </div>
-  <div class="visual-body">
-    <p class="visual-title">What this turn changed</p>
-    <ol class="visual-list"><li>
-  <span class="visual-tag">NEW</span>
-  <span><strong>Introduced</strong><small>Present now, absent at the base. Can fail the turn.</small></span>
-</li>
-<li>
-  <span class="visual-tag">OLD</span>
-  <span><strong>Carried</strong><small>Already at HEAD. Counted on one line, never fails.</small></span>
-</li>
-<li>
-  <span class="visual-tag">FIX</span>
-  <span><strong>Fixed</strong><small>Gone since the base. Reported, never fails.</small></span>
-</li></ol>
-  </div>
-  <figcaption>Carried findings never fail a turn, at any threshold</figcaption>
+  <div class="finding-stack"><div class="transcript"><span class="sev-high">HIGH</span>  <span class="conf">likely</span>  Stack trace leaked in error response  <span class="dim">A05:2021</span>
+<span class="dim">app/api/users/route.ts:20:16</span>
+
+<span class="dim">18 │</span>   } catch (err) {
+<span class="dim">19 │</span>     return NextResponse.json(
+<span class="dim">20 │</span>       { error: err.stack },
+<span class="dim">   │ </span>               <span class="mark">~~~~~~~~~ leaks internal stack trace to the client</span>
+<span class="dim">21 │</span>       { status: 500 }
+<span class="dim">22 │</span>     )</div>
+<div class="transcript"><span class="sev-high">HIGH</span>  <span class="conf">likely</span>  <span class="dim">active</span>  Repository config executes a command when the workspace is opened  <span class="dim">ASI05</span>
+<span class="dim">.claude/settings.json:27:24</span>
+
+<span class="dim">25 │</span>           {
+<span class="dim">26 │</span>             &quot;type&quot;: &quot;command&quot;,
+<span class="dim">27 │</span>             &quot;command&quot;: &quot;node .claude/setup.mjs&quot;
+<span class="dim">   │ </span>                       <span class="mark">~~~~~~~~~~~~~~~~~~~~~~~~ runs when the workspace opens (SessionStart)</span>
+<span class="dim">28 │</span>           }
+<span class="dim">29 │</span>         ]</div></div>
+  <figcaption>Application source and agent workspace in one local scan</figcaption>
 </figure>
 </section>
 

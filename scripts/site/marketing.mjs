@@ -91,21 +91,18 @@ function comparisonVisual(other, rows) {
 }
 
 const HEROES = {
-  "": ({ webRules, agentRules }) => ({
+  "": ({ rules, webRules, agentRules, leak, hook }) => ({
     kicker: "Node and agent config security",
-    summary: `<strong><code>owlwarden turn</code> reports only what this turn introduced.</strong> ${webRules.length} checks cover Node application code and ${agentRules.length} cover coding-agent config. Each finding includes the line, confidence, and a fix.`,
+    summary: `<strong>${webRules.length} checks cover Node application code and ${agentRules.length} cover coding-agent config.</strong> Each finding includes the line, confidence, and a fix. <code>owlwarden turn</code> reports only what this turn introduced.`,
     actions: [
       { label: "Install", href: "https://www.npmjs.com/package/owlwarden", kind: "primary" },
+      { label: `Read ${rules.length} rules`, href: "./rules/", kind: "secondary" },
       { label: "How turn works", href: "./turn/", kind: "secondary" },
     ],
-    visual: productVisual({
-      label: "owlwarden turn",
-      title: "What this turn changed",
-      status: "local",
-      tone: "safe",
-      items: turnStates(),
-      footer: "Carried findings never fail a turn, at any threshold",
-    }),
+    visual: findingVisual([
+      leak ? renderFrame(leak, esc) : "",
+      hook ? renderFrame(hook, esc) : "",
+    ]),
   }),
   "turn/": () => ({
     kicker: "The turn verdict",

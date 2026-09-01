@@ -235,6 +235,23 @@ for (const page of pages) {
   }
 }
 
+// The homepage may lead with `turn` as a selling point. It may not become the
+// turn page: the heading and the visual have to say what owlwarden is.
+{
+  const home = pages.find((page) => page.path === "index.html");
+  const heading = one(home?.html ?? "", /<h1>([^<]*)<\/h1>/) ?? "";
+  const summary = one(home?.html ?? "", /<p class="hero-summary">([\s\S]*?)<\/p>/) ?? "";
+  if (!/Node/i.test(heading) || !/agent/i.test(heading)) {
+    fail("index.html", "homepage heading must name Node and agent config, not only turn");
+  }
+  if (!home?.html.includes("finding-visual")) {
+    fail("index.html", "homepage visual must show both scan surfaces, not only the turn verdict");
+  }
+  if (!/owlwarden turn/.test(summary)) {
+    fail("index.html", "homepage summary must still name turn");
+  }
+}
+
 // --- the link graph --------------------------------------------------------
 //
 // A page nothing links to is a page a crawler reaches only through the sitemap,

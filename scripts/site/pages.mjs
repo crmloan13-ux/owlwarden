@@ -7,7 +7,7 @@ import { renderFrame } from "./samples.mjs";
  *
  * Each page answers one developer question:
  *
- * - the homepage leads with `owlwarden turn` and explains what gets scanned;
+ * - the homepage says what owlwarden is, then what `turn` adds;
  * - hub pages document a product surface;
  * - comparison pages state scope and trade-offs.
  *
@@ -70,10 +70,10 @@ export function staticPages({ rules, coverage, samples, version }) {
 function home({ rules, webRules, agentRules, coverage, version }) {
   return {
     title: "owlwarden: local security scanner for Node and coding agents",
-    heading: "What this turn introduced, and what was already there",
+    heading: "Security checks for Node apps and coding-agent config",
     description:
-      "owlwarden turn reports only what this turn introduced. Local OWASP checks for Node apps " +
-      "and coding-agent config, with a framework-specific fix.",
+      "Local OWASP checks for Node apps and coding-agent config, with a framework-specific fix. " +
+      "owlwarden turn reports only what this turn introduced.",
     ogType: "website",
     breadcrumbs: [{ label: "owlwarden", href: "" }],
     schema: [
