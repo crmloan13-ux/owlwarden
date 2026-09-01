@@ -15,9 +15,12 @@ permissions:
   pages: write
   id-token: write
 
+# GitHub Pages allows only one in-flight deployment per repo. Cancelling a
+# run mid-publish leaves that lock held, and the next push then fails in
+# seconds with "in progress deployment". Queue instead of cancelling.
 concurrency:
   group: pages
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   deploy:
