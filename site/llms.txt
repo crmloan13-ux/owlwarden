@@ -6,14 +6,15 @@
 > record. Runs entirely on the developer's machine: no account, no telemetry, no
 > network unless asked. Version 1.3.0. MIT OR Apache-2.0.
 
-Install: `npm i -D owlwarden` / Scan: `npx owlwarden scan` / Vet a repo you did
-not write: `npx owlwarden vet .`
+Install: `npm i -D owlwarden` / Turn: `npx owlwarden turn` / Scan: `npx owlwarden scan` /
+Vet a repo you did not write: `npx owlwarden vet .`
 
 Exit codes: 0 clean, 1 findings at or above --fail-on, 2 could not run.
 
 ## Start here
 
 - [owlwarden](https://suthat.github.io/owlwarden/): What it is, what it does not look at, and how to run it.
+- [owlwarden turn](https://suthat.github.io/owlwarden/turn/): What this turn introduced, carried, or fixed. Carried findings never fail a turn.
 - [All rules](https://suthat.github.io/owlwarden/rules/): 25 rules: 15 on application source, 10 on agent configuration.
 - [Agent config security](https://suthat.github.io/owlwarden/agent-config-security/): Hooks, MCP servers, instructions, and editor tasks loaded from the repository.
 - [owlwarden vet](https://suthat.github.io/owlwarden/vet/): Scanning a repository you did not write, with the target's own suppressions treated as evidence.
@@ -27,8 +28,8 @@ Exit codes: 0 clean, 1 findings at or above --fail-on, 2 could not run.
 
 ## In an agent or in CI
 
-- [Claude Code](https://suthat.github.io/owlwarden/claude-code/): Hooks on edit, before a shell command, and at the turn boundary; plus MCP.
-- [Cursor](https://suthat.github.io/owlwarden/cursor/): Hooks in .cursor/hooks.json, an MCP entry, and a rules file.
+- [Claude Code](https://suthat.github.io/owlwarden/claude-code/): gate after edits, turn at Stop so the model sees only what this turn introduced; plus MCP.
+- [Cursor](https://suthat.github.io/owlwarden/cursor/): gate after edits, turn at stop, an MCP entry, and a rules file.
 - [MCP server](https://suthat.github.io/owlwarden/mcp/): Four read-only static-analysis tools over stdio.
 - [CI](https://suthat.github.io/owlwarden/ci/): SARIF, JUnit, Markdown, and exit codes for clean, findings, and scan errors.
 

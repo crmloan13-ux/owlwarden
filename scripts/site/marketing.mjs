@@ -91,17 +91,37 @@ function comparisonVisual(other, rows) {
 }
 
 const HEROES = {
-  "": ({ rules, webRules, agentRules, leak, hook }) => ({
+  "": ({ webRules, agentRules }) => ({
     kicker: "Node and agent config security",
-    summary: `<strong>${webRules.length} checks cover Node application code and ${agentRules.length} cover coding-agent config.</strong> Each finding includes the line, confidence, and a fix for the detected framework or host.`,
+    summary: `<strong><code>owlwarden turn</code> reports only what this turn introduced.</strong> ${webRules.length} checks cover Node application code and ${agentRules.length} cover coding-agent config. Each finding includes the line, confidence, and a fix.`,
     actions: [
       { label: "Install", href: "https://www.npmjs.com/package/owlwarden", kind: "primary" },
-      { label: `Read ${rules.length} rules`, href: "./rules/", kind: "secondary" },
+      { label: "How turn works", href: "./turn/", kind: "secondary" },
     ],
-    visual: findingVisual([
-      leak ? renderFrame(leak, esc) : "",
-      hook ? renderFrame(hook, esc) : "",
-    ]),
+    visual: productVisual({
+      label: "owlwarden turn",
+      title: "What this turn changed",
+      status: "local",
+      tone: "safe",
+      items: turnStates(),
+      footer: "Carried findings never fail a turn, at any threshold",
+    }),
+  }),
+  "turn/": () => ({
+    kicker: "The turn verdict",
+    summary: `<strong>A finding you introduced thirty seconds ago and a finding you inherited from a repository's first year are not the same object.</strong> <code>owlwarden turn</code> tells them apart. Carried findings never fail a turn, at any threshold.`,
+    actions: [
+      { label: "Install owlwarden", href: "https://www.npmjs.com/package/owlwarden", kind: "primary" },
+      { label: "Wire it into a host", href: "../claude-code/", kind: "secondary" },
+    ],
+    visual: productVisual({
+      label: "owlwarden turn",
+      title: "Three states, one gate",
+      status: "local",
+      tone: "safe",
+      items: turnStates(),
+      footer: "The gate sees the introduced set only. There is no flag that changes it.",
+    }),
   }),
   "agent-config-security/": ({ agentRules, hook }) => ({
     kicker: "Agent config",
@@ -139,15 +159,15 @@ const HEROES = {
       tone: "safe",
     }),
   }),
-  "claude-code/": () => lifecycleHero("Claude Code", "../agent-config-security/", [
-    ["PostToolUse", "Scan the file after Edit, Write, or MultiEdit"],
-    ["PreToolUse", "Fail closed before a Bash command executes"],
-    ["Stop", "Check everything changed before the turn ends"],
+  "claude-code/": () => lifecycleHero("Claude Code", "../turn/", [
+    ["PostToolUse", "gate scans the file after Edit, Write, or MultiEdit"],
+    ["PreToolUse", "gate fails closed before a Bash command executes"],
+    ["Stop", "turn reports only what this turn introduced"],
   ]),
-  "cursor/": () => lifecycleHero("Cursor", "../agent-config-security/", [
-    ["afterFileEdit", "Scan the file Cursor just changed"],
-    ["beforeShellExecution", "Decide before the command runs"],
-    ["stop", "Close the loop on the whole turn"],
+  "cursor/": () => lifecycleHero("Cursor", "../turn/", [
+    ["afterFileEdit", "gate scans the file Cursor just changed"],
+    ["beforeShellExecution", "gate decides before the command runs"],
+    ["stop", "turn reports only what this turn introduced"],
   ]),
   "mcp/": () => ({
     kicker: "MCP server",
@@ -248,10 +268,10 @@ const HEROES = {
 function lifecycleHero(host, surfaceHref, events) {
   return {
     kicker: `${host} hooks`,
-    summary: `<strong>Run checks from the host lifecycle instead of relying on a prompt.</strong> Hooks scan edits, inspect shell commands, and check the completed turn.`,
+    summary: `<strong>Run checks from the host lifecycle instead of relying on a prompt.</strong> <code>gate</code> scans edits and inspects shell commands. <code>turn</code> answers at Stop: which of these did this turn just do?`,
     actions: [
       { label: `Set up ${host}`, href: "https://www.npmjs.com/package/owlwarden", kind: "primary" },
-      { label: "See what gets scanned", href: surfaceHref, kind: "secondary" },
+      { label: "How turn works", href: surfaceHref, kind: "secondary" },
     ],
     visual: productVisual({
       label: `${host} lifecycle`,
@@ -301,5 +321,13 @@ function agentSurfaceItems() {
     { tag: "HOOK", title: "Lifecycle commands", detail: "Can run when a workspace opens." },
     { tag: "MCP", title: "Tool servers", detail: "May resolve executable code at run time." },
     { tag: "TEXT", title: "Agent instructions", detail: "Can hide reviewer-invisible directives." },
+  ];
+}
+
+function turnStates() {
+  return [
+    { tag: "NEW", title: "Introduced", detail: "Present now, absent at the base. Can fail the turn." },
+    { tag: "OLD", title: "Carried", detail: "Already at HEAD. Counted on one line, never fails." },
+    { tag: "FIX", title: "Fixed", detail: "Gone since the base. Reported, never fails." },
   ];
 }

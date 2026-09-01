@@ -45,6 +45,7 @@ export const problems = [];
 const PRIMARY_NAV_ITEMS = [
   { section: "Rules", label: "Rules", href: "rules/" },
   { section: "Agent config", label: "Agent config", href: "agent-config-security/" },
+  { section: "turn", label: "turn", href: "turn/" },
   { section: "vet", label: "vet", href: "vet/" },
   { section: "Offline", label: "Offline", href: "offline/" },
   { section: "Coverage", label: "Coverage", href: "owasp/" },
@@ -213,6 +214,7 @@ ${page.body}
     <p><strong>owlwarden ${esc(version)}</strong><br>Local security checks for Node apps and coding-agent configuration.</p>
   </div>
   <nav aria-label="Footer">
+    <a href="${up}turn/">turn</a>
     <a href="${up}rules/">All rules</a>
     <a href="${up}owasp/">OWASP coverage</a>
     <a href="${up}asi/">ASI coverage</a>
@@ -222,7 +224,7 @@ ${page.body}
     <a href="https://github.com/suthat/owlwarden/blob/main/RULES.md" rel="noopener">RULES.md</a>
     <a href="https://www.npmjs.com/package/owlwarden" rel="noopener">npm</a>
   </nav>
-  <p class="licence">No account / no telemetry / MIT OR Apache-2.0 / <code>npx owlwarden scan</code></p>
+  <p class="licence">No account / no telemetry / MIT OR Apache-2.0 / <code>npx owlwarden turn</code></p>
 </footer>
 </body>
 </html>
@@ -256,6 +258,7 @@ function primarySection(path) {
     path.startsWith("mcp/")
   ) return "Agent config";
   if (path.startsWith("vet/")) return "vet";
+  if (path.startsWith("turn/")) return "turn";
   if (path.startsWith("offline/")) return "Offline";
   if (path.startsWith("owasp/") || path.startsWith("asi/")) return "Coverage";
   return undefined;

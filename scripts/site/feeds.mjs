@@ -85,8 +85,8 @@ export function llms({ site, version, rules, coverage, extra }) {
 > record. Runs entirely on the developer's machine: no account, no telemetry, no
 > network unless asked. Version ${version}. MIT OR Apache-2.0.
 
-Install: \`npm i -D owlwarden\` / Scan: \`npx owlwarden scan\` / Vet a repo you did
-not write: \`npx owlwarden vet .\`
+Install: \`npm i -D owlwarden\` / Turn: \`npx owlwarden turn\` / Scan: \`npx owlwarden scan\` /
+Vet a repo you did not write: \`npx owlwarden vet .\`
 
 Exit codes: 0 clean, 1 findings at or above --fail-on, 2 could not run.
 
@@ -94,6 +94,7 @@ Exit codes: 0 clean, 1 findings at or above --fail-on, 2 could not run.
 
 ${[
   ["", { title: "owlwarden", blurb: "What it is, what it does not look at, and how to run it." }],
+  ["turn/", { title: "owlwarden turn", blurb: "What this turn introduced, carried, or fixed. Carried findings never fail a turn." }],
   ["rules/", { title: "All rules", blurb: `${rules.length} rules: ${webRules.length} on application source, ${agentRules.length} on agent configuration.` }],
   ["agent-config-security/", { title: "Agent config security", blurb: "Hooks, MCP servers, instructions, and editor tasks loaded from the repository." }],
   ["vet/", { title: "owlwarden vet", blurb: "Scanning a repository you did not write, with the target's own suppressions treated as evidence." }],
@@ -115,8 +116,8 @@ ${[
 ## In an agent or in CI
 
 ${[
-  ["claude-code/", { title: "Claude Code", blurb: "Hooks on edit, before a shell command, and at the turn boundary; plus MCP." }],
-  ["cursor/", { title: "Cursor", blurb: "Hooks in .cursor/hooks.json, an MCP entry, and a rules file." }],
+  ["claude-code/", { title: "Claude Code", blurb: "gate after edits, turn at Stop so the model sees only what this turn introduced; plus MCP." }],
+  ["cursor/", { title: "Cursor", blurb: "gate after edits, turn at stop, an MCP entry, and a rules file." }],
   ["mcp/", { title: "MCP server", blurb: "Four read-only static-analysis tools over stdio." }],
   ["ci/", { title: "CI", blurb: "SARIF, JUnit, Markdown, and exit codes for clean, findings, and scan errors." }],
 ]

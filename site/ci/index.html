@@ -84,6 +84,7 @@
   <nav aria-label="Primary">
     <a href="../rules/">Rules</a>
     <a href="../agent-config-security/">Agent config</a>
+    <a href="../turn/">turn</a>
     <a href="../vet/">vet</a>
     <a href="../offline/">Offline</a>
     <a href="../owasp/">Coverage</a>
@@ -170,8 +171,18 @@
 </p>
 
 <h2>Only what changed</h2>
-<pre class="code"><code class="language-bash">owlwarden scan --since origin/main --fail-on medium
+<pre class="code"><code class="language-bash">owlwarden turn --base origin/main --fail-on medium
+owlwarden scan --since origin/main --fail-on medium
 owlwarden scan --staged            # a pre-commit hook</code></pre>
+<p>
+  A pull request is a turn with a named base.
+  <a href="../turn/"><code>owlwarden turn --base origin/main</code></a>
+  fails the job for what the branch introduced and stays silent about what
+  <code>main</code> already carried. Use <code>scan --since</code> when you
+  want the findings on the changed files regardless of who introduced them.
+  Needs the full history: set <code>fetch-depth: 0</code> on
+  <code>actions/checkout</code>, or the base ref will not resolve.
+</p>
 <p>
   A diff-scoped scan states its scope in every format, so a clean result can
   never be mistaken for a clean repository. Project-scope rules still run when
@@ -181,6 +192,7 @@ owlwarden scan --staged            # a pre-commit hook</code></pre>
 
 <h2>Keep reading</h2>
 <ul class="cards">
+  <li><a href="../turn/"><span class="name">owlwarden turn</span><span class="blurb">Which of these did I just do?</span></a></li>
   <li><a href="../rules/"><span class="name">Rules</span><span class="blurb">Trigger, confidence, and framework-specific fix.</span></a></li>
   <li><a href="../agent-config-security/"><span class="name">Agent config</span><span class="blurb">Hooks, MCP servers, instructions, and editor tasks.</span></a></li>
   <li><a href="../vet/"><span class="name">owlwarden vet</span><span class="blurb">Check a repository before you open it.</span></a></li>
@@ -198,6 +210,7 @@ owlwarden scan --staged            # a pre-commit hook</code></pre>
     <p><strong>owlwarden 1.3.0</strong><br>Local security checks for Node apps and coding-agent configuration.</p>
   </div>
   <nav aria-label="Footer">
+    <a href="../turn/">turn</a>
     <a href="../rules/">All rules</a>
     <a href="../owasp/">OWASP coverage</a>
     <a href="../asi/">ASI coverage</a>
@@ -207,7 +220,7 @@ owlwarden scan --staged            # a pre-commit hook</code></pre>
     <a href="https://github.com/suthat/owlwarden/blob/main/RULES.md" rel="noopener">RULES.md</a>
     <a href="https://www.npmjs.com/package/owlwarden" rel="noopener">npm</a>
   </nav>
-  <p class="licence">No account / no telemetry / MIT OR Apache-2.0 / <code>npx owlwarden scan</code></p>
+  <p class="licence">No account / no telemetry / MIT OR Apache-2.0 / <code>npx owlwarden turn</code></p>
 </footer>
 </body>
 </html>

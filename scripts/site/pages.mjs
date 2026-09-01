@@ -7,7 +7,7 @@ import { renderFrame } from "./samples.mjs";
  *
  * Each page answers one developer question:
  *
- * - the homepage explains what gets scanned and how to run it;
+ * - the homepage leads with `owlwarden turn` and explains what gets scanned;
  * - hub pages document a product surface;
  * - comparison pages state scope and trade-offs.
  *
@@ -19,6 +19,7 @@ import { renderFrame } from "./samples.mjs";
 const CROSS = (up = "") => `
 <h2>Keep reading</h2>
 <ul class="cards">
+  <li><a href="${up}turn/"><span class="name">owlwarden turn</span><span class="blurb">Which of these did I just do?</span></a></li>
   <li><a href="${up}rules/"><span class="name">Rules</span><span class="blurb">Trigger, confidence, and framework-specific fix.</span></a></li>
   <li><a href="${up}agent-config-security/"><span class="name">Agent config</span><span class="blurb">Hooks, MCP servers, instructions, and editor tasks.</span></a></li>
   <li><a href="${up}vet/"><span class="name">owlwarden vet</span><span class="blurb">Check a repository before you open it.</span></a></li>
@@ -37,6 +38,7 @@ export function staticPages({ rules, coverage, samples, version }) {
 
   const pages = [
     { path: "", page: home({ rules, webRules, agentRules, coverage, leak, hook, version }) },
+    { path: "turn/", page: turn() },
     { path: "agent-config-security/", page: agentConfigSecurity({ agentRules, hook }) },
     { path: "vet/", page: vet({ agentRules }) },
     { path: "seal/", page: seal() },
@@ -68,10 +70,10 @@ export function staticPages({ rules, coverage, samples, version }) {
 function home({ rules, webRules, agentRules, coverage, version }) {
   return {
     title: "owlwarden: local security scanner for Node and coding agents",
-    heading: "Security checks for Node apps and coding-agent config",
+    heading: "What this turn introduced, and what was already there",
     description:
-      "Local security scanner for Node apps and coding agents. OWASP checks with framework fixes, " +
-      "plus .claude, .cursor, and .vscode configuration.",
+      "owlwarden turn reports only what this turn introduced. Local OWASP checks for Node apps " +
+      "and coding-agent config, with a framework-specific fix.",
     ogType: "website",
     breadcrumbs: [{ label: "owlwarden", href: "" }],
     schema: [
@@ -105,9 +107,9 @@ function home({ rules, webRules, agentRules, coverage, version }) {
           ),
           faq(
             "Does it work with Claude Code?",
-            "Yes. `owlwarden init --claude-code` wires the gate into the host's lifecycle events, " +
-              "and `owlwarden mcp` exposes a read-only, static-only MCP server. Cursor and any " +
-              "hook-capable host are supported too.",
+            "Yes. `owlwarden init --claude-code` wires `turn` into the Stop hook and `gate` into " +
+              "the per-edit events, and `owlwarden mcp` exposes a read-only, static-only MCP server. " +
+              "Cursor and any hook-capable host are supported too.",
           ),
           faq(
             "How is it different from a cloud SAST?",
@@ -119,7 +121,32 @@ function home({ rules, webRules, agentRules, coverage, version }) {
       },
     ],
     body: `
-${code("bash", "npx owlwarden scan          # your app\nnpx owlwarden vet .         # your agent's config")}
+${code(
+  "bash",
+  "npx owlwarden turn          # what did this turn just introduce?\nnpx owlwarden scan          # your app, whole\nnpx owlwarden vet .         # your agent's config",
+)}
+
+<h2>Which of these did I just do?</h2>
+<p>
+  Twenty-five rules on a six-month-old repository produce a backlog. The thing
+  that actually happened is narrower: an agent changed seven files in the last
+  thirty seconds. Of the findings now standing on them, some were there before
+  the turn started and some were not, and only the second kind has an author
+  who is still at the keyboard.
+</p>
+${code(
+  "text",
+  `◉ᴥ◉ turn · 7 files · since HEAD a1b2c3d · 0.31s
+✔ clean — nothing introduced
+  2 fixed · 5 carried (already at a1b2c3d, not this turn's)`,
+)}
+<p>
+  <strong>Carried findings never fail a turn, at any threshold.</strong>
+  There is no flag that changes it. A control that blocks on debt the turn did
+  not create is a control somebody disables on the second day, and everything
+  it would have caught goes with it.
+  <a href="./turn/">How the verdict works</a>.
+</p>
 
 <h2>Known limits</h2>
 <p>
@@ -152,12 +179,15 @@ ${code("bash", "npx owlwarden scan          # your app\nnpx owlwarden vet .     
 
 <h2>Run it from agent hooks</h2>
 <p>
-  <code>owlwarden gate</code> runs from host lifecycle events after edits,
-  before shell commands, and at the end of a turn. The agent does not need to
-  remember to call it.
+  <code>owlwarden init</code> wires <code>gate</code> after edits and before
+  shell commands, and <a href="./turn/"><code>turn</code></a> at Stop. The
+  agent does not need to remember to call it. Carried findings never fail
+  the turn: an agent handed a repository's inherited debt starts fixing files
+  nobody asked it to touch.
 </p>
-${code("bash", "owlwarden init --claude-code   # hooks + MCP entry\nowlwarden init --cursor\nowlwarden init --generic       # any host that can run a process")}
+${code("bash", "owlwarden init --claude-code   # Stop hook is turn --hook, not gate\nowlwarden init --cursor\nowlwarden init --generic       # any host that can run a process")}
 <p>
+  <a href="./turn/">turn</a> ·
   <a href="./claude-code/">Claude Code</a> · <a href="./cursor/">Cursor</a> ·
   <a href="./mcp/">MCP</a> · <a href="./ci/">CI</a> ·
   <a href="./vet/">vet</a> · <a href="./seal/">seal</a> ·
@@ -189,7 +219,9 @@ ${code("bash", "owlwarden init --claude-code   # hooks + MCP entry\nowlwarden in
 <details>
 <summary>What changed in the last release?</summary>
 <p>
-  Read the <a href="./changelog/">changelog</a> or subscribe to its
+  1.3 added <a href="./turn/"><code>owlwarden turn</code></a>: only the findings
+  this turn introduced. Carried findings never fail. The
+  <a href="./changelog/">changelog</a> has the rest, and an
   <a href="./changelog/feed.xml">Atom feed</a>.
 </p>
 </details>
@@ -385,8 +417,8 @@ function claudeCode() {
     title: "owlwarden for Claude Code: hooks, MCP, and vet",
     heading: "Security scanning inside Claude Code",
     description:
-      "Wire owlwarden into Claude Code's lifecycle: a gate after every edit and at the turn " +
-      "boundary, a read-only MCP server, and a scan of the .claude config itself.",
+      "Wire owlwarden into Claude Code: gate after every edit, turn at Stop so the model sees " +
+      "only what this turn introduced, plus a read-only MCP server.",
     breadcrumbs: [
       { label: "owlwarden", href: "" },
       { label: "Claude Code", href: "claude-code/" },
@@ -400,12 +432,19 @@ ${code("bash", "npm i -D owlwarden\nnpx owlwarden init --claude-code")}
 <table>
   <thead><tr><th>Event</th><th>Scope</th><th>Verdict</th></tr></thead>
   <tbody>
-    <tr><td><code>PostToolUse</code> (Edit, Write, MultiEdit)</td><td>the file that was written</td><td>blocks with the rule, the line, and the fix</td></tr>
-    <tr><td><code>PreToolUse</code> (Bash)</td><td>the command string</td><td>blocks the command when the check fails</td></tr>
-    <tr><td><code>Stop</code></td><td>everything changed since the turn began</td><td>checks the completed turn</td></tr>
+    <tr><td><code>PostToolUse</code> (Edit, Write, MultiEdit)</td><td>the file that was written</td><td><code>gate</code> blocks with the rule, the line, and the fix</td></tr>
+    <tr><td><code>PreToolUse</code> (Bash)</td><td>the command string</td><td><code>gate</code> blocks the command when the check fails</td></tr>
+    <tr><td><code>Stop</code></td><td>everything changed since the turn began</td><td><code>turn --hook claude-code --record</code>: only what this turn introduced</td></tr>
   </tbody>
 </table>
 </div>
+<p>
+  Per-edit and pre-command hooks stay on <code>gate</code>: those must be cheap
+  and have no meaningful base to compare against.
+  <a href="../turn/"><code>turn</code> at Stop</a> is a different question.
+  An agent told "there are eighteen findings" triages a backlog nobody asked
+  it to touch.
+</p>
 
 <h2>No repository <code>SessionStart</code> hook</h2>
 <p>
@@ -448,8 +487,8 @@ function cursor() {
     title: "owlwarden for Cursor: hooks, MCP, and rules",
     heading: "Security scanning inside Cursor",
     description:
-      "Wire owlwarden into Cursor's hooks: a gate after every edit, before a shell command, and at " +
-      "the turn boundary, plus a rules file the model reads first.",
+      "Wire owlwarden into Cursor: gate after every edit and before a shell command, turn at " +
+      "stop so the model sees only what this turn introduced, plus a rules file.",
     breadcrumbs: [
       { label: "owlwarden", href: "" },
       { label: "Cursor", href: "cursor/" },
@@ -464,6 +503,11 @@ ${code("bash", "npm i -D owlwarden\nnpx owlwarden init --cursor")}
   <li><code>.cursor/mcp.json</code> with the read-only server pinned to the installed binary.</li>
   <li><code>.cursor/rules/owlwarden.mdc</code> with the rule summary used by the hooks.</li>
 </ul>
+<p>
+  <code>stop</code> runs <a href="../turn/"><code>turn --hook cursor --record</code></a>,
+  not <code>gate --since HEAD</code>. The per-edit and pre-command hooks stay
+  on <code>gate</code>.
+</p>
 
 <h2>The rules file is not the control</h2>
 <p>
@@ -789,7 +833,16 @@ ${code(
 </p>
 
 <h2>Only what changed</h2>
-${code("bash", "owlwarden scan --since origin/main --fail-on medium\nowlwarden scan --staged            # a pre-commit hook")}
+${code("bash", "owlwarden turn --base origin/main --fail-on medium\nowlwarden scan --since origin/main --fail-on medium\nowlwarden scan --staged            # a pre-commit hook")}
+<p>
+  A pull request is a turn with a named base.
+  <a href="../turn/"><code>owlwarden turn --base origin/main</code></a>
+  fails the job for what the branch introduced and stays silent about what
+  <code>main</code> already carried. Use <code>scan --since</code> when you
+  want the findings on the changed files regardless of who introduced them.
+  Needs the full history: set <code>fetch-depth: 0</code> on
+  <code>actions/checkout</code>, or the base ref will not resolve.
+</p>
 <p>
   A diff-scoped scan states its scope in every format, so a clean result can
   never be mistaken for a clean repository. Project-scope rules still run when
@@ -1022,6 +1075,153 @@ function vsEslint() {
   examples</a>.
 </p>`,
   }).page;
+}
+
+// ---------------------------------------------------------------------------
+
+function turn() {
+  return {
+    title: "owlwarden turn: which of these did I just do",
+    heading: "Which of these did I just do?",
+    description:
+      "owlwarden turn reports only the findings this turn introduced. What was already at HEAD " +
+      "is counted on one line and never fails the turn, at any threshold.",
+    breadcrumbs: [
+      { label: "owlwarden", href: "" },
+      { label: "turn", href: "turn/" },
+    ],
+    schema: [
+      {
+        "@type": "HowTo",
+        name: "Ask what this turn introduced",
+        totalTime: "PT1M",
+        step: [
+          { "@type": "HowToStep", name: "Run the verdict", text: "npx owlwarden turn" },
+          {
+            "@type": "HowToStep",
+            name: "Read introduced, not carried",
+            text: "Introduced findings are shown in full. Carried findings are counted on one line and never fail.",
+          },
+          {
+            "@type": "HowToStep",
+            name: "Wire it into a host",
+            text: "npx owlwarden init --claude-code  (Stop runs turn --hook, not gate)",
+          },
+        ],
+      },
+    ],
+    body: `
+${code("bash", "npx owlwarden turn")}
+${code(
+  "text",
+  `◉ᴥ◉ turn · 7 files · since HEAD a1b2c3d · 0.31s
+✔ clean — nothing introduced
+  2 fixed · 5 carried (already at a1b2c3d, not this turn's)`,
+)}
+
+<h2>Three states. One of them can fail the turn.</h2>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>State</th><th>Meaning</th><th>Can fail the turn</th></tr></thead>
+  <tbody>
+    <tr><td><code>introduced</code></td><td>present now, absent at the base</td><td><strong>yes</strong></td></tr>
+    <tr><td><code>carried</code></td><td>present in both</td><td>no</td></tr>
+    <tr><td><code>fixed</code></td><td>present at the base, absent now</td><td>no</td></tr>
+  </tbody>
+</table>
+</div>
+<p>
+  <strong>Carried findings never fail a turn, at any threshold.</strong>
+  There is no flag that changes it and no code path that could grow one: the
+  gate is applied to the introduced set before it is consulted. A control that
+  blocks on debt the turn did not create is a control that gets removed on the
+  second day, and everything it would have caught goes with it.
+</p>
+
+<h2>When something is introduced</h2>
+${code(
+  "text",
+  `◉ᴥ◉ turn · 1 file · since HEAD a8a6b93 · 0.16s
+✘ blocked — 1 introduced at or above high
+  1 carried (already at HEAD a8a6b93, not this turn's)`,
+)}
+<p>
+  Everything introduced is <em>reported</em> whether or not it blocks. A turn
+  that adds a medium under a <code>high</code> gate reads
+  <code>clean at high — 1 introduced below the bar, shown anyway</code>.
+  The verdict never prints <em>nothing introduced</em> over something the
+  turn introduced.
+</p>
+
+<h2>In an agent's loop</h2>
+${code("bash", "npx owlwarden init --claude-code")}
+<p>
+  That writes a <strong>Stop</strong> hook running
+  <code>turn --hook claude-code --record</code>. Per-edit and pre-command
+  hooks stay on <code>gate</code>: those must be cheap and have no
+  meaningful base to compare against.
+</p>
+<p>
+  Under <code>--hook</code>, stdout is the host's own JSON. The reason the
+  model receives names what is new <em>and</em> says the rest were already
+  there: an agent told "there are eighteen findings" starts fixing files
+  nobody asked it to touch, in a session the developer is paying for.
+</p>
+<p>
+  <a href="../claude-code/">Claude Code</a> · <a href="../cursor/">Cursor</a> ·
+  <a href="../mcp/">MCP</a>
+</p>
+
+<h2>In CI, on a pull request</h2>
+<p>
+  The base is a flag, so the "turn" can be a whole branch:
+</p>
+${code("yaml", `- run: npx owlwarden turn --base origin/\${{ github.base_ref }} --fail-on medium`)}
+<p>
+  This fails the job for what the branch introduced and stays silent about
+  what <code>main</code> already carried. Use <code>owlwarden scan</code> in a
+  scheduled job for the whole repository — that is a different question,
+  asked at a different time. Needs the full history: set
+  <code>fetch-depth: 0</code> on <code>actions/checkout</code>.
+  <a href="../ci/">The rest of the CI contract</a>.
+</p>
+
+<h2>Keeping a record</h2>
+${code("bash", "npx owlwarden turn --record")}
+<p>
+  One JSON line per turn in <code>.owlwarden/turns.jsonl</code>, bounded at
+  the last 200. Every field but the timestamp and the stopwatch is derived
+  from the two reports and the base, so two runs over an unchanged tree
+  produce identical records. Commit the file if you want the audit trail in
+  review; gitignore it if you do not.
+</p>
+
+<h2>What a clean turn does not mean</h2>
+<p>
+  <code>clean</code> is a claim about a comparison. It means
+  <em>nothing was introduced since that commit</em>, never
+  <em>this repository is clean</em>. The base is printed on every line of
+  the output for exactly that reason, and <code>owlwarden scan</code> is the
+  command that answers the other question.
+</p>
+<p>
+  The base is a commit, so the verdict is as trustworthy as the commit is.
+  An agent that can commit can commit a finding and have the next turn
+  report it as carried. This is a detection and review control, not a
+  containment one — the same limit <a href="../seal/">seal</a> states about
+  itself. If that matters for your threat model, run
+  <code>turn --base origin/main</code> in CI, where the base is one somebody
+  else set.
+</p>
+<p>
+  Over 400 changed files, <code>turn</code> refuses. That is a merge or a
+  reformat, not a turn, and the verdict a developer wanted is not in there.
+  Your index and working tree are never touched: <code>git status</code> is
+  byte-identical across a run, staged changes included.
+</p>
+${CROSS("../")}
+`,
+  };
 }
 
 // ---------------------------------------------------------------------------

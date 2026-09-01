@@ -6,7 +6,7 @@
 <meta name="color-scheme" content="light">
 
 <title>owlwarden for Cursor: hooks, MCP, and rules</title>
-<meta name="description" content="Wire owlwarden into Cursor&#39;s hooks: a gate after every edit, before a shell command, and at the turn boundary, plus a rules file the model reads first.">
+<meta name="description" content="Wire owlwarden into Cursor: gate after every edit and before a shell command, turn at stop so the model sees only what this turn introduced, plus a rules file.">
 <link rel="canonical" href="https://suthat.github.io/owlwarden/cursor/">
 <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1">
 <meta name="theme-color" content="#fbfaf8">
@@ -15,7 +15,7 @@
 <meta property="og:locale" content="en_US">
 <meta property="og:site_name" content="owlwarden">
 <meta property="og:title" content="Security scanning inside Cursor">
-<meta property="og:description" content="Wire owlwarden into Cursor&#39;s hooks: a gate after every edit, before a shell command, and at the turn boundary, plus a rules file the model reads first.">
+<meta property="og:description" content="Wire owlwarden into Cursor: gate after every edit and before a shell command, turn at stop so the model sees only what this turn introduced, plus a rules file.">
 <meta property="og:url" content="https://suthat.github.io/owlwarden/cursor/">
 <meta property="og:image" content="https://suthat.github.io/owlwarden/og.png">
 <meta property="og:image:width" content="1200">
@@ -23,7 +23,7 @@
 <meta property="og:image:alt" content="An owlwarden finding: a SessionStart hook in .claude/settings.json that runs a command when the workspace is opened">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Security scanning inside Cursor">
-<meta name="twitter:description" content="Wire owlwarden into Cursor&#39;s hooks: a gate after every edit, before a shell command, and at the turn boundary, plus a rules file the model reads first.">
+<meta name="twitter:description" content="Wire owlwarden into Cursor: gate after every edit and before a shell command, turn at stop so the model sees only what this turn introduced, plus a rules file.">
 <meta name="twitter:image" content="https://suthat.github.io/owlwarden/og.png">
 <meta name="twitter:image:alt" content="An owlwarden scan showing the exact vulnerable line and its fix">
 
@@ -84,6 +84,7 @@
   <nav aria-label="Primary">
     <a href="../rules/">Rules</a>
     <a href="../agent-config-security/" aria-current="page">Agent config</a>
+    <a href="../turn/">turn</a>
     <a href="../vet/">vet</a>
     <a href="../offline/">Offline</a>
     <a href="../owasp/">Coverage</a>
@@ -103,9 +104,9 @@
   <div class="hero-copy">
     <p class="eyebrow">Cursor hooks</p>
     <h1>Security scanning inside Cursor</h1>
-    <p class="hero-summary"><strong>Run checks from the host lifecycle instead of relying on a prompt.</strong> Hooks scan edits, inspect shell commands, and check the completed turn.</p>
+    <p class="hero-summary"><strong>Run checks from the host lifecycle instead of relying on a prompt.</strong> <code>gate</code> scans edits and inspects shell commands. <code>turn</code> answers at Stop: which of these did this turn just do?</p>
     <div class="hero-actions"><a class="button button-primary" href="https://www.npmjs.com/package/owlwarden">Set up Cursor</a>
-<a class="button button-secondary" href="../agent-config-security/">See what gets scanned</a></div>
+<a class="button button-secondary" href="../turn/">How turn works</a></div>
   </div>
   <figure class="product-visual product-visual-safe" aria-label="Cursor lifecycle">
   <div class="visual-chrome" aria-hidden="true">
@@ -117,15 +118,15 @@
     <p class="visual-title">Checks attached to host events</p>
     <ol class="visual-list"><li>
   <span class="visual-tag">01</span>
-  <span><strong>afterFileEdit</strong><small>Scan the file Cursor just changed</small></span>
+  <span><strong>afterFileEdit</strong><small>gate scans the file Cursor just changed</small></span>
 </li>
 <li>
   <span class="visual-tag">02</span>
-  <span><strong>beforeShellExecution</strong><small>Decide before the command runs</small></span>
+  <span><strong>beforeShellExecution</strong><small>gate decides before the command runs</small></span>
 </li>
 <li>
   <span class="visual-tag">03</span>
-  <span><strong>stop</strong><small>Close the loop on the whole turn</small></span>
+  <span><strong>stop</strong><small>turn reports only what this turn introduced</small></span>
 </li></ol>
   </div>
   <figcaption>host event, local check, finding or clean result</figcaption>
@@ -141,6 +142,11 @@ npx owlwarden init --cursor</code></pre>
   <li><code>.cursor/mcp.json</code> with the read-only server pinned to the installed binary.</li>
   <li><code>.cursor/rules/owlwarden.mdc</code> with the rule summary used by the hooks.</li>
 </ul>
+<p>
+  <code>stop</code> runs <a href="../turn/"><code>turn --hook cursor --record</code></a>,
+  not <code>gate --since HEAD</code>. The per-edit and pre-command hooks stay
+  on <code>gate</code>.
+</p>
 
 <h2>The rules file is not the control</h2>
 <p>
@@ -161,6 +167,7 @@ npx owlwarden init --cursor</code></pre>
 
 <h2>Keep reading</h2>
 <ul class="cards">
+  <li><a href="../turn/"><span class="name">owlwarden turn</span><span class="blurb">Which of these did I just do?</span></a></li>
   <li><a href="../rules/"><span class="name">Rules</span><span class="blurb">Trigger, confidence, and framework-specific fix.</span></a></li>
   <li><a href="../agent-config-security/"><span class="name">Agent config</span><span class="blurb">Hooks, MCP servers, instructions, and editor tasks.</span></a></li>
   <li><a href="../vet/"><span class="name">owlwarden vet</span><span class="blurb">Check a repository before you open it.</span></a></li>
@@ -178,6 +185,7 @@ npx owlwarden init --cursor</code></pre>
     <p><strong>owlwarden 1.3.0</strong><br>Local security checks for Node apps and coding-agent configuration.</p>
   </div>
   <nav aria-label="Footer">
+    <a href="../turn/">turn</a>
     <a href="../rules/">All rules</a>
     <a href="../owasp/">OWASP coverage</a>
     <a href="../asi/">ASI coverage</a>
@@ -187,7 +195,7 @@ npx owlwarden init --cursor</code></pre>
     <a href="https://github.com/suthat/owlwarden/blob/main/RULES.md" rel="noopener">RULES.md</a>
     <a href="https://www.npmjs.com/package/owlwarden" rel="noopener">npm</a>
   </nav>
-  <p class="licence">No account / no telemetry / MIT OR Apache-2.0 / <code>npx owlwarden scan</code></p>
+  <p class="licence">No account / no telemetry / MIT OR Apache-2.0 / <code>npx owlwarden turn</code></p>
 </footer>
 </body>
 </html>

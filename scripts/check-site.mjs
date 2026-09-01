@@ -49,6 +49,7 @@ assert(pages.length > 50, `expected the generated site, found ${pages.length} pa
 // workflow, or comparison it describes before the long-form explanation.
 const PRODUCT_PAGES = new Set([
   "index.html",
+  "turn/index.html",
   "agent-config-security/index.html",
   "vet/index.html",
   "claude-code/index.html",
@@ -71,6 +72,7 @@ const PRODUCT_PAGES = new Set([
 const PRIMARY_NAV = [
   { label: "Rules", href: `${site}/rules/` },
   { label: "Agent config", href: `${site}/agent-config-security/` },
+  { label: "turn", href: `${site}/turn/` },
   { label: "vet", href: `${site}/vet/` },
   { label: "Offline", href: `${site}/offline/` },
   { label: "Coverage", href: `${site}/owasp/` },
@@ -470,6 +472,7 @@ function primarySection(path) {
     path.startsWith("mcp/")
   ) return "Agent config";
   if (path.startsWith("vet/")) return "vet";
+  if (path.startsWith("turn/")) return "turn";
   if (path.startsWith("offline/")) return "Offline";
   if (path.startsWith("owasp/") || path.startsWith("asi/")) return "Coverage";
   return undefined;

@@ -6,7 +6,7 @@
 <meta name="color-scheme" content="light">
 
 <title>owlwarden for Claude Code: hooks, MCP, and vet</title>
-<meta name="description" content="Wire owlwarden into Claude Code&#39;s lifecycle: a gate after every edit and at the turn boundary, a read-only MCP server, and a scan of the .claude config itself.">
+<meta name="description" content="Wire owlwarden into Claude Code: gate after every edit, turn at Stop so the model sees only what this turn introduced, plus a read-only MCP server.">
 <link rel="canonical" href="https://suthat.github.io/owlwarden/claude-code/">
 <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1">
 <meta name="theme-color" content="#fbfaf8">
@@ -15,7 +15,7 @@
 <meta property="og:locale" content="en_US">
 <meta property="og:site_name" content="owlwarden">
 <meta property="og:title" content="Security scanning inside Claude Code">
-<meta property="og:description" content="Wire owlwarden into Claude Code&#39;s lifecycle: a gate after every edit and at the turn boundary, a read-only MCP server, and a scan of the .claude config itself.">
+<meta property="og:description" content="Wire owlwarden into Claude Code: gate after every edit, turn at Stop so the model sees only what this turn introduced, plus a read-only MCP server.">
 <meta property="og:url" content="https://suthat.github.io/owlwarden/claude-code/">
 <meta property="og:image" content="https://suthat.github.io/owlwarden/og.png">
 <meta property="og:image:width" content="1200">
@@ -23,7 +23,7 @@
 <meta property="og:image:alt" content="An owlwarden finding: a SessionStart hook in .claude/settings.json that runs a command when the workspace is opened">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Security scanning inside Claude Code">
-<meta name="twitter:description" content="Wire owlwarden into Claude Code&#39;s lifecycle: a gate after every edit and at the turn boundary, a read-only MCP server, and a scan of the .claude config itself.">
+<meta name="twitter:description" content="Wire owlwarden into Claude Code: gate after every edit, turn at Stop so the model sees only what this turn introduced, plus a read-only MCP server.">
 <meta name="twitter:image" content="https://suthat.github.io/owlwarden/og.png">
 <meta name="twitter:image:alt" content="An owlwarden scan showing the exact vulnerable line and its fix">
 
@@ -84,6 +84,7 @@
   <nav aria-label="Primary">
     <a href="../rules/">Rules</a>
     <a href="../agent-config-security/" aria-current="page">Agent config</a>
+    <a href="../turn/">turn</a>
     <a href="../vet/">vet</a>
     <a href="../offline/">Offline</a>
     <a href="../owasp/">Coverage</a>
@@ -103,9 +104,9 @@
   <div class="hero-copy">
     <p class="eyebrow">Claude Code hooks</p>
     <h1>Security scanning inside Claude Code</h1>
-    <p class="hero-summary"><strong>Run checks from the host lifecycle instead of relying on a prompt.</strong> Hooks scan edits, inspect shell commands, and check the completed turn.</p>
+    <p class="hero-summary"><strong>Run checks from the host lifecycle instead of relying on a prompt.</strong> <code>gate</code> scans edits and inspects shell commands. <code>turn</code> answers at Stop: which of these did this turn just do?</p>
     <div class="hero-actions"><a class="button button-primary" href="https://www.npmjs.com/package/owlwarden">Set up Claude Code</a>
-<a class="button button-secondary" href="../agent-config-security/">See what gets scanned</a></div>
+<a class="button button-secondary" href="../turn/">How turn works</a></div>
   </div>
   <figure class="product-visual product-visual-safe" aria-label="Claude Code lifecycle">
   <div class="visual-chrome" aria-hidden="true">
@@ -117,15 +118,15 @@
     <p class="visual-title">Checks attached to host events</p>
     <ol class="visual-list"><li>
   <span class="visual-tag">01</span>
-  <span><strong>PostToolUse</strong><small>Scan the file after Edit, Write, or MultiEdit</small></span>
+  <span><strong>PostToolUse</strong><small>gate scans the file after Edit, Write, or MultiEdit</small></span>
 </li>
 <li>
   <span class="visual-tag">02</span>
-  <span><strong>PreToolUse</strong><small>Fail closed before a Bash command executes</small></span>
+  <span><strong>PreToolUse</strong><small>gate fails closed before a Bash command executes</small></span>
 </li>
 <li>
   <span class="visual-tag">03</span>
-  <span><strong>Stop</strong><small>Check everything changed before the turn ends</small></span>
+  <span><strong>Stop</strong><small>turn reports only what this turn introduced</small></span>
 </li></ol>
   </div>
   <figcaption>host event, local check, finding or clean result</figcaption>
@@ -140,12 +141,19 @@ npx owlwarden init --claude-code</code></pre>
 <table>
   <thead><tr><th>Event</th><th>Scope</th><th>Verdict</th></tr></thead>
   <tbody>
-    <tr><td><code>PostToolUse</code> (Edit, Write, MultiEdit)</td><td>the file that was written</td><td>blocks with the rule, the line, and the fix</td></tr>
-    <tr><td><code>PreToolUse</code> (Bash)</td><td>the command string</td><td>blocks the command when the check fails</td></tr>
-    <tr><td><code>Stop</code></td><td>everything changed since the turn began</td><td>checks the completed turn</td></tr>
+    <tr><td><code>PostToolUse</code> (Edit, Write, MultiEdit)</td><td>the file that was written</td><td><code>gate</code> blocks with the rule, the line, and the fix</td></tr>
+    <tr><td><code>PreToolUse</code> (Bash)</td><td>the command string</td><td><code>gate</code> blocks the command when the check fails</td></tr>
+    <tr><td><code>Stop</code></td><td>everything changed since the turn began</td><td><code>turn --hook claude-code --record</code>: only what this turn introduced</td></tr>
   </tbody>
 </table>
 </div>
+<p>
+  Per-edit and pre-command hooks stay on <code>gate</code>: those must be cheap
+  and have no meaningful base to compare against.
+  <a href="../turn/"><code>turn</code> at Stop</a> is a different question.
+  An agent told "there are eighteen findings" triages a backlog nobody asked
+  it to touch.
+</p>
 
 <h2>No repository <code>SessionStart</code> hook</h2>
 <p>
@@ -181,6 +189,7 @@ npx owlwarden init --claude-code</code></pre>
 
 <h2>Keep reading</h2>
 <ul class="cards">
+  <li><a href="../turn/"><span class="name">owlwarden turn</span><span class="blurb">Which of these did I just do?</span></a></li>
   <li><a href="../rules/"><span class="name">Rules</span><span class="blurb">Trigger, confidence, and framework-specific fix.</span></a></li>
   <li><a href="../agent-config-security/"><span class="name">Agent config</span><span class="blurb">Hooks, MCP servers, instructions, and editor tasks.</span></a></li>
   <li><a href="../vet/"><span class="name">owlwarden vet</span><span class="blurb">Check a repository before you open it.</span></a></li>
@@ -198,6 +207,7 @@ npx owlwarden init --claude-code</code></pre>
     <p><strong>owlwarden 1.3.0</strong><br>Local security checks for Node apps and coding-agent configuration.</p>
   </div>
   <nav aria-label="Footer">
+    <a href="../turn/">turn</a>
     <a href="../rules/">All rules</a>
     <a href="../owasp/">OWASP coverage</a>
     <a href="../asi/">ASI coverage</a>
@@ -207,7 +217,7 @@ npx owlwarden init --claude-code</code></pre>
     <a href="https://github.com/suthat/owlwarden/blob/main/RULES.md" rel="noopener">RULES.md</a>
     <a href="https://www.npmjs.com/package/owlwarden" rel="noopener">npm</a>
   </nav>
-  <p class="licence">No account / no telemetry / MIT OR Apache-2.0 / <code>npx owlwarden scan</code></p>
+  <p class="licence">No account / no telemetry / MIT OR Apache-2.0 / <code>npx owlwarden turn</code></p>
 </footer>
 </body>
 </html>

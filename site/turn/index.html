@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+
+<title>owlwarden turn: which of these did I just do</title>
+<meta name="description" content="owlwarden turn reports only the findings this turn introduced. What was already at HEAD is counted on one line and never fails the turn, at any threshold.">
+<link rel="canonical" href="https://suthat.github.io/owlwarden/turn/">
+<meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1">
+<meta name="theme-color" content="#fbfaf8">
+
+<meta property="og:type" content="article">
+<meta property="og:locale" content="en_US">
+<meta property="og:site_name" content="owlwarden">
+<meta property="og:title" content="Which of these did I just do?">
+<meta property="og:description" content="owlwarden turn reports only the findings this turn introduced. What was already at HEAD is counted on one line and never fails the turn, at any threshold.">
+<meta property="og:url" content="https://suthat.github.io/owlwarden/turn/">
+<meta property="og:image" content="https://suthat.github.io/owlwarden/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="An owlwarden finding: a SessionStart hook in .claude/settings.json that runs a command when the workspace is opened">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Which of these did I just do?">
+<meta name="twitter:description" content="owlwarden turn reports only the findings this turn introduced. What was already at HEAD is counted on one line and never fails the turn, at any threshold.">
+<meta name="twitter:image" content="https://suthat.github.io/owlwarden/og.png">
+<meta name="twitter:image:alt" content="An owlwarden scan showing the exact vulnerable line and its fix">
+
+<link rel="icon" type="image/svg+xml" href="../favicon.svg">
+<link rel="alternate icon" type="image/png" sizes="192x192" href="../favicon.png">
+<link rel="apple-touch-icon" sizes="180x180" href="../apple-touch-icon.png">
+<link rel="manifest" href="../manifest.webmanifest">
+<link rel="alternate" type="application/atom+xml" title="owlwarden releases" href="https://suthat.github.io/owlwarden/changelog/feed.xml">
+<link rel="stylesheet" href="../styles.css?v=86e674860125">
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebSite",
+      "@id": "https://suthat.github.io/owlwarden/#website",
+      "name": "owlwarden",
+      "url": "https://suthat.github.io/owlwarden/",
+      "description": "Local security scanner for Node apps and coding-agent configuration.",
+      "inLanguage": "en"
+    },
+    {
+      "@type": "BreadcrumbList",
+      "@id": "https://suthat.github.io/owlwarden/turn/#breadcrumbs",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "owlwarden",
+          "item": "https://suthat.github.io/owlwarden/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "turn",
+          "item": "https://suthat.github.io/owlwarden/turn/"
+        }
+      ]
+    },
+    {
+      "@type": "HowTo",
+      "name": "Ask what this turn introduced",
+      "totalTime": "PT1M",
+      "step": [
+        {
+          "@type": "HowToStep",
+          "name": "Run the verdict",
+          "text": "npx owlwarden turn"
+        },
+        {
+          "@type": "HowToStep",
+          "name": "Read introduced, not carried",
+          "text": "Introduced findings are shown in full. Carried findings are counted on one line and never fail."
+        },
+        {
+          "@type": "HowToStep",
+          "name": "Wire it into a host",
+          "text": "npx owlwarden init --claude-code  (Stop runs turn --hook, not gate)"
+        }
+      ]
+    }
+  ]
+}
+</script>
+</head>
+<body>
+<a class="skip-link" href="#main-content">Skip to content</a>
+
+<header class="site-header">
+  <a class="wordmark" href="../">
+    <img src="../favicon.svg" width="32" height="32" alt="">
+    <span>owlwarden</span>
+  </a>
+  <nav aria-label="Primary">
+    <a href="../rules/">Rules</a>
+    <a href="../agent-config-security/">Agent config</a>
+    <a href="../turn/" aria-current="page">turn</a>
+    <a href="../vet/">vet</a>
+    <a href="../offline/">Offline</a>
+    <a href="../owasp/">Coverage</a>
+    <a class="nav-cta" href="https://github.com/suthat/owlwarden" rel="noopener">GitHub <span aria-hidden="true">↗</span></a>
+  </nav>
+</header>
+
+<nav class="breadcrumbs" aria-label="Breadcrumb">
+  <ol>
+    <li><a href="../">owlwarden</a></li>
+    <li aria-current="page">turn</li>
+  </ol>
+</nav>
+
+<main id="main-content" class="with-hero">
+<section class="page-hero">
+  <div class="hero-copy">
+    <p class="eyebrow">The turn verdict</p>
+    <h1>Which of these did I just do?</h1>
+    <p class="hero-summary"><strong>A finding you introduced thirty seconds ago and a finding you inherited from a repository's first year are not the same object.</strong> <code>owlwarden turn</code> tells them apart. Carried findings never fail a turn, at any threshold.</p>
+    <div class="hero-actions"><a class="button button-primary" href="https://www.npmjs.com/package/owlwarden">Install owlwarden</a>
+<a class="button button-secondary" href="../claude-code/">Wire it into a host</a></div>
+  </div>
+  <figure class="product-visual product-visual-safe" aria-label="owlwarden turn">
+  <div class="visual-chrome" aria-hidden="true">
+  <span class="window-dots"><i></i><i></i><i></i></span>
+  <span>owlwarden turn</span>
+  <span class="visual-status"><i></i>local</span>
+</div>
+  <div class="visual-body">
+    <p class="visual-title">Three states, one gate</p>
+    <ol class="visual-list"><li>
+  <span class="visual-tag">NEW</span>
+  <span><strong>Introduced</strong><small>Present now, absent at the base. Can fail the turn.</small></span>
+</li>
+<li>
+  <span class="visual-tag">OLD</span>
+  <span><strong>Carried</strong><small>Already at HEAD. Counted on one line, never fails.</small></span>
+</li>
+<li>
+  <span class="visual-tag">FIX</span>
+  <span><strong>Fixed</strong><small>Gone since the base. Reported, never fails.</small></span>
+</li></ol>
+  </div>
+  <figcaption>The gate sees the introduced set only. There is no flag that changes it.</figcaption>
+</figure>
+</section>
+
+<pre class="code"><code class="language-bash">npx owlwarden turn</code></pre>
+<pre class="code"><code class="language-text">◉ᴥ◉ turn / 7 files / since HEAD a1b2c3d / 0.31s
+✔ clean - nothing introduced
+  2 fixed / 5 carried (already at a1b2c3d, not this turn&#39;s)</code></pre>
+
+<h2>Three states. One of them can fail the turn.</h2>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>State</th><th>Meaning</th><th>Can fail the turn</th></tr></thead>
+  <tbody>
+    <tr><td><code>introduced</code></td><td>present now, absent at the base</td><td><strong>yes</strong></td></tr>
+    <tr><td><code>carried</code></td><td>present in both</td><td>no</td></tr>
+    <tr><td><code>fixed</code></td><td>present at the base, absent now</td><td>no</td></tr>
+  </tbody>
+</table>
+</div>
+<p>
+  <strong>Carried findings never fail a turn, at any threshold.</strong>
+  There is no flag that changes it and no code path that could grow one: the
+  gate is applied to the introduced set before it is consulted. A control that
+  blocks on debt the turn did not create is a control that gets removed on the
+  second day, and everything it would have caught goes with it.
+</p>
+
+<h2>When something is introduced</h2>
+<pre class="code"><code class="language-text">◉ᴥ◉ turn / 1 file / since HEAD a8a6b93 / 0.16s
+✘ blocked - 1 introduced at or above high
+  1 carried (already at HEAD a8a6b93, not this turn&#39;s)</code></pre>
+<p>
+  Everything introduced is <em>reported</em> whether or not it blocks. A turn
+  that adds a medium under a <code>high</code> gate reads
+  <code>clean at high - 1 introduced below the bar, shown anyway</code>.
+  The verdict never prints <em>nothing introduced</em> over something the
+  turn introduced.
+</p>
+
+<h2>In an agent's loop</h2>
+<pre class="code"><code class="language-bash">npx owlwarden init --claude-code</code></pre>
+<p>
+  That writes a <strong>Stop</strong> hook running
+  <code>turn --hook claude-code --record</code>. Per-edit and pre-command
+  hooks stay on <code>gate</code>: those must be cheap and have no
+  meaningful base to compare against.
+</p>
+<p>
+  Under <code>--hook</code>, stdout is the host's own JSON. The reason the
+  model receives names what is new <em>and</em> says the rest were already
+  there: an agent told "there are eighteen findings" starts fixing files
+  nobody asked it to touch, in a session the developer is paying for.
+</p>
+<p>
+  <a href="../claude-code/">Claude Code</a> / <a href="../cursor/">Cursor</a> /
+  <a href="../mcp/">MCP</a>
+</p>
+
+<h2>In CI, on a pull request</h2>
+<p>
+  The base is a flag, so the "turn" can be a whole branch:
+</p>
+<pre class="code"><code class="language-yaml">- run: npx owlwarden turn --base origin/${{ github.base_ref }} --fail-on medium</code></pre>
+<p>
+  This fails the job for what the branch introduced and stays silent about
+  what <code>main</code> already carried. Use <code>owlwarden scan</code> in a
+  scheduled job for the whole repository - that is a different question,
+  asked at a different time. Needs the full history: set
+  <code>fetch-depth: 0</code> on <code>actions/checkout</code>.
+  <a href="../ci/">The rest of the CI contract</a>.
+</p>
+
+<h2>Keeping a record</h2>
+<pre class="code"><code class="language-bash">npx owlwarden turn --record</code></pre>
+<p>
+  One JSON line per turn in <code>.owlwarden/turns.jsonl</code>, bounded at
+  the last 200. Every field but the timestamp and the stopwatch is derived
+  from the two reports and the base, so two runs over an unchanged tree
+  produce identical records. Commit the file if you want the audit trail in
+  review; gitignore it if you do not.
+</p>
+
+<h2>What a clean turn does not mean</h2>
+<p>
+  <code>clean</code> is a claim about a comparison. It means
+  <em>nothing was introduced since that commit</em>, never
+  <em>this repository is clean</em>. The base is printed on every line of
+  the output for exactly that reason, and <code>owlwarden scan</code> is the
+  command that answers the other question.
+</p>
+<p>
+  The base is a commit, so the verdict is as trustworthy as the commit is.
+  An agent that can commit can commit a finding and have the next turn
+  report it as carried. This is a detection and review control, not a
+  containment one - the same limit <a href="../seal/">seal</a> states about
+  itself. If that matters for your threat model, run
+  <code>turn --base origin/main</code> in CI, where the base is one somebody
+  else set.
+</p>
+<p>
+  Over 400 changed files, <code>turn</code> refuses. That is a merge or a
+  reformat, not a turn, and the verdict a developer wanted is not in there.
+  Your index and working tree are never touched: <code>git status</code> is
+  byte-identical across a run, staged changes included.
+</p>
+
+<h2>Keep reading</h2>
+<ul class="cards">
+  <li><a href="../turn/"><span class="name">owlwarden turn</span><span class="blurb">Which of these did I just do?</span></a></li>
+  <li><a href="../rules/"><span class="name">Rules</span><span class="blurb">Trigger, confidence, and framework-specific fix.</span></a></li>
+  <li><a href="../agent-config-security/"><span class="name">Agent config</span><span class="blurb">Hooks, MCP servers, instructions, and editor tasks.</span></a></li>
+  <li><a href="../vet/"><span class="name">owlwarden vet</span><span class="blurb">Check a repository before you open it.</span></a></li>
+  <li><a href="../seal/"><span class="name">owlwarden seal</span><span class="blurb">Notice when your agent's execution surface moves.</span></a></li>
+  <li><a href="../exposure/"><span class="name">Exposure</span><span class="blurb">Which of these findings do I fix first?</span></a></li>
+  <li><a href="../runtimes/"><span class="name">Runtimes</span><span class="blurb">Does this fix run on Bun, Deno, or Workers?</span></a></li>
+  <li><a href="../owasp/"><span class="name">Coverage</span><span class="blurb">Mapped rules and categories static analysis cannot cover.</span></a></li>
+</ul>
+
+</main>
+
+<footer class="site-footer">
+  <div class="footer-brand">
+    <img src="../favicon.svg" width="36" height="36" alt="">
+    <p><strong>owlwarden 1.3.0</strong><br>Local security checks for Node apps and coding-agent configuration.</p>
+  </div>
+  <nav aria-label="Footer">
+    <a href="../turn/">turn</a>
+    <a href="../rules/">All rules</a>
+    <a href="../owasp/">OWASP coverage</a>
+    <a href="../asi/">ASI coverage</a>
+    <a href="../offline/">Offline</a>
+    <a href="../ci/">CI</a>
+    <a href="../mcp/">MCP</a>
+    <a href="https://github.com/suthat/owlwarden/blob/main/RULES.md" rel="noopener">RULES.md</a>
+    <a href="https://www.npmjs.com/package/owlwarden" rel="noopener">npm</a>
+  </nav>
+  <p class="licence">No account / no telemetry / MIT OR Apache-2.0 / <code>npx owlwarden turn</code></p>
+</footer>
+</body>
+</html>
