@@ -78,7 +78,7 @@ globset = "0.4"
 # returning `Err(anyhow::Error)`. `wat` is dev-only: it assembles the
 # adversarial modules in the sandbox-escape suite without checking in
 # hand-written `.wasm` binaries.
-wasmtime = { version = "36.0.14", default-features = false, features = [
+wasmtime = { version = "38.0.4", default-features = false, features = [
     "cranelift",
     "runtime",
     "std",
@@ -87,7 +87,7 @@ anyhow = "1"
 wat = "1"
 
 # Terminal output. anstream gives us correct ANSI handling on Windows consoles.
-anstream = "0.6"
+anstream = "1.0"
 anstyle = "1"
 
 insta = { version = "1", features = ["json"] }
