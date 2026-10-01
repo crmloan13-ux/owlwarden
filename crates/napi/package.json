@@ -36,7 +36,7 @@
     "build:debug": "napi build --platform"
   },
   "devDependencies": {
-    "@napi-rs/cli": "^3.0.0"
+    "@napi-rs/cli": "^3.10.5"
   },
   "homepage": "https://suthat.github.io/owlwarden",
   "funding": "https://github.com/sponsors/suthat",

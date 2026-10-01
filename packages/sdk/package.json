@@ -29,7 +29,7 @@
     "build": "tsc --build"
   },
   "dependencies": {
-    "zod": "^4.0.0"
+    "zod": "^4.6.5"
   },
   "homepage": "https://suthat.github.io/owlwarden",
   "funding": "https://github.com/sponsors/suthat",
